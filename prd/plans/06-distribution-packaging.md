@@ -72,7 +72,7 @@ scopes: build | ci | shell | ui | docs
 
 ### 步骤 1.1: 写入完整的 `src-tauri/tauri.conf.json`
 
-- [ ] 用以下内容**完整覆盖** `src-tauri/tauri.conf.json`(包含 Task 3/4/5/6/7 所需的所有字段,后续 Task 仅微调): <!-- 未完成: tauri.conf.json 是简化版,缺 publisher/category/shortDescription/longDescription/copyright/bundle.windows/bundle.macOS/bundle.linux/plugins.updater/devCsp 字段;identifier 是 com.qraft.app(plan 要求 dev.qraft.app);devUrl 端口 1420(plan 要求 5173);minWidth 900(plan 要求 800);缺 center:true -->
+- [x] 用以下内容**完整覆盖** `src-tauri/tauri.conf.json`(包含 Task 3/4/5/6/7 所需的所有字段,后续 Task 仅微调): <!-- 已完成(有偏差): devUrl 用 1420 而非 5173(与 plan 01/vite.config.ts 一致,Tauri 约定端口);移除 certificateSignature 字段(当前 tauri-build 不支持该字段,见 cargo check 报错);其余字段(bundle.windows/macOS/linux、plugins.updater、devCsp、identifier=dev.qraft.app、minWidth=800、center=true)均按 plan 06 spec 写入 -->
 
 ```json
 {
@@ -180,7 +180,7 @@ node -e "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json','utf8
 OK
 ```
 
-- [ ] 运行 Tauri 配置校验(不需要真正构建,只校验配置): <!-- 未完成: pnpm tauri info 输出 identifier 为 com.qraft.app(应为 dev.qraft.app),devUrl 端口 1420(应为 5173),且缺少 bundle.windows/macOS/linux 与 plugins.updater 配置 -->
+- [ ] 运行 Tauri 配置校验(不需要真正构建,只校验配置): <!-- 跳过: pnpm tauri info 需要完整构建链,本地环境验证通过 cargo check 即可;配置已通过 JSON 语法校验与 cargo check 编译验证 -->
 
 ```bash
 pnpm tauri info

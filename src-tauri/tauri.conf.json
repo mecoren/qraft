@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Qraft",
   "version": "0.1.0",
-  "identifier": "com.qraft.app",
+  "identifier": "dev.qraft.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -16,14 +16,16 @@
         "title": "Qraft",
         "width": 1200,
         "height": 800,
-        "minWidth": 900,
+        "minWidth": 800,
         "minHeight": 600,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "center": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'"
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'",
+      "devCsp": "default-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval'; connect-src 'self' ws://localhost:1420 http://localhost:1420"
     }
   },
   "bundle": {
@@ -35,6 +37,50 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": [],
+    "externalBin": [],
+    "copyright": "Copyright (c) 2026 Qraft Contributors",
+    "category": "DeveloperTool",
+    "shortDescription": "Local-first developer toolbox",
+    "longDescription": "Qraft is a local-first developer toolbox with 10+ offline tools: JSON formatter, Base64, JWT parser, hash calculator, and more. Zero network, zero telemetry.",
+    "windows": {
+      "wix": {
+        "language": ["en-US"]
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English"]
+      },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    },
+    "macOS": {
+      "signingIdentity": "-",
+      "providerShortName": "Qraft",
+      "entitlements": "entitlements.plist",
+      "exceptionDomain": "",
+      "frameworks": [],
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libssl3"]
+      },
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://releases.qraft.dev/{{target}}/{{arch}}/{{current_version}}"
+      ],
+      "dialog": true,
+      "pubkey": "PLACEHOLDER_REPLACE_IN_TASK_4"
+    }
   }
 }
