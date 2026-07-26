@@ -1,7 +1,8 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useEffect, type JSX } from 'react';
+import { useEffect, useState, type JSX } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +46,94 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
+
+// ===== CheckUpdateResponse:与 Rust shell::updater::CheckUpdateResponse 对齐 =====
+// 字段使用 camelCase(Rust 端 #[serde(rename_all = "camelCase")])
+interface CheckUpdateResponse {
+  available: boolean;
+  version: string | null;
+  currentVersion: string;
+  notes: string | null;
+  date: string | null;
+}
+
+/**
+ * 「检查更新」区块
+ *
+ * 自动更新是 Qraft 唯一允许的联网功能(见 PRD 13-security.md §3.1)。
+ * 用户点击「检查更新」按钮调用 app_check_update IPC,
+ * 有新版本时显示版本号与 release notes,确认后调用 app_install_update。
+ */
+export function UpdateSection(): JSX.Element {
+  const [checking, setChecking] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<CheckUpdateResponse | null>(null);
+
+  async function handleCheckUpdate() {
+    setChecking(true);
+    try {
+      const resp = await invoke<CheckUpdateResponse>('app_check_update');
+      setUpdateInfo(resp);
+      if (!resp.available) {
+        toast.success(`已是最新版本 (v${resp.currentVersion})`);
+      }
+    } catch (err) {
+      toast.error(`检查更新失败: ${String(err)}`);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function handleInstallUpdate() {
+    setInstalling(true);
+    try {
+      await invoke('app_install_update');
+      // 安装后会自动重启,代码不会执行到这里
+    } catch (err) {
+      toast.error(`安装更新失败: ${String(err)}`);
+      setInstalling(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h3 className="text-sm font-semibold">检查更新</h3>
+        <p className="text-xs text-muted-foreground">
+          自动更新是 Qraft 唯一允许的联网功能,可在下方手动检查。
+        </p>
+      </div>
+
+      {!updateInfo?.available && (
+        <Button onClick={handleCheckUpdate} disabled={checking || installing}>
+          {checking ? '检查中...' : '检查更新'}
+        </Button>
+      )}
+
+      {updateInfo?.available && (
+        <div className="flex flex-col gap-3 rounded-md border p-4">
+          <div>
+            <p className="font-medium">发现新版本 v{updateInfo.version}</p>
+            <p className="text-xs text-muted-foreground">当前版本 v{updateInfo.currentVersion}</p>
+          </div>
+          {updateInfo.notes && (
+            <pre className="max-h-40 overflow-auto text-xs whitespace-pre-wrap">
+              {updateInfo.notes}
+            </pre>
+          )}
+          <div className="flex gap-2">
+            <Button onClick={handleInstallUpdate} disabled={installing}>
+              {installing ? '下载并安装中...' : '立即更新'}
+            </Button>
+            <Button variant="outline" onClick={() => setUpdateInfo(null)} disabled={installing}>
+              稍后再说
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function SettingsPanel(): JSX.Element {
   const config = useConfigStore((s) => s.config);
@@ -188,6 +277,10 @@ export function SettingsPanel(): JSX.Element {
           </Button>
         </div>
       </form>
+
+      <Separator />
+
+      <UpdateSection />
     </div>
   );
 }

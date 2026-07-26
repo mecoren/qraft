@@ -10,6 +10,7 @@
 // 非测试编译下包含,避免测试二进制链接 WebView2 等 native DLL。
 
 pub mod response;
+pub mod updater;
 
 // state 模块依赖 Tauri 运行时类型(如 tauri::AppHandle),仅在非测试编译下包含
 #[cfg(not(test))]
@@ -18,6 +19,7 @@ pub mod state;
 // AppError 在 core::error 中定义,Shell 层直接复用,避免类型割裂
 pub use crate::core::error::AppError;
 pub use response::{CommandResponse, ErrorInfo};
+pub use updater::{AvailableUpdate, CheckUpdateResponse, build_check_update_response};
 
 // state 的重导出仅在不测试编译下可用
 #[cfg(not(test))]

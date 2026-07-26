@@ -59,7 +59,9 @@ pub use store::config::{GeneralConfig, ShortcutBinding, ThemeConfig, ThemeMode, 
 pub fn run() -> anyhow::Result<()> {
     use std::sync::Arc;
 
-    use crate::commands::app::{app_open_external, app_quit, app_version};
+    use crate::commands::app::{
+        app_check_update, app_install_update, app_open_external, app_quit, app_version,
+    };
     use crate::commands::clipboard::{clipboard_read_text, clipboard_write_text};
     use crate::commands::config::{config_get, config_get_all, config_reset, config_set};
     use crate::commands::fs::{AuthorizedPaths, fs_read_file, fs_write_file};
@@ -131,6 +133,8 @@ pub fn run() -> anyhow::Result<()> {
             app_open_external,
             app_version,
             app_quit,
+            app_check_update,
+            app_install_update,
         ])
         .run(tauri::generate_context!())
         .map_err(|e| anyhow::anyhow!("tauri run error: {e}"))?;
