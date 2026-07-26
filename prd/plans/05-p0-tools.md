@@ -91,7 +91,7 @@ pnpm add react-hook-form zod @hookform/resolvers
 - Create: `src/tools/registry.ts`
 - Create: `src/tools/registry.test.ts`
 
-- [ ] **Step 1.1: 写失败测试 — 空注册表与注册后获取**
+- [x] **Step 1.1: 写失败测试 — 空注册表与注册后获取**
 
 Create `src/tools/registry.test.ts`:
 
@@ -138,12 +138,12 @@ describe('ToolRegistry (UI)', () => {
 });
 ```
 
-- [ ] **Step 1.2: 运行测试验证失败**
+- [x] **Step 1.2: 运行测试验证失败**
 
 Run: `pnpm test -- src/tools/registry.test.ts`
 Expected: FAIL with "Cannot find module './registry'" 或 "getToolComponent is not a function"
 
-- [ ] **Step 1.3: 写最小实现**
+- [x] **Step 1.3: 写最小实现**
 
 Create `src/tools/registry.ts`:
 
@@ -191,24 +191,24 @@ export function clearRegistry(): void {
 }
 ```
 
-- [ ] **Step 1.4: 运行测试验证通过**
+- [x] **Step 1.4: 运行测试验证通过**
 
 Run: `pnpm test -- src/tools/registry.test.ts`
 Expected: PASS,3 个用例全部通过
 
-- [ ] **Step 1.5: 类型检查与 lint**
+- [x] **Step 1.5: 类型检查与 lint**
 
 Run: `pnpm tsc --noEmit && pnpm lint`
 Expected: 无错误
 
-- [ ] **Step 1.6: 提交**
+- [x] **Step 1.6: 提交**
 
 ```bash
 git add src/tools/registry.ts src/tools/registry.test.ts
 git commit -m "feat(ui): add tool registry for toolId → React component mapping"
 ```
 
-- [ ] **Step 1.7: 验证 Task 1 完成**
+- [x] **Step 1.7: 验证 Task 1 完成**
 
 确认:
 - `src/tools/registry.ts` 存在且导出 `registerTool`、`getToolComponent`、`clearRegistry`、`ToolProps`
@@ -231,7 +231,7 @@ git commit -m "feat(ui): add tool registry for toolId → React component mappin
 - streaming: true
 - timeout_secs: 10
 
-- [ ] **Step 2.1: 写失败 Rust 测试**
+- [x] **Step 2.1: 写失败 Rust 测试**
 
 Create `src-tauri/src/tools/json_formatter.rs`:
 
@@ -489,12 +489,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2.2: 运行测试验证失败**
+- [x] **Step 2.2: 运行测试验证失败**
 
 Run: `cargo test -p qraft json_formatter -- --nocapture`
 Expected: 编译失败,提示 `cannot find module` —— 因为 `tools/mod.rs` 尚未声明 `json_formatter`
 
-- [ ] **Step 2.3: 在 mod.rs 声明模块**
+- [x] **Step 2.3: 在 mod.rs 声明模块**
 
 Modify `src-tauri/src/tools/mod.rs`,添加:
 
@@ -502,12 +502,12 @@ Modify `src-tauri/src/tools/mod.rs`,添加:
 pub mod json_formatter;
 ```
 
-- [ ] **Step 2.4: 运行测试验证通过**
+- [x] **Step 2.4: 运行测试验证通过**
 
 Run: `cargo test -p qraft json_formatter -- --nocapture`
 Expected: PASS,9 个测试全部通过
 
-- [ ] **Step 2.5: 实现 StreamingTool**
+- [x] **Step 2.5: 实现 StreamingTool**
 
 在 `src-tauri/src/tools/json_formatter.rs` 文件末尾(`register_stream_tool!` 之后、`#[cfg(test)]` 之前)追加流式实现:
 
@@ -616,19 +616,19 @@ async fn format_internal(input: &ToolInput) -> Result<ToolOutput, ToolError> {
 }
 ```
 
-- [ ] **Step 2.6: 运行流式测试 + clippy**
+- [x] **Step 2.6: 运行流式测试 + clippy**
 
 Run: `cargo test -p qraft json_formatter -- --nocapture && cargo clippy -p qraft -- -D warnings`
 Expected: 全部通过,无 warning
 
-- [ ] **Step 2.7: 提交 Rust 实现**
+- [x] **Step 2.7: 提交 Rust 实现**
 
 ```bash
 git add src-tauri/src/tools/json_formatter.rs src-tauri/src/tools/mod.rs
 git commit -m "feat(tool:json_formatter): add Tool + StreamingTool implementation with 9 unit tests"
 ```
 
-- [ ] **Step 2.8: 写失败 React 测试**
+- [x] **Step 2.8: 写失败 React 测试**
 
 Create `src/tools/JsonFormatter.test.tsx`:
 
@@ -694,12 +694,12 @@ describe('JsonFormatter', () => {
 });
 ```
 
-- [ ] **Step 2.9: 运行 React 测试验证失败**
+- [x] **Step 2.9: 运行 React 测试验证失败**
 
 Run: `pnpm test -- src/tools/JsonFormatter.test.tsx`
 Expected: FAIL with "Cannot find module './JsonFormatter'"
 
-- [ ] **Step 2.10: 写 React 组件实现**
+- [x] **Step 2.10: 写 React 组件实现**
 
 Create `src/tools/JsonFormatter.tsx`:
 
@@ -830,7 +830,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
 }
 ```
 
-- [ ] **Step 2.11: 在 registry.ts 注册**
+- [x] **Step 2.11: 在 registry.ts 注册**
 
 Modify `src/tools/registry.ts`,在文件末尾的 `clearRegistry` 函数定义之后追加:
 
@@ -841,31 +841,31 @@ import { JsonFormatter } from './JsonFormatter';
 registerTool('json_formatter', JsonFormatter);
 ```
 
-- [ ] **Step 2.12: 运行 React 测试验证通过**
+- [x] **Step 2.12: 运行 React 测试验证通过**
 
 Run: `pnpm test -- src/tools/JsonFormatter.test.tsx`
 Expected: PASS,3 个测试通过
 
-- [ ] **Step 2.13: lint + 类型检查**
+- [x] **Step 2.13: lint + 类型检查**
 
 Run: `pnpm lint && pnpm tsc --noEmit`
 Expected: 无错误
 
-- [ ] **Step 2.14: 提交 React 实现**
+- [x] **Step 2.14: 提交 React 实现**
 
 ```bash
 git add src/tools/JsonFormatter.tsx src/tools/JsonFormatter.test.tsx src/tools/registry.ts
 git commit -m "feat(tool:json_formatter): add React UI with indent/sort controls and error display"
 ```
 
-- [ ] **Step 2.15: 集成冒烟**
+- [x] **Step 2.15: 集成冒烟**
 
 Run: `pnpm tauri dev`
 - 在 SideNav 点击 "JSON Formatter"
 - 输入 `{"b":1,"a":2}`,indent=2,sort_keys=on
 - 点 Format,确认输出按键名排序
 
-- [ ] **Step 2.16: 验证 Task 2 完成**
+- [x] **Step 2.16: 验证 Task 2 完成**
 
 确认:
 - `src-tauri/src/tools/json_formatter.rs` 含 `Tool` + `StreamingTool` 实现,9 个 Rust 测试通过
@@ -885,7 +885,7 @@ Run: `pnpm tauri dev`
 
 **PRD 规格:** 无参数;输出 `text` 为压缩后 JSON;errors: `ERR_INVALID_INPUT`、`ERR_PARSE_FAILED`
 
-- [ ] **Step 3.1: 写失败 Rust 测试**
+- [x] **Step 3.1: 写失败 Rust 测试**
 
 Create `src-tauri/src/tools/json_minifier.rs`:
 
@@ -1054,12 +1054,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 3.2: 运行测试验证失败**
+- [x] **Step 3.2: 运行测试验证失败**
 
 Run: `cargo test -p qraft json_minifier -- --nocapture`
 Expected: 编译失败,`cannot find module`
 
-- [ ] **Step 3.3: 在 mod.rs 声明模块**
+- [x] **Step 3.3: 在 mod.rs 声明模块**
 
 Modify `src-tauri/src/tools/mod.rs`,追加:
 
@@ -1067,12 +1067,12 @@ Modify `src-tauri/src/tools/mod.rs`,追加:
 pub mod json_minifier;
 ```
 
-- [ ] **Step 3.4: 运行测试验证通过**
+- [x] **Step 3.4: 运行测试验证通过**
 
 Run: `cargo test -p qraft json_minifier -- --nocapture`
 Expected: PASS,6 个测试通过
 
-- [ ] **Step 3.5: clippy + 提交 Rust**
+- [x] **Step 3.5: clippy + 提交 Rust**
 
 Run: `cargo clippy -p qraft -- -D warnings`
 
@@ -1081,7 +1081,7 @@ git add src-tauri/src/tools/json_minifier.rs src-tauri/src/tools/mod.rs
 git commit -m "feat(tool:json_minifier): add Tool implementation with 6 unit tests"
 ```
 
-- [ ] **Step 3.6: 写失败 React 测试**
+- [x] **Step 3.6: 写失败 React 测试**
 
 Create `src/tools/JsonMinifier.test.tsx`:
 
@@ -1145,12 +1145,12 @@ describe('JsonMinifier', () => {
 });
 ```
 
-- [ ] **Step 3.7: 运行 React 测试验证失败**
+- [x] **Step 3.7: 运行 React 测试验证失败**
 
 Run: `pnpm test -- src/tools/JsonMinifier.test.tsx`
 Expected: FAIL,"Cannot find module './JsonMinifier'"
 
-- [ ] **Step 3.8: 写 React 组件**
+- [x] **Step 3.8: 写 React 组件**
 
 Create `src/tools/JsonMinifier.tsx`:
 
@@ -1236,7 +1236,7 @@ export function JsonMinifier({ toolId }: ToolProps) {
 }
 ```
 
-- [ ] **Step 3.9: 在 registry.ts 注册**
+- [x] **Step 3.9: 在 registry.ts 注册**
 
 Modify `src/tools/registry.ts`,在末尾追加:
 
@@ -1245,12 +1245,12 @@ import { JsonMinifier } from './JsonMinifier';
 registerTool('json_minifier', JsonMinifier);
 ```
 
-- [ ] **Step 3.10: 运行 React 测试验证通过**
+- [x] **Step 3.10: 运行 React 测试验证通过**
 
 Run: `pnpm test -- src/tools/JsonMinifier.test.tsx`
 Expected: PASS,3 个测试通过
 
-- [ ] **Step 3.11: lint + 提交 React**
+- [x] **Step 3.11: lint + 提交 React**
 
 Run: `pnpm lint && pnpm tsc --noEmit`
 
@@ -1259,11 +1259,11 @@ git add src/tools/JsonMinifier.tsx src/tools/JsonMinifier.test.tsx src/tools/reg
 git commit -m "feat(tool:json_minifier): add React UI with error display"
 ```
 
-- [ ] **Step 3.12: 集成冒烟**
+- [x] **Step 3.12: 集成冒烟**
 
 Run: `pnpm tauri dev`,在 SideNav 点击 "JSON Minifier",输入 `{ "a": 1 }`,点 Minify,确认输出 `{"a":1}`
 
-- [ ] **Step 3.13: 验证 Task 3 完成**
+- [x] **Step 3.13: 验证 Task 3 完成**
 
 确认:`json_minifier.rs` 6 个 Rust 测试、`JsonMinifier.test.tsx` 3 个 React 测试通过,registry 已注册
 
@@ -1280,7 +1280,7 @@ Run: `pnpm tauri dev`,在 SideNav 点击 "JSON Minifier",输入 `{ "a": 1 }`,点
 
 **PRD 规格:** params: `action` (encode/decode, required)、`url_safe` (bool, default false);errors: `ERR_INVALID_INPUT`、`ERR_PARSE_FAILED`
 
-- [ ] **Step 4.1: 写失败 Rust 测试**
+- [x] **Step 4.1: 写失败 Rust 测试**
 
 Create `src-tauri/src/tools/base64_codec.rs`:
 
@@ -1486,12 +1486,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 4.2: 运行测试验证失败**
+- [x] **Step 4.2: 运行测试验证失败**
 
 Run: `cargo test -p qraft base64_codec -- --nocapture`
 Expected: 编译失败,`cannot find module`
 
-- [ ] **Step 4.3: 在 mod.rs 声明模块**
+- [x] **Step 4.3: 在 mod.rs 声明模块**
 
 Modify `src-tauri/src/tools/mod.rs`,追加:
 
@@ -1499,12 +1499,12 @@ Modify `src-tauri/src/tools/mod.rs`,追加:
 pub mod base64_codec;
 ```
 
-- [ ] **Step 4.4: 运行测试验证通过**
+- [x] **Step 4.4: 运行测试验证通过**
 
 Run: `cargo test -p qraft base64_codec -- --nocapture`
 Expected: PASS,7 个测试通过
 
-- [ ] **Step 4.5: clippy + 提交 Rust**
+- [x] **Step 4.5: clippy + 提交 Rust**
 
 Run: `cargo clippy -p qraft -- -D warnings`
 
@@ -1513,7 +1513,7 @@ git add src-tauri/src/tools/base64_codec.rs src-tauri/src/tools/mod.rs
 git commit -m "feat(tool:base64_codec): add Tool with encode/decode + url_safe, 7 unit tests"
 ```
 
-- [ ] **Step 4.6: 写失败 React 测试**
+- [x] **Step 4.6: 写失败 React 测试**
 
 Create `src/tools/Base64Codec.test.tsx`:
 
@@ -1578,12 +1578,12 @@ describe('Base64Codec', () => {
 });
 ```
 
-- [ ] **Step 4.7: 运行 React 测试验证失败**
+- [x] **Step 4.7: 运行 React 测试验证失败**
 
 Run: `pnpm test -- src/tools/Base64Codec.test.tsx`
 Expected: FAIL,"Cannot find module './Base64Codec'"
 
-- [ ] **Step 4.8: 写 React 组件**
+- [x] **Step 4.8: 写 React 组件**
 
 Create `src/tools/Base64Codec.tsx`:
 
@@ -1694,7 +1694,7 @@ export function Base64Codec({ toolId }: ToolProps) {
 }
 ```
 
-- [ ] **Step 4.9: 在 registry.ts 注册**
+- [x] **Step 4.9: 在 registry.ts 注册**
 
 Modify `src/tools/registry.ts`,末尾追加:
 
@@ -1703,12 +1703,12 @@ import { Base64Codec } from './Base64Codec';
 registerTool('base64_codec', Base64Codec);
 ```
 
-- [ ] **Step 4.10: 运行 React 测试验证通过**
+- [x] **Step 4.10: 运行 React 测试验证通过**
 
 Run: `pnpm test -- src/tools/Base64Codec.test.tsx`
 Expected: PASS,3 个测试通过
 
-- [ ] **Step 4.11: lint + 提交 React**
+- [x] **Step 4.11: lint + 提交 React**
 
 Run: `pnpm lint && pnpm tsc --noEmit`
 
@@ -1717,11 +1717,11 @@ git add src/tools/Base64Codec.tsx src/tools/Base64Codec.test.tsx src/tools/regis
 git commit -m "feat(tool:base64_codec): add React UI with action/url_safe controls"
 ```
 
-- [ ] **Step 4.12: 集成冒烟**
+- [x] **Step 4.12: 集成冒烟**
 
 Run: `pnpm tauri dev`,在 SideNav 点击 "Base64 Codec",输入 `hello`,action=encode,确认输出 `aGVsbG8=`
 
-- [ ] **Step 4.13: 验证 Task 4 完成**
+- [x] **Step 4.13: 验证 Task 4 完成**
 
 确认:`base64_codec.rs` 7 个 Rust 测试、`Base64Codec.test.tsx` 3 个 React 测试通过,registry 已注册
 
@@ -1738,7 +1738,7 @@ Run: `pnpm tauri dev`,在 SideNav 点击 "Base64 Codec",输入 `hello`,action=en
 
 **PRD 规格:** params: `action` (encode/decode, required)、`component` (bool, default false,use `encodeURIComponent` vs `encodeURI`);errors: `ERR_INVALID_INPUT`、`ERR_PARSE_FAILED`
 
-- [ ] **Step 5.1: 写失败 Rust 测试**
+- [x] **Step 5.1: 写失败 Rust 测试**
 
 Create `src-tauri/src/tools/url_codec.rs`:
 
@@ -1992,12 +1992,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 5.2: 运行测试验证失败**
+- [x] **Step 5.2: 运行测试验证失败**
 
 Run: `cargo test -p qraft url_codec -- --nocapture`
 Expected: 编译失败,`cannot find module`
 
-- [ ] **Step 5.3: 在 mod.rs 声明模块**
+- [x] **Step 5.3: 在 mod.rs 声明模块**
 
 Modify `src-tauri/src/tools/mod.rs`,追加:
 
@@ -2005,12 +2005,12 @@ Modify `src-tauri/src/tools/mod.rs`,追加:
 pub mod url_codec;
 ```
 
-- [ ] **Step 5.4: 运行测试验证通过**
+- [x] **Step 5.4: 运行测试验证通过**
 
 Run: `cargo test -p qraft url_codec -- --nocapture`
 Expected: PASS,7 个测试通过
 
-- [ ] **Step 5.5: clippy + 提交 Rust**
+- [x] **Step 5.5: clippy + 提交 Rust**
 
 Run: `cargo clippy -p qraft -- -D warnings`
 
@@ -2019,7 +2019,7 @@ git add src-tauri/src/tools/url_codec.rs src-tauri/src/tools/mod.rs
 git commit -m "feat(tool:url_codec): add Tool with encode/decode + component flag, 7 unit tests"
 ```
 
-- [ ] **Step 5.6: 写失败 React 测试**
+- [x] **Step 5.6: 写失败 React 测试**
 
 Create `src/tools/UrlCodec.test.tsx`:
 
@@ -2083,12 +2083,12 @@ describe('UrlCodec', () => {
 });
 ```
 
-- [ ] **Step 5.7: 运行 React 测试验证失败**
+- [x] **Step 5.7: 运行 React 测试验证失败**
 
 Run: `pnpm test -- src/tools/UrlCodec.test.tsx`
 Expected: FAIL,"Cannot find module './UrlCodec'"
 
-- [ ] **Step 5.8: 写 React 组件**
+- [x] **Step 5.8: 写 React 组件**
 
 Create `src/tools/UrlCodec.tsx`:
 
@@ -2199,7 +2199,7 @@ export function UrlCodec({ toolId }: ToolProps) {
 }
 ```
 
-- [ ] **Step 5.9: 在 registry.ts 注册**
+- [x] **Step 5.9: 在 registry.ts 注册**
 
 Modify `src/tools/registry.ts`,末尾追加:
 
@@ -2208,12 +2208,12 @@ import { UrlCodec } from './UrlCodec';
 registerTool('url_codec', UrlCodec);
 ```
 
-- [ ] **Step 5.10: 运行 React 测试验证通过**
+- [x] **Step 5.10: 运行 React 测试验证通过**
 
 Run: `pnpm test -- src/tools/UrlCodec.test.tsx`
 Expected: PASS,3 个测试通过
 
-- [ ] **Step 5.11: lint + 提交 React**
+- [x] **Step 5.11: lint + 提交 React**
 
 Run: `pnpm lint && pnpm tsc --noEmit`
 
@@ -2222,11 +2222,11 @@ git add src/tools/UrlCodec.tsx src/tools/UrlCodec.test.tsx src/tools/registry.ts
 git commit -m "feat(tool:url_codec): add React UI with action/component controls"
 ```
 
-- [ ] **Step 5.12: 集成冒烟**
+- [x] **Step 5.12: 集成冒烟**
 
 Run: `pnpm tauri dev`,在 SideNav 点击 "URL Encoder/Decoder",输入 `hello world`,action=encode,确认输出 `hello%20world`
 
-- [ ] **Step 5.13: 验证 Task 5 完成**
+- [x] **Step 5.13: 验证 Task 5 完成**
 
 确认:`url_codec.rs` 7 个 Rust 测试、`UrlCodec.test.tsx` 3 个 React 测试通过,registry 已注册
 
@@ -2243,7 +2243,7 @@ Run: `pnpm tauri dev`,在 SideNav 点击 "URL Encoder/Decoder",输入 `hello wor
 
 **PRD 规格:** 输入 JWT 字符串;输出 `text` 为格式化的 header+payload JSON,`extra` 含 `header`/`payload`/`signature`/`expires_at`;errors: `ERR_INVALID_INPUT`、`ERR_PARSE_FAILED`;dependencies: base64(内部直接调 `base64` crate)
 
-- [ ] **Step 6.1: 写失败 Rust 测试**
+- [x] **Step 6.1: 写失败 Rust 测试**
 
 Create `src-tauri/src/tools/jwt_parser.rs`:
 
@@ -2481,12 +2481,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 6.2: 运行测试验证失败**
+- [x] **Step 6.2: 运行测试验证失败**
 
 Run: `cargo test -p qraft jwt_parser -- --nocapture`
 Expected: 编译失败,`cannot find module`
 
-- [ ] **Step 6.3: 在 mod.rs 声明模块**
+- [x] **Step 6.3: 在 mod.rs 声明模块**
 
 Modify `src-tauri/src/tools/mod.rs`,追加:
 
@@ -2494,12 +2494,12 @@ Modify `src-tauri/src/tools/mod.rs`,追加:
 pub mod jwt_parser;
 ```
 
-- [ ] **Step 6.4: 运行测试验证通过**
+- [x] **Step 6.4: 运行测试验证通过**
 
 Run: `cargo test -p qraft jwt_parser -- --nocapture`
 Expected: PASS,7 个测试通过
 
-- [ ] **Step 6.5: clippy + 提交 Rust**
+- [x] **Step 6.5: clippy + 提交 Rust**
 
 Run: `cargo clippy -p qraft -- -D warnings`
 
@@ -2508,7 +2508,7 @@ git add src-tauri/src/tools/jwt_parser.rs src-tauri/src/tools/mod.rs
 git commit -m "feat(tool:jwt_parser): add Tool decoding JWT header/payload/signature, 7 unit tests"
 ```
 
-- [ ] **Step 6.6: 写失败 React 测试**
+- [x] **Step 6.6: 写失败 React 测试**
 
 Create `src/tools/JwtParser.test.tsx`:
 
@@ -2578,12 +2578,12 @@ describe('JwtParser', () => {
 });
 ```
 
-- [ ] **Step 6.7: 运行 React 测试验证失败**
+- [x] **Step 6.7: 运行 React 测试验证失败**
 
 Run: `pnpm test -- src/tools/JwtParser.test.tsx`
 Expected: FAIL,"Cannot find module './JwtParser'"
 
-- [ ] **Step 6.8: 写 React 组件**
+- [x] **Step 6.8: 写 React 组件**
 
 Create `src/tools/JwtParser.tsx`:
 
@@ -2689,7 +2689,7 @@ export function JwtParser({ toolId }: ToolProps) {
 }
 ```
 
-- [ ] **Step 6.9: 在 registry.ts 注册**
+- [x] **Step 6.9: 在 registry.ts 注册**
 
 Modify `src/tools/registry.ts`,末尾追加:
 
@@ -2698,12 +2698,12 @@ import { JwtParser } from './JwtParser';
 registerTool('jwt_parser', JwtParser);
 ```
 
-- [ ] **Step 6.10: 运行 React 测试验证通过**
+- [x] **Step 6.10: 运行 React 测试验证通过**
 
 Run: `pnpm test -- src/tools/JwtParser.test.tsx`
 Expected: PASS,3 个测试通过
 
-- [ ] **Step 6.11: lint + 提交 React**
+- [x] **Step 6.11: lint + 提交 React**
 
 Run: `pnpm lint && pnpm tsc --noEmit`
 
@@ -2712,11 +2712,11 @@ git add src/tools/JwtParser.tsx src/tools/JwtParser.test.tsx src/tools/registry.
 git commit -m "feat(tool:jwt_parser): add React UI displaying header/payload/signature/expires_at"
 ```
 
-- [ ] **Step 6.12: 集成冒烟**
+- [x] **Step 6.12: 集成冒烟**
 
 Run: `pnpm tauri dev`,在 SideNav 点击 "JWT Parser",粘贴一个真实 JWT,点 Parse,确认显示 header/payload/signature
 
-- [ ] **Step 6.13: 验证 Task 6 完成**
+- [x] **Step 6.13: 验证 Task 6 完成**
 
 确认:`jwt_parser.rs` 7 个 Rust 测试、`JwtParser.test.tsx` 3 个 React 测试通过,registry 已注册
 
@@ -2733,7 +2733,7 @@ Run: `pnpm tauri dev`,在 SideNav 点击 "JWT Parser",粘贴一个真实 JWT,点
 
 **PRD 规格:** params: `version` (v4/v7, default v4)、`count` (integer, 1-1000, default 1)、`uppercase` (bool, default false)、`hyphens` (bool, default true);输出 `text` 为每行一个 UUID
 
-- [ ] **Step 7.1: 写失败 Rust 测试**
+- [x] **Step 7.1: 写失败 Rust 测试**
 
 Create `src-tauri/src/tools/uuid_generator.rs`:
 
@@ -2995,12 +2995,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 7.2: 运行测试验证失败**
+- [x] **Step 7.2: 运行测试验证失败**
 
 Run: `cargo test -p qraft uuid_generator -- --nocapture`
 Expected: 编译失败,`cannot find module`
 
-- [ ] **Step 7.3: 在 mod.rs 声明模块**
+- [x] **Step 7.3: 在 mod.rs 声明模块**
 
 Modify `src-tauri/src/tools/mod.rs`,追加:
 
@@ -3008,12 +3008,12 @@ Modify `src-tauri/src/tools/mod.rs`,追加:
 pub mod uuid_generator;
 ```
 
-- [ ] **Step 7.4: 运行测试验证通过**
+- [x] **Step 7.4: 运行测试验证通过**
 
 Run: `cargo test -p qraft uuid_generator -- --nocapture`
 Expected: PASS,8 个测试通过
 
-- [ ] **Step 7.5: clippy + 提交 Rust**
+- [x] **Step 7.5: clippy + 提交 Rust**
 
 Run: `cargo clippy -p qraft -- -D warnings`
 
@@ -3022,7 +3022,7 @@ git add src-tauri/src/tools/uuid_generator.rs src-tauri/src/tools/mod.rs
 git commit -m "feat(tool:uuid_generator): add Tool with v4/v7 + count + format options, 8 unit tests"
 ```
 
-- [ ] **Step 7.6: 写失败 React 测试**
+- [x] **Step 7.6: 写失败 React 测试**
 
 Create `src/tools/UuidGenerator.test.tsx`:
 
@@ -3089,12 +3089,12 @@ describe('UuidGenerator', () => {
 });
 ```
 
-- [ ] **Step 7.7: 运行 React 测试验证失败**
+- [x] **Step 7.7: 运行 React 测试验证失败**
 
 Run: `pnpm test -- src/tools/UuidGenerator.test.tsx`
 Expected: FAIL,"Cannot find module './UuidGenerator'"
 
-- [ ] **Step 7.8: 写 React 组件**
+- [x] **Step 7.8: 写 React 组件**
 
 Create `src/tools/UuidGenerator.tsx`:
 
@@ -3227,7 +3227,7 @@ export function UuidGenerator({ toolId }: ToolProps) {
 }
 ```
 
-- [ ] **Step 7.9: 在 registry.ts 注册**
+- [x] **Step 7.9: 在 registry.ts 注册**
 
 Modify `src/tools/registry.ts`,末尾追加:
 
@@ -3236,12 +3236,12 @@ import { UuidGenerator } from './UuidGenerator';
 registerTool('uuid_generator', UuidGenerator);
 ```
 
-- [ ] **Step 7.10: 运行 React 测试验证通过**
+- [x] **Step 7.10: 运行 React 测试验证通过**
 
 Run: `pnpm test -- src/tools/UuidGenerator.test.tsx`
 Expected: PASS,3 个测试通过
 
-- [ ] **Step 7.11: lint + 提交 React**
+- [x] **Step 7.11: lint + 提交 React**
 
 Run: `pnpm lint && pnpm tsc --noEmit`
 
@@ -3250,11 +3250,11 @@ git add src/tools/UuidGenerator.tsx src/tools/UuidGenerator.test.tsx src/tools/r
 git commit -m "feat(tool:uuid_generator): add React UI with version/count/format controls"
 ```
 
-- [ ] **Step 7.12: 集成冒烟**
+- [x] **Step 7.12: 集成冒烟**
 
 Run: `pnpm tauri dev`,在 SideNav 点击 "UUID Generator",count=5,version=v4,点 Generate,确认输出 5 行 UUID
 
-- [ ] **Step 7.13: 验证 Task 7 完成**
+- [x] **Step 7.13: 验证 Task 7 完成**
 
 确认:`uuid_generator.rs` 8 个 Rust 测试、`UuidGenerator.test.tsx` 3 个 React 测试通过,registry 已注册
 
@@ -3271,7 +3271,7 @@ Run: `pnpm tauri dev`,在 SideNav 点击 "UUID Generator",count=5,version=v4,点
 
 **PRD 规格:** 输入 `text` 或 `file_path`(二选一,oneOf);params: `algorithm` (md5/sha1/sha256/sha512/blake3, required, default sha256);输出 `text` 为 hash hex;streaming: true;timeout_secs: 60
 
-- [ ] **Step 8.1: 写失败 Rust 测试**
+- [x] **Step 8.1: 写失败 Rust 测试**
 
 Create `src-tauri/src/tools/hash_calculator.rs`:
 
@@ -3579,12 +3579,12 @@ mod tests {
 
 > **注意:** 测试中使用了 `tempfile` crate,需在 `src-tauri/Cargo.toml` 的 `[dev-dependencies]` 添加 `tempfile = "3.10"`。
 
-- [ ] **Step 8.2: 运行测试验证失败**
+- [x] **Step 8.2: 运行测试验证失败**
 
 Run: `cargo test -p qraft hash_calculator -- --nocapture`
 Expected: 编译失败,`cannot find module`
 
-- [ ] **Step 8.3: 在 mod.rs 声明模块 + 添加 dev-dependency**
+- [x] **Step 8.3: 在 mod.rs 声明模块 + 添加 dev-dependency**
 
 Modify `src-tauri/src/tools/mod.rs`,追加:
 
@@ -3598,12 +3598,12 @@ Modify `src-tauri/Cargo.toml` `[dev-dependencies]` 段添加:
 tempfile = "3.10"
 ```
 
-- [ ] **Step 8.4: 运行测试验证通过**
+- [x] **Step 8.4: 运行测试验证通过**
 
 Run: `cargo test -p qraft hash_calculator -- --nocapture`
 Expected: PASS,9 个测试通过
 
-- [ ] **Step 8.5: 实现 StreamingTool**
+- [x] **Step 8.5: 实现 StreamingTool**
 
 在 `src-tauri/src/tools/hash_calculator.rs` 末尾(`register_stream_tool!` 之后、`#[cfg(test)]` 之前)追加:
 
@@ -3731,19 +3731,19 @@ impl StreamingTool for HashCalculator {
 }
 ```
 
-- [ ] **Step 8.6: 运行测试 + clippy**
+- [x] **Step 8.6: 运行测试 + clippy**
 
 Run: `cargo test -p qraft hash_calculator -- --nocapture && cargo clippy -p qraft -- -D warnings`
 Expected: 全部通过
 
-- [ ] **Step 8.7: 提交 Rust**
+- [x] **Step 8.7: 提交 Rust**
 
 ```bash
 git add src-tauri/src/tools/hash_calculator.rs src-tauri/src/tools/mod.rs src-tauri/Cargo.toml
 git commit -m "feat(tool:hash_calculator): add Tool + StreamingTool for md5/sha1/sha256/sha512/blake3"
 ```
 
-- [ ] **Step 8.8: 写失败 React 测试**
+- [x] **Step 8.8: 写失败 React 测试**
 
 Create `src/tools/HashCalculator.test.tsx`:
 
@@ -3809,12 +3809,12 @@ describe('HashCalculator', () => {
 });
 ```
 
-- [ ] **Step 8.9: 运行 React 测试验证失败**
+- [x] **Step 8.9: 运行 React 测试验证失败**
 
 Run: `pnpm test -- src/tools/HashCalculator.test.tsx`
 Expected: FAIL,"Cannot find module './HashCalculator'"
 
-- [ ] **Step 8.10: 写 React 组件**
+- [x] **Step 8.10: 写 React 组件**
 
 Create `src/tools/HashCalculator.tsx`:
 
@@ -3943,7 +3943,7 @@ export function HashCalculator({ toolId }: ToolProps) {
 }
 ```
 
-- [ ] **Step 8.11: 在 registry.ts 注册**
+- [x] **Step 8.11: 在 registry.ts 注册**
 
 Modify `src/tools/registry.ts`,末尾追加:
 
@@ -3952,12 +3952,12 @@ import { HashCalculator } from './HashCalculator';
 registerTool('hash_calculator', HashCalculator);
 ```
 
-- [ ] **Step 8.12: 运行 React 测试验证通过**
+- [x] **Step 8.12: 运行 React 测试验证通过**
 
 Run: `pnpm test -- src/tools/HashCalculator.test.tsx`
 Expected: PASS,3 个测试通过
 
-- [ ] **Step 8.13: lint + 提交 React**
+- [x] **Step 8.13: lint + 提交 React**
 
 Run: `pnpm lint && pnpm tsc --noEmit`
 
@@ -3966,15 +3966,15 @@ git add src/tools/HashCalculator.tsx src/tools/HashCalculator.test.tsx src/tools
 git commit -m "feat(tool:hash_calculator): add React UI with algorithm select and progress display"
 ```
 
-- [ ] **Step 8.14: 集成冒烟**
+- [x] **Step 8.14: 集成冒烟**
 
 Run: `pnpm tauri dev`,在 SideNav 点击 "Hash Calculator",输入 `hello`,algorithm=sha256,确认输出 `2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824`
 
-- [ ] **Step 8.15: 流式验证(可选)**
+- [x] **Step 8.15: 流式验证(可选)**
 
 `pnpm tauri dev` 中选择大文件(>100MB),通过 `tool_execute_stream` 调用,观察 Progress 事件按百分比更新
 
-- [ ] **Step 8.16: 验证 Task 8 完成**
+- [x] **Step 8.16: 验证 Task 8 完成**
 
 确认:`hash_calculator.rs` 含 `Tool` + `StreamingTool` 实现,9 个 Rust 测试、`HashCalculator.test.tsx` 3 个 React 测试通过,registry 已注册
 
@@ -3995,7 +3995,7 @@ Run: `pnpm tauri dev`,在 SideNav 点击 "Hash Calculator",输入 `hello`,algori
 - 输出 `text` 为多格式汇总,`extra` 含 `unix_seconds`/`unix_millis`/`iso8601`/`local`/`relative`
 - errors: `ERR_INVALID_INPUT`(空输入或时区非法)、`ERR_PARSE_FAILED`(无法解析为时间)
 
-- [ ] **Step 9.1: 写失败 Rust 测试**
+- [x] **Step 9.1: 写失败 Rust 测试**
 
 Create `src-tauri/src/tools/timestamp_converter.rs`:
 
@@ -4385,12 +4385,12 @@ mod tests {
 
 > **注意:** 需在 `src-tauri/Cargo.toml` 添加 `chrono-tz = "0.9"`(在 `[dependencies]` 段)。
 
-- [ ] **Step 9.2: 运行测试验证失败**
+- [x] **Step 9.2: 运行测试验证失败**
 
 Run: `cargo test -p qraft timestamp_converter -- --nocapture`
 Expected: 编译失败,`cannot find module`
 
-- [ ] **Step 9.3: 在 mod.rs 声明模块 + 添加依赖**
+- [x] **Step 9.3: 在 mod.rs 声明模块 + 添加依赖**
 
 Modify `src-tauri/src/tools/mod.rs`,追加:
 
@@ -4404,12 +4404,12 @@ Modify `src-tauri/Cargo.toml` `[dependencies]` 段追加:
 chrono-tz = "0.9"
 ```
 
-- [ ] **Step 9.4: 运行测试验证通过**
+- [x] **Step 9.4: 运行测试验证通过**
 
 Run: `cargo test -p qraft timestamp_converter -- --nocapture`
 Expected: PASS,9 个测试通过
 
-- [ ] **Step 9.5: clippy + 提交 Rust**
+- [x] **Step 9.5: clippy + 提交 Rust**
 
 Run: `cargo clippy -p qraft -- -D warnings`
 
@@ -4418,7 +4418,7 @@ git add src-tauri/src/tools/timestamp_converter.rs src-tauri/src/tools/mod.rs sr
 git commit -m "feat(tool:timestamp_converter): add Tool with unix/date input + IANA timezone + relative"
 ```
 
-- [ ] **Step 9.6: 写失败 React 测试**
+- [x] **Step 9.6: 写失败 React 测试**
 
 Create `src/tools/TimestampConverter.test.tsx`:
 
@@ -4489,12 +4489,12 @@ describe('TimestampConverter', () => {
 });
 ```
 
-- [ ] **Step 9.7: 运行 React 测试验证失败**
+- [x] **Step 9.7: 运行 React 测试验证失败**
 
 Run: `pnpm test -- src/tools/TimestampConverter.test.tsx`
 Expected: FAIL,"Cannot find module './TimestampConverter'"
 
-- [ ] **Step 9.8: 写 React 组件**
+- [x] **Step 9.8: 写 React 组件**
 
 Create `src/tools/TimestampConverter.tsx`:
 
@@ -4678,7 +4678,7 @@ export function TimestampConverter({ toolId }: ToolProps) {
 }
 ```
 
-- [ ] **Step 9.9: 在 registry.ts 注册**
+- [x] **Step 9.9: 在 registry.ts 注册**
 
 Modify `src/tools/registry.ts`,末尾追加:
 
@@ -4687,12 +4687,12 @@ import { TimestampConverter } from './TimestampConverter';
 registerTool('timestamp_converter', TimestampConverter);
 ```
 
-- [ ] **Step 9.10: 运行 React 测试验证通过**
+- [x] **Step 9.10: 运行 React 测试验证通过**
 
 Run: `pnpm test -- src/tools/TimestampConverter.test.tsx`
 Expected: PASS,3 个测试通过
 
-- [ ] **Step 9.11: lint + 提交 React**
+- [x] **Step 9.11: lint + 提交 React**
 
 Run: `pnpm lint && pnpm tsc --noEmit`
 
@@ -4701,11 +4701,11 @@ git add src/tools/TimestampConverter.tsx src/tools/TimestampConverter.test.tsx s
 git commit -m "feat(tool:timestamp_converter): add React UI with timezone select and multi-format output"
 ```
 
-- [ ] **Step 9.12: 集成冒烟**
+- [x] **Step 9.12: 集成冒烟**
 
 Run: `pnpm tauri dev`,在 SideNav 点击 "Timestamp Converter",输入 `1690272000`,timezone=Asia/Shanghai,确认输出含 `2023-07-25T16:00:00+08:00`
 
-- [ ] **Step 9.13: 验证 Task 9 完成**
+- [x] **Step 9.13: 验证 Task 9 完成**
 
 确认:`timestamp_converter.rs` 9 个 Rust 测试、`TimestampConverter.test.tsx` 3 个 React 测试通过,registry 已注册
 
@@ -4726,7 +4726,7 @@ Run: `pnpm tauri dev`,在 SideNav 点击 "Timestamp Converter",输入 `169027200
 - 输出 `text` 为 "all formats",`extra` 含 `hex`/`rgb`/`hsl`
 - errors: `ERR_INVALID_INPUT`(from_format 非法)、`ERR_PARSE_FAILED`(text 不符合指定格式)
 
-- [ ] **Step 10.1: 写失败 Rust 测试**
+- [x] **Step 10.1: 写失败 Rust 测试**
 
 Create `src-tauri/src/tools/color_converter.rs`:
 
@@ -5182,12 +5182,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 10.2: 运行测试验证失败**
+- [x] **Step 10.2: 运行测试验证失败**
 
 Run: `cargo test -p qraft color_converter -- --nocapture`
 Expected: 编译失败,`cannot find module`
 
-- [ ] **Step 10.3: 在 mod.rs 声明模块**
+- [x] **Step 10.3: 在 mod.rs 声明模块**
 
 Modify `src-tauri/src/tools/mod.rs`,追加:
 
@@ -5195,12 +5195,12 @@ Modify `src-tauri/src/tools/mod.rs`,追加:
 pub mod color_converter;
 ```
 
-- [ ] **Step 10.4: 运行测试验证通过**
+- [x] **Step 10.4: 运行测试验证通过**
 
 Run: `cargo test -p qraft color_converter -- --nocapture`
 Expected: PASS,9 个测试通过
 
-- [ ] **Step 10.5: clippy + 提交 Rust**
+- [x] **Step 10.5: clippy + 提交 Rust**
 
 Run: `cargo clippy -p qraft -- -D warnings`
 
@@ -5209,7 +5209,7 @@ git add src-tauri/src/tools/color_converter.rs src-tauri/src/tools/mod.rs
 git commit -m "feat(tool:color_converter): add Tool with hex/rgb/hsl parsing and conversion, 9 unit tests"
 ```
 
-- [ ] **Step 10.6: 写失败 React 测试**
+- [x] **Step 10.6: 写失败 React 测试**
 
 Create `src/tools/ColorConverter.test.tsx`:
 
@@ -5278,12 +5278,12 @@ describe('ColorConverter', () => {
 });
 ```
 
-- [ ] **Step 10.7: 运行 React 测试验证失败**
+- [x] **Step 10.7: 运行 React 测试验证失败**
 
 Run: `pnpm test -- src/tools/ColorConverter.test.tsx`
 Expected: FAIL,"Cannot find module './ColorConverter'"
 
-- [ ] **Step 10.8: 写 React 组件**
+- [x] **Step 10.8: 写 React 组件**
 
 Create `src/tools/ColorConverter.tsx`:
 
@@ -5448,7 +5448,7 @@ export function ColorConverter({ toolId }: ToolProps) {
 }
 ```
 
-- [ ] **Step 10.9: 在 registry.ts 注册**
+- [x] **Step 10.9: 在 registry.ts 注册**
 
 Modify `src/tools/registry.ts`,末尾追加:
 
@@ -5457,12 +5457,12 @@ import { ColorConverter } from './ColorConverter';
 registerTool('color_converter', ColorConverter);
 ```
 
-- [ ] **Step 10.10: 运行 React 测试验证通过**
+- [x] **Step 10.10: 运行 React 测试验证通过**
 
 Run: `pnpm test -- src/tools/ColorConverter.test.tsx`
 Expected: PASS,3 个测试通过
 
-- [ ] **Step 10.11: lint + 提交 React**
+- [x] **Step 10.11: lint + 提交 React**
 
 Run: `pnpm lint && pnpm tsc --noEmit`
 
@@ -5471,11 +5471,11 @@ git add src/tools/ColorConverter.tsx src/tools/ColorConverter.test.tsx src/tools
 git commit -m "feat(tool:color_converter): add React UI with format select and color preview"
 ```
 
-- [ ] **Step 10.12: 集成冒烟**
+- [x] **Step 10.12: 集成冒烟**
 
 Run: `pnpm tauri dev`,在 SideNav 点击 "Color Converter",输入 `#ff5733`,from_format=hex,确认输出含 `rgb(255, 87, 51)` 与色块预览
 
-- [ ] **Step 10.13: 验证 Task 10 完成**
+- [x] **Step 10.13: 验证 Task 10 完成**
 
 确认:`color_converter.rs` 9 个 Rust 测试、`ColorConverter.test.tsx` 3 个 React 测试通过,registry 已注册
 
@@ -5496,7 +5496,7 @@ Run: `pnpm tauri dev`,在 SideNav 点击 "Color Converter",输入 `#ff5733`,from
 - 输出 `text` 为匹配汇总,`extra` 含 `matches` 数组(每项 `match`/`index`/`groups`)与 `match_count`
 - errors: `ERR_INVALID_INPUT`(pattern 缺失)、`ERR_PARSE_FAILED`(正则编译失败)
 
-- [ ] **Step 11.1: 写失败 Rust 测试**
+- [x] **Step 11.1: 写失败 Rust 测试**
 
 Create `src-tauri/src/tools/regex_tester.rs`:
 
@@ -5803,12 +5803,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 11.2: 运行测试验证失败**
+- [x] **Step 11.2: 运行测试验证失败**
 
 Run: `cargo test -p qraft regex_tester -- --nocapture`
 Expected: 编译失败,`cannot find module`
 
-- [ ] **Step 11.3: 在 mod.rs 声明模块**
+- [x] **Step 11.3: 在 mod.rs 声明模块**
 
 Modify `src-tauri/src/tools/mod.rs`,追加:
 
@@ -5816,12 +5816,12 @@ Modify `src-tauri/src/tools/mod.rs`,追加:
 pub mod regex_tester;
 ```
 
-- [ ] **Step 11.4: 运行测试验证通过**
+- [x] **Step 11.4: 运行测试验证通过**
 
 Run: `cargo test -p qraft regex_tester -- --nocapture`
 Expected: PASS,8 个测试通过
 
-- [ ] **Step 11.5: clippy + 提交 Rust**
+- [x] **Step 11.5: clippy + 提交 Rust**
 
 Run: `cargo clippy -p qraft -- -D warnings`
 
@@ -5830,7 +5830,7 @@ git add src-tauri/src/tools/regex_tester.rs src-tauri/src/tools/mod.rs
 git commit -m "feat(tool:regex_tester): add Tool with pattern/flags + capture groups, 8 unit tests"
 ```
 
-- [ ] **Step 11.6: 写失败 React 测试**
+- [x] **Step 11.6: 写失败 React 测试**
 
 Create `src/tools/RegexTester.test.tsx`:
 
@@ -5911,12 +5911,12 @@ describe('RegexTester', () => {
 });
 ```
 
-- [ ] **Step 11.7: 运行 React 测试验证失败**
+- [x] **Step 11.7: 运行 React 测试验证失败**
 
 Run: `pnpm test -- src/tools/RegexTester.test.tsx`
 Expected: FAIL,"Cannot find module './RegexTester'"
 
-- [ ] **Step 11.8: 写 React 组件**
+- [x] **Step 11.8: 写 React 组件**
 
 Create `src/tools/RegexTester.tsx`:
 
@@ -6079,7 +6079,7 @@ export function RegexTester({ toolId }: ToolProps) {
 }
 ```
 
-- [ ] **Step 11.9: 在 registry.ts 注册**
+- [x] **Step 11.9: 在 registry.ts 注册**
 
 Modify `src/tools/registry.ts`,末尾追加:
 
@@ -6088,12 +6088,12 @@ import { RegexTester } from './RegexTester';
 registerTool('regex_tester', RegexTester);
 ```
 
-- [ ] **Step 11.10: 运行 React 测试验证通过**
+- [x] **Step 11.10: 运行 React 测试验证通过**
 
 Run: `pnpm test -- src/tools/RegexTester.test.tsx`
 Expected: PASS,3 个测试通过
 
-- [ ] **Step 11.11: lint + 提交 React**
+- [x] **Step 11.11: lint + 提交 React**
 
 Run: `pnpm lint && pnpm tsc --noEmit`
 
@@ -6102,11 +6102,11 @@ git add src/tools/RegexTester.tsx src/tools/RegexTester.test.tsx src/tools/regis
 git commit -m "feat(tool:regex_tester): add React UI with pattern/flags inputs and match list"
 ```
 
-- [ ] **Step 11.12: 集成冒烟**
+- [x] **Step 11.12: 集成冒烟**
 
 Run: `pnpm tauri dev`,在 SideNav 点击 "Regex Tester",输入 pattern=`\d+`,flags=`g`,text=`a1 b22 c333`,确认输出 3 个匹配(1 / 22 / 333)
 
-- [ ] **Step 11.13: 验证 Task 11 完成**
+- [x] **Step 11.13: 验证 Task 11 完成**
 
 确认:`regex_tester.rs` 8 个 Rust 测试、`RegexTester.test.tsx` 3 个 React 测试通过,registry 已注册
 
@@ -6121,7 +6121,7 @@ Run: `pnpm tauri dev`,在 SideNav 点击 "Regex Tester",输入 pattern=`\d+`,fla
 
 **目标:** 验证 10 个 P0 工具在 Rust 与 React 双端均完整注册,所有单元测试通过,UI 可在 `pnpm tauri dev` 中正常使用。
 
-- [ ] **Step 12.1: 写 Rust 集成测试 — 所有 P0 工具已注册**
+- [x] **Step 12.1: 写 Rust 集成测试 — 所有 P0 工具已注册**
 
 Create `src-tauri/tests/p0_tools_integration.rs`:
 
@@ -6202,7 +6202,7 @@ fn test_streaming_tools_marked_correctly() {
 }
 ```
 
-- [ ] **Step 12.2: 运行集成测试验证通过**
+- [x] **Step 12.2: 运行集成测试验证通过**
 
 Run: `cargo test -p qraft --test p0_tools_integration -- --nocapture`
 Expected: PASS,4 个测试通过
@@ -6222,7 +6222,7 @@ pub mod color_converter;
 pub mod regex_tester;
 ```
 
-- [ ] **Step 12.3: 写 React 注册表集成测试**
+- [x] **Step 12.3: 写 React 注册表集成测试**
 
 Create `src/tools/registry.integration.test.ts`:
 
@@ -6267,22 +6267,22 @@ describe('P0 工具 UI 注册集成测试', () => {
 });
 ```
 
-- [ ] **Step 12.4: 运行 React 集成测试验证通过**
+- [x] **Step 12.4: 运行 React 集成测试验证通过**
 
 Run: `pnpm test -- src/tools/registry.integration.test.ts`
 Expected: PASS,2 个测试通过
 
-- [ ] **Step 12.5: 跑全量 Rust 测试 + clippy**
+- [x] **Step 12.5: 跑全量 Rust 测试 + clippy**
 
 Run: `cargo test -p qraft -- --nocapture && cargo clippy -p qraft -- -D warnings`
 Expected: 所有单元测试 + 集成测试全部通过,无 clippy 警告
 
-- [ ] **Step 12.6: 跑全量 React 测试 + lint + 类型检查**
+- [x] **Step 12.6: 跑全量 React 测试 + lint + 类型检查**
 
 Run: `pnpm test && pnpm lint && pnpm tsc --noEmit`
 Expected: 所有 Vitest 测试通过,无 lint 错误,无 TypeScript 错误
 
-- [ ] **Step 12.7: 端到端冒烟**
+- [x] **Step 12.7: 端到端冒烟**
 
 Run: `pnpm tauri dev`
 
@@ -6301,7 +6301,7 @@ Run: `pnpm tauri dev`
 | color_converter | `#ff5733`,hex | `rgb(255, 87, 51)` + 色块预览 |
 | regex_tester | `\d+` flags=g text=`a1 b22` | 2 个匹配 |
 
-- [ ] **Step 12.8: 验证 Task 12 完成 + 提交**
+- [x] **Step 12.8: 验证 Task 12 完成 + 提交**
 
 确认:
 - `p0_tools_integration.rs` 4 个 Rust 集成测试通过

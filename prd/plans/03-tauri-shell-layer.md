@@ -1,6 +1,6 @@
 # 03 - Tauri Shell 层实现计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 实现 Tauri Shell 层——IPC Command、权限管理、文件系统/剪贴板封装、事件广播,桥接 Rust Core 与 React UI,所有 Command 返回统一 CommandResponse 包络。
 
@@ -109,7 +109,7 @@ src-tauri/
 
 ### 步骤 1.1: 添加依赖到 `src-tauri/Cargo.toml`
 
-- [ ] 编辑 `src-tauri/Cargo.toml`,在 `[dependencies]` 段添加以下内容(若 `serde_json`、`tracing`、`tokio`、`serde`、`async-trait`、`anyhow`、`thiserror` 已在 02 添加则跳过):
+- [x] 编辑 `src-tauri/Cargo.toml`,在 `[dependencies]` 段添加以下内容(若 `serde_json`、`tracing`、`tokio`、`serde`、`async-trait`、`anyhow`、`thiserror` 已在 02 添加则跳过):
 
 ```toml
 [package]
@@ -163,7 +163,7 @@ panic = "unwind"
 
 ### 步骤 1.2: 验证依赖可编译
 
-- [ ] 运行以下命令,确认依赖解析无误:
+- [x] 运行以下命令,确认依赖解析无误:
 
 ```bash
 cd src-tauri && cargo check
@@ -173,7 +173,7 @@ cd src-tauri && cargo check
 
 ### 步骤 1.3: 提交
 
-- [ ] 执行 git 提交:
+- [x] 执行 git 提交:
 
 ```bash
 git add src-tauri/Cargo.toml src-tauri/Cargo.lock
@@ -192,7 +192,7 @@ AppError 需要序列化通过 IPC 传给前端。由于 `std::io::Error` 和 `a
 
 ### 步骤 2.1: 写失败测试
 
-- [ ] 创建 `src-tauri/src/shell/error.rs` 并写入以下测试代码(此时无实现,测试应编译失败):
+- [x] 创建 `src-tauri/src/shell/error.rs` 并写入以下测试代码(此时无实现,测试应编译失败):
 
 ```rust
 // src-tauri/src/shell/error.rs
@@ -371,7 +371,7 @@ mod tests {
 
 ### 步骤 2.2: 验证测试失败
 
-- [ ] 运行测试,确认编译失败(因为 `shell/mod.rs` 未导出、`crate::core` 未导出):
+- [x] 运行测试,确认编译失败(因为 `shell/mod.rs` 未导出、`crate::core` 未导出):
 
 ```bash
 cd src-tauri && cargo test --lib shell::error
@@ -381,7 +381,7 @@ cd src-tauri && cargo test --lib shell::error
 
 ### 步骤 2.3: 写实现(创建 shell 模块导出)
 
-- [ ] 创建 `src-tauri/src/shell/mod.rs`:
+- [x] 创建 `src-tauri/src/shell/mod.rs`:
 
 ```rust
 // src-tauri/src/shell/mod.rs
@@ -395,7 +395,7 @@ pub use response::{CommandResponse, ErrorInfo};
 pub use state::{AppState, StreamingTaskRegistry, HistorySinkImpl};
 ```
 
-- [ ] 在 `src-tauri/src/lib.rs`(若 02 已创建则编辑,否则创建)中添加模块声明:
+- [x] 在 `src-tauri/src/lib.rs`(若 02 已创建则编辑,否则创建)中添加模块声明:
 
 ```rust
 // src-tauri/src/lib.rs
@@ -410,7 +410,7 @@ pub mod commands;
 
 ### 步骤 2.4: 验证测试通过
 
-- [ ] 运行测试:
+- [x] 运行测试:
 
 ```bash
 cd src-tauri && cargo test --lib shell::error
@@ -420,7 +420,7 @@ cd src-tauri && cargo test --lib shell::error
 
 ### 步骤 2.5: 提交
 
-- [ ] 执行 git 提交:
+- [x] 执行 git 提交:
 
 ```bash
 git add src-tauri/src/shell/
@@ -435,7 +435,7 @@ git commit -m "feat(shell): add AppError top-level error type with serde"
 
 ### 步骤 3.1: 写失败测试
 
-- [ ] 创建 `src-tauri/src/shell/response.rs` 并写入测试与实现:
+- [x] 创建 `src-tauri/src/shell/response.rs` 并写入测试与实现:
 
 ```rust
 // src-tauri/src/shell/response.rs
@@ -602,7 +602,7 @@ mod tests {
 
 ### 步骤 2.2: 验证测试
 
-- [ ] 运行测试:
+- [x] 运行测试:
 
 ```bash
 cd src-tauri && cargo test --lib shell::response
@@ -624,7 +624,7 @@ cd src-tauri && cargo test --lib shell::response
 
 ### 步骤 3.3: 应用修正并验证通过
 
-- [ ] 将 `ErrorInfo::from_app_error` 简化为不依赖 Clone:
+- [x] 将 `ErrorInfo::from_app_error` 简化为不依赖 Clone:
 
 ```rust
 impl ErrorInfo {
@@ -646,9 +646,9 @@ impl ErrorInfo {
 }
 ```
 
-- [ ] 删除 `clone_for_display` 方法。
+- [x] 删除 `clone_for_display` 方法。
 
-- [ ] 运行测试:
+- [x] 运行测试:
 
 ```bash
 cd src-tauri && cargo test --lib shell::response
@@ -658,7 +658,7 @@ cd src-tauri && cargo test --lib shell::response
 
 ### 步骤 3.4: 提交
 
-- [ ] 执行 git 提交:
+- [x] 执行 git 提交:
 
 ```bash
 git add src-tauri/src/shell/response.rs
@@ -673,7 +673,7 @@ git commit -m "feat(shell): add CommandResponse envelope and ErrorInfo"
 
 ### 步骤 4.1: 写失败测试
 
-- [ ] 创建 `src-tauri/src/shell/state.rs` 并写入测试与实现:
+- [x] 创建 `src-tauri/src/shell/state.rs` 并写入测试与实现:
 
 ```rust
 // src-tauri/src/shell/state.rs
@@ -963,7 +963,7 @@ mod tests {
 
 ### 步骤 4.2: 验证测试失败
 
-- [ ] 运行测试:
+- [x] 运行测试:
 
 ```bash
 cd src-tauri && cargo test --lib shell::state
@@ -979,7 +979,7 @@ cd src-tauri && cargo test --lib shell::state
 
 ### 步骤 4.3: 确保 Core 类型满足要求
 
-- [ ] 若 02 的 `ConfigStore` trait 缺少 `reset` 方法,在 `src-tauri/src/store/config.rs` 中添加:
+- [x] 若 02 的 `ConfigStore` trait 缺少 `reset` 方法,在 `src-tauri/src/store/config.rs` 中添加:
 
 ```rust
 #[async_trait]
@@ -991,7 +991,7 @@ pub trait ConfigStore: Send + Sync {
 }
 ```
 
-- [ ] 确保 `UserConfig` 派生 `Default`:
+- [x] 确保 `UserConfig` 派生 `Default`:
 
 ```rust
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -1002,7 +1002,7 @@ pub struct UserConfig {
 
 ### 步骤 4.4: 验证测试通过
 
-- [ ] 运行测试:
+- [x] 运行测试:
 
 ```bash
 cd src-tauri && cargo test --lib shell::state
@@ -1012,7 +1012,7 @@ cd src-tauri && cargo test --lib shell::state
 
 ### 步骤 4.5: 提交
 
-- [ ] 执行 git 提交:
+- [x] 执行 git 提交:
 
 ```bash
 git add src-tauri/src/shell/state.rs src-tauri/src/store/config.rs
@@ -1031,7 +1031,7 @@ git commit -m "feat(shell): add AppState, StreamingTaskRegistry, HistorySinkImpl
 
 ### 步骤 5.1: 写失败测试
 
-- [ ] 创建 `src-tauri/src/commands/tool.rs` 并写入测试与实现:
+- [x] 创建 `src-tauri/src/commands/tool.rs` 并写入测试与实现:
 
 ```rust
 // src-tauri/src/commands/tool.rs
@@ -1366,7 +1366,7 @@ mod tests {
 
 ### 步骤 5.2: 验证测试失败
 
-- [ ] 运行测试:
+- [x] 运行测试:
 
 ```bash
 cd src-tauri && cargo test --lib commands::tool
@@ -1376,7 +1376,7 @@ cd src-tauri && cargo test --lib commands::tool
 
 ### 步骤 5.3: 确保 ToolExecutor 暴露必要方法
 
-- [ ] 若 02 的 `ToolExecutor` 缺少以下方法,在 `src-tauri/src/core/executor.rs` 中补充:
+- [x] 若 02 的 `ToolExecutor` 缺少以下方法,在 `src-tauri/src/core/executor.rs` 中补充:
 
 ```rust
 impl ToolExecutor {
@@ -1411,7 +1411,7 @@ impl ToolExecutor {
 }
 ```
 
-- [ ] 创建 `src-tauri/src/commands/mod.rs`:
+- [x] 创建 `src-tauri/src/commands/mod.rs`:
 
 ```rust
 // src-tauri/src/commands/mod.rs
@@ -1426,7 +1426,7 @@ pub mod app;
 
 ### 步骤 5.4: 验证测试通过
 
-- [ ] 运行测试:
+- [x] 运行测试:
 
 ```bash
 cd src-tauri && cargo test --lib commands::tool
@@ -1436,7 +1436,7 @@ cd src-tauri && cargo test --lib commands::tool
 
 ### 步骤 5.5: 提交
 
-- [ ] 执行 git 提交:
+- [x] 执行 git 提交:
 
 ```bash
 git add src-tauri/src/commands/ src-tauri/src/core/executor.rs
@@ -1451,7 +1451,7 @@ git commit -m "feat(shell): add tool IPC commands (list/metadata/execute/stream/
 
 ### 步骤 6.1: 写失败测试
 
-- [ ] 创建 `src-tauri/src/commands/config.rs` 并写入测试与实现:
+- [x] 创建 `src-tauri/src/commands/config.rs` 并写入测试与实现:
 
 ```rust
 // src-tauri/src/commands/config.rs
@@ -1702,7 +1702,7 @@ mod tests {
 
 ### 步骤 6.2: 验证测试
 
-- [ ] 运行测试:
+- [x] 运行测试:
 
 ```bash
 cd src-tauri && cargo test --lib commands::config
@@ -1712,7 +1712,7 @@ cd src-tauri && cargo test --lib commands::config
 
 ### 步骤 6.3: 提交
 
-- [ ] 执行 git 提交:
+- [x] 执行 git 提交:
 
 ```bash
 git add src-tauri/src/commands/config.rs
@@ -1727,7 +1727,7 @@ git commit -m "feat(shell): add config IPC commands with config_changed event"
 
 ### 步骤 7.1: 写失败测试
 
-- [ ] 创建 `src-tauri/src/commands/history.rs` 并写入测试与实现:
+- [x] 创建 `src-tauri/src/commands/history.rs` 并写入测试与实现:
 
 ```rust
 // src-tauri/src/commands/history.rs
@@ -1895,7 +1895,7 @@ mod tests {
 
 ### 步骤 7.2: 验证测试
 
-- [ ] 运行测试:
+- [x] 运行测试:
 
 ```bash
 cd src-tauri && cargo test --lib commands::history
@@ -1907,7 +1907,7 @@ cd src-tauri && cargo test --lib commands::history
 
 ### 步骤 7.3: 提交
 
-- [ ] 执行 git 提交:
+- [x] 执行 git 提交:
 
 ```bash
 git add src-tauri/src/commands/history.rs
@@ -1922,7 +1922,7 @@ git commit -m "feat(shell): add history IPC commands (list/clear)"
 
 ### 步骤 8.1: 写失败测试与实现
 
-- [ ] 创建 `src-tauri/src/commands/clipboard.rs` 并写入测试与实现:
+- [x] 创建 `src-tauri/src/commands/clipboard.rs` 并写入测试与实现:
 
 ```rust
 // src-tauri/src/commands/clipboard.rs
@@ -2010,7 +2010,7 @@ mod tests {
 
 ### 步骤 8.2: 验证测试
 
-- [ ] 运行测试(仅非 ignore 的):
+- [x] 运行测试(仅非 ignore 的):
 
 ```bash
 cd src-tauri && cargo test --lib commands::clipboard
@@ -2020,7 +2020,7 @@ cd src-tauri && cargo test --lib commands::clipboard
 
 ### 步骤 8.3: 提交
 
-- [ ] 执行 git 提交:
+- [x] 执行 git 提交:
 
 ```bash
 git add src-tauri/src/commands/clipboard.rs
@@ -2035,7 +2035,7 @@ git commit -m "feat(shell): add clipboard IPC commands via tauri-plugin-clipboar
 
 ### 步骤 9.1: 写失败测试与实现
 
-- [ ] 创建 `src-tauri/src/commands/fs.rs` 并写入测试与实现:
+- [x] 创建 `src-tauri/src/commands/fs.rs` 并写入测试与实现:
 
 ```rust
 // src-tauri/src/commands/fs.rs
@@ -2229,7 +2229,7 @@ mod tests {
 
 ### 步骤 9.2: 验证测试
 
-- [ ] 运行测试:
+- [x] 运行测试:
 
 ```bash
 cd src-tauri && cargo test --lib commands::fs
@@ -2239,7 +2239,7 @@ cd src-tauri && cargo test --lib commands::fs
 
 ### 步骤 9.3: 提交
 
-- [ ] 执行 git 提交:
+- [x] 执行 git 提交:
 
 ```bash
 git add src-tauri/src/commands/fs.rs
@@ -2254,7 +2254,7 @@ git commit -m "feat(shell): add fs IPC commands with AuthorizedPaths sandbox"
 
 ### 步骤 10.1: 写失败测试与实现
 
-- [ ] 创建 `src-tauri/src/commands/app.rs` 并写入测试与实现:
+- [x] 创建 `src-tauri/src/commands/app.rs` 并写入测试与实现:
 
 ```rust
 // src-tauri/src/commands/app.rs
@@ -2386,7 +2386,7 @@ mod tests {
 
 ### 步骤 10.2: 验证测试
 
-- [ ] 运行测试:
+- [x] 运行测试:
 
 ```bash
 cd src-tauri && cargo test --lib commands::app
@@ -2396,7 +2396,7 @@ cd src-tauri && cargo test --lib commands::app
 
 ### 步骤 10.3: 提交
 
-- [ ] 执行 git 提交:
+- [x] 执行 git 提交:
 
 ```bash
 git add src-tauri/src/commands/app.rs
@@ -2411,7 +2411,7 @@ git commit -m "feat(shell): add app IPC commands (open_external/version/quit) wi
 
 ### 步骤 11.1: 创建 capabilities 文件
 
-- [ ] 创建 `src-tauri/capabilities/default.json`:
+- [x] 创建 `src-tauri/capabilities/default.json`:
 
 ```json
 {
@@ -2432,7 +2432,7 @@ git commit -m "feat(shell): add app IPC commands (open_external/version/quit) wi
 }
 ```
 
-- [ ] 创建 `src-tauri/capabilities/tool.json`:
+- [x] 创建 `src-tauri/capabilities/tool.json`:
 
 ```json
 {
@@ -2446,7 +2446,7 @@ git commit -m "feat(shell): add app IPC commands (open_external/version/quit) wi
 
 > 注:Tauri V2 中自定义 `#[tauri::command]` 默认可被调用,capabilities 中无需额外声明。此文件作为文档保留,记录 tool 命令的权限意图。若后续需要限制自定义命令访问,可通过 Tauri 的命令权限系统扩展。
 
-- [ ] 创建 `src-tauri/capabilities/config.json`:
+- [x] 创建 `src-tauri/capabilities/config.json`:
 
 ```json
 {
@@ -2458,7 +2458,7 @@ git commit -m "feat(shell): add app IPC commands (open_external/version/quit) wi
 }
 ```
 
-- [ ] 创建 `src-tauri/capabilities/history.json`:
+- [x] 创建 `src-tauri/capabilities/history.json`:
 
 ```json
 {
@@ -2470,7 +2470,7 @@ git commit -m "feat(shell): add app IPC commands (open_external/version/quit) wi
 }
 ```
 
-- [ ] 创建 `src-tauri/capabilities/clipboard.json`:
+- [x] 创建 `src-tauri/capabilities/clipboard.json`:
 
 ```json
 {
@@ -2485,7 +2485,7 @@ git commit -m "feat(shell): add app IPC commands (open_external/version/quit) wi
 }
 ```
 
-- [ ] 创建 `src-tauri/capabilities/fs.json`:
+- [x] 创建 `src-tauri/capabilities/fs.json`:
 
 ```json
 {
@@ -2502,7 +2502,7 @@ git commit -m "feat(shell): add app IPC commands (open_external/version/quit) wi
 
 > 注:`fs_read_file` / `fs_write_file` 为自定义命令,通过 AuthorizedPaths 在应用层校验路径,不使用 Tauri 内置 fs 插件权限(保持沙箱严格性)。dialog 权限供文件选择对话框使用。
 
-- [ ] 创建 `src-tauri/capabilities/shell.json`:
+- [x] 创建 `src-tauri/capabilities/shell.json`:
 
 ```json
 {
@@ -2516,7 +2516,7 @@ git commit -m "feat(shell): add app IPC commands (open_external/version/quit) wi
 }
 ```
 
-- [ ] 创建 `src-tauri/capabilities/updater.json`:
+- [ ] 创建 `src-tauri/capabilities/updater.json`: <!-- 未完成: 文件不存在,仅创建 7 个 capability 文件(updater.json 缺失) -->
 
 ```json
 {
@@ -2532,7 +2532,7 @@ git commit -m "feat(shell): add app IPC commands (open_external/version/quit) wi
 
 ### 步骤 11.2: 验证 capabilities 配置
 
-- [ ] 运行 `pnpm tauri dev`(若前端尚未就绪,可仅 `cargo build` 验证 capabilities 解析):
+- [x] 运行 `pnpm tauri dev`(若前端尚未就绪,可仅 `cargo build` 验证 capabilities 解析):
 
 ```bash
 cd src-tauri && cargo build
@@ -2542,7 +2542,7 @@ cd src-tauri && cargo build
 
 ### 步骤 11.3: 提交
 
-- [ ] 执行 git 提交:
+- [x] 执行 git 提交:
 
 ```bash
 git add src-tauri/capabilities/
@@ -2557,7 +2557,7 @@ git commit -m "feat(shell): add capability files with minimum permissions"
 
 ### 步骤 12.1: 写 lib.rs
 
-- [ ] 编辑 `src-tauri/src/lib.rs`:
+- [x] 编辑 `src-tauri/src/lib.rs`:
 
 ```rust
 // src-tauri/src/lib.rs
@@ -2663,7 +2663,7 @@ pub fn run() -> anyhow::Result<()> {
 
 ### 步骤 12.2: 写 main.rs
 
-- [ ] 编辑 `src-tauri/src/main.rs`:
+- [x] 编辑 `src-tauri/src/main.rs`:
 
 ```rust
 // src-tauri/src/main.rs
@@ -2681,7 +2681,7 @@ fn main() {
 
 ### 步骤 12.3: 验证编译
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 cd src-tauri && cargo check
@@ -2691,7 +2691,7 @@ cd src-tauri && cargo check
 
 ### 步骤 12.4: 验证启动
 
-- [ ] 运行(若前端未就绪,WebView 会显示空白页,这是预期行为):
+- [x] 运行(若前端未就绪,WebView 会显示空白页,这是预期行为):
 
 ```bash
 pnpm tauri dev
@@ -2704,7 +2704,7 @@ pnpm tauri dev
 
 ### 步骤 12.5: 提交
 
-- [ ] 执行 git 提交:
+- [x] 执行 git 提交:
 
 ```bash
 git add src-tauri/src/lib.rs src-tauri/src/main.rs
@@ -2719,7 +2719,7 @@ git commit -m "feat(shell): wire up tauri app with all commands, plugins, and st
 
 ### 步骤 13.1: 写冒烟测试
 
-- [ ] 创建 `src-tauri/tests/smoke.rs`:
+- [ ] 创建 `src-tauri/tests/smoke.rs`: <!-- 未完成: 文件不存在,tests 目录仅有 p0_tools_integration.rs -->
 
 ```rust
 // src-tauri/tests/smoke.rs
@@ -2821,7 +2821,7 @@ async fn smoke_tool_not_found() {
 
 ### 步骤 13.2: 验证测试编译
 
-- [ ] 运行(仅编译,不运行 ignored 测试):
+- [ ] 运行(仅编译,不运行 ignored 测试): <!-- 未完成: smoke.rs 不存在,无法编译 -->
 
 ```bash
 cd src-tauri && cargo test --test smoke --no-run
@@ -2838,7 +2838,7 @@ cd src-tauri && cargo test --test smoke --no-run
 
 ### 步骤 13.3: 运行冒烟测试(手动)
 
-- [ ] 在带桌面环境的机器上运行:
+- [ ] 在带桌面环境的机器上运行: <!-- 未完成: smoke.rs 不存在 -->
 
 ```bash
 cd src-tauri && cargo test --test smoke -- --ignored
@@ -2848,7 +2848,7 @@ cd src-tauri && cargo test --test smoke -- --ignored
 
 ### 步骤 13.4: 提交
 
-- [ ] 执行 git 提交:
+- [ ] 执行 git 提交: <!-- 未完成: smoke.rs 不存在,无法提交 -->
 
 ```bash
 git add src-tauri/tests/smoke.rs
@@ -2863,17 +2863,17 @@ git commit -m "test(shell): add integration smoke tests for tool_list, app_versi
 
 ### 编译与测试
 
-- [ ] `cd src-tauri && cargo check` 无错误
-- [ ] `cd src-tauri && cargo clippy -- -D warnings` 无 warning
-- [ ] `cd src-tauri && cargo fmt --check` 格式正确
-- [ ] `cd src-tauri && cargo test` 所有非 ignore 测试通过
-- [ ] `cd src-tauri && cargo test -- --ignored` 冒烟测试通过(需桌面环境)
+- [x] `cd src-tauri && cargo check` 无错误
+- [x] `cd src-tauri && cargo clippy -- -D warnings` 无 warning
+- [x] `cd src-tauri && cargo fmt --check` 格式正确
+- [x] `cd src-tauri && cargo test` 所有非 ignore 测试通过
+- [ ] `cd src-tauri && cargo test -- --ignored` 冒烟测试通过(需桌面环境) <!-- 未完成: smoke.rs 不存在 -->
 
 ### 功能验证
 
-- [ ] `pnpm tauri dev` 启动应用,终端输出 `registered N tools`
-- [ ] WebView 显示空白页(无 React 内容,符合预期)
-- [ ] 无权限错误、无 panic、无 CSP 违规
+- [x] `pnpm tauri dev` 启动应用,终端输出 `registered N tools`
+- [x] WebView 显示空白页(无 React 内容,符合预期)
+- [x] 无权限错误、无 panic、无 CSP 违规
 
 ### IPC Command 覆盖
 
@@ -2915,11 +2915,11 @@ git commit -m "test(shell): add integration smoke tests for tool_list, app_versi
 
 ### 权限配置
 
-- [ ] `capabilities/` 下 8 个 JSON 文件已创建
-- [ ] 无 `**` 通配符
-- [ ] `clipboard-manager` 仅 `read-text`/`write-text`
-- [ ] `shell` 仅 `allow-open`(应用层校验 http/https)
-- [ ] `updater` 仅 `default`
+- [ ] `capabilities/` 下 8 个 JSON 文件已创建 <!-- 未完成: 仅创建 7 个,updater.json 缺失 -->
+- [x] 无 `**` 通配符
+- [x] `clipboard-manager` 仅 `read-text`/`write-text`
+- [x] `shell` 仅 `allow-open`(应用层校验 http/https)
+- [ ] `updater` 仅 `default` <!-- 未完成: updater.json 缺失 -->
 
 ---
 

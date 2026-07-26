@@ -38,7 +38,7 @@
 **Files:**
 - Modify: `src-tauri/Cargo.toml`
 
-- [ ] **Step 1: 查看当前 Cargo.toml**
+- [x] **Step 1: 查看当前 Cargo.toml**
 
 ```bash
 cat src-tauri/Cargo.toml
@@ -46,7 +46,7 @@ cat src-tauri/Cargo.toml
 
 确认 `[package]` 段中 `edition = "2024"`、`name = "qraft"`。若 edition 不是 2024,修改为 `edition = "2024"`。
 
-- [ ] **Step 2: 添加 Core 依赖**
+- [x] **Step 2: 添加 Core 依赖**
 
 在 `src-tauri/Cargo.toml` 的 `[dependencies]` 段追加以下依赖(保留 Tauri 已有依赖不动):
 
@@ -72,7 +72,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tempfile = "3.10"
 ```
 
-- [ ] **Step 3: 添加 panic 策略**
+- [x] **Step 3: 添加 panic 策略**
 
 在 `src-tauri/Cargo.toml` 末尾追加(catch_unwind 需要 unwind 策略,见 10-error-handling.md §6.3):
 
@@ -84,7 +84,7 @@ panic = "unwind"
 panic = "unwind"
 ```
 
-- [ ] **Step 4: 验证依赖解析**
+- [x] **Step 4: 验证依赖解析**
 
 ```bash
 cargo check -p qraft
@@ -92,7 +92,7 @@ cargo check -p qraft
 
 预期:`Finished` 无错误。若有版本冲突,调整版本号至兼容。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src-tauri/Cargo.toml src-tauri/Cargo.lock
@@ -108,7 +108,7 @@ git commit -m "build(core): add Core layer dependencies and panic=unwind profile
 - Create: `src-tauri/src/core/mod.rs`
 - Create: `src-tauri/src/core/error.rs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `src-tauri/src/core/error.rs`,只写入测试模块(实现尚未写,编译应失败):
 
@@ -206,7 +206,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 先创建临时 `src-tauri/src/lib.rs`:
 
@@ -228,7 +228,7 @@ cargo test -p qraft core::error -- --nocapture
 
 预期:编译失败,`cannot find type ToolError in this scope`
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 在 `src-tauri/src/core/error.rs` 测试模块之上插入实现代码:
 
@@ -336,7 +336,7 @@ impl AppError {
 }
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 ```bash
 cargo test -p qraft core::error -- --nocapture
@@ -344,7 +344,7 @@ cargo test -p qraft core::error -- --nocapture
 
 预期:`test result: ok. 12 passed`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src-tauri/src/lib.rs src-tauri/src/core/mod.rs src-tauri/src/core/error.rs
@@ -359,7 +359,7 @@ git commit -m "feat(core): add ToolError/EngineError/AppError with serde-tagged 
 - Create: `src-tauri/src/core/input.rs`
 - Modify: `src-tauri/src/core/mod.rs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `src-tauri/src/core/input.rs`,只写测试模块:
 
@@ -457,7 +457,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 更新 `src-tauri/src/core/mod.rs`:
 
@@ -474,7 +474,7 @@ cargo test -p qraft core::input -- --nocapture
 
 预期:编译失败,`cannot find type ToolInput in this scope`
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 在 `src-tauri/src/core/input.rs` 测试模块之上插入实现:
 
@@ -522,7 +522,7 @@ impl ToolInput {
 }
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 ```bash
 cargo test -p qraft core::input -- --nocapture
@@ -530,7 +530,7 @@ cargo test -p qraft core::input -- --nocapture
 
 预期:`test result: ok. 10 passed`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src-tauri/src/core/input.rs src-tauri/src/core/mod.rs
@@ -545,7 +545,7 @@ git commit -m "feat(core): add ToolInput with text/file_path/params accessors"
 - Create: `src-tauri/src/core/output.rs`
 - Modify: `src-tauri/src/core/mod.rs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `src-tauri/src/core/output.rs`,只写测试模块:
 
@@ -641,7 +641,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 更新 `src-tauri/src/core/mod.rs`:
 
@@ -659,7 +659,7 @@ cargo test -p qraft core::output -- --nocapture
 
 预期:编译失败,`cannot find type ToolOutput in this scope`
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 在 `src-tauri/src/core/output.rs` 测试模块之上插入实现:
 
@@ -704,7 +704,7 @@ pub enum AlertLevel {
 }
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 ```bash
 cargo test -p qraft core::output -- --nocapture
@@ -712,7 +712,7 @@ cargo test -p qraft core::output -- --nocapture
 
 预期:`test result: ok. 9 passed`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src-tauri/src/core/output.rs src-tauri/src/core/mod.rs
@@ -727,7 +727,7 @@ git commit -m "feat(core): add ToolOutput with OutputMeta and Alert types"
 - Create: `src-tauri/src/core/tool.rs`
 - Modify: `src-tauri/src/core/mod.rs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `src-tauri/src/core/tool.rs`,只写测试模块:
 
@@ -830,7 +830,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 更新 `src-tauri/src/core/mod.rs`:
 
@@ -849,7 +849,7 @@ cargo test -p qraft core::tool -- --nocapture
 
 预期:编译失败,`cannot find type ToolCategory in this scope`
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 在 `src-tauri/src/core/tool.rs` 测试模块之上插入实现:
 
@@ -945,7 +945,7 @@ pub mod output;
 pub mod tool;
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 ```bash
 cargo test -p qraft core::tool -- --nocapture
@@ -953,7 +953,7 @@ cargo test -p qraft core::tool -- --nocapture
 
 预期:`test result: ok. 12 passed`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src-tauri/src/core/tool.rs src-tauri/src/core/context.rs src-tauri/src/core/mod.rs
@@ -967,7 +967,7 @@ git commit -m "feat(core): add Tool/StreamingTool traits, ToolMetadata, StreamEv
 **Files:**
 - Modify: `src-tauri/src/core/context.rs`(替换 Task 4 的占位)
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 将 `src-tauri/src/core/context.rs` 内容替换为以下测试模块(覆盖占位实现):
 
@@ -1093,7 +1093,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 ```bash
 cargo test -p qraft core::context -- --nocapture
@@ -1101,7 +1101,7 @@ cargo test -p qraft core::context -- --nocapture
 
 预期:编译失败,`cannot find type ToolContext` 或字段不匹配(因为占位只有 `pub struct ToolContext;`)
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 在 `src-tauri/src/core/context.rs` 测试模块之上插入实现(替换占位):
 
@@ -1144,7 +1144,7 @@ pub struct HistoryEntry {
 }
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 ```bash
 cargo test -p qraft core::context -- --nocapture
@@ -1152,7 +1152,7 @@ cargo test -p qraft core::context -- --nocapture
 
 预期:`test result: ok. 7 passed`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src-tauri/src/core/context.rs
@@ -1167,7 +1167,7 @@ git commit -m "feat(core): add ToolContext, HistorySink trait, HistoryEntry"
 - Create: `src-tauri/src/core/registry.rs`
 - Modify: `src-tauri/src/core/mod.rs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `src-tauri/src/core/registry.rs`,只写测试模块:
 
@@ -1260,7 +1260,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 更新 `src-tauri/src/core/mod.rs`:
 
@@ -1281,7 +1281,7 @@ cargo test -p qraft core::registry -- --nocapture
 
 预期:编译失败,`cannot find type ToolRegistry` / `cannot find macro register_tool`
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 在 `src-tauri/src/core/registry.rs` 测试模块之上插入实现:
 
@@ -1367,7 +1367,7 @@ macro_rules! register_stream_tool {
 }
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 ```bash
 cargo test -p qraft core::registry -- --nocapture
@@ -1375,7 +1375,7 @@ cargo test -p qraft core::registry -- --nocapture
 
 预期:`test result: ok. 5 passed`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src-tauri/src/core/registry.rs src-tauri/src/core/mod.rs
@@ -1390,7 +1390,7 @@ git commit -m "feat(core): add ToolRegistry with inventory-based compile-time re
 - Create: `src-tauri/src/core/executor.rs`
 - Modify: `src-tauri/src/core/mod.rs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `src-tauri/src/core/executor.rs`,只写测试模块:
 
@@ -1570,7 +1570,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 更新 `src-tauri/src/core/mod.rs`:
 
@@ -1592,7 +1592,7 @@ cargo test -p qraft core::executor -- --nocapture
 
 预期:编译失败,`cannot find type ToolExecutor`
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 在 `src-tauri/src/core/executor.rs` 测试模块之上插入实现:
 
@@ -1680,7 +1680,7 @@ impl ToolExecutor {
 }
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 ```bash
 cargo test -p qraft core::executor -- --nocapture
@@ -1688,7 +1688,7 @@ cargo test -p qraft core::executor -- --nocapture
 
 预期:`test result: ok. 5 passed`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src-tauri/src/core/executor.rs src-tauri/src/core/mod.rs
@@ -1703,7 +1703,7 @@ git commit -m "feat(core): add ToolExecutor with timeout/cancel/panic isolation"
 - Create: `src-tauri/src/store/mod.rs`
 - Modify: `src-tauri/src/lib.rs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `src-tauri/src/store/mod.rs`,只写测试模块:
 
@@ -1761,7 +1761,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 更新 `src-tauri/src/lib.rs`:
 
@@ -1778,7 +1778,7 @@ cargo test -p qraft store::tests -- --nocapture
 
 预期:编译失败,`cannot find function project_dirs`
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 在 `src-tauri/src/store/mod.rs` 测试模块之上插入实现:
 
@@ -1813,7 +1813,7 @@ pub fn workspace_path() -> PathBuf {
 }
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 ```bash
 cargo test -p qraft store::tests -- --nocapture
@@ -1821,7 +1821,7 @@ cargo test -p qraft store::tests -- --nocapture
 
 预期:`test result: ok. 7 passed`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src-tauri/src/store/mod.rs src-tauri/src/lib.rs
@@ -1836,7 +1836,7 @@ git commit -m "feat(store): add ProjectDirs-based config/history/workspace path 
 - Create: `src-tauri/src/store/config.rs`
 - Modify: `src-tauri/src/store/mod.rs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `src-tauri/src/store/config.rs`,只写测试模块:
 
@@ -1941,7 +1941,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 更新 `src-tauri/src/store/mod.rs`:
 
@@ -1981,7 +1981,7 @@ cargo test -p qraft store::config -- --nocapture
 
 预期:编译失败,`cannot find type JsonConfigStore` / `cannot find type ConfigStore`
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 在 `src-tauri/src/store/config.rs` 测试模块之上插入实现:
 
@@ -2190,7 +2190,7 @@ impl ConfigStore for JsonConfigStore {
 }
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 ```bash
 cargo test -p qraft store::config -- --nocapture
@@ -2198,7 +2198,7 @@ cargo test -p qraft store::config -- --nocapture
 
 预期:`test result: ok. 7 passed`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src-tauri/src/store/config.rs src-tauri/src/store/mod.rs
@@ -2213,7 +2213,7 @@ git commit -m "feat(store): add ConfigStore trait and JsonConfigStore with atomi
 - Create: `src-tauri/src/store/history.rs`
 - Modify: `src-tauri/src/store/mod.rs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `src-tauri/src/store/history.rs`,只写测试模块:
 
@@ -2317,7 +2317,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 更新 `src-tauri/src/store/mod.rs`(在 `pub mod config;` 后加一行):
 
@@ -2334,7 +2334,7 @@ cargo test -p qraft store::history -- --nocapture
 
 预期:编译失败,`cannot find type JsonlHistoryStore` / `cannot find type HistoryStore`
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 在 `src-tauri/src/store/history.rs` 测试模块之上插入实现:
 
@@ -2434,7 +2434,7 @@ impl HistoryStore for JsonlHistoryStore {
 }
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 4: 运行测试验证通过**
 
 ```bash
 cargo test -p qraft store::history -- --nocapture
@@ -2442,7 +2442,7 @@ cargo test -p qraft store::history -- --nocapture
 
 预期:`test result: ok. 6 passed`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src-tauri/src/store/history.rs src-tauri/src/store/mod.rs
@@ -2457,7 +2457,7 @@ git commit -m "feat(store): add HistoryStore trait and JsonlHistoryStore with ap
 - Create: `src-tauri/src/tools/mod.rs`(空模块)
 - Modify: `src-tauri/src/lib.rs`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 更新 `src-tauri/src/lib.rs` 为以下内容(声明所有模块 + 重导出):
 
@@ -2532,7 +2532,7 @@ mod tests {
 // 工具实现模块(P0 工具将在 05-p0-tools.md 中填充)
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 ```bash
 cargo test -p qraft --lib -- --nocapture
@@ -2540,7 +2540,7 @@ cargo test -p qraft --lib -- --nocapture
 
 预期:可能有未解析的导入或编译错误,因为部分 `pub use` 路径需要确认
 
-- [ ] **Step 3: 修正 lib.rs 与 core/mod.rs**
+- [x] **Step 3: 修正 lib.rs 与 core/mod.rs**
 
 更新 `src-tauri/src/core/mod.rs` 添加重导出:
 
@@ -2626,7 +2626,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 4: 运行全部测试验证通过**
+- [x] **Step 4: 运行全部测试验证通过**
 
 ```bash
 cargo test -p qraft -- --nocapture
@@ -2643,7 +2643,7 @@ cargo fmt -p qraft --check
 
 预期:无 warning,格式一致(若 fmt 报错,运行 `cargo fmt -p qraft` 修正)
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src-tauri/src/lib.rs src-tauri/src/core/mod.rs src-tauri/src/tools/mod.rs

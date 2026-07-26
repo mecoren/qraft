@@ -71,7 +71,7 @@
 - Create: `src-tauri/src/`、`src-tauri/capabilities/`、`src-tauri/icons/`、`src-tauri/tests/fixtures/`、`src-tauri/benches/`、`src/components/ui/`、`src/tools/`、`src/store/`、`src/hooks/`、`src/lib/`、`src/types/`、`src/styles/`、`scripts/`、`docs/`、`.github/workflows/`
 - Create: 各空目录下的 `.gitkeep`
 
-- [ ] **Step 1: 创建目录树**
+- [x] **Step 1: 创建目录树**
 
 在项目根目录 `d:\DevTools\project\qraft` 下执行(PowerShell):
 
@@ -81,7 +81,7 @@ New-Item -ItemType Directory -Force -Path src-tauri/src/commands, src-tauri/src/
 
 预期输出:每个目录创建成功,无报错。`prd/` 已存在,不需要创建。
 
-- [ ] **Step 2: 创建 `.gitkeep` 占位文件**
+- [x] **Step 2: 创建 `.gitkeep` 占位文件**
 
 对以下空目录创建 `.gitkeep` 占位文件(本阶段不创建业务代码,这些目录将在后续子计划填充):
 
@@ -108,7 +108,7 @@ New-Item -ItemType Directory -Force -Path src-tauri/src/commands, src-tauri/src/
 
 预期输出:16 个 `.gitkeep` 文件创建成功。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add src-tauri/src/commands/.gitkeep src-tauri/src/core/.gitkeep src-tauri/src/store/.gitkeep src-tauri/src/tools/.gitkeep src-tauri/tests/fixtures/.gitkeep src-tauri/benches/.gitkeep src-tauri/icons/.gitkeep src/components/ui/.gitkeep src/tools/.gitkeep src/store/.gitkeep src/hooks/.gitkeep src/lib/.gitkeep src/types/.gitkeep scripts/.gitkeep docs/.gitkeep .github/workflows/.gitkeep
@@ -124,7 +124,7 @@ git commit -m "chore: initialize monorepo directory structure"
 - Create: `src-tauri/rustfmt.toml`
 - Create: `src-tauri/clippy.toml`
 
-- [ ] **Step 1: 创建 `src-tauri/rust-toolchain.toml`**
+- [x] **Step 1: 创建 `src-tauri/rust-toolchain.toml`**
 
 ```toml
 [toolchain]
@@ -135,7 +135,7 @@ profile = "minimal"
 
 说明:锁定 stable channel(自动满足 MSRV 1.85+),包含 rustfmt 与 clippy 组件。
 
-- [ ] **Step 2: 创建 `src-tauri/rustfmt.toml`**
+- [x] **Step 2: 创建 `src-tauri/rustfmt.toml`**
 
 ```toml
 edition = "2024"
@@ -147,7 +147,7 @@ use_try_shorthand = true
 
 说明:遵循 17-dev-workflow.md §3.2 的格式化规则。
 
-- [ ] **Step 3: 创建 `src-tauri/clippy.toml`**
+- [x] **Step 3: 创建 `src-tauri/clippy.toml`**
 
 ```toml
 msrv = "1.85"
@@ -155,7 +155,7 @@ msrv = "1.85"
 
 说明:告知 clippy 最低支持 Rust 版本为 1.85,启用 edition 2024 相关 lint。
 
-- [ ] **Step 4: 验证并提交**
+- [x] **Step 4: 验证并提交**
 
 ```bash
 cd src-tauri
@@ -182,7 +182,7 @@ git commit -m "chore(build): configure rust toolchain, rustfmt, and clippy"
 - Create: `.npmrc`
 - Create: `package.json`
 
-- [ ] **Step 1: 创建 `.nvmrc` 与 `.npmrc`**
+- [x] **Step 1: 创建 `.nvmrc` 与 `.npmrc`**
 
 `.nvmrc`:
 ```
@@ -196,7 +196,7 @@ engine-strict=true
 
 说明:Node 22 LTS(见 03-tech-stack.md §6.3),`engine-strict` 确保版本不匹配时报错。
 
-- [ ] **Step 2: 创建 `package.json`**
+- [x] **Step 2: 创建 `package.json`**
 
 ```json
 {
@@ -259,7 +259,7 @@ engine-strict=true
 - Tauri plugins(dialog/clipboard/shell/updater)按 03-tech-stack.md §3.3 添加
 - `scripts` 覆盖任务要求的全部命令(dev/build/tauri/test/lint/format/typecheck)
 
-- [ ] **Step 3: 验证依赖安装**
+- [x] **Step 3: 验证依赖安装**
 
 ```bash
 pnpm install
@@ -269,7 +269,7 @@ pnpm install
 - 安装成功,无 peer dependency 警告
 - 生成 `pnpm-lock.yaml` 与 `node_modules/`
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add .nvmrc .npmrc package.json pnpm-lock.yaml
@@ -285,7 +285,7 @@ git commit -m "chore(build): add package.json with pnpm and node config"
 - Create: `tsconfig.node.json`
 - Create: `vite.config.ts`
 
-- [ ] **Step 1: 创建 `tsconfig.json`**
+- [x] **Step 1: 创建 `tsconfig.json`**
 
 ```json
 {
@@ -321,7 +321,7 @@ git commit -m "chore(build): add package.json with pnpm and node config"
 
 说明:`strict: true` + `@/*` → `./src/*` 路径别名(03-tech-stack.md §3.5),`moduleResolution: bundler` 适配 Vite。
 
-- [ ] **Step 2: 创建 `tsconfig.node.json`**
+- [x] **Step 2: 创建 `tsconfig.node.json`**
 
 ```json
 {
@@ -337,7 +337,7 @@ git commit -m "chore(build): add package.json with pnpm and node config"
 }
 ```
 
-- [ ] **Step 3: 创建 `vite.config.ts`**
+- [x] **Step 3: 创建 `vite.config.ts`**
 
 ```typescript
 import { defineConfig } from 'vite';
@@ -369,7 +369,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 4: 验证并提交**
+- [x] **Step 4: 验证并提交**
 
 ```bash
 pnpm typecheck
@@ -391,7 +391,7 @@ git commit -m "chore(build): configure typescript and vite"
 - Create: `postcss.config.js`
 - Create: `src/styles/globals.css`
 
-- [ ] **Step 1: 创建 `tailwind.config.ts` 与 `postcss.config.js`**
+- [x] **Step 1: 创建 `tailwind.config.ts` 与 `postcss.config.js`**
 
 `tailwind.config.ts`:
 ```typescript
@@ -419,7 +419,7 @@ export default {
 
 说明:`darkMode: 'class'` 支持暗色主题切换(15-ui-design-system.md),content 覆盖 Vite 入口与 src 下所有 TS/TSX。
 
-- [ ] **Step 2: 创建 `src/styles/globals.css`**
+- [x] **Step 2: 创建 `src/styles/globals.css`**
 
 ```css
 @tailwind base;
@@ -429,7 +429,7 @@ export default {
 
 说明:Tailwind 三指令,后续子计划(04)会在此基础上添加 CSS 变量与设计 token。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add tailwind.config.ts postcss.config.js src/styles/globals.css
@@ -446,7 +446,7 @@ git commit -m "chore(build): configure tailwind css and postcss"
 - Create: `.prettierignore`
 - Create: `.editorconfig`
 
-- [ ] **Step 1: 创建 `eslint.config.js`**
+- [x] **Step 1: 创建 `eslint.config.js`**
 
 ```javascript
 import js from '@eslint/js';
@@ -485,7 +485,7 @@ export default tseslint.config(
 
 说明:遵循 17-dev-workflow.md §3.3 的 ESLint 规则,`no-explicit-any: error` 强制类型安全,`no-unused-vars` 忽略下划线前缀参数。
 
-- [ ] **Step 2: 创建 `.prettierrc` 与 `.prettierignore`**
+- [x] **Step 2: 创建 `.prettierrc` 与 `.prettierignore`**
 
 `.prettierrc`:
 ```json
@@ -512,7 +512,7 @@ prd
 
 说明:Prettier 规则遵循 17-dev-workflow.md §3.3,忽略产物目录与 PRD 文档。
 
-- [ ] **Step 3: 创建 `.editorconfig`**
+- [x] **Step 3: 创建 `.editorconfig`**
 
 ```ini
 root = true
@@ -537,7 +537,7 @@ indent_style = tab
 
 说明:Rust 文件缩进 4 空格(匹配 rustfmt),其余 2 空格;Markdown 保留尾部空格(换行语法)。
 
-- [ ] **Step 4: 验证并提交**
+- [x] **Step 4: 验证并提交**
 
 ```bash
 pnpm lint
@@ -559,7 +559,7 @@ git commit -m "chore(build): add eslint, prettier, and editorconfig"
 - Create: `.gitignore`
 - Create: `.gitattributes`
 
-- [ ] **Step 1: 创建 `.gitignore`**
+- [x] **Step 1: 创建 `.gitignore`**
 
 ```gitignore
 # Dependencies
@@ -603,7 +603,7 @@ coverage/
 
 说明:`Cargo.lock` 与 `pnpm-lock.yaml` 不忽略(03-tech-stack.md §6.1 要求双锁文件提交)。`src-tauri/gen/` 为自动生成的 schema,不提交。
 
-- [ ] **Step 2: 创建 `.gitattributes`**
+- [x] **Step 2: 创建 `.gitattributes`**
 
 ```gitattributes
 # Auto-detect text files
@@ -642,7 +642,7 @@ Cargo.lock text eol=lf
 
 说明:强制所有源文件使用 LF 换行(跨平台一致性),二进制文件不做换行转换。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add .gitignore .gitattributes
@@ -657,7 +657,7 @@ git commit -m "chore: add gitignore and gitattributes"
 - Create: `src-tauri/Cargo.toml`
 - Create: `src-tauri/build.rs`
 
-- [ ] **Step 1: 创建 `src-tauri/Cargo.toml`**
+- [x] **Step 1: 创建 `src-tauri/Cargo.toml`**
 
 ```toml
 [package]
@@ -715,7 +715,7 @@ panic = "unwind"
 - `rust-version = "1.85"` 锁定 MSRV
 - 注释标注 Core 依赖将由子计划 02 添加,且明确禁止网络 crate
 
-- [ ] **Step 2: 创建 `src-tauri/build.rs`**
+- [x] **Step 2: 创建 `src-tauri/build.rs`**
 
 ```rust
 fn main() {
@@ -725,7 +725,7 @@ fn main() {
 
 说明:Tauri 构建脚本,生成 `tauri::generate_context!()` 所需的上下文(读取 `tauri.conf.json` 与 capabilities)。
 
-- [ ] **Step 3: 验证依赖解析**
+- [x] **Step 3: 验证依赖解析**
 
 ```bash
 cd src-tauri
@@ -735,7 +735,7 @@ cd ..
 
 预期输出:`Finished` 无错误。首次运行会下载依赖,耗时较长(2-5 分钟)。若出现版本冲突,检查 Cargo.toml 版本号是否拼写正确。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/build.rs
@@ -750,7 +750,7 @@ git commit -m "build(shell): initialize tauri cargo manifest and build script"
 - Create: `src-tauri/tauri.conf.json`
 - Create: `src-tauri/capabilities/default.json`
 
-- [ ] **Step 1: 创建 `src-tauri/tauri.conf.json`**
+- [x] **Step 1: 创建 `src-tauri/tauri.conf.json`**
 
 ```json
 {
@@ -802,7 +802,7 @@ git commit -m "build(shell): initialize tauri cargo manifest and build script"
 - 窗口 label 为 `main`(capabilities 中引用)
 - 图标文件本阶段不创建,`tauri dev` / `cargo check` 不需要图标,仅 `tauri build` 需要(后续子计划 06 会通过 `pnpm tauri icon` 生成)
 
-- [ ] **Step 2: 创建 `src-tauri/capabilities/default.json`**
+- [x] **Step 2: 创建 `src-tauri/capabilities/default.json`**
 
 ```json
 {
@@ -831,7 +831,7 @@ git commit -m "build(shell): initialize tauri cargo manifest and build script"
 - 仅授权与 Cargo.toml 中已声明插件对应的权限
 - `fs:*` 权限本阶段不添加(未引入 `tauri-plugin-fs`),后续子计划按需添加
 
-- [ ] **Step 3: 验证 JSON 合法性**
+- [x] **Step 3: 验证 JSON 合法性**
 
 ```bash
 node -e "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json','utf8')); console.log('tauri.conf.json OK')"
@@ -844,7 +844,7 @@ tauri.conf.json OK
 capabilities OK
 ```
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add src-tauri/tauri.conf.json src-tauri/capabilities/default.json
@@ -859,7 +859,7 @@ git commit -m "build(shell): configure tauri.conf.json and capabilities"
 - Create: `src-tauri/src/main.rs`
 - Create: `src-tauri/src/lib.rs`
 
-- [ ] **Step 1: 创建 `src-tauri/src/main.rs`**
+- [x] **Step 1: 创建 `src-tauri/src/main.rs`**
 
 ```rust
 // 在 release 模式下隐藏 Windows 控制台窗口
@@ -872,7 +872,7 @@ fn main() {
 
 说明:最小入口,仅调用 `qraft_lib::run()`。`windows_subsystem = "windows"` 在 release 模式下隐藏控制台窗口。
 
-- [ ] **Step 2: 创建 `src-tauri/src/lib.rs`**
+- [x] **Step 2: 创建 `src-tauri/src/lib.rs`**
 
 ```rust
 // 后续子计划将在此处声明业务模块:
@@ -904,7 +904,7 @@ pub fn run() {
 - `#[allow(clippy::expect_used)]` 豁免入口处的 `expect`(应用启动失败时 panic 是正确行为)
 - `lib.rs` 顶部注释标注后续子计划将声明的模块
 
-- [ ] **Step 3: 验证编译**
+- [x] **Step 3: 验证编译**
 
 ```bash
 cd src-tauri
@@ -919,7 +919,7 @@ cd ..
 - `cargo clippy -- -D warnings`:无 warning
 - `cargo fmt --check`:无输出(格式正确)
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add src-tauri/src/main.rs src-tauri/src/lib.rs
@@ -936,7 +936,7 @@ git commit -m "feat(shell): add minimal tauri entry point"
 - Create: `src/vite-env.d.ts`
 - Create: `src/App.tsx`
 
-- [ ] **Step 1: 创建 `index.html`**
+- [x] **Step 1: 创建 `index.html`**
 
 ```html
 <!doctype html>
@@ -955,7 +955,7 @@ git commit -m "feat(shell): add minimal tauri entry point"
 
 说明:`class="dark"` 启用 Tailwind 暗色主题(darkMode: 'class'),后续子计划 04 会实现主题切换。
 
-- [ ] **Step 2: 创建 `src/main.tsx` 与 `src/vite-env.d.ts`**
+- [x] **Step 2: 创建 `src/main.tsx` 与 `src/vite-env.d.ts`**
 
 `src/main.tsx`:
 ```tsx
@@ -978,7 +978,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
 说明:`vite-env.d.ts` 提供 Vite 客户端类型(`import.meta.env` 等)。
 
-- [ ] **Step 3: 创建 `src/App.tsx`**
+- [x] **Step 3: 创建 `src/App.tsx`**
 
 ```tsx
 function App() {
@@ -994,7 +994,7 @@ export default App;
 
 说明:最小 Hello World 组件,使用 Tailwind 类名。`bg-background` / `text-foreground` 在后续子计划 04 的 globals.css 中定义 CSS 变量;本阶段若样式未生效,会回退到浏览器默认样式,不影响功能验证。
 
-- [ ] **Step 4: 验证并提交**
+- [x] **Step 4: 验证并提交**
 
 ```bash
 pnpm typecheck
@@ -1017,7 +1017,7 @@ git commit -m "feat(ui): add react entry point and html"
 **Files:**
 - Create: `.env.example`
 
-- [ ] **Step 1: 创建 `.env.example`**
+- [x] **Step 1: 创建 `.env.example`**
 
 ```env
 # Qraft 环境变量模板
@@ -1036,7 +1036,7 @@ VITE_LOG_LEVEL=info
 
 说明:Qraft 是零网络本地应用,环境变量极少。后续子计划按需添加(如自动更新端点)。
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add .env.example
@@ -1051,7 +1051,7 @@ git commit -m "chore: add environment variable template"
 - Create: `.github/workflows/ci.yml`
 - Create: `.github/PULL_REQUEST_TEMPLATE.md`
 
-- [ ] **Step 1: 创建 `.github/workflows/ci.yml`**
+- [x] **Step 1: 创建 `.github/workflows/ci.yml`**
 
 ```yaml
 name: CI
@@ -1217,7 +1217,7 @@ jobs:
 - 使用 `Swatinem/rust-cache@v2` 缓存 Rust 编译产物
 - Linux 需要 webkit2gtk-4.1 等系统依赖
 
-- [ ] **Step 2: 创建 `.github/PULL_REQUEST_TEMPLATE.md`**
+- [x] **Step 2: 创建 `.github/PULL_REQUEST_TEMPLATE.md`**
 
 ```markdown
 ## 变更说明
@@ -1253,7 +1253,7 @@ Closes #
 
 说明:遵循 17-dev-workflow.md §3.6 的 PR 模板。
 
-- [ ] **Step 3: 验证 YAML 语法并提交**
+- [x] **Step 3: 验证 YAML 语法并提交**
 
 ```bash
 node -e "const yaml=require('fs').readFileSync('.github/workflows/ci.yml','utf8'); console.log('ci.yml lines:', yaml.split('\n').length)"
@@ -1276,7 +1276,7 @@ git commit -m "ci: add github actions workflow and pr template"
 **Files:**
 - Create: `README.md`
 
-- [ ] **Step 1: 创建 `README.md`**
+- [x] **Step 1: 创建 `README.md`**
 
 ```markdown
 # Qraft
@@ -1355,7 +1355,7 @@ MIT
 
 说明:简短的项目说明,包含环境要求、快速开始、脚本清单、项目结构。遵循 17-dev-workflow.md §3.1 的目录概览。
 
-- [ ] **Step 2: 验证 Rust 编译**
+- [x] **Step 2: 验证 Rust 编译**
 
 ```bash
 cd src-tauri
@@ -1368,7 +1368,7 @@ cd ..
 - `cargo check`:`Finished` 无错误
 - `cargo clippy -- -D warnings`:无 warning
 
-- [ ] **Step 3: 验证前端启动**
+- [x] **Step 3: 验证前端启动**
 
 ```bash
 pnpm typecheck
@@ -1386,7 +1386,7 @@ pnpm dev
   ```
   在浏览器打开 `http://localhost:1420` 可看到 "Qraft" 标题。验证后按 `Ctrl+C` 停止。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add README.md
@@ -1399,20 +1399,20 @@ git commit -m "docs: add readme and verify bootstrap"
 
 执行完所有 Task 后,确认以下各项均已满足:
 
-- [ ] Monorepo 目录结构完整(17-dev-workflow.md §3.1)
-- [ ] Rust 工具链锁定(stable, MSRV 1.85, edition 2024)
-- [ ] Node 22 + pnpm 9 配置就绪
-- [ ] TypeScript strict 模式 + `@/*` 路径别名
-- [ ] Vite 5 + Tailwind 3.4 配置完成
-- [ ] Tauri V2 + 4 个 plugin 依赖就绪
-- [ ] CSP 为 `default-src 'self'`(零网络,13-security.md §3.1)
-- [ ] capabilities/default.json 最小权限配置(13-security.md §3.5)
-- [ ] ESLint + Prettier + EditorConfig 配置完成
-- [ ] .gitignore + .gitattributes 配置完成
-- [ ] GitHub Actions CI(lint + test + build + audit)就绪
-- [ ] package.json scripts 覆盖全部命令
-- [ ] `cargo check` 通过
-- [ ] `pnpm dev` 可启动并显示 "Qraft"
+- [x] Monorepo 目录结构完整(17-dev-workflow.md §3.1)
+- [x] Rust 工具链锁定(stable, MSRV 1.85, edition 2024)
+- [x] Node 22 + pnpm 9 配置就绪
+- [x] TypeScript strict 模式 + `@/*` 路径别名
+- [x] Vite 5 + Tailwind 3.4 配置完成
+- [x] Tauri V2 + 4 个 plugin 依赖就绪
+- [x] CSP 为 `default-src 'self'`(零网络,13-security.md §3.1)
+- [x] capabilities/default.json 最小权限配置(13-security.md §3.5)
+- [x] ESLint + Prettier + EditorConfig 配置完成
+- [x] .gitignore + .gitattributes 配置完成
+- [x] GitHub Actions CI(lint + test + build + audit)就绪
+- [x] package.json scripts 覆盖全部命令
+- [x] `cargo check` 通过
+- [x] `pnpm dev` 可启动并显示 "Qraft"
 
 ## 后续子计划衔接
 

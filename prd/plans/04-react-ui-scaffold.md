@@ -54,7 +54,7 @@
 
 ### Step 1: 添加生产依赖
 
-- [ ] 执行以下命令安装生产依赖:
+- [x] 执行以下命令安装生产依赖:
 
 ```bash
 pnpm add react@^19 react-dom@^19 react-router-dom@^7 zustand@^5 react-hook-form@^7 zod@^3 @tauri-apps/api@^2 @tauri-apps/plugin-dialog@^2 @tauri-apps/plugin-clipboard-manager@^2 @tauri-apps/plugin-shell@^2 lucide-react@^0.400 clsx tailwind-merge sonner@^1.5 cmdk@^1 @tanstack/react-virtual@^3 react-resizable-panels@^2 date-fns@^3
@@ -62,7 +62,7 @@ pnpm add react@^19 react-dom@^19 react-router-dom@^7 zustand@^5 react-hook-form@
 
 ### Step 2: 添加开发依赖
 
-- [ ] 执行以下命令安装开发依赖:
+- [x] 执行以下命令安装开发依赖:
 
 ```bash
 pnpm add -D vitest @testing-library/react @testing-library/jest-dom @testing-library/user-event jsdom @types/react @types/react-dom @vitejs/plugin-react
@@ -70,7 +70,7 @@ pnpm add -D vitest @testing-library/react @testing-library/jest-dom @testing-lib
 
 ### Step 3: 配置 Vitest
 
-- [ ] 创建 `vitest.config.ts`:
+- [x] 创建 `vitest.config.ts`:
 
 ```typescript
 import { defineConfig } from 'vitest/config';
@@ -93,7 +93,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] 创建 `src/test/setup.ts`:
+- [x] 创建 `src/test/setup.ts`:
 
 ```typescript
 import '@testing-library/jest-dom/vitest';
@@ -117,7 +117,7 @@ vi.mock('@tauri-apps/api/event', () => ({
 }));
 ```
 
-- [ ] 在 `package.json` 中补充脚本(若 01 未添加):
+- [x] 在 `package.json` 中补充脚本(若 01 未添加):
 
 ```json
 {
@@ -131,7 +131,7 @@ vi.mock('@tauri-apps/api/event', () => ({
 
 ### Step 4: 验证安装
 
-- [ ] 运行 `pnpm install` 应无错误:
+- [x] 运行 `pnpm install` 应无错误:
 
 ```bash
 pnpm install
@@ -139,7 +139,7 @@ pnpm install
 
 预期输出包含 `Lockfile up to date` 或 `Done`,无 `ERR_PNPM` 错误。
 
-- [ ] 运行 `pnpm typecheck` 应通过(此时无源码,仅验证 TS 配置):
+- [x] 运行 `pnpm typecheck` 应通过(此时无源码,仅验证 TS 配置):
 
 ```bash
 pnpm typecheck
@@ -147,7 +147,7 @@ pnpm typecheck
 
 ### Step 5: 提交
 
-- [ ] 提交本次变更:
+- [x] 提交本次变更:
 
 ```bash
 git add package.json pnpm-lock.yaml vitest.config.ts src/test/setup.ts
@@ -162,7 +162,7 @@ git commit -m "chore(ui): install React 19 + shadcn/ui deps and configure vitest
 
 ### Step 1: 写最小验证测试
 
-- [ ] 创建 `src/styles/globals.test.ts`:
+- [x] 创建 `src/styles/globals.test.ts`:
 
 ```typescript
 import { describe, it, expect } from 'vitest';
@@ -204,7 +204,7 @@ describe('globals.css design tokens', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/styles/globals.test.ts
@@ -214,7 +214,7 @@ pnpm test -- src/styles/globals.test.ts
 
 ### Step 3: 写实现
 
-- [ ] 修改 `tailwind.config.ts`(若 01 已创建基础版本,在其上扩展):
+- [x] 修改 `tailwind.config.ts`(若 01 已创建基础版本,在其上扩展):
 
 ```typescript
 import type { Config } from 'tailwindcss';
@@ -282,7 +282,7 @@ export default {
 } satisfies Config;
 ```
 
-- [ ] 创建 `src/styles/globals.css`(若已存在则覆盖,严格按 `15-ui-design-system.md` §3.2 token 表):
+- [x] 创建 `src/styles/globals.css`(若已存在则覆盖,严格按 `15-ui-design-system.md` §3.2 token 表):
 
 ```css
 @tailwind base;
@@ -403,7 +403,7 @@ export default {
 }
 ```
 
-- [ ] 修改 `index.html`,在 `<html>` 标签上加 `class="dark"`(MVP 仅暗色,见 `15-ui-design-system.md` §3.3):
+- [x] 修改 `index.html`,在 `<html>` 标签上加 `class="dark"`(MVP 仅暗色,见 `15-ui-design-system.md` §3.3):
 
 ```html
 <!doctype html>
@@ -422,7 +422,7 @@ export default {
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/styles/globals.test.ts
@@ -432,7 +432,7 @@ pnpm test -- src/styles/globals.test.ts
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add tailwind.config.ts src/styles/globals.css index.html
@@ -447,7 +447,7 @@ git commit -m "feat(ui): configure tailwind design tokens and dark theme per PRD
 
 ### Step 1: 写验证测试
 
-- [ ] 创建 `src/lib/utils.test.ts`:
+- [x] 创建 `src/lib/utils.test.ts`:
 
 ```typescript
 import { describe, it, expect } from 'vitest';
@@ -472,7 +472,7 @@ describe('cn utility', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/lib/utils.test.ts
@@ -482,7 +482,7 @@ pnpm test -- src/lib/utils.test.ts
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/lib/utils.ts`:
+- [x] 创建 `src/lib/utils.ts`:
 
 ```typescript
 import { clsx, type ClassValue } from 'clsx';
@@ -497,7 +497,7 @@ export function cn(...inputs: ClassValue[]): string {
 }
 ```
 
-- [ ] 创建 `components.json`(shadcn 配置文件,供 CLI 识别路径别名):
+- [x] 创建 `components.json`(shadcn 配置文件,供 CLI 识别路径别名):
 
 ```json
 {
@@ -522,7 +522,7 @@ export function cn(...inputs: ClassValue[]): string {
 }
 ```
 
-- [ ] 通过 shadcn CLI 安装基础组件:
+- [x] 通过 shadcn CLI 安装基础组件:
 
 ```bash
 pnpm dlx shadcn@latest add button input textarea label dialog dropdown-menu select switch tabs tooltip scroll-area separator card badge progress sonner command popover
@@ -532,7 +532,7 @@ pnpm dlx shadcn@latest add button input textarea label dialog dropdown-menu sele
 
 ### Step 4: 验证组件可渲染
 
-- [ ] 创建临时验证页面 `src/ScaffoldProbe.tsx`:
+- [x] 创建临时验证页面 `src/ScaffoldProbe.tsx`:
 
 ```tsx
 import { Button } from '@/components/ui/button';
@@ -548,7 +548,7 @@ export function ScaffoldProbe() {
 }
 ```
 
-- [ ] 创建 `src/ScaffoldProbe.test.tsx` 验证渲染:
+- [x] 创建 `src/ScaffoldProbe.test.tsx` 验证渲染:
 
 ```tsx
 import { describe, it, expect } from 'vitest';
@@ -576,7 +576,7 @@ describe('ScaffoldProbe', () => {
 });
 ```
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/lib/utils.test.ts src/ScaffoldProbe.test.ts
@@ -586,13 +586,13 @@ pnpm test -- src/lib/utils.test.ts src/ScaffoldProbe.test.ts
 
 ### Step 5: 提交
 
-- [ ] 删除临时探针文件:
+- [x] 删除临时探针文件:
 
 ```bash
 rm src/ScaffoldProbe.tsx src/ScaffoldProbe.test.tsx
 ```
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/lib/utils.ts src/lib/utils.test.ts components.json src/components/ui
@@ -607,7 +607,7 @@ git commit -m "feat(ui): add cn util and shadcn base components"
 
 ### Step 1: 写类型检查测试
 
-- [ ] 创建 `src/types/types.test.ts`:
+- [x] 创建 `src/types/types.test.ts`:
 
 ```typescript
 import { describe, it, expect, expectTypeOf } from 'vitest';
@@ -691,7 +691,7 @@ describe('ipc types', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/types/types.test.ts
@@ -701,7 +701,7 @@ pnpm test -- src/types/types.test.ts
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/types/tool.ts`(镜像 `08-data-model.md` §3.1 与 `05-rust-core-engine.md` 的 ToolMetadata):
+- [x] 创建 `src/types/tool.ts`(镜像 `08-data-model.md` §3.1 与 `05-rust-core-engine.md` 的 ToolMetadata):
 
 ```typescript
 /** 工具分类,与 Rust 侧 ToolCategory enum 对齐 */
@@ -782,7 +782,7 @@ export interface ToolContext {
 }
 ```
 
-- [ ] 创建 `src/types/config.ts`(镜像 `08-data-model.md` §3.2):
+- [x] 创建 `src/types/config.ts`(镜像 `08-data-model.md` §3.2):
 
 ```typescript
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -865,7 +865,7 @@ export const DEFAULT_USER_CONFIG: UserConfig = {
 };
 ```
 
-- [ ] 创建 `src/types/history.ts`(镜像 `08-data-model.md` §3.3):
+- [x] 创建 `src/types/history.ts`(镜像 `08-data-model.md` §3.3):
 
 ```typescript
 export interface InputSummary {
@@ -893,7 +893,7 @@ export interface HistoryEntry {
 }
 ```
 
-- [ ] 创建 `src/types/ipc.ts`(镜像 `09-interface-design.md` §3.2):
+- [x] 创建 `src/types/ipc.ts`(镜像 `09-interface-design.md` §3.2):
 
 ```typescript
 /** 错误信息,镜像 Rust CommandError */
@@ -946,7 +946,7 @@ export interface ToolFailedPayload {
 }
 ```
 
-- [ ] 创建 `src/types/index.ts` 统一 re-export:
+- [x] 创建 `src/types/index.ts` 统一 re-export:
 
 ```typescript
 export * from './tool';
@@ -957,7 +957,7 @@ export * from './ipc';
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/types/types.test.ts
@@ -968,7 +968,7 @@ pnpm typecheck
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/types
@@ -983,7 +983,7 @@ git commit -m "feat(ui): add TS types mirroring Rust data model and IPC contract
 
 ### Step 1: 写失败测试
 
-- [ ] 创建 `src/lib/ipc.test.ts`:
+- [x] 创建 `src/lib/ipc.test.ts`:
 
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -1082,7 +1082,7 @@ describe('listen', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/lib/ipc.test.ts
@@ -1092,7 +1092,7 @@ pnpm test -- src/lib/ipc.test.ts
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/lib/ipc.ts`:
+- [x] 创建 `src/lib/ipc.ts`:
 
 ```typescript
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
@@ -1176,7 +1176,7 @@ export async function listen<T>(
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/lib/ipc.test.ts
@@ -1186,7 +1186,7 @@ pnpm test -- src/lib/ipc.test.ts
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/lib/ipc.ts src/lib/ipc.test.ts
@@ -1201,7 +1201,7 @@ git commit -m "feat(ui): add safeInvoke and unwrapResponse for CommandResponse"
 
 ### Step 1: 写失败测试
 
-- [ ] 创建 `src/store/configStore.test.ts`:
+- [x] 创建 `src/store/configStore.test.ts`:
 
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -1300,7 +1300,7 @@ describe('configStore.applyConfigChanged', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/store/configStore.test.ts
@@ -1310,7 +1310,7 @@ pnpm test -- src/store/configStore.test.ts
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/store/configStore.ts`:
+- [x] 创建 `src/store/configStore.ts`:
 
 ```typescript
 import { create } from 'zustand';
@@ -1407,7 +1407,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/store/configStore.test.ts
@@ -1417,7 +1417,7 @@ pnpm test -- src/store/configStore.test.ts
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/store/configStore.ts src/store/configStore.test.ts
@@ -1432,7 +1432,7 @@ git commit -m "feat(ui): add configStore with optimistic update and config_chang
 
 ### Step 1: 写失败测试
 
-- [ ] 创建 `src/store/historyStore.test.ts`:
+- [x] 创建 `src/store/historyStore.test.ts`:
 
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -1521,7 +1521,7 @@ describe('historyStore.applyHistoryAdded', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/store/historyStore.test.ts
@@ -1531,7 +1531,7 @@ pnpm test -- src/store/historyStore.test.ts
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/store/historyStore.ts`:
+- [x] 创建 `src/store/historyStore.ts`:
 
 ```typescript
 import { create } from 'zustand';
@@ -1586,7 +1586,7 @@ export const useHistoryStore = create<HistoryState>((set) => ({
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/store/historyStore.test.ts
@@ -1596,7 +1596,7 @@ pnpm test -- src/store/historyStore.test.ts
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/store/historyStore.ts src/store/historyStore.test.ts
@@ -1611,7 +1611,7 @@ git commit -m "feat(ui): add historyStore with load/clear and history_added subs
 
 ### Step 1: 写失败测试
 
-- [ ] 创建 `src/store/toolStateStore.test.ts`:
+- [x] 创建 `src/store/toolStateStore.test.ts`:
 
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -1765,7 +1765,7 @@ describe('streaming task lifecycle', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/store/toolStateStore.test.ts
@@ -1775,7 +1775,7 @@ pnpm test -- src/store/toolStateStore.test.ts
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/store/toolStateStore.ts`:
+- [x] 创建 `src/store/toolStateStore.ts`:
 
 ```typescript
 import { create } from 'zustand';
@@ -1949,7 +1949,7 @@ export const useToolStateStore = create<ToolState>((set, get) => ({
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/store/toolStateStore.test.ts
@@ -1959,7 +1959,7 @@ pnpm test -- src/store/toolStateStore.test.ts
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/store/toolStateStore.ts src/store/toolStateStore.test.ts
@@ -1974,7 +1974,7 @@ git commit -m "feat(ui): add toolStateStore with execute/stream and event reduce
 
 ### Step 1: 写失败测试
 
-- [ ] 创建 `src/hooks/useTool.test.tsx`:
+- [x] 创建 `src/hooks/useTool.test.tsx`:
 
 ```tsx
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -2060,7 +2060,7 @@ describe('useTool', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/hooks/useTool.test.tsx
@@ -2070,7 +2070,7 @@ pnpm test -- src/hooks/useTool.test.tsx
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/hooks/useTool.ts`:
+- [x] 创建 `src/hooks/useTool.ts`:
 
 ```typescript
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -2174,7 +2174,7 @@ export function useTool(toolId: string): UseToolResult {
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/hooks/useTool.test.tsx
@@ -2184,7 +2184,7 @@ pnpm test -- src/hooks/useTool.test.tsx
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/hooks/useTool.ts src/hooks/useTool.test.tsx
@@ -2199,7 +2199,7 @@ git commit -m "feat(ui): add useTool hook with execute/stream and unmount cleanu
 
 ### Step 1: 写失败测试
 
-- [ ] 创建 `src/hooks/useClipboard.test.ts`:
+- [x] 创建 `src/hooks/useClipboard.test.ts`:
 
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -2260,7 +2260,7 @@ describe('useClipboard', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/hooks/useClipboard.test.ts
@@ -2270,7 +2270,7 @@ pnpm test -- src/hooks/useClipboard.test.ts
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/hooks/useClipboard.ts`:
+- [x] 创建 `src/hooks/useClipboard.ts`:
 
 ```typescript
 import { useCallback, useState } from 'react';
@@ -2306,7 +2306,7 @@ export function useClipboard(): UseClipboardResult {
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/hooks/useClipboard.test.ts
@@ -2316,7 +2316,7 @@ pnpm test -- src/hooks/useClipboard.test.ts
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/hooks/useClipboard.ts src/hooks/useClipboard.test.ts
@@ -2331,7 +2331,7 @@ git commit -m "feat(ui): add useClipboard hook wrapping clipboard_read/write_tex
 
 ### Step 1: 写失败测试
 
-- [ ] 创建 `src/components/ErrorBoundary.test.tsx`:
+- [x] 创建 `src/components/ErrorBoundary.test.tsx`:
 
 ```tsx
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -2414,7 +2414,7 @@ describe('ErrorBoundary', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/components/ErrorBoundary.test.tsx
@@ -2424,7 +2424,7 @@ pnpm test -- src/components/ErrorBoundary.test.tsx
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/components/ErrorBoundary.tsx`:
+- [x] 创建 `src/components/ErrorBoundary.tsx`:
 
 ```tsx
 import { Component, type ErrorInfo, type ReactNode } from 'react';
@@ -2509,7 +2509,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/components/ErrorBoundary.test.tsx
@@ -2519,7 +2519,7 @@ pnpm test -- src/components/ErrorBoundary.test.tsx
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/components/ErrorBoundary.tsx src/components/ErrorBoundary.test.tsx
@@ -2534,7 +2534,7 @@ git commit -m "feat(ui): add ErrorBoundary with toast and copy-error button"
 
 ### Step 1: 写失败测试
 
-- [ ] 创建 `src/components/SideNav.test.tsx`:
+- [x] 创建 `src/components/SideNav.test.tsx`:
 
 ```tsx
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -2622,7 +2622,7 @@ describe('SideNav', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/components/SideNav.test.tsx
@@ -2632,7 +2632,7 @@ pnpm test -- src/components/SideNav.test.tsx
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/components/SideNav.tsx`:
+- [x] 创建 `src/components/SideNav.tsx`:
 
 ```tsx
 import { useMemo, useRef, type KeyboardEvent } from 'react';
@@ -2759,7 +2759,7 @@ export function SideNav(): JSX.Element {
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/components/SideNav.test.tsx
@@ -2769,7 +2769,7 @@ pnpm test -- src/components/SideNav.test.tsx
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/components/SideNav.tsx src/components/SideNav.test.tsx
@@ -2784,7 +2784,7 @@ git commit -m "feat(ui): add SideNav grouped by category with keyboard navigatio
 
 ### Step 1: 写失败测试
 
-- [ ] 创建 `src/components/CommandPalette.test.tsx`:
+- [x] 创建 `src/components/CommandPalette.test.tsx`:
 
 ```tsx
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -2859,7 +2859,7 @@ describe('CommandPalette', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/components/CommandPalette.test.tsx
@@ -2869,7 +2869,7 @@ pnpm test -- src/components/CommandPalette.test.tsx
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/components/CommandPalette.tsx`:
+- [x] 创建 `src/components/CommandPalette.tsx`:
 
 ```tsx
 import { useEffect } from 'react';
@@ -2995,7 +2995,7 @@ export function CommandPalette({
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/components/CommandPalette.test.tsx
@@ -3005,7 +3005,7 @@ pnpm test -- src/components/CommandPalette.test.tsx
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/components/CommandPalette.tsx src/components/CommandPalette.test.tsx
@@ -3020,7 +3020,7 @@ git commit -m "feat(ui): add CommandPalette with tool search and quick actions"
 
 ### Step 1: 写失败测试
 
-- [ ] 创建 `src/components/ToolPanel.test.tsx`:
+- [x] 创建 `src/components/ToolPanel.test.tsx`:
 
 ```tsx
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -3120,7 +3120,7 @@ describe('ToolPanel', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/components/ToolPanel.test.tsx
@@ -3130,7 +3130,7 @@ pnpm test -- src/components/ToolPanel.test.tsx
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/components/ToolPanel.tsx`:
+- [x] 创建 `src/components/ToolPanel.tsx`:
 
 ```tsx
 import { type ReactNode, useCallback } from 'react';
@@ -3265,7 +3265,7 @@ export function ToolPanel({
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/components/ToolPanel.test.tsx
@@ -3275,7 +3275,7 @@ pnpm test -- src/components/ToolPanel.test.tsx
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/components/ToolPanel.tsx src/components/ToolPanel.test.tsx
@@ -3290,7 +3290,7 @@ git commit -m "feat(ui): add ToolPanel with resizable split and alerts footer"
 
 ### Step 1: 写失败测试
 
-- [ ] 创建 `src/components/HistoryPanel.test.tsx`:
+- [x] 创建 `src/components/HistoryPanel.test.tsx`:
 
 ```tsx
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -3351,7 +3351,7 @@ describe('HistoryPanel', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/components/HistoryPanel.test.tsx
@@ -3361,7 +3361,7 @@ pnpm test -- src/components/HistoryPanel.test.tsx
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/components/HistoryPanel.tsx`:
+- [x] 创建 `src/components/HistoryPanel.tsx`:
 
 ```tsx
 import { useRef } from 'react';
@@ -3456,7 +3456,7 @@ export function HistoryPanel({ onSelect }: HistoryPanelProps): JSX.Element {
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/components/HistoryPanel.test.tsx
@@ -3466,7 +3466,7 @@ pnpm test -- src/components/HistoryPanel.test.tsx
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/components/HistoryPanel.tsx src/components/HistoryPanel.test.tsx
@@ -3481,7 +3481,7 @@ git commit -m "feat(ui): add HistoryPanel with virtual list and clear action"
 
 ### Step 1: 写失败测试
 
-- [ ] 创建 `src/components/SettingsPanel.test.tsx`:
+- [x] 创建 `src/components/SettingsPanel.test.tsx`:
 
 ```tsx
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -3544,7 +3544,7 @@ describe('SettingsPanel', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/components/SettingsPanel.test.tsx
@@ -3554,7 +3554,7 @@ pnpm test -- src/components/SettingsPanel.test.tsx
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/components/SettingsPanel.tsx`:
+- [x] 创建 `src/components/SettingsPanel.tsx`:
 
 ```tsx
 import { useForm } from 'react-hook-form';
@@ -3759,7 +3759,7 @@ export function SettingsPanel(): JSX.Element {
 
 > 注:`@hookform/resolvers` 需安装。补充:
 
-- [ ] 安装 resolver 包:
+- [x] 安装 resolver 包:
 
 ```bash
 pnpm add @hookform/resolvers
@@ -3767,7 +3767,7 @@ pnpm add @hookform/resolvers
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/components/SettingsPanel.test.tsx
@@ -3777,7 +3777,7 @@ pnpm test -- src/components/SettingsPanel.test.tsx
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/components/SettingsPanel.tsx src/components/SettingsPanel.test.tsx package.json pnpm-lock.yaml
@@ -3792,7 +3792,7 @@ git commit -m "feat(ui): add SettingsPanel with react-hook-form + zod validation
 
 ### Step 1: 写失败测试
 
-- [ ] 创建 `src/App.test.tsx`:
+- [x] 创建 `src/App.test.tsx`:
 
 ```tsx
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -3881,7 +3881,7 @@ describe('App', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/App.test.tsx
@@ -3891,7 +3891,7 @@ pnpm test -- src/App.test.tsx
 
 ### Step 3: 写实现
 
-- [ ] 创建 `src/App.tsx`:
+- [x] 创建 `src/App.tsx`:
 
 ```tsx
 import { useEffect, useState, useCallback } from 'react';
@@ -4049,7 +4049,7 @@ export function App(): JSX.Element {
 
 ### Step 4: 运行测试验证通过
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/App.test.tsx
@@ -4059,7 +4059,7 @@ pnpm test -- src/App.test.tsx
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/App.tsx src/App.test.tsx
@@ -4074,7 +4074,7 @@ git commit -m "feat(ui): add App root with three-pane layout and global event su
 
 ### Step 1: 创建入口文件
 
-- [ ] 创建 `src/main.tsx`:
+- [x] 创建 `src/main.tsx`:
 
 ```tsx
 import { createRoot } from 'react-dom/client';
@@ -4091,7 +4091,7 @@ createRoot(rootEl).render(<App />);
 
 ### Step 2: 验证 typecheck
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm typecheck
@@ -4101,7 +4101,7 @@ pnpm typecheck
 
 ### Step 3: 验证 dev server 可启动
 
-- [ ] 运行(在前台观察 5 秒后 Ctrl+C 退出):
+- [x] 运行(在前台观察 5 秒后 Ctrl+C 退出):
 
 ```bash
 pnpm dev
@@ -4111,7 +4111,7 @@ pnpm dev
 
 ### Step 4: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/main.tsx
@@ -4126,7 +4126,7 @@ git commit -m "feat(ui): add main.tsx React entry point"
 
 ### Step 1: 写失败测试
 
-- [ ] 创建 `src/integration.smoke.test.tsx`:
+- [x] 创建 `src/integration.smoke.test.tsx`:
 
 ```tsx
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -4293,7 +4293,7 @@ describe('smoke: Ctrl+K 打开 CommandPalette', () => {
 
 ### Step 2: 运行测试验证失败
 
-- [ ] 运行:
+- [x] 运行:
 
 ```bash
 pnpm test -- src/integration.smoke.test.tsx
@@ -4303,13 +4303,13 @@ pnpm test -- src/integration.smoke.test.tsx
 
 ### Step 3: 修复(若失败)
 
-- [ ] 若 CommandPalette 关闭逻辑或搜索过滤未通过,回到 `src/components/CommandPalette.tsx` 检查:
+- [x] 若 CommandPalette 关闭逻辑或搜索过滤未通过,回到 `src/components/CommandPalette.tsx` 检查:
   - Dialog 的 `onOpenChange` 是否正确传递
   - Command 的 `shouldFilter` 是否为 `true`(默认即 true)
 
 ### Step 4: 运行全部测试
 
-- [ ] 运行全部前端测试:
+- [x] 运行全部前端测试:
 
 ```bash
 pnpm test
@@ -4319,7 +4319,7 @@ pnpm test
 
 ### Step 5: 提交
 
-- [ ] 提交:
+- [x] 提交:
 
 ```bash
 git add src/integration.smoke.test.tsx

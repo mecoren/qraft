@@ -81,7 +81,6 @@ pub fn run() -> anyhow::Result<()> {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let registry = crate::core::registry::ToolRegistry::global();
             tracing::info!("registered {} tools", registry.list().len());
