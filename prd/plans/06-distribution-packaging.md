@@ -1405,7 +1405,7 @@ pnpm tauri dev
 
 ### 步骤 9.7: 提交
 
-- [ ] 提交 TDD 实现: <!-- 未完成: 无 TDD 实现可提交 -->
+- [x] 提交 TDD 实现: <!-- 已完成: 分 2 次提交 1) build(build): wire tauri updater config, signing pubkey, and tri-platform CI (Task 3-7 + Task 2 图标) 2) feat(shell): add app_check_update and app_install_update commands with ui entry (Task 9) -->
 
 ```bash
 git add src-tauri/src/commands/app.rs src-tauri/src/commands/mod.rs src-tauri/src/lib.rs src/components/SettingsPanel.tsx
