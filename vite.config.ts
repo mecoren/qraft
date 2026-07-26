@@ -17,6 +17,10 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
+    watch: {
+      // 避免 Vite 监听 Rust 编译产物(target 目录中的 dll 在链接时会被锁定,导致 EBUSY 崩溃)
+      ignored: ['**/target/**', '**/src-tauri/**'],
+    },
   },
   envPrefix: ['VITE_', 'TAURI_ENV_'],
   build: {
