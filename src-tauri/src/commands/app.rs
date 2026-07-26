@@ -4,33 +4,46 @@
 
 use tauri_plugin_shell::ShellExt;
 
-use crate::shell::response::CommandResponse;
 use crate::shell::AppError;
+use crate::shell::response::CommandResponse;
 
 // ============ URL 校验 ============
 
 /// 校验 URL scheme 是否允许打开
 ///
 /// 仅允许 `http://` 和 `https://`,防止 `file://`、`javascript://` 等危险 scheme。
+///
+/// # Errors
+///
+/// - 当 URL scheme 不是 `http://` 或 `https://` 时返回 `AppError::Forbidden`
 pub fn validate_url_scheme(url: &str) -> Result<(), AppError> {
     let lower = url.to_lowercase();
     if lower.starts_with("https://") || lower.starts_with("http://") {
         Ok(())
     } else {
         Err(AppError::Forbidden(format!(
-            "url scheme not allowed, only http/https: {}",
-            url
+            "url scheme not allowed, only http/https: {url}"
         )))
     }
 }
 
 // ============ 内部函数(可测试) ============
 
+/// 通过系统默认浏览器打开 URL(仅 http/https)
+///
+/// # Errors
+///
+/// - URL scheme 非法(非 http/https)时返回 `AppError::Forbidden`
+/// - `tauri-plugin-shell` 调用失败时返回 `AppError::Internal`
 pub fn app_open_external_inner(
     url: &str,
     app_handle: &tauri::AppHandle,
 ) -> Result<CommandResponse<()>, AppError> {
     validate_url_scheme(url)?;
+    // TODO(P2): tauri-plugin-shell 的 `Shell::open` 已废弃,官方建议迁移到
+    // tauri-plugin-opener。当前保留以避免引入新依赖破坏 PRD 03-tech-stack.md
+    // 锁定的依赖清单,后续在 P2 阶段统一切换。
+    #[allow(deprecated)]
     app_handle
         .shell()
         .open(url, None)
@@ -38,11 +51,22 @@ pub fn app_open_external_inner(
     Ok(CommandResponse::ok(()))
 }
 
+/// 返回应用版本号(取自 `CARGO_PKG_VERSION`)
+///
+/// # Errors
+///
+/// 当前实现恒返回 `Ok`;保留 `Result` 以保持与其它 inner 函数一致的签名,
+/// 便于未来扩展(例如从配置文件读取版本)
 pub fn app_version_inner() -> Result<CommandResponse<String>, AppError> {
     let version = env!("CARGO_PKG_VERSION").to_string();
     Ok(CommandResponse::ok(version))
 }
 
+/// 退出应用
+///
+/// # Errors
+///
+/// 当前实现恒返回 `Ok`;保留 `Result` 以保持签名一致性
 pub fn app_quit_inner(app_handle: &tauri::AppHandle) -> Result<CommandResponse<()>, AppError> {
     app_handle.exit(0);
     Ok(CommandResponse::ok(()))
@@ -50,6 +74,12 @@ pub fn app_quit_inner(app_handle: &tauri::AppHandle) -> Result<CommandResponse<(
 
 // ============ Tauri Command 包装 ============
 
+/// 通过系统默认浏览器打开 URL(仅 http/https)
+///
+/// # Errors
+///
+/// - URL scheme 非法(非 http/https)时返回 `AppError::Forbidden`
+/// - `tauri-plugin-shell` 调用失败时返回 `AppError::Internal`
 #[tauri::command]
 pub async fn app_open_external(
     url: String,
@@ -58,11 +88,21 @@ pub async fn app_open_external(
     app_open_external_inner(&url, &app_handle)
 }
 
+/// 返回应用版本号
+///
+/// # Errors
+///
+/// 当前实现恒返回 `Ok`(参见 `app_version_inner` 说明)
 #[tauri::command]
 pub async fn app_version() -> Result<CommandResponse<String>, AppError> {
     app_version_inner()
 }
 
+/// 退出应用
+///
+/// # Errors
+///
+/// 当前实现恒返回 `Ok`(参见 `app_quit_inner` 说明)
 #[tauri::command]
 pub async fn app_quit(app_handle: tauri::AppHandle) -> Result<CommandResponse<()>, AppError> {
     app_quit_inner(&app_handle)

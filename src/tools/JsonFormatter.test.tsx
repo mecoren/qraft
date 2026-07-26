@@ -59,7 +59,7 @@ describe('JsonFormatter', () => {
   it('displays error message when invoke fails with ParseFailed', async () => {
     const { invokeCommand, CommandError } = await import('@/lib/ipc');
     (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new CommandError('ERR_PARSE_FAILED', 'unexpected token at position 1')
+      new CommandError('ERR_PARSE_FAILED', 'unexpected token at position 1'),
     );
 
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);

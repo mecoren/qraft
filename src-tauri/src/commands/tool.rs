@@ -15,22 +15,29 @@ use crate::core::error::ToolError;
 use crate::core::input::ToolInput;
 use crate::core::output::ToolOutput;
 use crate::core::tool::{StreamEvent, ToolMetadata};
+use crate::shell::AppError;
 use crate::shell::response::CommandResponse;
 use crate::shell::state::AppState;
-use crate::shell::AppError;
 
 // ============ 内部函数(可测试) ============
 
 /// 列出所有已注册工具的元数据
-pub async fn tool_list_inner(
-    state: &AppState,
-) -> Result<CommandResponse<Vec<ToolMetadata>>, AppError> {
+///
+/// # Errors
+///
+/// 当前实现恒返回 `Ok`;保留 `Result` 以保持签名一致性,便于未来扩展
+/// (例如过滤/权限校验)
+pub fn tool_list_inner(state: &AppState) -> Result<CommandResponse<Vec<ToolMetadata>>, AppError> {
     let tools = state.executor.list_tools();
     Ok(CommandResponse::ok(tools))
 }
 
 /// 查询单个工具的元数据
-pub async fn tool_metadata_inner(
+///
+/// # Errors
+///
+/// - 当 `tool_id` 未在注册表中找到时返回 `AppError::Tool`(`ERR_TOOL_NOT_FOUND`)
+pub fn tool_metadata_inner(
     tool_id: &str,
     state: &AppState,
 ) -> Result<CommandResponse<ToolMetadata>, AppError> {
@@ -42,6 +49,11 @@ pub async fn tool_metadata_inner(
 }
 
 /// 同步执行工具
+///
+/// # Errors
+///
+/// - 当 `tool_id` 未找到时返回 `AppError::Tool`(`ERR_TOOL_NOT_FOUND`)
+/// - 工具执行失败时返回对应的 `AppError::Tool`(`ERR_TOOL_*`)
 pub async fn tool_execute_inner(
     tool_id: &str,
     input: ToolInput,
@@ -60,14 +72,18 @@ pub async fn tool_execute_inner(
     Ok(CommandResponse::ok(output))
 }
 
-/// 启动流式工具执行,返回 task_id,后台通过事件推送结果
+/// 启动流式工具执行,返回 `task_id,后台通过事件推送结果`
 ///
 /// 事件映射:
-/// - `StreamEvent::Progress` → "tool_progress"
-/// - `StreamEvent::Chunk` → "tool_chunk"
-/// - `StreamEvent::Done` → "tool_completed"
-/// - `StreamEvent::Error` → "tool_failed"
-pub async fn tool_execute_stream_inner(
+/// - `StreamEvent::Progress` → "`tool_progress`"
+/// - `StreamEvent::Chunk` → "`tool_chunk`"
+/// - `StreamEvent::Done` → "`tool_completed`"
+/// - `StreamEvent::Error` → "`tool_failed`"
+///
+/// # Errors
+///
+/// - 当 `tool_id` 不支持流式执行时返回 `AppError::Tool`(`ERR_TOOL_NOT_FOUND`)
+pub fn tool_execute_stream_inner(
     tool_id: &str,
     file_path: &str,
     state: &AppState,
@@ -81,10 +97,9 @@ pub async fn tool_execute_stream_inner(
         ..Default::default()
     };
 
-    let history_sink =
-        Arc::new(state.history_sink()) as Arc<dyn crate::core::context::HistorySink>;
+    let history_sink = Arc::new(state.history_sink()) as Arc<dyn crate::core::context::HistorySink>;
     let ctx = ToolContext {
-        cancel_token: cancel_token.clone(),
+        cancel_token,
         config: serde_json::Value::Null,
         history_sink,
     };
@@ -161,15 +176,16 @@ pub async fn tool_execute_stream_inner(
 }
 
 /// 取消流式任务
-pub async fn tool_cancel_inner(
-    task_id: &str,
-    state: &AppState,
-) -> Result<CommandResponse<()>, AppError> {
+///
+/// # Errors
+///
+/// - 当 `task_id` 不存在或任务已完成时返回 `AppError::Permission`
+///   (`ERR_PERMISSION_DENIED`)
+pub fn tool_cancel_inner(task_id: &str, state: &AppState) -> Result<CommandResponse<()>, AppError> {
     let cancelled = state.streaming_tasks.cancel(task_id);
     if !cancelled {
         return Err(AppError::Permission(format!(
-            "task not found or already completed: {}",
-            task_id
+            "task not found or already completed: {task_id}"
         )));
     }
     Ok(CommandResponse::ok(()))
@@ -177,21 +193,37 @@ pub async fn tool_cancel_inner(
 
 // ============ Tauri Command 包装 ============
 
+/// 列出所有已注册工具的元数据
+///
+/// # Errors
+///
+/// 当前实现恒返回 `Ok`(参见 `tool_list_inner` 说明)
 #[tauri::command]
 pub async fn tool_list(
     state: tauri::State<'_, AppState>,
 ) -> Result<CommandResponse<Vec<ToolMetadata>>, AppError> {
-    tool_list_inner(&state).await
+    tool_list_inner(&state)
 }
 
+/// 查询单个工具的元数据
+///
+/// # Errors
+///
+/// - 当 `tool_id` 未在注册表中找到时返回 `AppError::Tool`(`ERR_TOOL_NOT_FOUND`)
 #[tauri::command]
 pub async fn tool_metadata(
     tool_id: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<CommandResponse<ToolMetadata>, AppError> {
-    tool_metadata_inner(&tool_id, &state).await
+    tool_metadata_inner(&tool_id, &state)
 }
 
+/// 同步执行工具
+///
+/// # Errors
+///
+/// - 当 `tool_id` 未找到时返回 `AppError::Tool`(`ERR_TOOL_NOT_FOUND`)
+/// - 工具执行失败时返回对应的 `AppError::Tool`(`ERR_TOOL_*`)
 #[tauri::command]
 pub async fn tool_execute(
     tool_id: String,
@@ -201,6 +233,11 @@ pub async fn tool_execute(
     tool_execute_inner(&tool_id, input, &state).await
 }
 
+/// 启动流式工具执行,返回 `task_id`
+///
+/// # Errors
+///
+/// - 当 `tool_id` 不支持流式执行时返回 `AppError::Tool`(`ERR_TOOL_NOT_FOUND`)
 #[tauri::command]
 pub async fn tool_execute_stream(
     tool_id: String,
@@ -208,15 +245,21 @@ pub async fn tool_execute_stream(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<CommandResponse<String>, AppError> {
-    tool_execute_stream_inner(&tool_id, &file_path, &state, &app_handle).await
+    tool_execute_stream_inner(&tool_id, &file_path, &state, &app_handle)
 }
 
+/// 取消流式任务
+///
+/// # Errors
+///
+/// - 当 `task_id` 不存在或任务已完成时返回 `AppError::Permission`
+///   (`ERR_PERMISSION_DENIED`)
 #[tauri::command]
 pub async fn tool_cancel(
     task_id: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<CommandResponse<()>, AppError> {
-    tool_cancel_inner(&task_id, &state).await
+    tool_cancel_inner(&task_id, &state)
 }
 
 #[cfg(test)]
@@ -253,7 +296,10 @@ mod tests {
         async fn add(&self, _entry: crate::core::context::HistoryEntry) -> Result<(), ToolError> {
             Ok(())
         }
-        async fn list(&self, _limit: usize) -> Result<Vec<crate::core::context::HistoryEntry>, ToolError> {
+        async fn list(
+            &self,
+            _limit: usize,
+        ) -> Result<Vec<crate::core::context::HistoryEntry>, ToolError> {
             Ok(vec![])
         }
         async fn clear(&self) -> Result<(), ToolError> {
@@ -274,7 +320,7 @@ mod tests {
     #[tokio::test]
     async fn test_tool_list_returns_response() {
         let state = make_state();
-        let resp = tool_list_inner(&state).await.unwrap();
+        let resp = tool_list_inner(&state).unwrap();
         assert!(resp.success);
         assert_eq!(resp.code, "OK");
         let _tools = resp.data.unwrap();
@@ -283,7 +329,7 @@ mod tests {
     #[tokio::test]
     async fn test_tool_metadata_not_found() {
         let state = make_state();
-        let result = tool_metadata_inner("nonexistent_tool", &state).await;
+        let result = tool_metadata_inner("nonexistent_tool", &state);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.code(), "ERR_TOOL_NOT_FOUND");
@@ -305,7 +351,7 @@ mod tests {
     #[tokio::test]
     async fn test_tool_cancel_nonexistent_task() {
         let state = make_state();
-        let result = tool_cancel_inner("nonexistent-task-id", &state).await;
+        let result = tool_cancel_inner("nonexistent-task-id", &state);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code(), "ERR_PERMISSION_DENIED");
     }
@@ -316,7 +362,7 @@ mod tests {
         let task_id = "test-task-001";
         let _token = state.streaming_tasks.register(task_id);
 
-        let resp = tool_cancel_inner(task_id, &state).await.unwrap();
+        let resp = tool_cancel_inner(task_id, &state).unwrap();
         assert!(resp.success);
         assert_eq!(resp.code, "OK");
     }

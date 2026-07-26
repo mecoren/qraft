@@ -3,9 +3,7 @@ import { listen as tauriListen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { CommandResponse, ErrorInfo } from '@/types/ipc';
 
 /** Result 类型,用 ok 字段区分成功/失败以避免 throw */
-export type Result<T, E> =
-  | { ok: true; value: T }
-  | { ok: false; error: E };
+export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
 
 /** 应用错误,继承 Error 便于在需要时 throw;字段与 ErrorInfo 一致 */
 export class AppError extends Error implements ErrorInfo {
@@ -44,9 +42,7 @@ const INTERNAL_ERROR: ErrorInfo = {
  * 解包 CommandResponse,失败返回 ErrorInfo。
  * 当 success=true 但 data 缺失时视为 ERR_INTERNAL。
  */
-export function unwrapResponse<T>(
-  resp: CommandResponse<T>
-): Result<T, ErrorInfo> {
+export function unwrapResponse<T>(resp: CommandResponse<T>): Result<T, ErrorInfo> {
   if (resp.success && resp.data !== undefined) {
     return { ok: true, value: resp.data };
   }
@@ -54,10 +50,7 @@ export function unwrapResponse<T>(
 }
 
 /** 原始 invoke 透传,不做解包,供特殊场景使用 */
-export async function invoke<T>(
-  cmd: string,
-  args?: Record<string, unknown>
-): Promise<T> {
+export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   return tauriInvoke<T>(cmd, args);
 }
 
@@ -67,7 +60,7 @@ export async function invoke<T>(
  */
 export async function safeInvoke<T>(
   cmd: string,
-  args?: Record<string, unknown>
+  args?: Record<string, unknown>,
 ): Promise<Result<T, ErrorInfo>> {
   try {
     const resp = await tauriInvoke<CommandResponse<T>>(cmd, args);
@@ -84,10 +77,7 @@ export async function safeInvoke<T>(
 }
 
 /** listen 透传,统一类型签名 */
-export async function listen<T>(
-  event: string,
-  handler: (payload: T) => void
-): Promise<UnlistenFn> {
+export async function listen<T>(event: string, handler: (payload: T) => void): Promise<UnlistenFn> {
   return tauriListen<T>(event, (e) => handler(e.payload));
 }
 
@@ -97,10 +87,7 @@ export async function listen<T>(
  * 工具组件使用此函数配合 try/catch + instanceof CommandError 进行错误处理。
  * 成功时返回 data,失败时 throw CommandError(code, message)。
  */
-export async function invokeCommand<T>(
-  cmd: string,
-  args?: Record<string, unknown>
-): Promise<T> {
+export async function invokeCommand<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const result = await safeInvoke<T>(cmd, args);
   if (!result.ok) {
     throw new CommandError(result.error.code, result.error.message, result.error.details);

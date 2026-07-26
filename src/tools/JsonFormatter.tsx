@@ -78,11 +78,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
             </Select>
           </div>
           <div className="flex items-center gap-2">
-            <Switch
-              id="sort-keys"
-              checked={sortKeys}
-              onCheckedChange={setSortKeys}
-            />
+            <Switch id="sort-keys" checked={sortKeys} onCheckedChange={setSortKeys} />
             <Label htmlFor="sort-keys" className="text-xs">
               Sort keys
             </Label>

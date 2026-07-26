@@ -1,4 +1,4 @@
-//! P0 工具集成测试:验证 10 个工具均已被 inventory 收录到 ToolRegistry。
+//! P0 工具集成测试:验证 10 个工具均已被 inventory 收录到 `ToolRegistry`。
 //! 这是对子计划 05 整体交付的回归测试,任何工具被误删或未声明 mod 都会被发现。
 
 use qraft_lib::core::registry::ToolRegistry;
@@ -24,8 +24,7 @@ fn test_all_p0_tools_registered() {
     for tool_id in P0_TOOL_IDS {
         assert!(
             registered_ids.contains(tool_id),
-            "missing P0 tool registration: {}",
-            tool_id
+            "missing P0 tool registration: {tool_id}"
         );
     }
 }
@@ -34,7 +33,7 @@ fn test_all_p0_tools_registered() {
 fn test_p0_tool_ids_unique() {
     let registry = ToolRegistry::global();
     let mut ids: Vec<&str> = registry.list().iter().map(|m| m.id).collect();
-    ids.sort();
+    ids.sort_unstable();
     let original = ids.len();
     ids.dedup();
     assert_eq!(ids.len(), original, "duplicate tool ids detected");

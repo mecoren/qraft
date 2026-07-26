@@ -65,10 +65,7 @@ export function SideNav(): JSX.Element {
   let flatIndex = -1;
 
   return (
-    <nav
-      aria-label="工具导航"
-      className="h-full w-56 border-r border-border bg-card"
-    >
+    <nav aria-label="工具导航" className="h-full w-56 border-r border-border bg-card">
       <ScrollArea className="h-full">
         <ul className="flex flex-col gap-4 p-2">
           {CATEGORY_ORDER.map((cat) => {
@@ -101,7 +98,8 @@ export function SideNav(): JSX.Element {
                             'w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors',
                             'hover:bg-accent hover:text-accent-foreground',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                            active && 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground'
+                            active &&
+                              'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
                           )}
                         >
                           {t.name}

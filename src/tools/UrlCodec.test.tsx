@@ -34,7 +34,9 @@ describe('UrlCodec', () => {
 
   it('calls tool_execute with action=encode, component=false by default', async () => {
     const { invokeCommand } = await import('@/lib/ipc');
-    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ text: 'hello%20world' });
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: 'hello%20world',
+    });
 
     render(<UrlCodec toolId="url_codec" metadata={null as never} />);
     fireEvent.change(screen.getByPlaceholderText(/enter text/i), {
@@ -53,7 +55,7 @@ describe('UrlCodec', () => {
   it('shows error alert when invoke fails with ParseFailed', async () => {
     const { invokeCommand, CommandError } = await import('@/lib/ipc');
     (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new CommandError('ERR_PARSE_FAILED', 'invalid percent encoding')
+      new CommandError('ERR_PARSE_FAILED', 'invalid percent encoding'),
     );
 
     render(<UrlCodec toolId="url_codec" metadata={null as never} />);

@@ -55,7 +55,7 @@ describe('JsonMinifier', () => {
   it('shows error alert on ParseFailed', async () => {
     const { invokeCommand, CommandError } = await import('@/lib/ipc');
     (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new CommandError('ERR_PARSE_FAILED', 'trailing characters')
+      new CommandError('ERR_PARSE_FAILED', 'trailing characters'),
     );
 
     render(<JsonMinifier toolId="json_minifier" metadata={null as never} />);

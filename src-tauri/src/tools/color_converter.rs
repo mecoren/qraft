@@ -13,7 +13,8 @@ const MAX_INPUT_BYTES: usize = 256; // 颜色字符串很短
 pub struct ColorConverter;
 
 impl ColorConverter {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self
     }
 }
@@ -42,14 +43,19 @@ impl Rgb {
         format!("rgb({}, {}, {})", self.r, self.g, self.b)
     }
 
-    /// 转 HSL。标准算法,参考 https://en.wikipedia.org/wiki/HSL_and_HSV#From_RGB
+    /// 转 HSL。标准算法,参考 <https://en.wikipedia.org/wiki/HSL_and_HSV#From_RGB>
+    ///
+    /// r/g/b/max/min/l/d/s/h 是 HSL 算法的标准数学变量名(见上述 Wikipedia 公式),
+    /// 重命名会降低与文献对照的可读性;`max == r/g` 等比较的两边均由
+    /// `f64::from(u8) / 255.0` 计算得到,值离散且 bit 表示一致,等价比较安全。
+    #[allow(clippy::many_single_char_names, clippy::float_cmp)]
     fn to_hsl(self) -> (f64, f64, f64) {
-        let r = self.r as f64 / 255.0;
-        let g = self.g as f64 / 255.0;
-        let b = self.b as f64 / 255.0;
+        let r = f64::from(self.r) / 255.0;
+        let g = f64::from(self.g) / 255.0;
+        let b = f64::from(self.b) / 255.0;
         let max = r.max(g).max(b);
         let min = r.min(g).min(b);
-        let l = (max + min) / 2.0;
+        let l = f64::midpoint(max, min);
         if (max - min).abs() < f64::EPSILON {
             // 灰度,色相与饱和度无意义
             return (0.0, 0.0, l * 100.0);
@@ -74,7 +80,7 @@ impl Rgb {
 
     fn to_hsl_string(self) -> String {
         let (h, s, l) = self.to_hsl();
-        format!("hsl({:.0}, {:.0}%, {:.0}%)", h, s, l)
+        format!("hsl({h:.0}, {s:.0}%, {l:.0}%)")
     }
 }
 
@@ -83,34 +89,32 @@ fn parse_hex(s: &str) -> Result<Rgb, ToolError> {
     let s = s.trim().trim_start_matches('#').to_lowercase();
     if !s.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err(ToolError::ParseFailed(format!(
-            "invalid hex characters in '{}'",
-            s
+            "invalid hex characters in '{s}'"
         )));
     }
     let (r, g, b) = match s.len() {
         3 => {
             // 简写 #abc → #aabbcc
             let r = u8::from_str_radix(&s[0..1].repeat(2), 16)
-                .map_err(|e| ToolError::ParseFailed(format!("hex r: {}", e)))?;
+                .map_err(|e| ToolError::ParseFailed(format!("hex r: {e}")))?;
             let g = u8::from_str_radix(&s[1..2].repeat(2), 16)
-                .map_err(|e| ToolError::ParseFailed(format!("hex g: {}", e)))?;
+                .map_err(|e| ToolError::ParseFailed(format!("hex g: {e}")))?;
             let b = u8::from_str_radix(&s[2..3].repeat(2), 16)
-                .map_err(|e| ToolError::ParseFailed(format!("hex b: {}", e)))?;
+                .map_err(|e| ToolError::ParseFailed(format!("hex b: {e}")))?;
             (r, g, b)
         }
         6 => {
             let r = u8::from_str_radix(&s[0..2], 16)
-                .map_err(|e| ToolError::ParseFailed(format!("hex r: {}", e)))?;
+                .map_err(|e| ToolError::ParseFailed(format!("hex r: {e}")))?;
             let g = u8::from_str_radix(&s[2..4], 16)
-                .map_err(|e| ToolError::ParseFailed(format!("hex g: {}", e)))?;
+                .map_err(|e| ToolError::ParseFailed(format!("hex g: {e}")))?;
             let b = u8::from_str_radix(&s[4..6], 16)
-                .map_err(|e| ToolError::ParseFailed(format!("hex b: {}", e)))?;
+                .map_err(|e| ToolError::ParseFailed(format!("hex b: {e}")))?;
             (r, g, b)
         }
         n => {
             return Err(ToolError::ParseFailed(format!(
-                "hex string must be 3 or 6 digits, got {}",
-                n
+                "hex string must be 3 or 6 digits, got {n}"
             )));
         }
     };
@@ -123,22 +127,23 @@ fn parse_rgb(s: &str) -> Result<Rgb, ToolError> {
     let inner = trimmed
         .strip_prefix("rgb(")
         .and_then(|t| t.strip_suffix(')'))
-        .ok_or_else(|| ToolError::ParseFailed(format!("expected 'rgb(r, g, b)', got '{}'", s)))?;
-    let parts: Vec<&str> = inner.split(',').map(|p| p.trim()).collect();
+        .ok_or_else(|| ToolError::ParseFailed(format!("expected 'rgb(r, g, b)', got '{s}'")))?;
+    let parts: Vec<&str> = inner.split(',').map(str::trim).collect();
     if parts.len() != 3 {
         return Err(ToolError::ParseFailed(format!(
             "rgb() must have 3 components, got {}",
             parts.len()
         )));
     }
+    // n 已校验在 0..=255 内,截断与符号损失均不会发生,加 allow 避免噪音
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let parse_comp = |p: &str| -> Result<u8, ToolError> {
         let n: i32 = p
             .parse()
-            .map_err(|e| ToolError::ParseFailed(format!("rgb component '{}': {}", p, e)))?;
+            .map_err(|e| ToolError::ParseFailed(format!("rgb component '{p}': {e}")))?;
         if !(0..=255).contains(&n) {
             return Err(ToolError::ParseFailed(format!(
-                "rgb component must be 0-255, got {}",
-                n
+                "rgb component must be 0-255, got {n}"
             )));
         }
         Ok(n as u8)
@@ -156,8 +161,8 @@ fn parse_hsl(s: &str) -> Result<Rgb, ToolError> {
     let inner = trimmed
         .strip_prefix("hsl(")
         .and_then(|t| t.strip_suffix(')'))
-        .ok_or_else(|| ToolError::ParseFailed(format!("expected 'hsl(h, s%, l%)', got '{}'", s)))?;
-    let parts: Vec<&str> = inner.split(',').map(|p| p.trim()).collect();
+        .ok_or_else(|| ToolError::ParseFailed(format!("expected 'hsl(h, s%, l%)', got '{s}'")))?;
+    let parts: Vec<&str> = inner.split(',').map(str::trim).collect();
     if parts.len() != 3 {
         return Err(ToolError::ParseFailed(format!(
             "hsl() must have 3 components, got {}",
@@ -166,31 +171,38 @@ fn parse_hsl(s: &str) -> Result<Rgb, ToolError> {
     }
     let h: f64 = parts[0]
         .parse()
-        .map_err(|e| ToolError::ParseFailed(format!("hsl hue: {}", e)))?;
+        .map_err(|e| ToolError::ParseFailed(format!("hsl hue: {e}")))?;
     let s_pct: f64 = parts[1]
         .trim_end_matches('%')
         .parse()
-        .map_err(|e| ToolError::ParseFailed(format!("hsl saturation: {}", e)))?;
+        .map_err(|e| ToolError::ParseFailed(format!("hsl saturation: {e}")))?;
     let l_pct: f64 = parts[2]
         .trim_end_matches('%')
         .parse()
-        .map_err(|e| ToolError::ParseFailed(format!("hsl lightness: {}", e)))?;
+        .map_err(|e| ToolError::ParseFailed(format!("hsl lightness: {e}")))?;
     if !(0.0..=360.0).contains(&h) {
         return Err(ToolError::ParseFailed(format!(
-            "hue must be 0-360, got {}",
-            h
+            "hue must be 0-360, got {h}"
         )));
     }
     if !(0.0..=100.0).contains(&s_pct) || !(0.0..=100.0).contains(&l_pct) {
         return Err(ToolError::ParseFailed(format!(
-            "saturation/lightness must be 0-100, got {} / {}",
-            s_pct, l_pct
+            "saturation/lightness must be 0-100, got {s_pct} / {l_pct}"
         )));
     }
     Ok(hsl_to_rgb(h, s_pct / 100.0, l_pct / 100.0))
 }
 
 /// HSL → RGB,标准算法。
+///
+/// h/s/l/q/p/r/g/b 是 HSL→RGB 算法的标准数学变量名,重命名会降低可读性;
+/// `(x * 255.0).round() as u8` 中 `round` 后值必在 0.0..=255.0,截断与符号
+/// 损失均不会发生。
+#[allow(
+    clippy::many_single_char_names,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
 fn hsl_to_rgb(h: f64, s: f64, l: f64) -> Rgb {
     if s == 0.0 {
         let v = (l * 255.0).round() as u8;
@@ -199,15 +211,25 @@ fn hsl_to_rgb(h: f64, s: f64, l: f64) -> Rgb {
     let q = if l < 0.5 {
         l * (1.0 + s)
     } else {
-        l + s - l * s
+        l.mul_add(-s, l + s)
     };
-    let p = 2.0 * l - q;
+    let p = 2.0f64.mul_add(l, -q);
     let hue_to_rgb = |p: f64, q: f64, mut t: f64| -> f64 {
-        if t < 0.0 { t += 1.0; }
-        if t > 1.0 { t -= 1.0; }
-        if t < 1.0 / 6.0 { return p + (q - p) * 6.0 * t; }
-        if t < 0.5 { return q; }
-        if t < 2.0 / 3.0 { return p + (q - p) * (2.0 / 3.0 - t) * 6.0; }
+        if t < 0.0 {
+            t += 1.0;
+        }
+        if t > 1.0 {
+            t -= 1.0;
+        }
+        if t < 1.0 / 6.0 {
+            return ((q - p) * 6.0).mul_add(t, p);
+        }
+        if t < 0.5 {
+            return q;
+        }
+        if t < 2.0 / 3.0 {
+            return ((q - p) * (2.0 / 3.0 - t)).mul_add(6.0, p);
+        }
         p
     };
     let h_norm = h / 360.0;
@@ -227,8 +249,7 @@ fn parse_color(text: &str, from_format: &str) -> Result<Rgb, ToolError> {
         "rgb" => parse_rgb(text),
         "hsl" => parse_hsl(text),
         other => Err(ToolError::InvalidInput(format!(
-            "from_format must be 'hex', 'rgb' or 'hsl', got '{}'",
-            other
+            "from_format must be 'hex', 'rgb' or 'hsl', got '{other}'"
         ))),
     }
 }
@@ -248,8 +269,9 @@ impl Tool for ColorConverter {
                 max: MAX_INPUT_BYTES,
             });
         }
-        let from_format: String =
-            input.param("from_format").unwrap_or_else(|_| "hex".to_string());
+        let from_format: String = input
+            .param("from_format")
+            .unwrap_or_else(|_| "hex".to_string());
 
         let start = Instant::now();
         let rgb = parse_color(text, &from_format)?;
@@ -257,7 +279,7 @@ impl Tool for ColorConverter {
         let rgb_str = rgb.to_rgb_string();
         let hsl_str = rgb.to_hsl_string();
 
-        let out_text = format!("HEX: {}\nRGB: {}\nHSL: {}", hex, rgb_str, hsl_str);
+        let out_text = format!("HEX: {hex}\nRGB: {rgb_str}\nHSL: {hsl_str}");
 
         let mut extra = serde_json::Map::new();
         extra.insert("hex".into(), serde_json::Value::String(hex));
@@ -269,6 +291,8 @@ impl Tool for ColorConverter {
             text: out_text,
             extra: Some(serde_json::Value::Object(extra)),
             meta: Some(OutputMeta {
+                // u128 → u64:工具执行耗时远小于 u64 上限(~5.8 亿年),截断不可能发生
+                #[allow(clippy::cast_possible_truncation)]
                 duration_ms: start.elapsed().as_millis() as u64,
                 input_bytes,
                 output_bytes,

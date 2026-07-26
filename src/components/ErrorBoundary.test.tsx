@@ -28,7 +28,7 @@ describe('ErrorBoundary', () => {
     render(
       <ErrorBoundary>
         <Boom should={false} />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     expect(screen.getByTestId('ok')).toBeInTheDocument();
   });
@@ -39,7 +39,7 @@ describe('ErrorBoundary', () => {
     render(
       <ErrorBoundary>
         <Boom should={true} />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     expect(screen.getByRole('alert')).toBeInTheDocument();
     expect(screen.getByText(/boom!/i)).toBeInTheDocument();
@@ -51,7 +51,7 @@ describe('ErrorBoundary', () => {
     render(
       <ErrorBoundary>
         <Boom should={true} />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     expect(toastSpy).toHaveBeenCalled();
     spy.mockRestore();
@@ -70,7 +70,7 @@ describe('ErrorBoundary', () => {
     render(
       <ErrorBoundary>
         <Boom should={true} />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     await user.click(screen.getByRole('button', { name: /copy error/i }));
     expect(writeText).toHaveBeenCalled();

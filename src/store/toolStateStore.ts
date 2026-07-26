@@ -1,11 +1,6 @@
 import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
-import type {
-  ToolMetadata,
-  ToolInput,
-  ToolOutput,
-  ToolError,
-} from '@/types/tool';
+import type { ToolMetadata, ToolInput, ToolOutput, ToolError } from '@/types/tool';
 import type {
   ToolProgressPayload,
   ToolChunkPayload,
@@ -39,8 +34,13 @@ interface ToolState {
 
   loadTools: () => Promise<void>;
   selectTool: (id: string | null) => void;
-  executeTool: (args: ExecuteArgs) => Promise<{ ok: true; value: ToolOutput } | { ok: false; error: ErrorInfo }>;
-  executeStream: (toolId: string, filePath: string) => Promise<{ ok: true; value: string } | { ok: false; error: ErrorInfo }>;
+  executeTool: (
+    args: ExecuteArgs,
+  ) => Promise<{ ok: true; value: ToolOutput } | { ok: false; error: ErrorInfo }>;
+  executeStream: (
+    toolId: string,
+    filePath: string,
+  ) => Promise<{ ok: true; value: string } | { ok: false; error: ErrorInfo }>;
   cancelTask: (taskId: string) => Promise<void>;
   applyToolProgress: (p: ToolProgressPayload) => void;
   applyToolChunk: (p: ToolChunkPayload) => void;

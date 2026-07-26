@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use base64::engine::general_purpose::{STANDARD, URL_SAFE};
 use base64::Engine;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE};
 use std::time::Instant;
 
 use crate::core::context::ToolContext;
@@ -55,7 +55,7 @@ impl Tool for Base64Codec {
             other => {
                 return Err(ToolError::InvalidInput(format!(
                     "action must be 'encode' or 'decode', got '{other}'"
-                )))
+                )));
             }
         };
         let output_bytes = out_text.len();

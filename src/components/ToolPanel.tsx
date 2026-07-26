@@ -17,17 +17,12 @@ const ALERT_STYLE: Record<AlertLevel, string> = {
 };
 
 export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element {
-  const metadata = useToolStateStore((s) =>
-    s.availableTools.find((t) => t.id === toolId) ?? null
-  );
+  const metadata = useToolStateStore((s) => s.availableTools.find((t) => t.id === toolId) ?? null);
   const ToolComponent = getToolComponent(toolId);
 
   if (!metadata) {
     return (
-      <div
-        role="status"
-        className="flex items-center justify-center h-full text-muted-foreground"
-      >
+      <div role="status" className="flex items-center justify-center h-full text-muted-foreground">
         Tool not found
       </div>
     );
@@ -64,10 +59,7 @@ export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element 
               <div
                 key={i}
                 role="alert"
-                className={cn(
-                  'text-xs px-2 py-1 rounded font-mono',
-                  ALERT_STYLE[a.level]
-                )}
+                className={cn('text-xs px-2 py-1 rounded font-mono', ALERT_STYLE[a.level])}
               >
                 [{a.level}] {a.message}
               </div>

@@ -4,11 +4,16 @@
 
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
-use crate::shell::response::CommandResponse;
 use crate::shell::AppError;
+use crate::shell::response::CommandResponse;
 
 // ============ 内部函数(可测试) ============
 
+/// 读取系统剪贴板文本
+///
+/// # Errors
+///
+/// - 剪贴板访问失败(系统拒绝/不可用)时返回 `AppError::Internal`
 pub fn clipboard_read_text_inner(
     app_handle: &tauri::AppHandle,
 ) -> Result<CommandResponse<String>, AppError> {
@@ -20,6 +25,11 @@ pub fn clipboard_read_text_inner(
     Ok(CommandResponse::ok(text))
 }
 
+/// 写入文本到系统剪贴板
+///
+/// # Errors
+///
+/// - 剪贴板访问失败(系统拒绝/不可用)时返回 `AppError::Internal`
 pub fn clipboard_write_text_inner(
     text: &str,
     app_handle: &tauri::AppHandle,
@@ -34,6 +44,11 @@ pub fn clipboard_write_text_inner(
 
 // ============ Tauri Command 包装 ============
 
+/// 读取系统剪贴板文本
+///
+/// # Errors
+///
+/// - 剪贴板访问失败时返回 `AppError::Internal`
 #[tauri::command]
 pub async fn clipboard_read_text(
     app_handle: tauri::AppHandle,
@@ -41,6 +56,11 @@ pub async fn clipboard_read_text(
     clipboard_read_text_inner(&app_handle)
 }
 
+/// 写入文本到系统剪贴板
+///
+/// # Errors
+///
+/// - 剪贴板访问失败时返回 `AppError::Internal`
 #[tauri::command]
 pub async fn clipboard_write_text(
     text: String,

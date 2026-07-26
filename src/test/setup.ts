@@ -42,7 +42,7 @@ class ResizeObserverMock {
           },
         },
       ] as unknown as ResizeObserverEntry[],
-      this
+      this,
     );
   }
   unobserve(): void {}

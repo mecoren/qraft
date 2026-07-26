@@ -92,10 +92,8 @@ describe('smoke: SideNav 显示工具分组', () => {
     await act(async () => {
       render(<App />);
     });
-    expect(await screen.findByRole('heading', { name: /^formatter$/i }))
-      .toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /^encoder$/i }))
-      .toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /^formatter$/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^encoder$/i })).toBeInTheDocument();
   });
 
   it('每个工具在对应分组下渲染为按钮', async () => {
@@ -103,10 +101,8 @@ describe('smoke: SideNav 显示工具分组', () => {
     await act(async () => {
       render(<App />);
     });
-    expect(await screen.findByRole('button', { name: /json formatter/i }))
-      .toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /base64 codec/i }))
-      .toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /json formatter/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /base64 codec/i })).toBeInTheDocument();
   });
 });
 
@@ -160,7 +156,6 @@ describe('smoke: Ctrl+K 打开 CommandPalette', () => {
     const input = dialog.querySelector('input') as HTMLInputElement;
     await user.type(input, 'base64');
     expect(screen.getByRole('option', { name: /base64 codec/i })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: /json formatter/i }))
-      .not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /json formatter/i })).not.toBeInTheDocument();
   });
 });

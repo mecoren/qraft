@@ -3,7 +3,5 @@
   "identifier": "updater",
   "description": "Capability for updater: check and install updates (user-initiated only)",
   "windows": ["main"],
-  "permissions": [
-    "updater:default"
-  ]
+  "permissions": ["updater:default"]
 }

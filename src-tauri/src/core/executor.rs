@@ -347,7 +347,7 @@ mod tests {
                 assert!(msg.contains("tool panicked"));
                 assert!(msg.contains("intentional test panic"));
             }
-            other => panic!("expected ToolError::Internal, got {:?}", other),
+            other => panic!("expected ToolError::Internal, got {other:?}"),
         }
     }
 }

@@ -189,7 +189,7 @@ mod tests {
         let list = registry.list();
         let mut ids: Vec<_> = list.iter().map(|m| m.id).collect();
         let original_len = ids.len();
-        ids.sort();
+        ids.sort_unstable();
         ids.dedup();
         assert_eq!(ids.len(), original_len, "duplicate tool ids detected");
     }

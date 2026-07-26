@@ -15,7 +15,8 @@ const MAX_INPUT_BYTES: usize = 1024 * 1024; // 1MB
 pub struct RegexTester;
 
 impl RegexTester {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self
     }
 }
@@ -26,8 +27,12 @@ impl Default for RegexTester {
     }
 }
 
-/// 解析 JS 风格的 flags 字符串(g/i/m/s/x),应用到 RegexBuilder。
+/// 解析 JS 风格的 flags 字符串(g/i/m/s/x),应用到 `RegexBuilder`。
 /// Rust regex 不支持 'g'(总是返回所有匹配),因此 'g' 被识别但不映射到 builder。
+///
+/// 注:`'g' | 'u' | 'y'` 分支与 `_` 分支体相同(均忽略),但保留分开声明以
+/// 在源码中明确区分"已知 JS 特有 flag"与"未知 flag",提升可读性
+#[allow(clippy::match_same_arms)]
 fn apply_flags(builder: &mut RegexBuilder, flags: &str) {
     for ch in flags.chars() {
         match ch {
@@ -68,7 +73,9 @@ impl Tool for RegexTester {
         }
         let pattern: String = input.param("pattern")?;
         if pattern.is_empty() {
-            return Err(ToolError::InvalidInput("pattern must not be empty".to_string()));
+            return Err(ToolError::InvalidInput(
+                "pattern must not be empty".to_string(),
+            ));
         }
         let flags: String = input.param("flags").unwrap_or_default();
 
@@ -77,12 +84,13 @@ impl Tool for RegexTester {
         apply_flags(&mut builder, &flags);
         let re = builder
             .build()
-            .map_err(|e| ToolError::ParseFailed(format!("regex compile error: {}", e)))?;
+            .map_err(|e| ToolError::ParseFailed(format!("regex compile error: {e}")))?;
 
         // 始终返回所有匹配(等同于 JS 中带 g flag 的行为)
         let mut matches_arr: Vec<Value> = Vec::new();
         for caps in re.captures_iter(text) {
-            // caps[0] 是整体匹配
+            // captures_iter 产出的 caps.get(0) 必为 Some(整体匹配),unwrap 安全
+            #[allow(clippy::unwrap_used)]
             let full = caps.get(0).unwrap();
             let mut groups: Vec<Value> = Vec::new();
             for i in 1..caps.len() {
@@ -126,6 +134,8 @@ impl Tool for RegexTester {
             text: out_text,
             extra: Some(Value::Object(extra)),
             meta: Some(OutputMeta {
+                // u128 → u64:工具执行耗时远小于 u64 上限,截断不可能发生
+                #[allow(clippy::cast_possible_truncation)]
                 duration_ms: start.elapsed().as_millis() as u64,
                 input_bytes,
                 output_bytes,

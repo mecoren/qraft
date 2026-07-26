@@ -110,7 +110,9 @@
     font-family: var(--font-sans);
     font-size: var(--font-size-base);
   }
-  code, pre, .font-mono {
+  code,
+  pre,
+  .font-mono {
     font-family: var(--font-mono);
   }
 }

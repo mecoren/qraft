@@ -19,48 +19,51 @@ use crate::store::history::HistoryStore;
 /// 流式任务注册表
 ///
 /// 管理 `tool_execute_stream` 启动的后台任务的 `CancellationToken`,
-/// 供 `tool_cancel` 命令按 task_id 取消。
+/// 供 `tool_cancel` 命令按 `task_id` 取消。
 pub struct StreamingTaskRegistry {
     tasks: Mutex<HashMap<String, CancellationToken>>,
 }
 
 impl StreamingTaskRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             tasks: Mutex::new(HashMap::new()),
         }
     }
 
-    /// 注册新任务,返回其 CancellationToken 副本供执行使用
+    /// 注册新任务,返回其 `CancellationToken` 副本供执行使用
     pub fn register(&self, task_id: &str) -> CancellationToken {
         let token = CancellationToken::new();
+        // Mutex 中毒时仍取出内部数据继续操作:注册表仅记录 task_id 与 token,
+        // 中毒不代表数据不可用,继续运行比 panic 更友好
         self.tasks
             .lock()
-            .expect("StreamingTaskRegistry mutex poisoned")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .insert(task_id.to_string(), token.clone());
         token
     }
 
     /// 取消指定任务,返回 true 表示找到并取消,false 表示任务不存在或已完成
     pub fn cancel(&self, task_id: &str) -> bool {
-        if let Some(token) = self
-            .tasks
+        // 使用 is_some_and 替代 if let-else,同时避免在 scrutinee 中持有 MutexGuard
+        // (significant_drop_in_scrutinee 警告)导致 guard 寿命延长可能引发死锁
+        self.tasks
             .lock()
-            .expect("StreamingTaskRegistry mutex poisoned")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .remove(task_id)
-        {
-            token.cancel();
-            true
-        } else {
-            false
-        }
+            .is_some_and(|token| {
+                token.cancel();
+                true
+            })
     }
 
     /// 任务完成后注销(从注册表移除)
     pub fn unregister(&self, task_id: &str) {
+        // 同 register:Mutex 中毒时直接恢复内部数据,不 panic
         self.tasks
             .lock()
-            .expect("StreamingTaskRegistry mutex poisoned")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .remove(task_id);
     }
 
@@ -68,7 +71,7 @@ impl StreamingTaskRegistry {
     pub fn active_count(&self) -> usize {
         self.tasks
             .lock()
-            .expect("StreamingTaskRegistry mutex poisoned")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .len()
     }
 }
@@ -79,9 +82,9 @@ impl Default for StreamingTaskRegistry {
     }
 }
 
-/// HistorySink 的 Shell 层实现
+/// `HistorySink` 的 Shell 层实现
 ///
-/// 将 HistoryEntry 通过 `tokio::spawn` 异步写入 HistoryStore,
+/// 将 `HistoryEntry` 通过 `tokio::spawn` 异步写入 `HistoryStore`,
 /// 不阻塞工具执行返回(满足"历史写入异步"约束)。
 pub struct HistorySinkImpl {
     store: Arc<dyn HistoryStore>,
@@ -111,7 +114,7 @@ pub struct AppState {
     pub config_store: Arc<dyn ConfigStore>,
     pub history_store: Arc<dyn HistoryStore>,
     pub streaming_tasks: Arc<StreamingTaskRegistry>,
-    /// 运行时注入的 AppHandle,初始为 None,setup hook 中调用 set_app_handle
+    /// 运行时注入的 AppHandle,初始为 None,setup hook 中调用 `set_app_handle`
     app_handle: OnceLock<tauri::AppHandle>,
 }
 
@@ -130,7 +133,12 @@ impl AppState {
         }
     }
 
-    /// 在 setup hook 中注入 AppHandle
+    /// 在 setup hook 中注入 `AppHandle`
+    ///
+    /// # Errors
+    ///
+    /// - 当 `app_handle` 已被设置过(例如 setup hook 重复执行)时,返回
+    ///   `Err(tauri::AppHandle)`,内含本次尝试注入但未能写入的 handle。
     #[allow(clippy::result_large_err)]
     pub fn set_app_handle(&self, handle: tauri::AppHandle) -> Result<(), tauri::AppHandle> {
         self.app_handle.set(handle)
@@ -142,7 +150,7 @@ impl AppState {
         self.app_handle.get()
     }
 
-    /// 构造 HistorySink(用于 ToolContext)
+    /// 构造 HistorySink(用于 `ToolContext`)
     pub fn history_sink(&self) -> HistorySinkImpl {
         HistorySinkImpl::new(self.history_store.clone())
     }

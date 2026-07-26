@@ -146,11 +146,7 @@ export function ColorConverter({ toolId }: ToolProps) {
               </div>
             </div>
           </div>
-          <Textarea
-            readOnly
-            value={output?.text ?? ''}
-            className="flex-1 font-mono text-sm"
-          />
+          <Textarea readOnly value={output?.text ?? ''} className="flex-1 font-mono text-sm" />
         </div>
       )}
     </div>

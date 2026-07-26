@@ -69,7 +69,7 @@ describe('RegexTester', () => {
   it('shows error alert when pattern is invalid', async () => {
     const { invokeCommand, CommandError } = await import('@/lib/ipc');
     (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new CommandError('ERR_PARSE_FAILED', 'regex compile error: unclosed group')
+      new CommandError('ERR_PARSE_FAILED', 'regex compile error: unclosed group'),
     );
 
     render(<RegexTester toolId="regex_tester" metadata={null as never} />);

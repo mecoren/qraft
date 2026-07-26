@@ -38,10 +38,13 @@ describe('SettingsPanel', () => {
     await user.clear(input);
     await user.type(input, '50');
     await user.click(screen.getByRole('button', { name: /save/i }));
-    expect(invokeMock).toHaveBeenCalledWith('config_set', expect.objectContaining({
-      key: 'general.max_history',
-      value: 50,
-    }));
+    expect(invokeMock).toHaveBeenCalledWith(
+      'config_set',
+      expect.objectContaining({
+        key: 'general.max_history',
+        value: 50,
+      }),
+    );
   });
 
   it('does not call setConfig when form invalid', async () => {

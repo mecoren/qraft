@@ -46,15 +46,8 @@ export function HistoryPanel({ onSelect }: HistoryPanelProps): JSX.Element {
           No history
         </div>
       ) : (
-        <div
-          ref={parentRef}
-          className="flex-1 overflow-auto"
-          aria-label="历史记录列表"
-        >
-          <ul
-            style={{ height: `${virtualizer.getTotalSize()}px` }}
-            className="relative"
-          >
+        <div ref={parentRef} className="flex-1 overflow-auto" aria-label="历史记录列表">
+          <ul style={{ height: `${virtualizer.getTotalSize()}px` }} className="relative">
             {virtualizer.getVirtualItems().map((vi) => {
               const entry = entries[vi.index];
               return (

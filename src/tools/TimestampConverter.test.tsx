@@ -62,7 +62,7 @@ describe('TimestampConverter', () => {
   it('shows error alert when input is unparseable', async () => {
     const { invokeCommand, CommandError } = await import('@/lib/ipc');
     (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new CommandError('ERR_PARSE_FAILED', "cannot parse 'hello' as timestamp")
+      new CommandError('ERR_PARSE_FAILED', "cannot parse 'hello' as timestamp"),
     );
 
     render(<TimestampConverter toolId="timestamp_converter" metadata={null as never} />);

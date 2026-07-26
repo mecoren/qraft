@@ -3,7 +3,5 @@
   "identifier": "shell",
   "description": "Capability for shell: open external URLs (http/https only, validated in app layer)",
   "windows": ["main"],
-  "permissions": [
-    "shell:allow-open"
-  ]
+  "permissions": ["shell:allow-open"]
 }

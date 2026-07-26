@@ -1,13 +1,6 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
-import type {
-  ToolCategory,
-  ToolInput,
-  ToolOutput,
-} from './tool';
-import type {
-  ThemeMode,
-  ShortcutBinding,
-} from './config';
+import type { ToolCategory, ToolInput, ToolOutput } from './tool';
+import type { ThemeMode, ShortcutBinding } from './config';
 import type { CommandResponse } from './ipc';
 
 describe('tool types', () => {
@@ -25,8 +18,7 @@ describe('tool types', () => {
 
   it('ToolCategory includes formatter/encoder', () => {
     const c: ToolCategory = 'formatter';
-    expect(['formatter', 'encoder', 'hash', 'generator', 'parser', 'converter'])
-      .toContain(c);
+    expect(['formatter', 'encoder', 'hash', 'generator', 'parser', 'converter']).toContain(c);
   });
 });
 

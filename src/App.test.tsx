@@ -57,8 +57,7 @@ describe('App', () => {
       render(<App />);
     });
     expect(screen.getByRole('navigation')).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: /json formatter/i }))
-      .toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /json formatter/i })).toBeInTheDocument();
   });
 
   it('clicking a tool switches main area to ToolPanel', async () => {

@@ -6,8 +6,8 @@ use crate::core::error::ToolError;
 use crate::core::input::ToolInput;
 use crate::core::output::{OutputMeta, ToolOutput};
 use crate::core::tool::{Tool, ToolCategory, ToolMetadata};
-use crate::register_tool;
 use crate::register_stream_tool;
+use crate::register_tool;
 
 const MAX_INPUT_BYTES: usize = 10 * 1024 * 1024; // 10MB
 
@@ -113,7 +113,7 @@ static JSON_SCHEMA: serde_json::Value = serde_json::Value::Null;
 register_tool!(JsonFormatter, &METADATA);
 register_stream_tool!(JsonFormatter, &METADATA);
 
-use crate::core::tool::{StreamingTool, StreamEvent};
+use crate::core::tool::{StreamEvent, StreamingTool};
 use futures::stream::BoxStream;
 
 #[async_trait]

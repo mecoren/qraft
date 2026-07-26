@@ -60,7 +60,7 @@ describe('ColorConverter', () => {
   it('shows error alert when input is invalid hex', async () => {
     const { invokeCommand, CommandError } = await import('@/lib/ipc');
     (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new CommandError('ERR_PARSE_FAILED', "invalid hex characters in 'xyz'")
+      new CommandError('ERR_PARSE_FAILED', "invalid hex characters in 'xyz'"),
     );
 
     render(<ColorConverter toolId="color_converter" metadata={null as never} />);

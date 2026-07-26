@@ -61,7 +61,7 @@ describe('JwtParser', () => {
   it('shows error alert when JWT has only 2 segments', async () => {
     const { invokeCommand, CommandError } = await import('@/lib/ipc');
     (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new CommandError('ERR_INVALID_INPUT', 'JWT must have 3 segments')
+      new CommandError('ERR_INVALID_INPUT', 'JWT must have 3 segments'),
     );
 
     render(<JwtParser toolId="jwt_parser" metadata={null as never} />);

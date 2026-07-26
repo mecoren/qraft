@@ -10,15 +10,16 @@ use crate::core::error::ToolError;
 use crate::core::input::ToolInput;
 use crate::core::output::{OutputMeta, ToolOutput};
 use crate::core::tool::{Tool, ToolCategory, ToolMetadata};
-use crate::register_tool;
 use crate::register_stream_tool;
+use crate::register_tool;
 
 const MAX_TEXT_BYTES: usize = 10 * 1024 * 1024;
 
 pub struct HashCalculator;
 
 impl HashCalculator {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self
     }
 }
@@ -61,9 +62,8 @@ fn hash_bytes(algorithm: &str, data: &[u8]) -> Result<String, ToolError> {
         }
         other => {
             return Err(ToolError::InvalidInput(format!(
-                "algorithm must be one of md5/sha1/sha256/sha512/blake3, got '{}'",
-                other
-            )))
+                "algorithm must be one of md5/sha1/sha256/sha512/blake3, got '{other}'"
+            )));
         }
     };
     Ok(hex_str)
@@ -76,7 +76,9 @@ impl Tool for HashCalculator {
     }
 
     async fn execute(&self, input: ToolInput, _ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
-        let algorithm: String = input.param("algorithm").unwrap_or_else(|_| "sha256".to_string());
+        let algorithm: String = input
+            .param("algorithm")
+            .unwrap_or_else(|_| "sha256".to_string());
 
         let start = Instant::now();
         let (data, input_bytes) = if let Some(text) = input.text.as_deref() {
@@ -91,7 +93,7 @@ impl Tool for HashCalculator {
         } else if let Some(path) = input.file_path.as_deref() {
             let bytes = tokio::fs::read(path)
                 .await
-                .map_err(|e| ToolError::Internal(format!("read file failed: {}", e)))?;
+                .map_err(|e| ToolError::Internal(format!("read file failed: {e}")))?;
             let n = bytes.len();
             (bytes, n)
         } else {
@@ -107,6 +109,8 @@ impl Tool for HashCalculator {
             text: hex_str,
             extra: None,
             meta: Some(OutputMeta {
+                // u128 → u64:工具执行耗时远小于 u64 上限,截断不可能发生
+                #[allow(clippy::cast_possible_truncation)]
                 duration_ms: start.elapsed().as_millis() as u64,
                 input_bytes,
                 output_bytes,
@@ -136,7 +140,7 @@ static JSON_SCHEMA: serde_json::Value = serde_json::Value::Null;
 register_tool!(HashCalculator, &METADATA);
 register_stream_tool!(HashCalculator, &METADATA);
 
-use crate::core::tool::{StreamingTool, StreamEvent};
+use crate::core::tool::{StreamEvent, StreamingTool};
 use futures::stream::BoxStream;
 use tokio::io::AsyncReadExt;
 
@@ -149,24 +153,23 @@ impl StreamingTool for HashCalculator {
         input: ToolInput,
         _ctx: &ToolContext,
     ) -> BoxStream<'static, Result<StreamEvent, ToolError>> {
-        let algorithm: String = input.param("algorithm").unwrap_or_else(|_| "sha256".to_string());
-        let file_path = input.file_path.clone();
+        let algorithm: String = input
+            .param("algorithm")
+            .unwrap_or_else(|_| "sha256".to_string());
+        let file_path = input.file_path;
 
         Box::pin(async_stream::stream! {
-            let path = match file_path.as_deref() {
-                Some(p) => p.to_string(),
-                None => {
-                    yield Err(ToolError::InvalidInput(
-                        "streaming requires file_path".to_string(),
-                    ));
-                    return;
-                }
+            let path = if let Some(p) = file_path.as_deref() { p.to_string() } else {
+                yield Err(ToolError::InvalidInput(
+                    "streaming requires file_path".to_string(),
+                ));
+                return;
             };
 
             let meta = match tokio::fs::metadata(&path).await {
                 Ok(m) => m,
                 Err(e) => {
-                    yield Err(ToolError::Internal(format!("stat file failed: {}", e)));
+                    yield Err(ToolError::Internal(format!("stat file failed: {e}")));
                     return;
                 }
             };
@@ -178,13 +181,13 @@ impl StreamingTool for HashCalculator {
 
             yield Ok(StreamEvent::Progress {
                 percent: 0,
-                message: format!("Hashing {} bytes with {}...", total, algorithm),
+                message: format!("Hashing {total} bytes with {algorithm}..."),
             });
 
             let mut file = match tokio::fs::File::open(&path).await {
                 Ok(f) => f,
                 Err(e) => {
-                    yield Err(ToolError::Internal(format!("open file failed: {}", e)));
+                    yield Err(ToolError::Internal(format!("open file failed: {e}")));
                     return;
                 }
             };
@@ -204,8 +207,7 @@ impl StreamingTool for HashCalculator {
                 && blake3_state.is_none()
             {
                 yield Err(ToolError::InvalidInput(format!(
-                    "unknown algorithm: {}",
-                    algorithm
+                    "unknown algorithm: {algorithm}"
                 )));
                 return;
             }
@@ -217,7 +219,7 @@ impl StreamingTool for HashCalculator {
                     Ok(0) => break,
                     Ok(n) => n,
                     Err(e) => {
-                        yield Err(ToolError::Internal(format!("read failed: {}", e)));
+                        yield Err(ToolError::Internal(format!("read failed: {e}")));
                         return;
                     }
                 };
@@ -228,13 +230,19 @@ impl StreamingTool for HashCalculator {
                 if let Some(s) = sha512_state.as_mut() { s.update(chunk); }
                 if let Some(s) = blake3_state.as_mut() { s.update(chunk); }
                 read_total += n as u64;
+                // u64→f64 精度损失对百分比展示无影响(0-100 整数);
+                // 最终 `* 100.0` 后值在 0.0..=100.0,截断为 u8 安全
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::cast_precision_loss)]
                 let percent = ((read_total as f64 / total as f64) * 100.0) as u8;
                 yield Ok(StreamEvent::Progress {
                     percent,
-                    message: format!("{}/{} bytes", read_total, total),
+                    message: format!("{read_total}/{total} bytes"),
                 });
             }
 
+            // if-else if 链比 clippy 建议的嵌套 map_or_else 更直观可读,
+            // 且每个分支调用的 finalize 实现不同,无法简单合并
+            #[allow(clippy::option_if_let_else)]
             let hex_str = if let Some(s) = md5_state { hex::encode(s.finalize()) }
                 else if let Some(s) = sha1_state { hex::encode(s.finalize()) }
                 else if let Some(s) = sha256_state { hex::encode(s.finalize()) }
@@ -248,6 +256,9 @@ impl StreamingTool for HashCalculator {
                     extra: None,
                     meta: Some(OutputMeta {
                         duration_ms: 0,
+                        // u64→usize:文件大小远小于 64 位 usize 上限,32 位平台
+                        // 也几乎不可能超过 4GB 单文件
+                        #[allow(clippy::cast_possible_truncation)]
                         input_bytes: total as usize,
                         output_bytes: 0,
                     }),

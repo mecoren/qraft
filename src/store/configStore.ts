@@ -9,7 +9,10 @@ interface ConfigState {
   error: string | null;
 
   loadConfig: () => Promise<void>;
-  setConfig: (key: string, value: unknown) => Promise<{ ok: true } | { ok: false; error: ErrorInfo }>;
+  setConfig: (
+    key: string,
+    value: unknown,
+  ) => Promise<{ ok: true } | { ok: false; error: ErrorInfo }>;
   resetConfig: (key: string) => Promise<{ ok: true } | { ok: false; error: ErrorInfo }>;
   applyConfigChanged: (payload: ConfigChangedPayload) => void;
 }

@@ -14,7 +14,6 @@ describe('cn utility', () => {
   it('handles conditional and falsy inputs via clsx', () => {
     // 使用变量避免 ESLint no-constant-binary-expression 误报
     const isHidden = false;
-    expect(cn('base', isHidden && 'hidden', { 'text-red': true }, undefined))
-      .toBe('base text-red');
+    expect(cn('base', isHidden && 'hidden', { 'text-red': true }, undefined)).toBe('base text-red');
   });
 });

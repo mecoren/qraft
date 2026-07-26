@@ -20,8 +20,9 @@ interface HashParams {
 
 export function HashCalculator({ toolId }: ToolProps) {
   const [text, setText] = useState('');
-  const [algorithm, setAlgorithm] =
-    useState<'md5' | 'sha1' | 'sha256' | 'sha512' | 'blake3'>('sha256');
+  const [algorithm, setAlgorithm] = useState<'md5' | 'sha1' | 'sha256' | 'sha512' | 'blake3'>(
+    'sha256',
+  );
   const [output, setOutput] = useState<ToolOutput | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

@@ -94,9 +94,7 @@ export function JwtParser({ toolId }: ToolProps) {
               />
             </div>
             {extra.expires_at && (
-              <div className="text-xs text-muted-foreground">
-                Expires at: {extra.expires_at}
-              </div>
+              <div className="text-xs text-muted-foreground">Expires at: {extra.expires_at}</div>
             )}
           </>
         ) : (

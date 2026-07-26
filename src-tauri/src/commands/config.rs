@@ -6,9 +6,9 @@
 use serde_json::Value;
 use tauri::Emitter;
 
+use crate::shell::AppError;
 use crate::shell::response::CommandResponse;
 use crate::shell::state::AppState;
-use crate::shell::AppError;
 use crate::store::config::UserConfig;
 
 // ============ 事件 Payload ============
@@ -23,6 +23,11 @@ pub struct ConfigChangedPayload {
 
 // ============ 内部函数(可测试) ============
 
+/// 读取指定 key 的配置值(不存在时返回 `None`)
+///
+/// # Errors
+///
+/// - 配置存储读取失败(文件 IO / 反序列化)时返回 `AppError::config`(`ERR_CONFIG_IO`)
 pub async fn config_get_inner(
     key: &str,
     state: &AppState,
@@ -35,6 +40,11 @@ pub async fn config_get_inner(
     Ok(CommandResponse::ok(value))
 }
 
+/// 设置指定 key 的配置值,并 emit `config_changed` 事件
+///
+/// # Errors
+///
+/// - 配置存储写入失败时返回 `AppError::config`(`ERR_CONFIG_IO`)
 pub async fn config_set_inner(
     key: &str,
     value: Value,
@@ -66,6 +76,11 @@ pub async fn config_set_inner(
     Ok(CommandResponse::ok(()))
 }
 
+/// 读取全部配置
+///
+/// # Errors
+///
+/// - 配置存储读取失败时返回 `AppError::config`(`ERR_CONFIG_IO`)
 pub async fn config_get_all_inner(
     state: &AppState,
 ) -> Result<CommandResponse<UserConfig>, AppError> {
@@ -77,6 +92,11 @@ pub async fn config_get_all_inner(
     Ok(CommandResponse::ok(config))
 }
 
+/// 重置指定 key 的配置(恢复默认值),并 emit `config_changed` 事件
+///
+/// # Errors
+///
+/// - 配置存储重置失败时返回 `AppError::config`(`ERR_CONFIG_IO`)
 pub async fn config_reset_inner(
     key: &str,
     state: &AppState,
@@ -107,6 +127,11 @@ pub async fn config_reset_inner(
 
 // ============ Tauri Command 包装 ============
 
+/// 读取指定 key 的配置值
+///
+/// # Errors
+///
+/// - 配置存储读取失败时返回 `AppError::config`(`ERR_CONFIG_IO`)
 #[tauri::command]
 pub async fn config_get(
     key: String,
@@ -115,6 +140,11 @@ pub async fn config_get(
     config_get_inner(&key, &state).await
 }
 
+/// 设置指定 key 的配置值,并 emit `config_changed` 事件
+///
+/// # Errors
+///
+/// - 配置存储写入失败时返回 `AppError::config`(`ERR_CONFIG_IO`)
 #[tauri::command]
 pub async fn config_set(
     key: String,
@@ -125,6 +155,11 @@ pub async fn config_set(
     config_set_inner(&key, value, &state, &app_handle).await
 }
 
+/// 读取全部配置
+///
+/// # Errors
+///
+/// - 配置存储读取失败时返回 `AppError::config`(`ERR_CONFIG_IO`)
 #[tauri::command]
 pub async fn config_get_all(
     state: tauri::State<'_, AppState>,
@@ -132,6 +167,11 @@ pub async fn config_get_all(
     config_get_all_inner(&state).await
 }
 
+/// 重置指定 key 的配置(恢复默认值),并 emit `config_changed` 事件
+///
+/// # Errors
+///
+/// - 配置存储重置失败时返回 `AppError::config`(`ERR_CONFIG_IO`)
 #[tauri::command]
 pub async fn config_reset(
     key: String,
@@ -217,10 +257,7 @@ mod tests {
         let state = make_state();
         let resp = config_get_inner("theme", &state).await.unwrap();
         assert!(resp.success);
-        assert_eq!(
-            resp.data.unwrap(),
-            Some(Value::String("dark".into()))
-        );
+        assert_eq!(resp.data.unwrap(), Some(Value::String("dark".into())));
     }
 
     #[tokio::test]

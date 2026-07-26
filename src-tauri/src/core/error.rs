@@ -112,7 +112,7 @@ pub enum AppError {
 impl AppError {
     /// 错误码,用于前端国际化与精准提示
     #[must_use]
-    pub fn code(&self) -> &'static str {
+    pub const fn code(&self) -> &'static str {
         match self {
             Self::Tool(e) => e.code(),
             Self::Engine(EngineError::Tool(_)) => "ERR_TOOL",

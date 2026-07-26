@@ -39,8 +39,8 @@ const schema = z.object({
   shortcuts: z.object(
     SHORTCUT_KEYS.reduce(
       (acc, s) => ({ ...acc, [s.key]: z.string().min(1) }),
-      {} as Record<keyof ShortcutBinding, z.ZodString>
-    )
+      {} as Record<keyof ShortcutBinding, z.ZodString>,
+    ),
   ),
 });
 
@@ -83,8 +83,7 @@ export function SettingsPanel(): JSX.Element {
       fontSize: config.general.fontSize,
       maxHistory: config.general.maxHistory,
       // jsonIndent 来自 toolPrefs.json_formatter.indent,缺省 2
-      jsonIndent:
-        (config.toolPrefs['json_formatter']?.values?.indent as number | undefined) ?? 2,
+      jsonIndent: (config.toolPrefs['json_formatter']?.values?.indent as number | undefined) ?? 2,
       confirmOnClear: config.general.confirmOnClear,
       shortcuts: { ...config.shortcuts },
     });
@@ -166,11 +165,7 @@ export function SettingsPanel(): JSX.Element {
         </div>
 
         <div className="flex items-center gap-2">
-          <input
-            id="confirmOnClear"
-            type="checkbox"
-            {...form.register('confirmOnClear')}
-          />
+          <input id="confirmOnClear" type="checkbox" {...form.register('confirmOnClear')} />
           <Label htmlFor="confirmOnClear">Confirm on clear</Label>
         </div>
 
@@ -181,10 +176,7 @@ export function SettingsPanel(): JSX.Element {
           {SHORTCUT_KEYS.map((s) => (
             <div key={s.key} className="flex flex-col gap-1">
               <Label htmlFor={`sc-${s.key}`}>{s.label}</Label>
-              <Input
-                id={`sc-${s.key}`}
-                {...form.register(`shortcuts.${s.key}`)}
-              />
+              <Input id={`sc-${s.key}`} {...form.register(`shortcuts.${s.key}`)} />
             </div>
           ))}
         </div>

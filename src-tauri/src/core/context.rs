@@ -86,12 +86,12 @@ mod tests {
             tool_id: "json_formatter".into(),
             input_summary: "{\"a\":1}".into(),
             output_summary: "{\n  \"a\": 1\n}".into(),
-            timestamp: 1721900000000,
+            timestamp: 1_721_900_000_000,
             duration_ms: 5,
         };
         let v = serde_json::to_value(&entry).unwrap();
         assert_eq!(v["tool_id"], "json_formatter");
-        assert_eq!(v["timestamp"], 1721900000000u64);
+        assert_eq!(v["timestamp"], 1_721_900_000_000u64);
         assert_eq!(v["duration_ms"], 5);
     }
 

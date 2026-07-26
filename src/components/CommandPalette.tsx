@@ -7,12 +7,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Settings, Trash2, Search } from 'lucide-react';
 import { useToolStateStore } from '@/store/toolStateStore';
 import { useHistoryStore } from '@/store/historyStore';
@@ -55,9 +50,7 @@ export function CommandPalette({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-0 overflow-hidden max-w-xl">
         <DialogTitle className="sr-only">命令面板</DialogTitle>
-        <DialogDescription className="sr-only">
-          搜索工具或操作,回车执行
-        </DialogDescription>
+        <DialogDescription className="sr-only">搜索工具或操作,回车执行</DialogDescription>
         <Command shouldFilter={true}>
           <CommandInput placeholder="搜索工具或操作..." />
           <CommandList className="max-h-80">
@@ -72,9 +65,7 @@ export function CommandPalette({
                   <Search aria-hidden className="h-4 w-4 opacity-50" />
                   <span>{t.name}</span>
                   {t.description && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {t.description}
-                    </span>
+                    <span className="ml-2 text-xs text-muted-foreground">{t.description}</span>
                   )}
                 </CommandItem>
               ))}

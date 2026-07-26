@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToolStateStore } from '@/store/toolStateStore';
-import type {
-  ToolMetadata,
-  ToolInput,
-  ToolOutput,
-  ToolError,
-  Alert,
-} from '@/types/tool';
+import type { ToolMetadata, ToolInput, ToolOutput, ToolError, Alert } from '@/types/tool';
 
 export interface UseToolResult {
   metadata: ToolMetadata | null;
@@ -24,9 +18,7 @@ export interface UseToolResult {
  * 组件卸载时若有未完成流式任务,自动调用 tool_cancel 取消。
  */
 export function useTool(toolId: string): UseToolResult {
-  const metadata = useToolStateStore((s) =>
-    s.availableTools.find((t) => t.id === toolId) ?? null
-  );
+  const metadata = useToolStateStore((s) => s.availableTools.find((t) => t.id === toolId) ?? null);
   const running = useToolStateStore((s) => s.running);
   const executeTool = useToolStateStore((s) => s.executeTool);
   const executeStreamAction = useToolStateStore((s) => s.executeStream);
@@ -51,7 +43,7 @@ export function useTool(toolId: string): UseToolResult {
         setError(r.error);
       }
     },
-    [toolId, executeTool]
+    [toolId, executeTool],
   );
 
   const executeStream = useCallback(
@@ -65,7 +57,7 @@ export function useTool(toolId: string): UseToolResult {
         setError(r.error);
       }
     },
-    [toolId, executeStreamAction]
+    [toolId, executeStreamAction],
   );
 
   const reset = useCallback(() => {

@@ -45,7 +45,7 @@ describe('ToolPanel', () => {
           { level: 'warning', message: 'large input' },
           { level: 'error', message: 'parse fail' },
         ]}
-      />
+      />,
     );
     expect(screen.getByText(/large input/i)).toBeInTheDocument();
     expect(screen.getByText(/parse fail/i)).toBeInTheDocument();

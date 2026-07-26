@@ -11,6 +11,10 @@
 // 注意:`commands` 和 `shell` 模块依赖 Tauri 运行时,在 `cargo test` 下
 // 条件编译排除,避免测试二进制链接 WebView2 等 native DLL 导致运行失败。
 
+// 测试代码允许使用 unwrap/expect/panic:这些是测试中惯用的失败快速触发方式,
+// 在生产代码中仍按 Cargo.toml 中 lints.clippy 配置保持 warn 级别。
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
+
 pub mod core;
 pub mod store;
 pub mod tools;
@@ -34,9 +38,7 @@ pub use core::tool::{StreamEvent, StreamingTool, Tool, ToolCategory, ToolMetadat
 // 无需再次 pub use(否则会与 #[macro_export] 产生命名冲突)。
 
 // 重导出 Store 层
-pub use store::config::{
-    GeneralConfig, ShortcutBinding, ThemeConfig, ThemeMode, UserConfig,
-};
+pub use store::config::{GeneralConfig, ShortcutBinding, ThemeConfig, ThemeMode, UserConfig};
 
 // —— Tauri 应用启动(仅非测试编译)——
 //
@@ -58,7 +60,7 @@ pub fn run() -> anyhow::Result<()> {
     use crate::commands::app::{app_open_external, app_quit, app_version};
     use crate::commands::clipboard::{clipboard_read_text, clipboard_write_text};
     use crate::commands::config::{config_get, config_get_all, config_reset, config_set};
-    use crate::commands::fs::{fs_read_file, fs_write_file, AuthorizedPaths};
+    use crate::commands::fs::{AuthorizedPaths, fs_read_file, fs_write_file};
     use crate::commands::history::{history_clear, history_list};
     use crate::commands::tool::{
         tool_cancel, tool_execute, tool_execute_stream, tool_list, tool_metadata,
@@ -162,7 +164,8 @@ mod tests {
 
     #[test]
     fn test_config_store_reexport() {
-        let _mode = ThemeMode::Dark;
+        // 仅验证 ThemeMode 已重导出可访问,无需绑定变量
+        let _ = ThemeMode::Dark;
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
+use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use std::time::Instant;
 
 use crate::core::context::ToolContext;
@@ -10,7 +10,7 @@ use crate::core::tool::{Tool, ToolCategory, ToolMetadata};
 use crate::register_tool;
 
 /// encodeURI 保留字符: A-Z a-z 0-9 - _ . ! ~ * ' ( ) ; , / ? : @ & = + $ #
-/// 参考 https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURI
+/// 参考 <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURI>
 const ENCODE_URI_RESERVED: &AsciiSet = &CONTROLS
     .add(b' ')
     .add(b'"')
@@ -27,7 +27,7 @@ const ENCODE_URI_RESERVED: &AsciiSet = &CONTROLS
     .add(b'`');
 
 /// encodeURIComponent 保留字符: A-Z a-z 0-9 - _ . ! ~ * ' ( )
-/// 参考 https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
+/// 参考 <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent>
 const ENCODE_URI_COMPONENT_RESERVED: &AsciiSet = &CONTROLS
     .add(b' ')
     .add(b'!')
@@ -106,7 +106,7 @@ impl Tool for UrlCodec {
             other => {
                 return Err(ToolError::InvalidInput(format!(
                     "action must be 'encode' or 'decode', got '{other}'"
-                )))
+                )));
             }
         };
         let output_bytes = out_text.len();

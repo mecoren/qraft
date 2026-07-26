@@ -6,12 +6,7 @@
 
 /** 工具分类,与 Rust 侧 ToolCategory enum 对齐(serde rename_all = "snake_case") */
 export type ToolCategory =
-  | 'formatter'
-  | 'encoder'
-  | 'generator'
-  | 'parser'
-  | 'converter'
-  | 'comparator';
+  'formatter' | 'encoder' | 'generator' | 'parser' | 'converter' | 'comparator';
 
 /** 工具元数据,UI 只读视角。镜像 Rust `ToolMetadata`。 */
 export interface ToolMetadata {

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::DateTime;
 use chrono::Utc;
 use serde_json::Value;
@@ -63,7 +63,7 @@ impl Tool for JwtParser {
         // 计算 expires_at(若 payload 含 'exp' 标准 claim)
         let expires_at = payload
             .get("exp")
-            .and_then(|v| v.as_i64())
+            .and_then(serde_json::Value::as_i64)
             .and_then(|ts| {
                 // JWT exp 是秒级时间戳,超出范围时返回 None
                 DateTime::<Utc>::from_timestamp(ts, 0).map(|dt| dt.to_rfc3339())
@@ -82,10 +82,7 @@ impl Tool for JwtParser {
         let mut extra = serde_json::Map::new();
         extra.insert("header".to_string(), header);
         extra.insert("payload".to_string(), payload);
-        extra.insert(
-            "signature".to_string(),
-            Value::String(parts[2].to_string()),
-        );
+        extra.insert("signature".to_string(), Value::String(parts[2].to_string()));
         if let Some(exp) = expires_at {
             extra.insert("expires_at".to_string(), Value::String(exp));
         }
@@ -164,7 +161,7 @@ mod tests {
         let extra = output.extra.unwrap();
         assert_eq!(extra["payload"]["sub"], "1234567890");
         assert_eq!(extra["payload"]["name"], "John Doe");
-        assert_eq!(extra["payload"]["iat"], 1516239022);
+        assert_eq!(extra["payload"]["iat"], 1_516_239_022);
     }
 
     #[tokio::test]

@@ -48,33 +48,21 @@ export function App(): JSX.Element {
     const unlisteners: Array<() => void> = [];
     void (async () => {
       unlisteners.push(
-        await listen<ConfigChangedPayload>('config_changed', (p) =>
-          applyConfigChanged(p)
-        )
+        await listen<ConfigChangedPayload>('config_changed', (p) => applyConfigChanged(p)),
       );
+      unlisteners.push(await listen<HistoryEntry>('history_added', (e) => applyHistoryAdded(e)));
       unlisteners.push(
-        await listen<HistoryEntry>('history_added', (e) =>
-          applyHistoryAdded(e)
-        )
+        await listen<ToolProgressPayload>('tool_progress', (p) => applyToolProgress(p)),
       );
+      unlisteners.push(await listen<ToolChunkPayload>('tool_chunk', (p) => applyToolChunk(p)));
       unlisteners.push(
-        await listen<ToolProgressPayload>('tool_progress', (p) =>
-          applyToolProgress(p)
-        )
-      );
-      unlisteners.push(
-        await listen<ToolChunkPayload>('tool_chunk', (p) => applyToolChunk(p))
-      );
-      unlisteners.push(
-        await listen<ToolCompletedPayload>('tool_completed', (p) =>
-          applyToolCompleted(p)
-        )
+        await listen<ToolCompletedPayload>('tool_completed', (p) => applyToolCompleted(p)),
       );
       unlisteners.push(
         await listen<ToolFailedPayload>('tool_failed', (p) => {
           applyToolFailed(p);
           toast.error(`工具执行失败: ${p.error.message}`);
-        })
+        }),
       );
     })();
     return () => {
@@ -111,17 +99,13 @@ export function App(): JSX.Element {
       <div className="flex h-screen w-screen overflow-hidden">
         <SideNav />
         <main className="flex-1 min-w-0">
-          {view === 'tool' && currentToolId && (
-            <ToolPanel toolId={currentToolId} />
-          )}
+          {view === 'tool' && currentToolId && <ToolPanel toolId={currentToolId} />}
           {view === 'tool' && !currentToolId && (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               请从侧边栏选择工具,或按 Ctrl+K 打开命令面板
             </div>
           )}
-          {view === 'history' && (
-            <HistoryPanel onSelect={handleSelectHistory} />
-          )}
+          {view === 'history' && <HistoryPanel onSelect={handleSelectHistory} />}
           {view === 'settings' && <SettingsPanel />}
         </main>
       </div>

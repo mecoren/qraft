@@ -7,8 +7,8 @@
 use std::collections::HashSet;
 use std::sync::Mutex;
 
-use crate::shell::response::CommandResponse;
 use crate::shell::AppError;
+use crate::shell::response::CommandResponse;
 
 /// 授权路径集合
 ///
@@ -20,15 +20,18 @@ pub struct AuthorizedPaths {
 }
 
 impl AuthorizedPaths {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// 授权一个路径(用户通过 dialog 选择后调用)
     pub fn authorize(&self, path: &str) {
+        // Mutex 中毒时取出内部数据继续操作:授权集合仅追加/查询,中毒不代表
+        // 数据不可用,继续运行比 panic 更友好
         self.inner
             .lock()
-            .expect("AuthorizedPaths mutex poisoned")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .insert(path.to_string());
     }
 
@@ -36,7 +39,7 @@ impl AuthorizedPaths {
     pub fn is_authorized(&self, path: &str) -> bool {
         self.inner
             .lock()
-            .expect("AuthorizedPaths mutex poisoned")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .contains(path)
     }
 
@@ -44,7 +47,7 @@ impl AuthorizedPaths {
     pub fn revoke(&self, path: &str) {
         self.inner
             .lock()
-            .expect("AuthorizedPaths mutex poisoned")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .remove(path);
     }
 }
@@ -53,28 +56,41 @@ impl AuthorizedPaths {
 
 /// 校验路径是否在允许范围内
 ///
-/// MVP 简化策略:仅允许 AuthorizedPaths 中的路径。
+/// MVP 简化策略:仅允许 `AuthorizedPaths` 中的路径。
 /// app 数据目录的读写由 ConfigStore/HistoryStore 内部处理,不走此 Command。
 fn validate_path(path: &str, authorized: &AuthorizedPaths) -> Result<(), AppError> {
     if authorized.is_authorized(path) {
         Ok(())
     } else {
         Err(AppError::Permission(format!(
-            "path not authorized, must be selected via dialog: {}",
-            path
+            "path not authorized, must be selected via dialog: {path}"
         )))
     }
 }
 
+/// 读取指定路径的文件内容(必须在 `authorized` 集合中)
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件读取失败(不存在/权限不足/编码非法)时返回 `AppError::Io`(`ERR_FILE_IO`)
 pub async fn fs_read_file_inner(
     path: &str,
     authorized: &AuthorizedPaths,
 ) -> Result<CommandResponse<String>, AppError> {
     validate_path(path, authorized)?;
-    let content = tokio::fs::read_to_string(path).await.map_err(AppError::from)?;
+    let content = tokio::fs::read_to_string(path)
+        .await
+        .map_err(AppError::from)?;
     Ok(CommandResponse::ok(content))
 }
 
+/// 向指定路径写入文件内容(必须在 `authorized` 集合中)
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件写入失败(权限不足/磁盘满)时返回 `AppError::Io`(`ERR_FILE_IO`)
 pub async fn fs_write_file_inner(
     path: &str,
     content: &str,
@@ -89,6 +105,12 @@ pub async fn fs_write_file_inner(
 
 // ============ Tauri Command 包装 ============
 
+/// 读取指定路径的文件内容(必须在 dialog 中已授权)
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 #[tauri::command]
 pub async fn fs_read_file(
     path: String,
@@ -97,6 +119,12 @@ pub async fn fs_read_file(
     fs_read_file_inner(&path, &authorized).await
 }
 
+/// 向指定路径写入文件内容(必须在 dialog 中已授权)
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件写入失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 #[tauri::command]
 pub async fn fs_write_file(
     path: String,

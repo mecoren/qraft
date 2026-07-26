@@ -3,8 +3,5 @@
   "identifier": "clipboard",
   "description": "Capability for clipboard access: read/write text only",
   "windows": ["main"],
-  "permissions": [
-    "clipboard-manager:allow-read-text",
-    "clipboard-manager:allow-write-text"
-  ]
+  "permissions": ["clipboard-manager:allow-read-text", "clipboard-manager:allow-write-text"]
 }

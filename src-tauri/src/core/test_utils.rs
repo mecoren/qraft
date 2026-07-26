@@ -13,10 +13,10 @@ use tokio_util::sync::CancellationToken;
 use crate::core::context::{HistoryEntry, HistorySink, ToolContext};
 use crate::core::error::ToolError;
 
-/// 构造一个用于测试的 ToolContext:
-/// - cancel_token 未触发
+/// 构造一个用于测试的 `ToolContext`:
+/// - `cancel_token` 未触发
 /// - config 为空对象 `{}`
-/// - history_sink 使用 NoopHistorySink,写入即丢弃
+/// - `history_sink` 使用 NoopHistorySink,写入即丢弃
 #[must_use]
 pub fn mock_context() -> ToolContext {
     ToolContext {

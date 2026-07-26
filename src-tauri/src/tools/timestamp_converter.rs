@@ -15,7 +15,8 @@ const MAX_INPUT_BYTES: usize = 1024; // 时间戳输入很短
 pub struct TimestampConverter;
 
 impl TimestampConverter {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self
     }
 }
@@ -26,7 +27,7 @@ impl Default for TimestampConverter {
     }
 }
 
-/// 解析输入文本为 UTC DateTime。
+/// 解析输入文本为 UTC `DateTime`。
 /// 支持三种自动识别策略:
 ///  1. 纯数字(10 位 → 秒,13 位 → 毫秒)
 ///  2. ISO 8601 / RFC 3339(含时区后缀)
@@ -41,15 +42,11 @@ fn parse_input(text: &str) -> Result<DateTime<Utc>, ToolError> {
     if trimmed.chars().all(|c| c.is_ascii_digit()) {
         let n: i64 = trimmed
             .parse()
-            .map_err(|e| ToolError::ParseFailed(format!("invalid timestamp number: {}", e)))?;
+            .map_err(|e| ToolError::ParseFailed(format!("invalid timestamp number: {e}")))?;
         // 13 位以上视为毫秒;10 位视为秒
-        let secs = if trimmed.len() >= 13 {
-            n / 1000
-        } else {
-            n
-        };
+        let secs = if trimmed.len() >= 13 { n / 1000 } else { n };
         return DateTime::<Utc>::from_timestamp(secs, 0)
-            .ok_or_else(|| ToolError::ParseFailed(format!("timestamp out of range: {}", secs)));
+            .ok_or_else(|| ToolError::ParseFailed(format!("timestamp out of range: {secs}")));
     }
 
     // 策略 2:RFC 3339 / ISO 8601(优先尝试,带时区)
@@ -73,6 +70,8 @@ fn parse_input(text: &str) -> Result<DateTime<Utc>, ToolError> {
         // 仅日期格式,NaiveDateTime 解析会失败,尝试 NaiveDate 路径
         if fmt.ends_with("%d") && !trimmed.contains(':') {
             if let Ok(date) = chrono::NaiveDate::parse_from_str(trimmed, fmt) {
+                // 00:00:00 始终是合法时间,and_hms_opt 必返回 Some,unwrap 安全
+                #[allow(clippy::unwrap_used)]
                 let naive = date.and_hms_opt(0, 0, 0).unwrap();
                 return Ok(Utc.from_utc_datetime(&naive));
             }
@@ -80,8 +79,7 @@ fn parse_input(text: &str) -> Result<DateTime<Utc>, ToolError> {
     }
 
     Err(ToolError::ParseFailed(format!(
-        "cannot parse '{}' as timestamp or date string",
-        trimmed
+        "cannot parse '{trimmed}' as timestamp or date string"
     )))
 }
 
@@ -102,8 +100,7 @@ fn to_local_string(utc: DateTime<Utc>, timezone: &str) -> Result<String, ToolErr
         }
     }
     Err(ToolError::InvalidInput(format!(
-        "unknown timezone: {}",
-        timezone
+        "unknown timezone: {timezone}"
     )))
 }
 
@@ -130,26 +127,50 @@ fn relative_description(utc: DateTime<Utc>) -> String {
     let delta = now.signed_duration_since(utc);
     let secs = delta.num_seconds();
     if secs.abs() < 60 {
-        return format!("{} seconds {}", secs.abs(), if secs >= 0 { "ago" } else { "from now" });
+        return format!(
+            "{} seconds {}",
+            secs.abs(),
+            if secs >= 0 { "ago" } else { "from now" }
+        );
     }
     let mins = secs / 60;
     if mins.abs() < 60 {
-        return format!("{} minutes {}", mins.abs(), if mins >= 0 { "ago" } else { "from now" });
+        return format!(
+            "{} minutes {}",
+            mins.abs(),
+            if mins >= 0 { "ago" } else { "from now" }
+        );
     }
     let hours = mins / 60;
     if hours.abs() < 24 {
-        return format!("{} hours {}", hours.abs(), if hours >= 0 { "ago" } else { "from now" });
+        return format!(
+            "{} hours {}",
+            hours.abs(),
+            if hours >= 0 { "ago" } else { "from now" }
+        );
     }
     let days = hours / 24;
     if days.abs() < 30 {
-        return format!("{} days {}", days.abs(), if days >= 0 { "ago" } else { "from now" });
+        return format!(
+            "{} days {}",
+            days.abs(),
+            if days >= 0 { "ago" } else { "from now" }
+        );
     }
     let months = days / 30;
     if months.abs() < 12 {
-        return format!("{} months {}", months.abs(), if months >= 0 { "ago" } else { "from now" });
+        return format!(
+            "{} months {}",
+            months.abs(),
+            if months >= 0 { "ago" } else { "from now" }
+        );
     }
     let years = days / 365;
-    format!("{} years {}", years.abs(), if years >= 0 { "ago" } else { "from now" })
+    format!(
+        "{} years {}",
+        years.abs(),
+        if years >= 0 { "ago" } else { "from now" }
+    )
 }
 
 #[async_trait]
@@ -167,7 +188,9 @@ impl Tool for TimestampConverter {
                 max: MAX_INPUT_BYTES,
             });
         }
-        let timezone: String = input.param("timezone").unwrap_or_else(|_| "UTC".to_string());
+        let timezone: String = input
+            .param("timezone")
+            .unwrap_or_else(|_| "UTC".to_string());
 
         let start = Instant::now();
         let utc = parse_input(text)?;
@@ -180,8 +203,7 @@ impl Tool for TimestampConverter {
 
         // 文本输出:多行汇总便于复制
         let out_text = format!(
-            "Unix (seconds): {}\nUnix (millis): {}\nISO 8601: {}\nLocal ({}): {}\nRelative: {}",
-            unix_seconds, unix_millis, iso8601, timezone, local, relative
+            "Unix (seconds): {unix_seconds}\nUnix (millis): {unix_millis}\nISO 8601: {iso8601}\nLocal ({timezone}): {local}\nRelative: {relative}"
         );
 
         let mut extra = serde_json::Map::new();
@@ -196,6 +218,8 @@ impl Tool for TimestampConverter {
             text: out_text,
             extra: Some(serde_json::Value::Object(extra)),
             meta: Some(OutputMeta {
+                // u128 → u64:工具执行耗时远小于 u64 上限,截断不可能发生
+                #[allow(clippy::cast_possible_truncation)]
                 duration_ms: start.elapsed().as_millis() as u64,
                 input_bytes,
                 output_bytes,
@@ -258,8 +282,8 @@ mod tests {
         let output = tool.execute(input, &ctx).await.unwrap();
 
         let extra = output.extra.unwrap();
-        assert_eq!(extra["unix_seconds"], 1690272000);
-        assert_eq!(extra["unix_millis"], 1690272000000i64);
+        assert_eq!(extra["unix_seconds"], 1_690_272_000);
+        assert_eq!(extra["unix_millis"], 1_690_272_000_000i64);
         assert_eq!(extra["iso8601"], "2023-07-25T08:00:00+00:00");
     }
 
@@ -272,8 +296,8 @@ mod tests {
         let output = tool.execute(input, &ctx).await.unwrap();
 
         let extra = output.extra.unwrap();
-        assert_eq!(extra["unix_seconds"], 1690272000);
-        assert_eq!(extra["unix_millis"], 1690272000000i64);
+        assert_eq!(extra["unix_seconds"], 1_690_272_000);
+        assert_eq!(extra["unix_millis"], 1_690_272_000_000i64);
     }
 
     #[tokio::test]
@@ -285,7 +309,7 @@ mod tests {
         let output = tool.execute(input, &ctx).await.unwrap();
 
         let extra = output.extra.unwrap();
-        assert_eq!(extra["unix_seconds"], 1690272000);
+        assert_eq!(extra["unix_seconds"], 1_690_272_000);
     }
 
     #[tokio::test]
@@ -297,7 +321,7 @@ mod tests {
         let output = tool.execute(input, &ctx).await.unwrap();
 
         let extra = output.extra.unwrap();
-        assert_eq!(extra["unix_seconds"], 1690272000);
+        assert_eq!(extra["unix_seconds"], 1_690_272_000);
     }
 
     #[tokio::test]

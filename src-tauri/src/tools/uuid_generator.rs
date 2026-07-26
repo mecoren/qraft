@@ -12,7 +12,8 @@ use crate::register_tool;
 pub struct UuidGenerator;
 
 impl UuidGenerator {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self
     }
 }
@@ -37,18 +38,18 @@ impl Tool for UuidGenerator {
 
         if count < 1 {
             return Err(ToolError::InvalidInput(format!(
-                "count must be >= 1, got {}",
-                count
+                "count must be >= 1, got {count}"
             )));
         }
         if count > 1000 {
             return Err(ToolError::InvalidInput(format!(
-                "count must be <= 1000, got {}",
-                count
+                "count must be <= 1000, got {count}"
             )));
         }
 
         let start = Instant::now();
+        // count 已校验在 1..=1000,转 usize 不会截断/丢符号;转 i64 仅用于循环边界
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let mut uuids: Vec<String> = Vec::with_capacity(count as usize);
         for _ in 0..count {
             let uuid = match version.as_str() {
@@ -56,9 +57,8 @@ impl Tool for UuidGenerator {
                 "v7" => Uuid::now_v7(),
                 other => {
                     return Err(ToolError::InvalidInput(format!(
-                        "version must be 'v4' or 'v7', got '{}'",
-                        other
-                    )))
+                        "version must be 'v4' or 'v7', got '{other}'"
+                    )));
                 }
             };
             let mut s = if hyphens {
@@ -79,6 +79,8 @@ impl Tool for UuidGenerator {
             text: out_text,
             extra: None,
             meta: Some(OutputMeta {
+                // u128 → u64:工具执行耗时远小于 u64 上限,截断不可能发生
+                #[allow(clippy::cast_possible_truncation)]
                 duration_ms: start.elapsed().as_millis() as u64,
                 input_bytes,
                 output_bytes,
@@ -170,7 +172,7 @@ mod tests {
         assert_eq!(lines.len(), 10);
         // 全部唯一
         let mut deduped = lines.clone();
-        deduped.sort();
+        deduped.sort_unstable();
         deduped.dedup();
         assert_eq!(deduped.len(), 10);
     }

@@ -56,7 +56,10 @@ describe('HashCalculator', () => {
   it('shows error alert when invalid algorithm is used', async () => {
     const { invokeCommand, CommandError } = await import('@/lib/ipc');
     (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new CommandError('ERR_INVALID_INPUT', "algorithm must be one of md5/sha1/sha256/sha512/blake3, got 'crc32'")
+      new CommandError(
+        'ERR_INVALID_INPUT',
+        "algorithm must be one of md5/sha1/sha256/sha512/blake3, got 'crc32'",
+      ),
     );
 
     render(<HashCalculator toolId="hash_calculator" metadata={null as never} />);

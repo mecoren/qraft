@@ -5,9 +5,9 @@
 use tauri::Emitter;
 
 use crate::core::context::HistoryEntry;
+use crate::shell::AppError;
 use crate::shell::response::CommandResponse;
 use crate::shell::state::AppState;
-use crate::shell::AppError;
 
 // ============ 事件 Payload ============
 
@@ -19,6 +19,11 @@ pub struct HistoryClearedPayload {
 
 // ============ 内部函数(可测试) ============
 
+/// 列出历史记录(`limit` 为 None 时默认 100 条)
+///
+/// # Errors
+///
+/// - 历史存储读取失败时返回 `AppError::history`(`ERR_HISTORY_IO`)
 pub async fn history_list_inner(
     limit: Option<u32>,
     state: &AppState,
@@ -32,6 +37,11 @@ pub async fn history_list_inner(
     Ok(CommandResponse::ok(entries))
 }
 
+/// 清空历史记录,并 emit `history_cleared` 事件
+///
+/// # Errors
+///
+/// - 历史存储清空失败时返回 `AppError::history`(`ERR_HISTORY_IO`)
 pub async fn history_clear_inner(
     state: &AppState,
     app_handle: &tauri::AppHandle,
@@ -50,6 +60,11 @@ pub async fn history_clear_inner(
 
 // ============ Tauri Command 包装 ============
 
+/// 列出历史记录
+///
+/// # Errors
+///
+/// - 历史存储读取失败时返回 `AppError::history`(`ERR_HISTORY_IO`)
 #[tauri::command]
 pub async fn history_list(
     limit: Option<u32>,
@@ -58,6 +73,11 @@ pub async fn history_list(
     history_list_inner(limit, &state).await
 }
 
+/// 清空历史记录,并 emit `history_cleared` 事件
+///
+/// # Errors
+///
+/// - 历史存储清空失败时返回 `AppError::history`(`ERR_HISTORY_IO`)
 #[tauri::command]
 pub async fn history_clear(
     state: tauri::State<'_, AppState>,

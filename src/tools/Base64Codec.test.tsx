@@ -53,7 +53,7 @@ describe('Base64Codec', () => {
   it('shows error alert when invoke fails with ParseFailed', async () => {
     const { invokeCommand, CommandError } = await import('@/lib/ipc');
     (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new CommandError('ERR_PARSE_FAILED', 'invalid base64')
+      new CommandError('ERR_PARSE_FAILED', 'invalid base64'),
     );
 
     render(<Base64Codec toolId="base64_codec" metadata={null as never} />);

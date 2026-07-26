@@ -8,9 +8,13 @@ use serde::{Deserialize, Serialize};
 use crate::shell::AppError;
 
 /// 统一响应包络
+///
+/// 注意:此处不在类型参数上写 `T: Serialize` bound,因为 `#[derive(Serialize,
+/// Deserialize)]` 会自动生成对应的 where 子句;若在此重复声明,会触发
+/// `clippy::trait_duplication_in_bounds` 警告。各 `impl` 块按需声明 bound 即可。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CommandResponse<T: Serialize> {
+pub struct CommandResponse<T> {
     pub success: bool,
     pub data: Option<T>,
     pub error: Option<ErrorInfo>,
@@ -23,7 +27,7 @@ pub struct CommandResponse<T: Serialize> {
 pub struct ErrorInfo {
     /// 错误种类(对应 `AppError::code()`)
     pub kind: String,
-    /// 错误详情(序列化后的 AppError detail)
+    /// 错误详情(序列化后的 `AppError` detail)
     pub detail: String,
     /// 用户可读的错误消息
     pub message: String,
@@ -41,7 +45,8 @@ impl<T: Serialize> CommandResponse<T> {
     }
 
     /// 构造失败响应
-    pub fn err(error: ErrorInfo, code: String) -> Self {
+    #[must_use]
+    pub const fn err(error: ErrorInfo, code: String) -> Self {
         Self {
             success: false,
             data: None,
@@ -53,6 +58,7 @@ impl<T: Serialize> CommandResponse<T> {
 
 impl<T: Serialize + Default> CommandResponse<T> {
     /// 构造成功响应但不携带数据(用于 void 返回)
+    #[must_use]
     pub fn ok_empty() -> Self {
         Self {
             success: true,
@@ -64,10 +70,11 @@ impl<T: Serialize + Default> CommandResponse<T> {
 }
 
 impl ErrorInfo {
-    /// 从 AppError 构造 ErrorInfo
+    /// 从 `AppError` 构造 `ErrorInfo`
     ///
     /// 简化策略:detail 与 message 均取 `to_string()`,
     /// 避免对 `anyhow::Error` / `io::Error` 强制要求 Clone。
+    #[must_use]
     pub fn from_app_error(e: &AppError) -> Self {
         Self {
             kind: e.code().to_string(),

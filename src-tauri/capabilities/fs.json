@@ -3,8 +3,5 @@
   "identifier": "fs",
   "description": "Capability for fs commands and dialog: file picker dialogs (fs_read_file/fs_write_file validated via AuthorizedPaths in app layer)",
   "windows": ["main"],
-  "permissions": [
-    "dialog:allow-open",
-    "dialog:allow-save"
-  ]
+  "permissions": ["dialog:allow-open", "dialog:allow-save"]
 }
