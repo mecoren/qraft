@@ -28,6 +28,10 @@ desktop.ini
 .env.local
 .env.*.local
 
+# Secrets — Tauri updater signing keys etc.
+*.key
+*.key.pub
+
 # Logs
 *.log
 npm-debug.log*
