@@ -2516,7 +2516,7 @@ git commit -m "feat(shell): add app IPC commands (open_external/version/quit) wi
 }
 ```
 
-- [ ] 创建 `src-tauri/capabilities/updater.json`: <!-- 未完成: 文件不存在,仅创建 7 个 capability 文件(updater.json 缺失) -->
+- [x] 创建 `src-tauri/capabilities/updater.json`:
 
 ```json
 {
@@ -2719,7 +2719,7 @@ git commit -m "feat(shell): wire up tauri app with all commands, plugins, and st
 
 ### 步骤 13.1: 写冒烟测试
 
-- [ ] 创建 `src-tauri/tests/smoke.rs`: <!-- 未完成: 文件不存在,tests 目录仅有 p0_tools_integration.rs -->
+- [x] 创建 `src-tauri/tests/smoke.rs`: <!-- 已完成(采用简化版): 不依赖 tauri::test feature,改为验证 CommandResponse/ToolMetadata 类型可导入与序列化契约;端到端 mock_app 测试标记 #[ignore] 留待手动运行,见 Task 13.3 -->
 
 ```rust
 // src-tauri/tests/smoke.rs
@@ -2821,7 +2821,7 @@ async fn smoke_tool_not_found() {
 
 ### 步骤 13.2: 验证测试编译
 
-- [ ] 运行(仅编译,不运行 ignored 测试): <!-- 未完成: smoke.rs 不存在,无法编译 -->
+- [x] 运行(仅编译,不运行 ignored 测试): <!-- 已完成: cargo test --test smoke --no-run 编译成功;2 个非 ignored 测试通过,1 个 #[ignore] 留待桌面环境手动运行 -->
 
 ```bash
 cd src-tauri && cargo test --test smoke --no-run
@@ -2838,7 +2838,7 @@ cd src-tauri && cargo test --test smoke --no-run
 
 ### 步骤 13.3: 运行冒烟测试(手动)
 
-- [ ] 在带桌面环境的机器上运行: <!-- 未完成: smoke.rs 不存在 -->
+- [ ] 在带桌面环境的机器上运行: <!-- 跳过: 需桌面环境,本地无头环境无法运行;smoke_tool_list_end_to_end 测试标记 #[ignore],应在带桌面的 CI runner 或手动运行 cargo test --test smoke -- --ignored -->
 
 ```bash
 cd src-tauri && cargo test --test smoke -- --ignored
@@ -2848,7 +2848,7 @@ cd src-tauri && cargo test --test smoke -- --ignored
 
 ### 步骤 13.4: 提交
 
-- [ ] 执行 git 提交: <!-- 未完成: smoke.rs 不存在,无法提交 -->
+- [x] 执行 git 提交:
 
 ```bash
 git add src-tauri/tests/smoke.rs
@@ -2867,7 +2867,7 @@ git commit -m "test(shell): add integration smoke tests for tool_list, app_versi
 - [x] `cd src-tauri && cargo clippy -- -D warnings` 无 warning
 - [x] `cd src-tauri && cargo fmt --check` 格式正确
 - [x] `cd src-tauri && cargo test` 所有非 ignore 测试通过
-- [ ] `cd src-tauri && cargo test -- --ignored` 冒烟测试通过(需桌面环境) <!-- 未完成: smoke.rs 不存在 -->
+- [ ] `cd src-tauri && cargo test -- --ignored` 冒烟测试通过(需桌面环境) <!-- 跳过: 需桌面环境,smoke_tool_list_end_to_end 标记 #[ignore] 留待带桌面的 CI runner 或手动运行 -->
 
 ### 功能验证
 
@@ -2915,11 +2915,11 @@ git commit -m "test(shell): add integration smoke tests for tool_list, app_versi
 
 ### 权限配置
 
-- [ ] `capabilities/` 下 8 个 JSON 文件已创建 <!-- 未完成: 仅创建 7 个,updater.json 缺失 -->
+- [x] `capabilities/` 下 8 个 JSON 文件已创建
 - [x] 无 `**` 通配符
 - [x] `clipboard-manager` 仅 `read-text`/`write-text`
 - [x] `shell` 仅 `allow-open`(应用层校验 http/https)
-- [ ] `updater` 仅 `default` <!-- 未完成: updater.json 缺失 -->
+- [x] `updater` 仅 `default` <!-- 已完成: updater.json 仅含 updater:default(符合 plan 03 最小版本);plan 06 Task 3.3 将覆盖为 3 权限版本 -->
 
 ---
 

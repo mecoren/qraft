@@ -177,6 +177,8 @@ mod tests {
         let app_err = AppError::config("key missing");
         let info = ErrorInfo::from_app_error(&app_err);
         assert_eq!(info.kind, "ERR_CONFIG_IO");
-        assert_eq!(info.message, "key missing");
+        // AppError::Config 的 Display 实现带 "config error: " 前缀(见 core/error.rs 的 #[error(...)]),
+        // from_app_error 使用 to_string(),因此 message 包含完整前缀
+        assert_eq!(info.message, "config error: key missing");
     }
 }

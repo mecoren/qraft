@@ -20,9 +20,11 @@ pub mod store;
 pub mod tools;
 
 // Tauri 依赖模块:仅在非测试编译下包含
+// `commands` 模块使用 `#[tauri::command]` 宏与 Tauri 运行时 trait,需要完整运行时
+// `shell` 模块本身仅 `state` 子模块依赖运行时(见 shell/mod.rs),`response` 子模块
+// 仅依赖 serde,可在测试下编译供集成测试断言 CommandResponse 包络
 #[cfg(not(test))]
 pub mod commands;
-#[cfg(not(test))]
 pub mod shell;
 
 // 重导出 Core 层关键类型,方便外部使用
@@ -81,6 +83,8 @@ pub fn run() -> anyhow::Result<()> {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_shell::init())
+        // Updater 插件:自动更新检查与下载(零网络原则的唯一例外,见 PRD 13-security.md §3.1)
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let registry = crate::core::registry::ToolRegistry::global();
             tracing::info!("registered {} tools", registry.list().len());
