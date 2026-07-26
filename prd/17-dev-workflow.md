@@ -593,11 +593,11 @@ flowchart TD
 | 新增术语 | [02-glossary.md](./02-glossary.md) |
 | 架构变更 | [04-system-architecture.md](./04-system-architecture.md) |
 
-### 6.4 [待补充: 贡献者协议]
+### 6.4 贡献者协议（待补充）
 
 开源贡献需签署 CLA（Contributor License Agreement）。具体协议文本与签署流程待法务确认后补充。
 
-### 6.5 [待补充: 代码所有权]
+### 6.5 代码所有权（待补充）
 
 CODEOWNERS 文件需定义每个目录的 reviewer。当前团队规模小，所有 PR 由 maintainer review，待团队扩大后细化。
 

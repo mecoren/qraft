@@ -30,7 +30,7 @@ audience: 一年经验的开发者
 
 ## 1. 背景与目的
 
-Qraft 是 30+ 工具的集合，UI 是用户接触工具的直接界面。如果 UI 风格不统一，会导致：
+Qraft 是 34 个（规划）工具的集合，UI 是用户接触工具的直接界面。如果 UI 风格不统一，会导致：
 
 1. **学习成本高**：每个工具的交互方式都不同
 2. **视觉混乱**：颜色、间距、字体不一致
@@ -395,14 +395,16 @@ interface ToolPref {
 |--------|------|--------|
 | `Ctrl+K` / `Cmd+K` | 命令面板 | 是 |
 | `Ctrl+B` / `Cmd+B` | 切换侧栏 | 是 |
-| `Ctrl+,` / `Cmd+,` | 打开设置 | 否 |
-| `Ctrl+P` / `Cmd+P` | 工具切换 | 否 |
+| `Ctrl+,` / `Cmd+,` | 打开设置 | 是 |
+| `Ctrl+P` / `Cmd+P` | 工具切换 | 是 |
 | `Ctrl+Shift+C` | 复制输出 | 是 |
 | `Ctrl+L` | 清空输入 | 是 |
 | `Ctrl+Enter` | 执行工具 | 是 |
-| `Ctrl+H` | 打开历史 | 否 |
-| `Ctrl+F` | 工具内搜索 | 否 |
-| `Esc` | 关闭对话框/面板 | 否 |
+| `Ctrl+H` | 打开历史 | 是 |
+| `Ctrl+F` | 工具内搜索 | 是 |
+| `Esc` | 关闭对话框/面板 | 是 |
+
+> 全部 10 个快捷键均持久化到 `UserConfig.shortcuts`（`ShortcutBinding`），与 [08-data-model.md](./08-data-model.md) §3.2 的定义一一对应，可在设置中自定义。
 
 #### 工具内快捷键
 
@@ -414,11 +416,16 @@ interface ToolPref {
 // src/store/configStore.ts
 
 interface ShortcutBinding {
-  open_command_palette: string;
-  toggle_sidebar: string;
-  execute_tool: string;
-  clear_input: string;
-  copy_output: string;
+  open_command_palette: string; // "Ctrl+K"
+  toggle_sidebar: string;       // "Ctrl+B"
+  execute_tool: string;          // "Ctrl+Enter"
+  clear_input: string;           // "Ctrl+L"
+  copy_output: string;           // "Ctrl+Shift+C"
+  toggle_settings: string;        // "Ctrl+,"
+  switch_tool: string;            // "Ctrl+P"
+  open_history: string;           // "Ctrl+H"
+  search: string;                // "Ctrl+F"
+  close_panel: string;           // "Esc"
 }
 ```
 
@@ -565,7 +572,7 @@ sequenceDiagram
 
 字体文件打包到应用内（不依赖 Google Fonts），遵守零网络原则。
 
-### 6.4 [待补充: 亮色主题完整定义]
+### 6.4 亮色主题完整定义（待补充）
 
 MVP 阶段仅暗色，亮色主题推迟到 v1.0。需补充：
 
@@ -573,7 +580,7 @@ MVP 阶段仅暗色，亮色主题推迟到 v1.0。需补充：
 - 亮色模式下的对比度验证
 - 工具面板在亮色下的视觉调优
 
-### 6.5 [待补充: 自定义主题色]
+### 6.5 自定义主题色（待补充）
 
 用户可能希望自定义强调色（accent color）。需评估：
 

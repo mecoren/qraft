@@ -65,12 +65,13 @@ Qraft 把"零网络、本地优先"作为核心价值主张，安全是这一主
 
 #### Tauri CSP 配置
 
+> 配置文件：`src-tauri/tauri.conf.json`
+
 ```json
-// src-tauri/tauri.conf.json
 {
   "app": {
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'",
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'",
       "devCsp": null
     }
   }
@@ -79,8 +80,12 @@ Qraft 把"零网络、本地优先"作为核心价值主张，安全是这一主
 
 - `default-src 'self'`：所有资源仅允许从应用自身加载
 - `img-src 'self' data:`：允许 data URI 的图片（用于 QR 码等）
-- `style-src 'unsafe-inline'`：允许 Tailwind 的内联样式
+- `style-src 'self'`：Tailwind 在构建期生成 CSS 文件并由 `self` 加载，运行时不需要内联样式
 - `script-src 'self'`：禁止外部脚本
+
+> 📌 **项目实际**
+>
+> 不使用 `style-src 'unsafe-inline'`。Tailwind CSS 经 Vite 构建后产物为静态 CSS 文件，通过 `style-src 'self'` 即可加载。若未来引入需运行时注入内联样式的第三方组件，应改用 `nonce` 机制（Tauri 支持 CSP nonce 注入），而非放宽到 `unsafe-inline`。
 
 #### 禁用 Tauri HTTP 插件
 
@@ -186,8 +191,9 @@ impl ToolInput {
 
 #### Tauri fs 权限配置
 
+> 配置文件：`src-tauri/capabilities/default.json`
+
 ```json
-// src-tauri/capabilities/default.json
 {
   "identifier": "default",
   "windows": ["main"],
@@ -319,8 +325,9 @@ async fn clipboard_write(app: tauri::AppHandle, text: String) -> Result<(), AppE
 
 #### Capabilities 配置
 
+> 配置文件：`src-tauri/capabilities/default.json`
+
 ```json
-// src-tauri/capabilities/default.json
 {
   "identifier": "default",
   "description": "Default capability for main window",
@@ -353,7 +360,7 @@ async fn clipboard_write(app: tauri::AppHandle, text: String) -> Result<(), AppE
 | `clipboard_write` | `clipboard-manager:allow-write-text` | 无 |
 | `app_open_external` | `shell:allow-open` | 仅 https:// |
 | `tool_execute` | `core:default` | 无 |
-| `updater_check` | `updater:default` | 可禁用 |
+| `app_check_update` | `updater:default` | 可禁用 |
 
 #### 最小权限原则
 
@@ -562,7 +569,7 @@ tracing::info!(
 
 用户唯一可禁用的安全相关功能是"自动更新检查"。
 
-### 6.4 [待补充: 加密存储评估]
+### 6.4 加密存储评估（待补充）
 
 当前配置与历史明文存储。若用户有更高安全需求，评估：
 

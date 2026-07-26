@@ -197,7 +197,7 @@ flowchart LR
 
 **进程间通信**：仅通过 Tauri IPC，无共享内存、无管道。
 
-**WebView 进程崩溃**：Tauri 默认会重启 WebView；Qraft 在重启后通过 `tool_list` 重新拉取工具清单，并通过 `workspace_restore` 恢复上次会话。
+**WebView 进程崩溃**：Tauri 默认会重启 WebView；Qraft 在重启后通过 `tool_list` 重新拉取工具清单，并通过 `workspace_get` 拉取上次保存的 Workspace（由 `WorkspaceStore` 在 `setup` 阶段自动加载本地持久化文件）恢复会话。
 
 **主进程崩溃**：应用退出，用户需手动重启。崩溃前 `tracing` 日志已写入 `~/.qraft/logs/`，可用于事后分析。
 
@@ -480,7 +480,7 @@ sequenceDiagram
 - 一个工具超时不影响其他工具（通过 `tokio::time::timeout`）
 - 工具之间通过 `ToolContext.history_sink` 间接通信，不直接调用
 
-### 6.4 [待补充: 多窗口架构是否需要]
+### 6.4 多窗口架构是否需要（待补充）
 
 当前架构假设单窗口。若 v2.0 引入多窗口（如工具独立窗口），需要：
 

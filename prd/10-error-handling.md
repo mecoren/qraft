@@ -30,7 +30,7 @@ audience: 一年经验的开发者
 
 ## 1. 背景与目的
 
-Qraft 是 30+ 工具的集合，每个工具都可能因输入错误、解析失败、超时、内部 bug 而失败。如果错误处理不统一，会导致：
+Qraft 是 34 个（规划）工具的集合，每个工具都可能因输入错误、解析失败、超时、内部 bug 而失败。如果错误处理不统一，会导致：
 
 1. **用户体验差**：错误信息不可读、无法定位问题
 2. **稳定性差**：单工具 panic 导致整个应用崩溃
@@ -110,10 +110,26 @@ classDiagram
         +Corrupted
     }
 
+    class FsError {
+        <<enum>>
+        +NotFound
+        +TooLarge
+        +PermissionDenied
+        +IoError
+    }
+
+    class ClipboardError {
+        <<enum>>
+        +Unavailable
+        +IoError
+    }
+
     AppError --> ToolError
     AppError --> EngineError
     AppError --> ConfigError
     AppError --> HistoryError
+    AppError --> FsError
+    AppError --> ClipboardError
     EngineError --> ToolError
 ```
 
@@ -125,6 +141,10 @@ classDiagram
 use thiserror::Error;
 use serde::Serialize;
 
+// 错误包络 serde tag 设计：
+// - 顶层 AppError 用 `tag = "domain"`，标识错误所属业务域（tool/engine/config/...）
+// - 嵌套的 ToolError 用 `tag = "kind"`，标识工具层具体错误种类
+// 前端先解析 domain 定位错误层，再按层解析 kind/detail，避免字段名冲突。
 #[derive(Debug, Error, Serialize)]
 #[serde(tag = "kind", content = "detail")]
 pub enum ToolError {
@@ -193,6 +213,7 @@ pub enum EngineError {
 
 use crate::core::{ToolError, EngineError};
 use crate::store::{ConfigError, HistoryError};
+use crate::shell::{FsError, ClipboardError};
 
 #[derive(Debug, thiserror::Error, Serialize)]
 #[serde(tag = "domain", content = "detail")]
@@ -209,6 +230,12 @@ pub enum AppError {
 
     #[error(transparent)]
     History(#[from] HistoryError),
+
+    #[error(transparent)]
+    Fs(#[from] FsError),
+
+    #[error(transparent)]
+    Clipboard(#[from] ClipboardError),
 
     #[error("permission denied: {0}")]
     Permission(String),
@@ -229,6 +256,10 @@ impl AppError {
             AppError::Config(_) => "ERR_CONFIG_IO",
             AppError::History(HistoryError::NotFound) => "ERR_HISTORY_EMPTY",
             AppError::History(_) => "ERR_HISTORY_IO",
+            AppError::Fs(FsError::NotFound) => "ERR_FILE_NOT_FOUND",
+            AppError::Fs(FsError::TooLarge) => "ERR_FILE_TOO_LARGE",
+            AppError::Fs(_) => "ERR_FILE_IO",
+            AppError::Clipboard(_) => "ERR_CLIPBOARD_UNAVAILABLE",
             AppError::Permission(_) => "ERR_PERMISSION_DENIED",
             AppError::Unknown(_) => "ERR_INTERNAL",
         }
@@ -260,6 +291,34 @@ pub enum ConfigError {
 
     #[error("migration failed from v{from} to v{to}")]
     MigrationFailed { from: u32, to: u32 },
+
+    #[error("io error: {0}")]
+    IoError(#[from] std::io::Error),
+}
+```
+
+```rust
+// src-tauri/src/shell/fs_error.rs
+#[derive(Debug, thiserror::Error)]
+pub enum FsError {
+    #[error("file not found: {path}")]
+    NotFound { path: String },
+
+    #[error("file too large: {size} bytes, max {max} bytes")]
+    TooLarge { size: usize, max: usize },
+
+    #[error("permission denied: {path}")]
+    PermissionDenied { path: String },
+
+    #[error("io error: {0}")]
+    IoError(#[from] std::io::Error),
+}
+
+// src-tauri/src/shell/clipboard_error.rs
+#[derive(Debug, thiserror::Error)]
+pub enum ClipboardError {
+    #[error("clipboard unavailable")]
+    Unavailable,
 
     #[error("io error: {0}")]
     IoError(#[from] std::io::Error),
@@ -689,9 +748,23 @@ pub struct CommandError {
 
 ### 6.3 panic 与 abort
 
-- **dev 构建**：`panic = "unwind"`，catch_unwind 有效
-- **release 构建**：`panic = "unwind"`，确保生产环境的隔离能力
-- **禁用** `panic = "abort"`，否则 catch_unwind 无效
+> 📌 **项目实际**
+>
+> `panic` 策略必须在 `Cargo.toml` 的 `[profile.dev]` 与 `[profile.release]` 中显式声明，**仅写顶层 `[profile]` 不生效**：
+>
+> ```toml
+> # Cargo.toml
+> [profile.dev]
+> panic = "unwind"      # dev 构建：catch_unwind 有效
+>
+> [profile.release]
+> panic = "unwind"    # release 构建也必须 unwind，否则 production 隔离能力失效
+> # 切勿设置 panic = "abort"（会令 catch_unwind 完全失效）
+> ```
+
+- **dev 构建**：`[profile.dev]` 设 `panic = "unwind"`，`catch_unwind` 有效
+- **release 构建**：`[profile.release]` 设 `panic = "unwind"`，确保生产环境的隔离能力
+- **禁用** 任何 profile 设 `panic = "abort"`，否则 `catch_unwind` 无效
 
 ### 6.4 日志与上报
 
@@ -706,7 +779,7 @@ pub struct CommandError {
 
 日志写入 `~/.qraft/logs/qraft.log`，按天滚动，保留 7 天。
 
-### 6.5 [待补充: 错误上报机制]
+### 6.5 错误上报机制（待补充）
 
 当前错误仅在本地日志。若用户愿意，可考虑：
 

@@ -1,0 +1,61 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+
+vi.mock('@/lib/ipc', () => ({
+  invokeCommand: vi.fn(),
+}));
+
+import { UuidGenerator } from './UuidGenerator';
+
+describe('UuidGenerator', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders version select, count input, switches and generate button', () => {
+    render(<UuidGenerator toolId="uuid_generator" metadata={null as never} />);
+    expect(screen.getByRole('button', { name: /generate/i })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /uppercase/i })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /hyphens/i })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: /count/i })).toBeInTheDocument();
+  });
+
+  it('calls tool_execute with default v4 + count=1', async () => {
+    const { invokeCommand } = await import('@/lib/ipc');
+    (invokeCommand as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: '550e8400-e29b-41d4-a716-446655440000',
+    });
+
+    render(<UuidGenerator toolId="uuid_generator" metadata={null as never} />);
+    fireEvent.click(screen.getByRole('button', { name: /generate/i }));
+
+    await waitFor(() => {
+      expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
+        toolId: 'uuid_generator',
+        input: {
+          text: undefined,
+          params: { version: 'v4', count: 1, uppercase: false, hyphens: true },
+        },
+      });
+    });
+  });
+
+  it('displays generated UUIDs in output area', async () => {
+    const { invokeCommand } = await import('@/lib/ipc');
+    (invokeCommand as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: 'uuid1\nuuid2\nuuid3',
+    });
+
+    render(<UuidGenerator toolId="uuid_generator" metadata={null as never} />);
+    fireEvent.change(screen.getByRole('spinbutton', { name: /count/i }), {
+      target: { value: '3' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /generate/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/uuid1/)).toBeInTheDocument();
+      expect(screen.getByText(/uuid2/)).toBeInTheDocument();
+      expect(screen.getByText(/uuid3/)).toBeInTheDocument();
+    });
+  });
+});

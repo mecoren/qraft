@@ -226,6 +226,7 @@ try {
 | `history_delete` | `id: String` | `bool` | 删除单条历史 |
 | `history_clear` | `toolId?: String` | `bool` | 清空历史（可选按工具） |
 | `history_search` | `query: String, limit?` | `Vec<HistoryEntry>` | 搜索历史 |
+| `history_add` | `entry: HistoryEntry` | `bool` | 写入单条历史（由 Executor 内部调用，UI 通常不直接调用，见 §6.2） |
 
 #### Favorite 命令
 
@@ -275,6 +276,7 @@ try {
 | `app_version` | 无 | `String` | 获取应用版本 |
 | `app_open_external` | `url: String` | `bool` | 用系统浏览器打开 URL |
 | `app_check_update` | 无 | `Option<UpdateInfo>` | 检查更新 |
+| `log_error` | `error: ErrorReport` | `bool` | 上报前端运行时错误（供 React Error Boundary 调用，详见 [10-error-handling.md](./10-error-handling.md)） |
 
 ### 3.4 Rust 公共 Trait 接口
 
@@ -337,12 +339,18 @@ pub trait Clipboard: Send + Sync {
 | `ERR_CANCELLED` | 用户取消执行 | 499 |
 | `ERR_INPUT_TOO_LARGE` | 输入超过大小限制 | 413 |
 | `ERR_INTERNAL` | 内部错误（含 panic） | 500 |
+| `ERR_OUT_OF_MEMORY` | 内存超限（工具内存配额，见 05 §6.4） | 507 |
 | `ERR_PERMISSION_DENIED` | 权限拒绝 | 403 |
 | `ERR_FILE_NOT_FOUND` | 文件不存在 | 404 |
 | `ERR_FILE_TOO_LARGE` | 文件超过大小限制 | 413 |
+| `ERR_FILE_IO` | 文件读写 IO 错误 | 500 |
+| `ERR_CONFIG_NOT_FOUND` | 配置文件不存在 | 404 |
 | `ERR_CONFIG_INVALID` | 配置无效 | 422 |
 | `ERR_CONFIG_MIGRATION_FAILED` | 配置迁移失败 | 500 |
+| `ERR_CONFIG_IO` | 配置读写 IO 错误 | 500 |
 | `ERR_HISTORY_EMPTY` | 历史记录为空 | 404 |
+| `ERR_HISTORY_IO` | 历史记录读写 IO 错误 | 500 |
+| `ERR_CLIPBOARD_UNAVAILABLE` | 剪贴板不可用或读写失败 | 500 |
 | `ERR_PRESET_NOT_FOUND` | 预设不存在 | 404 |
 | `ERR_UPDATE_CHECK_FAILED` | 更新检查失败 | 503 |
 
@@ -375,10 +383,9 @@ Qraft 的 Command 接口整体版本化，版本号在 `ResponseMeta.version` �
 
 ### 4.1 工具调用请求/响应示例
 
-**请求**：
+**请求**（`invoke('tool_execute', { toolId: 'json_formatter', input: {...} })`）：
 
 ```json
-// invoke('tool_execute', { toolId: 'json_formatter', input: {...} })
 {
   "toolId": "json_formatter",
   "input": {
@@ -436,17 +443,15 @@ Qraft 的 Command 接口整体版本化，版本号在 `ResponseMeta.version` �
 
 ### 4.2 配置读写请求/响应示例
 
-**读取配置**：
+**读取配置**（`invoke('config_get', { key: 'theme' })`）：
 
 ```json
-// invoke('config_get', { key: 'theme' })
 {
   "key": "theme"
 }
 ```
 
 ```json
-// 响应
 {
   "success": true,
   "data": {
@@ -457,10 +462,9 @@ Qraft 的 Command 接口整体版本化，版本号在 `ResponseMeta.version` �
 }
 ```
 
-**写入配置**：
+**写入配置**（`invoke('config_set', { key: 'theme.mode', value: 'light' })`）：
 
 ```json
-// invoke('config_set', { key: 'theme.mode', value: 'light' })
 {
   "key": "theme.mode",
   "value": "light"
@@ -477,10 +481,9 @@ Qraft 的 Command 接口整体版本化，版本号在 `ResponseMeta.version` �
 
 ### 4.3 历史记录请求/响应示例
 
-**列出历史**：
+**列出历史**（`invoke('history_list', { limit: 10, offset: 0 })`）：
 
 ```json
-// invoke('history_list', { limit: 10, offset: 0 })
 {
   "limit": 10,
   "offset": 0
@@ -558,6 +561,7 @@ useEffect(() => {
 | `tool_progress` | `{ taskId, processed, total }` | 流式工具进度更新 |
 | `tool_completed` | `{ taskId, output }` | 流式工具完成 |
 | `tool_failed` | `{ taskId, error }` | 流式工具失败 |
+| `tool_chunk` | `{ taskId, text }` | 流式工具输出片段（对应 `StreamEvent::Chunk`，见 05 §3.1） |
 | `update_available` | `UpdateInfo` | 检测到新版本 |
 
 ---
@@ -629,7 +633,7 @@ useEffect(() => {
 
 详见 [13-security.md](./13-security.md)。
 
-### 6.4 [待补充: IPC 性能基准]
+### 6.4 IPC 性能基准（待补充）
 
 当前未测量 IPC 调用开销。需要：
 

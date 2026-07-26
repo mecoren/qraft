@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "history",
+  "description": "Capability for history_* commands: list/clear (custom commands, no plugin permissions needed)",
+  "windows": ["main"],
+  "permissions": []
+}

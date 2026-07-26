@@ -52,14 +52,14 @@ audience: 一年经验的开发者
 
 ### 1.2 项目定位
 
-**Qraft 是一款全方位本地开发工具箱（类 DevToys），覆盖 Windows / macOS / Linux 三大桌面平台，内置 30+ 常用开发小工具，所有数据计算 100% 在本机完成，零网络依赖。**
+**Qraft 是一款全方位本地开发工具箱（类 DevToys），覆盖 Windows / macOS / Linux 三大桌面平台，规划内置 34 个常用开发小工具（MVP 阶段先落地 10 个 P0 工具），所有数据计算 100% 在本机完成，零网络依赖。**
 
 核心关键词：
 
 - **本地优先（Local-first）**：所有解析、转换、计算逻辑在本机 Rust 进程中完成，不发送任何数据到外部
 - **Rust 加速（Rust-accelerated）**：核心逻辑用 Rust 实现，性能显著优于 JS/Python 同类工具
 - **跨平台一致（Cross-platform consistent）**：基于 Tauri V2 统一 WebView，三平台行为与视觉一致
-- **工具即插件（Tool as Plugin）**：每个工具是独立 Rust 模块，可热插拔，支持社区贡献
+- **工具即插件（Tool as Plugin）**：每个工具是独立 Rust 模块，MVP 阶段静态注册，v2.0 规划支持热插拔/动态加载，支持社区贡献
 
 ### 1.3 目标用户画像
 
@@ -394,9 +394,9 @@ sequenceDiagram
 >
 > 详见 [13-security.md](./13-security.md)。
 
-### 6.4 [待补充: 需要用户调研数据确认高频工具清单]
+### 6.4 需要用户调研数据确认高频工具清单（待补充）
 
-当前 30+ 工具清单基于开发者社区经验与 DevToys 参考得出，缺乏真实用户调研数据。建议在 MVP 发布前对 50+ 开发者做工具使用频次问卷，校准 P0/P1 优先级。
+当前规划 34 个工具清单基于开发者社区经验与 DevToys 参考得出，缺乏真实用户调研数据。建议在 MVP 发布前对 50+ 开发者做工具使用频次问卷，校准 P0/P1 优先级。
 
 ---
 
@@ -406,7 +406,7 @@ sequenceDiagram
 - [03-tech-stack.md](./03-tech-stack.md) — 技术栈全景（本文档涉及的所有技术的版本与选型理由）
 - [04-system-architecture.md](./04-system-architecture.md) — 系统架构设计（本文档三层架构的详细展开）
 - [05-rust-core-engine.md](./05-rust-core-engine.md) — Rust 核心引擎（Tool trait 体系与工具注册机制）
-- [07-tool-catalog.md](./07-tool-catalog.md) — 工具目录（30+ 工具的完整清单与优先级）
+- [07-tool-catalog.md](./07-tool-catalog.md) — 工具目录（34 个规划工具的完整清单与优先级）
 - [13-security.md](./13-security.md) — 安全机制（零网络、沙箱、剪贴板控制）
 - [18-known-issues.md](./18-known-issues.md) — 与 DevToys 的详细功能差距分析
 - [19-roadmap.md](./19-roadmap.md) — 版本演进路线（MVP → v1.0 → v2.0 里程碑）

@@ -205,6 +205,57 @@ classDiagram
     Tool --> ToolMetadata : metadata()
 ```
 
+#### StreamingTool（流式工具，>10MB 输入）
+
+`Tool` trait 的 `execute` 一次性返回 `ToolOutput`，不适合大输入（如 100MB 文件 Hash）。对 `ToolMetadata.streaming_supported == true` 的工具，额外实现 `StreamingTool` trait，通过事件逐段回传进度与中间结果：
+
+```rust
+// src-tauri/src/core/tool.rs
+
+use futures::stream::BoxStream;
+use crate::core::{context::ToolContext, error::ToolError, input::ToolInput, output::ToolOutput};
+
+/// 流式工具 trait（可选）
+///
+/// 仅当 ToolMetadata.streaming_supported == true 时实现。
+/// execute_stream 返回异步流，每个 Item 是一个流式事件。
+#[async_trait]
+pub trait StreamingTool: Send + Sync {
+    /// 流式执行，返回进度/结果事件流
+    fn execute_stream(
+        &self,
+        input: ToolInput,
+        ctx: &ToolContext,
+    ) -> BoxStream<'static, Result<StreamEvent, ToolError>>;
+}
+
+/// 流式事件
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type")]
+pub enum StreamEvent {
+    /// 进度（0..=100）
+    Progress { percent: u8, message: String },
+    /// 中间输出片段（追加到 UI）
+    Chunk { text: String },
+    /// 最终结果
+    Done { output: ToolOutput },
+    /// 致命错误
+    Error { error: ToolError },
+}
+```
+
+> 📌 **契约约定**
+> - 流必须以 `Done` 或 `Error` 结束，UI 端据此判定任务完成。
+> - 超时与 panic 隔离同样适用（由 `ToolExecutor` 包裹），详见 [12-performance.md](./12-performance.md) 的流式优化章节。
+> - `StreamEvent` 与 [09-interface-design.md](./09-interface-design.md) 的流式 Tauri 事件映射如下（非同名，需转换）：
+>   | `StreamEvent` | Tauri 事件 | 说明 |
+>   |--------------|-----------|------|
+>   | `Progress { percent, message }` | `tool_progress` | 进度更新（`{ taskId, percent, message }`） |
+>   | `Chunk { text }` | `tool_chunk` | 输出片段（`{ taskId, text }`，见 09 §4.4） |
+>   | `Done { output }` | `tool_completed` | 最终结果（`{ taskId, output }`） |
+>   | `Error { error }` | `tool_failed` | 失败（`{ taskId, error }`） |
+> - `tool_execute_stream` 命令仅接收 `filePath: String`（文件输入），Executor 载入后构造 `ToolInput { file_path: Some(path), ..Default::default() }` 再交给 `execute_stream`。
+
 ### 3.2 输入输出抽象
 
 #### ToolInput
@@ -222,18 +273,18 @@ use serde_json::Value;
 /// - text 是主输入（用户粘贴/输入的文本）
 /// - params 是工具特定参数（如 Base64 的 url_safe 开关）
 /// - file_path 用于文件类工具（如 Hash 计算），与 text 二选一
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ToolInput {
     /// 主输入文本（可选，部分工具用 file_path 替代）
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
 
     /// 文件路径（可选，与 text 二选一）
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file_path: Option<String>,
 
     /// 工具特定参数，schema 由 ToolMetadata.input_schema 定义
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub params: HashMap<String, Value>,
 }
 
@@ -333,6 +384,12 @@ pub enum ToolError {
     #[error("input too large: {size} bytes, max {max} bytes")]
     InputTooLarge { size: usize, max: usize },
 
+    #[error("tool not found: {0}")]
+    ToolNotFound(String),
+
+    #[error("out of memory: {size} bytes, max {max} bytes")]
+    OutOfMemory { size: usize, max: usize },
+
     #[error("internal error: {0}")]
     Internal(String),
 }
@@ -346,6 +403,8 @@ impl ToolError {
             ToolError::Timeout(_) => "ERR_TIMEOUT",
             ToolError::Cancelled => "ERR_CANCELLED",
             ToolError::InputTooLarge { .. } => "ERR_INPUT_TOO_LARGE",
+            ToolError::ToolNotFound(_) => "ERR_TOOL_NOT_FOUND",
+            ToolError::OutOfMemory { .. } => "ERR_OUT_OF_MEMORY",
             ToolError::Internal(_) => "ERR_INTERNAL",
         }
     }
@@ -429,6 +488,36 @@ macro_rules! register_tool {
         }
     };
 }
+```
+
+```rust
+// 流式工具注册与发现（与同步工具注册并列）
+
+/// 流式工具单独收集，供 Executor 按 id 查找 `dyn StreamingTool`
+inventory::collect!(StreamingEntry);
+
+pub struct StreamingEntry {
+    pub id: &'static str,
+    pub tool: Box<dyn StreamingTool>,
+}
+
+#[macro_export]
+macro_rules! register_stream_tool {
+    ($tool_ty:ty, $metadata:expr) => {
+        inventory::submit! {
+            $crate::core::registry::StreamingEntry {
+                id: $metadata.id,
+                tool: Box::new(<$tool_ty>::new()),
+            }
+        }
+    };
+}
+
+/// 流式工具发现流程：
+/// 1. 工具的 `ToolMetadata.streaming_supported == true` 表明它实现了 `StreamingTool`；
+/// 2. 工具除 `register_tool!` 外，还需 `register_stream_tool!` 提交到 `StreamingEntry` 收集器；
+/// 3. `ToolExecutor` 在选择流式执行路径时，先用 `ToolMetadata.id` 在流式注册表中取到 `&dyn StreamingTool`，
+///    再调用 `execute_stream`，保证与同步 `execute` 共用同一套超时/取消/panic 隔离。
 ```
 
 工具实现示例：
@@ -579,7 +668,7 @@ impl ToolExecutor {
 
     pub async fn execute(&self, tool_id: &str, input: ToolInput, ctx: ToolContext) -> Result<ToolOutput, ToolError> {
         let entry = self.registry.get(tool_id)
-            .ok_or_else(|| ToolError::Internal(format!("tool not found: {}", tool_id)))?;
+            .ok_or_else(|| ToolError::ToolNotFound(tool_id.to_string()))?;
 
         let tool = entry.tool.as_ref();
         let meta = tool.metadata();
@@ -642,7 +731,7 @@ impl ToolExecutor {
 |------|--------|----------|
 | 执行超时 | 5 秒 | `ToolMetadata.timeout_secs` |
 | 输入大小上限 | 10 MB | 工具自行检查并返回 `InputTooLarge` |
-| 内存占用上限 | 256 MB | [待补充: 需要内存配额机制] |
+| 内存占用上限 | 256 MB | 待补充：需要内存配额机制 |
 | 并发执行数 | 不限 | Executor 不限流，由 tokio 调度 |
 
 工具实现应遵守：
@@ -662,7 +751,7 @@ impl ToolExecutor {
 >    - FFI 调用系统 API（如剪贴板的 Windows API）
 >    - 性能关键路径的微优化（需 benchmark 证明收益）
 >    - 第三方 crate 的 unsafe 包装（尽量用上层 safe wrapper）
-> 3. **CI 检查**：`cargo clippy` 启用 `unsafe_any` lint，新增 unsafe 需 PR Review 评审
+> 3. **CI 检查**：`cargo clippy` 通过 `-W unsafe-code`（等价 rustc 原生的 `unsafe_code` lint）强制警告所有 `unsafe` 块，新增 unsafe 需 PR Review 评审
 > 4. **审计**：每次发布前 grep `unsafe` 列表，确认所有 unsafe 都有 SAFETY 注释
 
 ```rust
@@ -868,7 +957,7 @@ fn test_tool_id_unique() {
 }
 ```
 
-### 6.4 [待补充: 内存配额机制]
+### 6.4 内存配额机制（待补充）
 
 当前 Executor 仅控制超时，未限制单工具内存占用。理想情况下应通过 `jemalloc` 或 `mimalloc` 的统计 API 监控内存，超限触发 `ToolError::OutOfMemory`。具体方案待研究。
 

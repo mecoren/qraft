@@ -451,7 +451,7 @@ sequenceDiagram
 > 3. 合并 PR 前同步更新本术语表
 > 4. 在相关文档中引用本表定义
 
-### 6.4 [待补充: 需要确认 Session 与 Workspace 的存储粒度]
+### 6.4 需要确认 Session 与 Workspace 的存储粒度（待补充）
 
 当前定义中 Workspace 存储所有打开工具的完整输入输出，但对于大输入（如 5MB JSON）是否完整持久化、是否需要截断、最大保存条数等细节，需要结合 [08-data-model.md](./08-data-model.md) 与 [12-performance.md](./12-performance.md) 进一步确定。
 

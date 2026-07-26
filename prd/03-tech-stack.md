@@ -39,7 +39,7 @@ Qraft 是一个跨 Rust + TypeScript 双语言栈、跨三平台（Windows/macOS
 1. **包体积**：工具类应用对下载体积敏感，目标 <30MB
 2. **启动速度**：常驻工具必须秒开，目标冷启动 <500ms
 3. **内存占用**：用户不愿为小工具付出高内存代价，目标空闲 <150MB
-4. **开发效率**：30+ 工具需要可持续迭代，必须有良好的工程化支持
+4. **开发效率**：34 个（规划）工具需要可持续迭代，必须有良好的工程化支持
 
 本文档的目的有三：
 
@@ -58,7 +58,7 @@ Qraft 的技术栈分为 9 层，每层职责单一、可独立替换：
 | 核心引擎 | 业务逻辑实现 | Rust | 所有解析/转换/计算逻辑 |
 | 桌面框架 | 进程宿主 + IPC | Tauri V2 | 窗口、IPC、文件系统、剪贴板、权限 |
 | UI 框架 | 视图层 | React 19 | 组件化渲染、用户交互 |
-| 类型系统 | 前端类型安全 | TypeScript 7 | 静态类型检查 |
+| 类型系统 | 前端类型安全 | TypeScript ^5.5 | 静态类型检查 |
 | 组件库 | UI 基础组件 | shadcn/ui | 按钮、输入框、对话框等 |
 | 构建工具 | 前端打包 | Vite | HMR、产物打包 |
 | 包管理 | 依赖管理 | pnpm + cargo | 前端依赖、Rust 依赖 |
@@ -76,7 +76,7 @@ flowchart TB
     subgraph Frontend["前端栈（WebView 进程）"]
         direction TB
         F1[React 19]
-        F2[TypeScript 7]
+        F2[TypeScript ^5.5]
         F3[shadcn/ui]
         F4[Vite]
         F5[Tailwind CSS]
@@ -154,6 +154,17 @@ flowchart TB
 | Tauri CLI | @tauri-apps/cli | ^2.0 |
 | Tauri API（前端） | @tauri-apps/api | ^2.0 |
 | WebView 依赖 | 系统原生 | Windows: WebView2 / macOS: WKWebView / Linux: WebKitGTK |
+
+**Tauri V2 官方插件（按需启用，前端 `@tauri-apps/plugin-*` 与 Rust 侧 `tauri-plugin-*` 成对出现）**：
+
+| 插件 | 用途 | 版本约束 | 对应能力（详见 [13-security.md](./13-security.md)） |
+|------|------|----------|----------|
+| tauri-plugin-dialog | 文件选择/保存对话框 | ^2.0 | `dialog:default` / `dialog:allow-open` |
+| tauri-plugin-clipboard-manager | 剪贴板读写 | ^2.0 | `clipboard-manager:allow-read-text` / `write-text` |
+| tauri-plugin-shell | 打开外部链接/程序（`app_open_external`） | ^2.0 | `shell:allow-open` |
+| tauri-plugin-updater | 自动更新（内置插件，唯一例外允许联网） | ^2.0 | `updater:default` |
+
+> 📌 上述插件需在 `Cargo.toml` 的 `tauri::manage` features 与 `capabilities/` 权限文件中同步声明，否则编译或运行时权限校验会失败。具体命令与权限映射见 [09-interface-design.md](./09-interface-design.md) 与 [13-security.md](./13-security.md)。
 
 **Tauri V2 选型理由**：
 
@@ -281,8 +292,11 @@ flowchart TB
 |------|------|------|
 | @tanstack/react-virtual | 虚拟列表（历史记录） | ^3.0 |
 | @tanstack/react-query | 服务端状态（暂不使用，预留） | ^5.0 |
+| @tauri-apps/plugin-dialog | 文件对话框封装 | ^2.0 |
+| @tauri-apps/plugin-clipboard-manager | 剪贴板封装 | ^2.0 |
+| @tauri-apps/plugin-shell | 外部打开封装 | ^2.0 |
 | date-fns | 日期格式化（前端展示） | ^3.0 |
-| monaco-editor | 代码编辑器（JSON/正则等工具） | ^0.50 |
+| monaco-editor | 代码编辑器（JSON/正则等工具，规划中；MVP 阶段部分工具暂用 shadcn Textarea 替代） | ^0.50 |
 | react-resizable-panels | 工具面板分栏调整 | ^2.0 |
 | cmdk | 命令面板 | ^1.0 |
 
@@ -292,10 +306,15 @@ flowchart TB
 |------|------|------|
 | tokio-util | cancel_token、codec | ^0.7 |
 | futures | 异步流处理 | ^0.3 |
+| async_trait | async trait 支持（`Tool` / `StreamingTool` / `ConfigStore` 等 trait 的 `async fn`） | ^0.1 |
 | rayon | CPU 密集并行（Hash 大文件） | ^1.10 |
-|parking_lot | 高性能锁 | ^0.12 |
+| parking_lot | 高性能锁 | ^0.12 |
 | directories | 跨平台配置目录定位 | ^5.0 |
 | atomicwrites | 配置文件原子写入 | ^2.0 |
+| tauri-plugin-dialog | 文件对话框 | ^2.0 |
+| tauri-plugin-clipboard-manager | 剪贴板 | ^2.0 |
+| tauri-plugin-shell | 外部程序 | ^2.0 |
+| ts-rs | Rust → TypeScript 类型自动生成（规划：减少手工维护 ToolInput/ToolOutput 的 TS 镜像） | ^1.0 |
 
 ---
 
@@ -489,7 +508,7 @@ Qraft 是 Rust + TypeScript 双语言栈，必须遵守：
 | Node.js | 20 | 22 | `.nvmrc` / `package.json#engines` |
 | pnpm | 9 | latest | `package.json#packageManager` |
 
-### 6.4 [待补充: Tauri V2 移动端 API 是否影响桌面端构建]
+### 6.4 Tauri V2 移动端 API 是否影响桌面端构建（待补充）
 
 Tauri V2 把移动端 API 合入了主分支，虽然 Qraft 不构建移动端，但需确认移动端相关代码不会增加桌面端二进制体积。需要在首次构建后测量产物大小，详见 [14-build-and-distribution.md](./14-build-and-distribution.md)。
 

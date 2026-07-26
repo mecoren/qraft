@@ -638,7 +638,7 @@ flowchart LR
 - 用专门生成的测试 JWT（公开的测试密钥）
 - 文件 fixtures 用合成数据
 
-### 6.4 [待补充: Tauri E2E 跨平台支持]
+### 6.4 Tauri E2E 跨平台支持（待补充）
 
 当前 E2E 仅在 Linux（Xvfb）跑。Windows/macOS 的 E2E 需要：
 

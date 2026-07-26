@@ -77,7 +77,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ToolInput {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
@@ -205,7 +205,7 @@ pub trait HistorySink: Send + Sync {
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct UserConfig {
     /// 配置文件版本，用于迁移
     pub version: u32,
@@ -229,7 +229,7 @@ pub struct UserConfig {
     pub presets: HashMap<String, Vec<ToolPreset>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct GeneralConfig {
     pub language: String,         // "en"
     pub font_size: u32,           // 14
@@ -237,28 +237,35 @@ pub struct GeneralConfig {
     pub confirm_on_clear: bool,   // true
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct ThemeConfig {
     pub mode: ThemeMode,
     pub accent_color: String,     // "#3b82f6"
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ThemeMode {
     Light,
+    #[default]
     Dark,
     System,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ShortcutBinding {
-    pub open_command_palette: String,    // "Ctrl+K"
-    pub toggle_sidebar: String,          // "Ctrl+B"
-    pub execute_tool: String,            // "Ctrl+Enter"
-    pub clear_input: String,             // "Ctrl+L"
-    pub copy_output: String,             // "Ctrl+Shift+C"
+    // —— 可配置快捷键（全部持久化到 UserConfig.shortcuts，与 15-ui-design-system.md §3.6 快捷键表一一对应）——
+    pub open_command_palette: String,    // "Ctrl+K"      命令面板
+    pub toggle_sidebar: String,          // "Ctrl+B"       切换侧边栏
+    pub execute_tool: String,            // "Ctrl+Enter"    执行工具
+    pub clear_input: String,             // "Ctrl+L"        清空输入
+    pub copy_output: String,             // "Ctrl+Shift+C"  复制输出
+    pub toggle_settings: String,         // "Ctrl+,"       打开设置
+    pub switch_tool: String,             // "Ctrl+P"        切换工具
+    pub open_history: String,            // "Ctrl+H"        打开历史
+    pub search: String,                  // "Ctrl+F"        搜索
+    pub close_panel: String,             // "Esc"           关闭面板/弹窗
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -271,11 +278,17 @@ pub struct ToolPref {
 
 #### 存储位置
 
-| 平台 | 路径 |
+配置与状态文件统一由 `directories::ProjectDirs::from("dev", "qraft", "Qraft")` 解析，三者位于同一配置基目录下：
+
+| 平台 | 配置基目录（`config_dir()`） |
 |------|------|
-| Windows | `%APPDATA%\qraft\config.json` |
-| macOS | `~/Library/Application Support/qraft/config.json` |
-| Linux | `~/.config/qraft/config.json` |
+| Windows | `%APPDATA%\qraft\Qraft` |
+| macOS | `~/Library/Application Support/Qraft` |
+| Linux | `~/.config/qraft/Qraft` |
+
+- 配置：`{基目录}/config.json`
+- 历史：`{基目录}/history.jsonl`
+- 工作区：`{基目录}/workspace.json`
 
 #### 原子写入
 
@@ -365,7 +378,8 @@ pub struct OutputSummary {
 历史记录存储为 JSONL 文件（每行一条记录），便于追加与截断：
 
 ```
-~/.qraft/history.jsonl
+{配置基目录}/history.jsonl
+（基目录 = `directories::ProjectDirs::from("dev", "qraft", "Qraft").config_dir()`，如 Linux `~/.config/qraft/Qraft/history.jsonl`）
 
 {"id":"...","tool_id":"json_formatter","timestamp":"2026-07-25T08:00:00Z",...}
 {"id":"...","tool_id":"base64_codec","timestamp":"2026-07-25T08:01:00Z",...}
@@ -455,7 +469,8 @@ pub struct WorkspaceTab {
 #### 存储位置
 
 ```
-~/.qraft/workspace.json
+{配置基目录}/workspace.json
+（基目录同上，如 Linux `~/.config/qraft/Qraft/workspace.json`）
 ```
 
 应用启动时自动加载上次 Workspace，关闭时自动保存。
@@ -740,7 +755,7 @@ fn migrate_config(mut config: UserConfig) -> UserConfig {
 
 历史记录可能被多个工具并发写入（用户快速连续执行多个工具）。`HistoryStore` 内部用 `parking_lot::Mutex` 保护文件追加操作。
 
-### 6.4 [待补充: 配置加密]
+### 6.4 配置加密（待补充）
 
 当前配置明文存储。若用户在配置中存有敏感信息（如自定义工具的 API Key，虽然 Qraft 内置工具不会），需要评估加密方案：
 
@@ -749,7 +764,7 @@ fn migrate_config(mut config: UserConfig) -> UserConfig {
 
 MVP 不实现，待 v1.0 评估。
 
-### 6.5 [待补充: Workspace 大输入截断]
+### 6.5 Workspace 大输入截断（待补充）
 
 Workspace 存储工具 Tab 的完整 input/output。若用户在 Tab 中粘贴了 5MB JSON，Workspace 文件会膨胀。需要：
 

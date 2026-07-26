@@ -315,11 +315,12 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 ```rust
 // src-tauri/src/store/config.rs
 
-use std::sync::Arc;
+use std::path::PathBuf;
+use async_trait::async_trait;
+use atomicwrites::{AtomicFile, OverwriteBehavior};
 use parking_lot::RwLock;
 use serde_json::Value;
-use std::path::PathBuf;
-use atomicwrites::{AtomicFile, OverwriteBehavior};
+use crate::core::context::ConfigStore as ConfigStoreTrait; // 定义见 09-interface-design.md §3.4
 
 pub struct ConfigStore {
     config: RwLock<UserConfig>,
@@ -327,6 +328,7 @@ pub struct ConfigStore {
 }
 
 impl ConfigStore {
+    /// 启动时加载配置（同步构造，不阻塞异步运行时）
     pub fn load() -> Result<Self, ConfigError> {
         let path = config_path()?;
         let config = if path.exists() {
@@ -344,23 +346,6 @@ impl ConfigStore {
         })
     }
 
-    pub fn get_all(&self) -> UserConfig {
-        self.config.read().clone()
-    }
-
-    pub fn get(&self, key: &str) -> Result<Value, ConfigError> {
-        let config = self.config.read();
-        get_by_path(&*config, key)
-    }
-
-    pub fn set(&self, key: &str, value: Value) -> Result<(), ConfigError> {
-        {
-            let mut config = self.config.write();
-            set_by_path(&mut *config, key, value)?;
-        }
-        self.persist()
-    }
-
     fn persist(&self) -> Result<(), ConfigError> {
         let config = self.config.read().clone();
         let json = serde_json::to_string_pretty(&config)?;
@@ -371,13 +356,38 @@ impl ConfigStore {
     }
 }
 
-fn config_path() -> Result<PathBuf, ConfigError> {
+/// 实现 09-interface-design.md §3.4 的 `ConfigStore` trait（异步，便于未来扩展）
+#[async_trait]
+impl ConfigStoreTrait for ConfigStore {
+    async fn get_all(&self) -> Result<UserConfig, ConfigError> {
+        Ok(self.config.read().clone())
+    }
+
+    async fn get(&self, key: &str) -> Result<Value, ConfigError> {
+        let config = self.config.read();
+        get_by_path(&*config, key)
+    }
+
+    async fn set(&self, key: &str, value: Value) -> Result<(), ConfigError> {
+        {
+            let mut config = self.config.write();
+            set_by_path(&mut *config, key, value)?;
+        }
+        self.persist()
+    }
+}
+
+/// 配置 / 历史 / 工作区位于同一配置基目录（与 08-data-model.md §3.2 统一）
+fn config_dir() -> Result<PathBuf, ConfigError> {
     let proj_dirs = directories::ProjectDirs::from("dev", "qraft", "Qraft")
         .ok_or(ConfigError::NotFound)?;
-    let config_dir = proj_dirs.config_dir();
-    std::fs::create_dir_all(config_dir)?;
-    Ok(config_dir.join("config.json"))
+    std::fs::create_dir_all(proj_dirs.config_dir())?;
+    Ok(proj_dirs.config_dir().to_path_buf())
 }
+
+pub fn config_path() -> Result<PathBuf, ConfigError> { Ok(config_dir()?.join("config.json")) }
+pub fn history_path() -> Result<PathBuf, ConfigError> { Ok(config_dir()?.join("history.jsonl")) }
+pub fn workspace_path() -> Result<PathBuf, ConfigError> { Ok(config_dir()?.join("workspace.json")) }
 ```
 
 #### WorkspaceStore 实现
@@ -392,6 +402,19 @@ pub struct WorkspaceStore {
 }
 
 impl WorkspaceStore {
+    /// 启动时加载上次持久化的 Workspace（由 Tauri `setup` 钩子调用）。
+    /// 文件不存在或解析失败时返回默认 Workspace，不阻塞启动。
+    pub fn load_on_startup(&self) -> Result<(), WorkspaceError> {
+        if !self.path.exists() {
+            return Ok(());
+        }
+        let content = std::fs::read_to_string(&self.path)?;
+        let workspace: Workspace = serde_json::from_str(&content)?;
+        *self.workspace.write() = workspace;
+        *self.dirty.write() = false;
+        Ok(())
+    }
+
     pub fn save_on_quit(&self) -> Result<(), WorkspaceError> {
         if !*self.dirty.read() {
             return Ok(());
@@ -654,7 +677,7 @@ export const useConfigStore = create<ConfigState>()(
 );
 ```
 
-### 6.4 [待补充: Workspace 大输入处理]
+### 6.4 Workspace 大输入处理（待补充）
 
 Workspace 存储工具 Tab 的完整 input/output。若用户在 Tab 中粘贴 5MB JSON：
 
@@ -664,7 +687,7 @@ Workspace 存储工具 Tab 的完整 input/output。若用户在 Tab 中粘贴 5
 
 待 [12-performance.md](./12-performance.md) 确定阈值后选择。
 
-### 6.5 [待补充: 多窗口状态隔离]
+### 6.5 多窗口状态隔离（待补充）
 
 当前架构假设单窗口。若 v2.0 引入多窗口，每个窗口的状态需要独立 store 实例，或共享 store 但用 windowId 区分。
 

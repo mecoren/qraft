@@ -119,7 +119,7 @@ Windows 上的 WebView 来自 WebView2 Runtime。两种处理方式：
 
 ```bash
 # CI 中签名
-signtool sign /f cert.pfx /p ${{ secrets.CERT_PASSWORD }} \
+signtool sign /f cert.pfx /p ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }} \
   /tr http://timestamp.digicert.com /td sha256 /fd sha256 \
   Qraft-Setup-*.exe
 ```
@@ -414,9 +414,9 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Windows
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.WINDOWS_CERTIFICATE }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          # Windows（Authenticode 签名在单独的 signtool 步骤中使用以下 Secret）
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Qraft ${{ github.ref_name }}'
@@ -445,7 +445,7 @@ flowchart TD
     W2 --> W3[Authenticode 签名]
     W3 --> W4[Qraft-Setup-x.y.z.exe]
 
-    M --> M1[ cargo build --target universal ]
+    M --> M1[ pnpm tauri build --target universal-apple-darwin ]
     M1 --> M2[Tauri 打包 DMG]
     M2 --> M3[_codesign 签名]
     M3 --> M4[ notarytool 公证 ]
@@ -565,14 +565,14 @@ sequenceDiagram
 - >30MB 阻断发布
 - 比上次增加 >2MB 在 Release Notes 中说明原因
 
-### 6.5 [待补充: 内测分发渠道]
+### 6.5 内测分发渠道（待补充）
 
 CI 自动发布到 GitHub Releases。但内测用户可能不便使用 GitHub。评估：
 
 - 通过 GitHub Actions 自动分发到内测用户邮箱
 - 集成 Squirrel.Mac / Sparkle 等更新框架（但 Tauri Updater 已足够）
 
-### 6.6 [待补充: 私有仓库发布的签名密钥轮换]
+### 6.6 私有仓库发布的签名密钥轮换（待补充）
 
 Tauri 签名密钥应定期轮换（每年一次）。需要：
 
