@@ -27,8 +27,8 @@ describe('HashCalculator', () => {
 
   it('renders algorithm select, text input and compute button', () => {
     render(<HashCalculator toolId="hash_calculator" metadata={null as never} />);
-    expect(screen.getByPlaceholderText(/enter text/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /compute/i })).toBeInTheDocument();
+    expect(screen.getByTestId('input')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /计算/ })).toBeInTheDocument();
     expect(screen.getByRole('combobox')).toBeInTheDocument();
   });
 
@@ -40,10 +40,9 @@ describe('HashCalculator', () => {
     });
 
     render(<HashCalculator toolId="hash_calculator" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/enter text/i), {
-      target: { value: 'hello' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /compute/i }));
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: 'hello' } });
+    fireEvent.click(screen.getByRole('button', { name: /计算/ }));
 
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
@@ -63,10 +62,9 @@ describe('HashCalculator', () => {
     );
 
     render(<HashCalculator toolId="hash_calculator" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/enter text/i), {
-      target: { value: 'hello' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /compute/i }));
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: 'hello' } });
+    fireEvent.click(screen.getByRole('button', { name: /计算/ }));
 
     await waitFor(() => {
       expect(screen.getByText(/INVALID_INPUT/i)).toBeInTheDocument();

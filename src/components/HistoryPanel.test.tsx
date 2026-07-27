@@ -42,13 +42,13 @@ describe('HistoryPanel', () => {
     const user = userEvent.setup();
     invokeMock.mockResolvedValueOnce({ success: true, data: true });
     render(<HistoryPanel onSelect={() => {}} />);
-    await user.click(screen.getByRole('button', { name: /clear history/i }));
+    await user.click(screen.getByRole('button', { name: /清空历史/ }));
     expect(invokeMock).toHaveBeenCalledWith('history_clear', {});
   });
 
   it('shows empty state when no entries', () => {
     useHistoryStore.setState({ entries: [] });
     render(<HistoryPanel onSelect={() => {}} />);
-    expect(screen.getByText(/no history/i)).toBeInTheDocument();
+    expect(screen.getByText(/暂无历史记录/)).toBeInTheDocument();
   });
 });

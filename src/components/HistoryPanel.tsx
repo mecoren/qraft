@@ -32,18 +32,18 @@ export function HistoryPanel({ onSelect }: HistoryPanelProps): JSX.Element {
         <Button
           variant="ghost"
           size="sm"
-          aria-label="Clear history"
+          aria-label="清空历史记录"
           onClick={() => void clearHistory()}
           disabled={entries.length === 0}
         >
           <Trash2 className="h-4 w-4" aria-hidden />
-          <span className="ml-1">Clear History</span>
+          <span className="ml-1">清空历史</span>
         </Button>
       </header>
 
       {entries.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-          No history
+          暂无历史记录
         </div>
       ) : (
         <div ref={parentRef} className="flex-1 overflow-auto" aria-label="历史记录列表">

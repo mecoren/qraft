@@ -54,6 +54,6 @@ describe('ToolPanel', () => {
   it('renders empty state when toolId not found', () => {
     useToolStateStore.setState({ currentToolId: 'unknown' });
     render(<ToolPanel toolId="unknown" />);
-    expect(screen.getByText(/tool not found/i)).toBeInTheDocument();
+    expect(screen.getByText(/未找到工具/)).toBeInTheDocument();
   });
 });

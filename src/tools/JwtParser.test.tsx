@@ -28,10 +28,10 @@ describe('JwtParser', () => {
     vi.clearAllMocks();
   });
 
-  it('renders JWT input textarea and parse button', () => {
+  it('renders JWT input editor and parse button', () => {
     render(<JwtParser toolId="jwt_parser" metadata={null as never} />);
-    expect(screen.getByPlaceholderText(/paste jwt token/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /parse/i })).toBeInTheDocument();
+    expect(screen.getByTestId('input')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /解析/ })).toBeInTheDocument();
   });
 
   it('displays header, payload, signature on successful parse', async () => {
@@ -46,15 +46,14 @@ describe('JwtParser', () => {
     });
 
     render(<JwtParser toolId="jwt_parser" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/paste jwt token/i), {
-      target: { value: VALID_JWT },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /parse/i }));
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: VALID_JWT } });
+    fireEvent.click(screen.getByRole('button', { name: /解析/ }));
 
     await waitFor(() => {
-      expect(screen.getByText(/Header/i)).toBeInTheDocument();
-      expect(screen.getByText(/Payload/i)).toBeInTheDocument();
-      expect(screen.getByText(/Signature/i)).toBeInTheDocument();
+      expect(screen.getByText(/头部/i)).toBeInTheDocument();
+      expect(screen.getByText(/载荷/i)).toBeInTheDocument();
+      expect(screen.getByText(/签名/i)).toBeInTheDocument();
     });
   });
 
@@ -65,10 +64,9 @@ describe('JwtParser', () => {
     );
 
     render(<JwtParser toolId="jwt_parser" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/paste jwt token/i), {
-      target: { value: 'only.two' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /parse/i }));
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: 'only.two' } });
+    fireEvent.click(screen.getByRole('button', { name: /解析/ }));
 
     await waitFor(() => {
       expect(screen.getByText(/INVALID_INPUT/i)).toBeInTheDocument();

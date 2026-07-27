@@ -64,6 +64,7 @@ pub fn run() -> anyhow::Result<()> {
     };
     use crate::commands::clipboard::{clipboard_read_text, clipboard_write_text};
     use crate::commands::config::{config_get, config_get_all, config_reset, config_set};
+    use crate::commands::font::list_system_fonts;
     use crate::commands::fs::{AuthorizedPaths, fs_read_file, fs_write_file};
     use crate::commands::history::{history_clear, history_list};
     use crate::commands::tool::{
@@ -135,6 +136,7 @@ pub fn run() -> anyhow::Result<()> {
             app_quit,
             app_check_update,
             app_install_update,
+            list_system_fonts,
         ])
         .run(tauri::generate_context!())
         .map_err(|e| anyhow::anyhow!("tauri run error: {e}"))?;

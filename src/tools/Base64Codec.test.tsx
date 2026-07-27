@@ -27,9 +27,9 @@ describe('Base64Codec', () => {
 
   it('renders input, output, action select and url_safe switch', () => {
     render(<Base64Codec toolId="base64_codec" metadata={null as never} />);
-    expect(screen.getByPlaceholderText(/enter text/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /execute/i })).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: /url safe/i })).toBeInTheDocument();
+    expect(screen.getByTestId('input')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /执行/ })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /URL 安全/ })).toBeInTheDocument();
   });
 
   it('calls tool_execute with action=encode by default', async () => {
@@ -37,10 +37,9 @@ describe('Base64Codec', () => {
     (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ text: 'aGVsbG8=' });
 
     render(<Base64Codec toolId="base64_codec" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/enter text/i), {
-      target: { value: 'hello' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /execute/i }));
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: 'hello' } });
+    fireEvent.click(screen.getByRole('button', { name: /执行/ }));
 
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
@@ -57,10 +56,9 @@ describe('Base64Codec', () => {
     );
 
     render(<Base64Codec toolId="base64_codec" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/enter text/i), {
-      target: { value: '!!!' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /execute/i }));
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: '!!!' } });
+    fireEvent.click(screen.getByRole('button', { name: /执行/ }));
 
     await waitFor(() => {
       expect(screen.getByText(/PARSE_FAILED/i)).toBeInTheDocument();

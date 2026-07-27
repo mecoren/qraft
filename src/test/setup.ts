@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { vi, afterEach } from 'vitest';
+import React from 'react';
 import { cleanup } from '@testing-library/react';
 
 // 每个测试后清理 DOM,避免状态泄漏
@@ -11,6 +12,24 @@ afterEach(() => {
 // Mock @tauri-apps/api/core 的 invoke,避免 jsdom 调用真实 IPC
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
+}));
+
+// Mock @monaco-editor/react:jsdom 无法加载真实 Monaco(依赖 web worker 与丰富 DOM API)
+// 将 Editor 渲染为受控 textarea,保留 value/onChange 等关键 props,
+// 使工具测试可以用 fireEvent.change 触发输入
+vi.mock('@monaco-editor/react', () => ({
+  default: function MockMonacoEditor(props: {
+    value?: string;
+    onChange?: (value: string) => void;
+    readOnly?: boolean;
+  }) {
+    return React.createElement('textarea', {
+      value: props.value ?? '',
+      readOnly: props.readOnly,
+      onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) =>
+        props.onChange?.(e.target.value),
+    });
+  },
 }));
 
 // Mock @tauri-apps/api/event 的 listen,返回空 unlisten

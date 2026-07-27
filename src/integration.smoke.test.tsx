@@ -92,8 +92,8 @@ describe('smoke: SideNav 显示工具分组', () => {
     await act(async () => {
       render(<App />);
     });
-    expect(await screen.findByRole('heading', { name: /^formatter$/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /^encoder$/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /^格式化$/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^编解码$/ })).toBeInTheDocument();
   });
 
   it('每个工具在对应分组下渲染为按钮', async () => {

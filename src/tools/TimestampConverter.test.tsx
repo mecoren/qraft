@@ -27,8 +27,8 @@ describe('TimestampConverter', () => {
 
   it('renders input, timezone select and convert button', () => {
     render(<TimestampConverter toolId="timestamp_converter" metadata={null as never} />);
-    expect(screen.getByPlaceholderText(/enter timestamp/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /convert/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/输入时间戳或日期字符串/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /转换/ })).toBeInTheDocument();
     expect(screen.getByRole('combobox')).toBeInTheDocument();
   });
 
@@ -46,10 +46,10 @@ describe('TimestampConverter', () => {
     });
 
     render(<TimestampConverter toolId="timestamp_converter" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/enter timestamp/i), {
+    fireEvent.change(screen.getByPlaceholderText(/输入时间戳或日期字符串/), {
       target: { value: '1690272000' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /convert/i }));
+    fireEvent.click(screen.getByRole('button', { name: /转换/ }));
 
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
@@ -66,10 +66,10 @@ describe('TimestampConverter', () => {
     );
 
     render(<TimestampConverter toolId="timestamp_converter" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/enter timestamp/i), {
+    fireEvent.change(screen.getByPlaceholderText(/输入时间戳或日期字符串/), {
       target: { value: 'hello' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /convert/i }));
+    fireEvent.click(screen.getByRole('button', { name: /转换/ }));
 
     await waitFor(() => {
       expect(screen.getByText(/PARSE_FAILED/i)).toBeInTheDocument();

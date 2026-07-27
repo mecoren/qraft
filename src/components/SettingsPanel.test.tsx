@@ -14,30 +14,35 @@ beforeEach(() => {
 });
 
 describe('SettingsPanel', () => {
-  it('renders form fields from current config', () => {
+  it('renders theme section and form fields from current config', () => {
     render(<SettingsPanel />);
-    expect(screen.getByLabelText(/theme mode/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/max history/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/open command palette/i)).toBeInTheDocument();
+    expect(screen.getByText(/^主题$/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/最大历史数/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/打开命令面板/)).toBeInTheDocument();
   });
 
   it('shows validation error when max history is negative', async () => {
     const user = userEvent.setup();
     render(<SettingsPanel />);
-    const input = screen.getByLabelText(/max history/i) as HTMLInputElement;
+    const input = screen.getByLabelText(/最大历史数/) as HTMLInputElement;
     await user.clear(input);
     await user.type(input, '-5');
-    await screen.findByText(/must be 0 or greater/i);
+    await screen.findByText(/必须为 0 或正整数/);
   });
 
   it('clicking save calls setConfig with changed values', async () => {
     const user = userEvent.setup();
-    invokeMock.mockResolvedValueOnce({ success: true, data: true });
+    // list_system_fonts 返回 [],其他 invoke 返回 { success: true, data: true }
+    invokeMock.mockImplementation((cmd: string) =>
+      cmd === 'list_system_fonts'
+        ? Promise.resolve([])
+        : Promise.resolve({ success: true, data: true }),
+    );
     render(<SettingsPanel />);
-    const input = screen.getByLabelText(/max history/i) as HTMLInputElement;
+    const input = screen.getByLabelText(/最大历史数/) as HTMLInputElement;
     await user.clear(input);
     await user.type(input, '50');
-    await user.click(screen.getByRole('button', { name: /save/i }));
+    await user.click(screen.getByRole('button', { name: /保存/ }));
     expect(invokeMock).toHaveBeenCalledWith(
       'config_set',
       expect.objectContaining({
@@ -49,11 +54,19 @@ describe('SettingsPanel', () => {
 
   it('does not call setConfig when form invalid', async () => {
     const user = userEvent.setup();
+    // list_system_fonts 返回 [],其他 invoke 返回 { success: true, data: true }
+    invokeMock.mockImplementation((cmd: string) =>
+      cmd === 'list_system_fonts'
+        ? Promise.resolve([])
+        : Promise.resolve({ success: true, data: true }),
+    );
     render(<SettingsPanel />);
-    const input = screen.getByLabelText(/max history/i) as HTMLInputElement;
+    const input = screen.getByLabelText(/最大历史数/) as HTMLInputElement;
     await user.clear(input);
     await user.type(input, '-1');
-    await user.click(screen.getByRole('button', { name: /save/i }));
-    expect(invokeMock).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: /保存/ }));
+    // 表单无效时不应调用 config_set(但 list_system_fonts 会被调用)
+    const configSetCalls = invokeMock.mock.calls.filter((c) => c[0] === 'config_set');
+    expect(configSetCalls).toHaveLength(0);
   });
 });

@@ -62,7 +62,7 @@ export function UuidGenerator({ toolId }: ToolProps) {
     <div className="flex flex-col gap-4 h-full">
       <div className="flex items-end gap-4">
         <div className="flex flex-col gap-1">
-          <Label className="text-xs">Version</Label>
+          <Label className="text-xs">版本</Label>
           <Select value={version} onValueChange={(v) => setVersion(v as 'v4' | 'v7')}>
             <SelectTrigger className="w-24">
               <SelectValue />
@@ -75,7 +75,7 @@ export function UuidGenerator({ toolId }: ToolProps) {
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="count-input" className="text-xs">
-            Count
+            数量
           </Label>
           <Input
             id="count-input"
@@ -90,21 +90,21 @@ export function UuidGenerator({ toolId }: ToolProps) {
         <div className="flex items-center gap-2">
           <Switch id="uppercase" checked={uppercase} onCheckedChange={setUppercase} />
           <Label htmlFor="uppercase" className="text-xs">
-            Uppercase
+            大写
           </Label>
         </div>
         <div className="flex items-center gap-2">
           <Switch id="hyphens" checked={hyphens} onCheckedChange={setHyphens} />
           <Label htmlFor="hyphens" className="text-xs">
-            Hyphens
+            连字符
           </Label>
         </div>
         <Button onClick={handleGenerate} disabled={loading}>
-          {loading ? 'Generating...' : 'Generate'}
+          {loading ? '生成中...' : '生成'}
         </Button>
         {output?.text && (
           <Button variant="secondary" onClick={handleCopyAll}>
-            Copy All
+            全部复制
           </Button>
         )}
       </div>

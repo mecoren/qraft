@@ -14,10 +14,10 @@ describe('UuidGenerator', () => {
 
   it('renders version select, count input, switches and generate button', () => {
     render(<UuidGenerator toolId="uuid_generator" metadata={null as never} />);
-    expect(screen.getByRole('button', { name: /generate/i })).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: /uppercase/i })).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: /hyphens/i })).toBeInTheDocument();
-    expect(screen.getByRole('spinbutton', { name: /count/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /生成/ })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /大写/ })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /连字符/ })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: /数量/ })).toBeInTheDocument();
   });
 
   it('calls tool_execute with default v4 + count=1', async () => {
@@ -27,7 +27,7 @@ describe('UuidGenerator', () => {
     });
 
     render(<UuidGenerator toolId="uuid_generator" metadata={null as never} />);
-    fireEvent.click(screen.getByRole('button', { name: /generate/i }));
+    fireEvent.click(screen.getByRole('button', { name: /生成/ }));
 
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
@@ -47,10 +47,10 @@ describe('UuidGenerator', () => {
     });
 
     render(<UuidGenerator toolId="uuid_generator" metadata={null as never} />);
-    fireEvent.change(screen.getByRole('spinbutton', { name: /count/i }), {
+    fireEvent.change(screen.getByRole('spinbutton', { name: /数量/ }), {
       target: { value: '3' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /generate/i }));
+    fireEvent.click(screen.getByRole('button', { name: /生成/ }));
 
     await waitFor(() => {
       expect(screen.getByText(/uuid1/)).toBeInTheDocument();

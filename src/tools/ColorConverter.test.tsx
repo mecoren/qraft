@@ -27,8 +27,8 @@ describe('ColorConverter', () => {
 
   it('renders input, format select and convert button', () => {
     render(<ColorConverter toolId="color_converter" metadata={null as never} />);
-    expect(screen.getByPlaceholderText(/enter color/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /convert/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/输入颜色值/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /转换/ })).toBeInTheDocument();
     expect(screen.getByRole('combobox')).toBeInTheDocument();
   });
 
@@ -44,10 +44,10 @@ describe('ColorConverter', () => {
     });
 
     render(<ColorConverter toolId="color_converter" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/enter color/i), {
+    fireEvent.change(screen.getByPlaceholderText(/输入颜色值/), {
       target: { value: '#ff5733' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /convert/i }));
+    fireEvent.click(screen.getByRole('button', { name: /转换/ }));
 
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
@@ -64,10 +64,10 @@ describe('ColorConverter', () => {
     );
 
     render(<ColorConverter toolId="color_converter" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/enter color/i), {
+    fireEvent.change(screen.getByPlaceholderText(/输入颜色值/), {
       target: { value: '#xyz' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /convert/i }));
+    fireEvent.click(screen.getByRole('button', { name: /转换/ }));
 
     await waitFor(() => {
       expect(screen.getByText(/PARSE_FAILED/i)).toBeInTheDocument();

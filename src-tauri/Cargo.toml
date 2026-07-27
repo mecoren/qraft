@@ -56,6 +56,13 @@ async-stream = "0.3"
 # 禁止引入网络相关 crate(见 13-security.md §3.1):
 #   tauri-plugin-http / reqwest / ureq —— 均不允许
 
+# Windows 平台:DirectWrite 系统字体枚举(仅 Windows target 引入)
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.61", features = [
+    "Win32_Graphics_DirectWrite",
+    "Win32_Foundation",
+] }
+
 [dev-dependencies]
 tempfile = "3.10"
 

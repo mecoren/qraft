@@ -57,9 +57,9 @@ describe('SideNav', () => {
   it('renders groups by category with headings', () => {
     render(<SideNav />);
     expect(screen.getByRole('navigation')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /formatter/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /encoder/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /converter/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /格式化/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /编解码/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /转换器/ })).toBeInTheDocument();
   });
 
   it('clicking a tool calls selectTool', async () => {

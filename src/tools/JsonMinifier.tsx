@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { CodeEditor } from '@/components/ui/code-editor';
 import { Label } from '@/components/ui/label';
 import { invokeCommand, CommandError } from '@/lib/ipc';
 import type { ToolProps } from './registry';
@@ -41,25 +41,26 @@ export function JsonMinifier({ toolId }: ToolProps) {
   return (
     <div className="grid grid-cols-2 gap-4 h-full">
       <div className="flex flex-col gap-2">
-        <Label>Input JSON</Label>
-        <Textarea
-          placeholder="Paste JSON here..."
+        <Label>输入 JSON</Label>
+        <CodeEditor
+          placeholder="在此粘贴 JSON..."
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          className="flex-1 font-mono text-sm"
+          onChange={setText}
+          language="json"
+          className="flex-1"
           data-testid="input"
         />
         <Button onClick={handleMinify} disabled={loading || !text}>
-          {loading ? 'Minifying...' : 'Minify'}
+          {loading ? '压缩中...' : '压缩'}
         </Button>
       </div>
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <Label>Output</Label>
+          <Label>输出</Label>
           {output?.meta && (
             <span className="text-xs text-muted-foreground">
-              {output.meta.input_bytes} → {output.meta.output_bytes} bytes ·{' '}
+              {output.meta.input_bytes} → {output.meta.output_bytes} 字节 ·{' '}
               {output.meta.duration_ms}ms
             </span>
           )}
@@ -72,10 +73,11 @@ export function JsonMinifier({ toolId }: ToolProps) {
             {error}
           </div>
         ) : (
-          <Textarea
+          <CodeEditor
             readOnly
             value={output?.text ?? ''}
-            className="flex-1 font-mono text-sm"
+            language="json"
+            className="flex-1"
             data-testid="output"
           />
         )}

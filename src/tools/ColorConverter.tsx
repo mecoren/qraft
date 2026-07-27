@@ -63,11 +63,11 @@ export function ColorConverter({ toolId }: ToolProps) {
       <div className="flex items-end gap-4">
         <div className="flex flex-col gap-1 flex-1">
           <Label htmlFor="color-input" className="text-xs">
-            Color value
+            颜色值
           </Label>
           <Input
             id="color-input"
-            placeholder="Enter color value..."
+            placeholder="输入颜色值..."
             value={text}
             onChange={(e) => setText(e.target.value)}
             className="font-mono text-sm"
@@ -76,7 +76,7 @@ export function ColorConverter({ toolId }: ToolProps) {
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="format-select" className="text-xs">
-            From format
+            输入格式
           </Label>
           <Select
             value={fromFormat}
@@ -93,7 +93,7 @@ export function ColorConverter({ toolId }: ToolProps) {
           </Select>
         </div>
         <Button onClick={handleConvert} disabled={loading || !text}>
-          {loading ? 'Converting...' : 'Convert'}
+          {loading ? '转换中...' : '转换'}
         </Button>
       </div>
 
@@ -110,11 +110,11 @@ export function ColorConverter({ toolId }: ToolProps) {
         <div className="grid grid-cols-2 gap-4 flex-1" data-testid="output">
           <div className="flex flex-col gap-3">
             <div className="rounded-md border p-3">
-              <div className="text-xs font-semibold text-muted-foreground">Preview</div>
+              <div className="text-xs font-semibold text-muted-foreground">预览</div>
               <div
                 className="mt-2 h-24 rounded-md border"
                 style={{ backgroundColor: extra.hex }}
-                aria-label={`color swatch ${extra.hex}`}
+                aria-label={`颜色样本 ${extra.hex}`}
               />
             </div>
             <div className="rounded-md border p-3 text-sm">
@@ -125,7 +125,7 @@ export function ColorConverter({ toolId }: ToolProps) {
                   className="text-xs text-primary hover:underline"
                   onClick={() => handleCopy(extra.hex)}
                 >
-                  Copy
+                  复制
                 </button>
                 <span className="font-semibold">RGB</span>
                 <code className="font-mono">{extra.rgb}</code>
@@ -133,7 +133,7 @@ export function ColorConverter({ toolId }: ToolProps) {
                   className="text-xs text-primary hover:underline"
                   onClick={() => handleCopy(extra.rgb)}
                 >
-                  Copy
+                  复制
                 </button>
                 <span className="font-semibold">HSL</span>
                 <code className="font-mono">{extra.hsl}</code>
@@ -141,7 +141,7 @@ export function ColorConverter({ toolId }: ToolProps) {
                   className="text-xs text-primary hover:underline"
                   onClick={() => handleCopy(extra.hsl)}
                 >
-                  Copy
+                  复制
                 </button>
               </div>
             </div>

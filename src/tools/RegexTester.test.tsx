@@ -25,12 +25,12 @@ describe('RegexTester', () => {
     vi.clearAllMocks();
   });
 
-  it('renders pattern input, flags input, test textarea and test button', () => {
+  it('renders pattern input, flags input, test editor and test button', () => {
     render(<RegexTester toolId="regex_tester" metadata={null as never} />);
-    expect(screen.getByPlaceholderText(/enter regex pattern/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/flags/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/enter test text/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /test/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/输入正则表达式/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/标志位/)).toBeInTheDocument();
+    expect(screen.getByTestId('input')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /测试/ })).toBeInTheDocument();
   });
 
   it('calls tool_execute with pattern, flags and text', async () => {
@@ -44,16 +44,15 @@ describe('RegexTester', () => {
     });
 
     render(<RegexTester toolId="regex_tester" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/enter regex pattern/i), {
+    fireEvent.change(screen.getByPlaceholderText(/输入正则表达式/), {
       target: { value: 'world' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/flags/i), {
+    fireEvent.change(screen.getByPlaceholderText(/标志位/), {
       target: { value: 'g' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/enter test text/i), {
-      target: { value: 'hello world' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /test/i }));
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: 'hello world' } });
+    fireEvent.click(screen.getByRole('button', { name: /测试/ }));
 
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
@@ -73,13 +72,12 @@ describe('RegexTester', () => {
     );
 
     render(<RegexTester toolId="regex_tester" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/enter regex pattern/i), {
+    fireEvent.change(screen.getByPlaceholderText(/输入正则表达式/), {
       target: { value: '(unclosed' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/enter test text/i), {
-      target: { value: 'hello' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /test/i }));
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: 'hello' } });
+    fireEvent.click(screen.getByRole('button', { name: /测试/ }));
 
     await waitFor(() => {
       expect(screen.getByText(/PARSE_FAILED/i)).toBeInTheDocument();

@@ -1,13 +1,15 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
 
 // Vite 配置:Tauri + React + HMR
 // - server.port 1420 是 Tauri 约定的开发端口
 // - envPrefix 包含 TAURI_ENV_ 前缀变量
 // - build.target 适配三平台 WebView(Chrome 100 / Safari 13)
+// - Tailwind v4 通过 @tailwindcss/vite 插件接入,CSS 内 @import "tailwindcss" 即可
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

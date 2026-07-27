@@ -28,10 +28,10 @@ describe('JsonFormatter', () => {
     vi.clearAllMocks();
   });
 
-  it('renders input textarea, indent select and format button', () => {
+  it('renders input editor, indent select and format button', () => {
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
-    expect(screen.getByPlaceholderText(/paste json/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /format/i })).toBeInTheDocument();
+    expect(screen.getByTestId('input')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /格式化/ })).toBeInTheDocument();
     expect(screen.getByRole('combobox')).toBeInTheDocument();
   });
 
@@ -43,10 +43,9 @@ describe('JsonFormatter', () => {
     });
 
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/paste json/i), {
-      target: { value: '{"a":1}' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /format/i }));
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: '{"a":1}' } });
+    fireEvent.click(screen.getByRole('button', { name: /格式化/ }));
 
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
@@ -63,10 +62,9 @@ describe('JsonFormatter', () => {
     );
 
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/paste json/i), {
-      target: { value: '{invalid}' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /format/i }));
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: '{invalid}' } });
+    fireEvent.click(screen.getByRole('button', { name: /格式化/ }));
 
     await waitFor(() => {
       // 组件显示 "ERR_PARSE_FAILED: ...",正则匹配下划线形式

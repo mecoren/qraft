@@ -6,6 +6,7 @@
 pub mod app;
 pub mod clipboard;
 pub mod config;
+pub mod font;
 pub mod fs;
 pub mod history;
 pub mod tool;

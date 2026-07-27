@@ -25,10 +25,10 @@ describe('JsonMinifier', () => {
     vi.clearAllMocks();
   });
 
-  it('renders input textarea and minify button', () => {
+  it('renders input editor and minify button', () => {
     render(<JsonMinifier toolId="json_minifier" metadata={null as never} />);
-    expect(screen.getByPlaceholderText(/paste json/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /minify/i })).toBeInTheDocument();
+    expect(screen.getByTestId('input')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /压缩/ })).toBeInTheDocument();
   });
 
   it('calls tool_execute with text on minify click', async () => {
@@ -39,10 +39,9 @@ describe('JsonMinifier', () => {
     });
 
     render(<JsonMinifier toolId="json_minifier" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/paste json/i), {
-      target: { value: '{\n  "a": 1,\n  "b": 2\n}' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /minify/i }));
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: '{\n  "a": 1,\n  "b": 2\n}' } });
+    fireEvent.click(screen.getByRole('button', { name: /压缩/ }));
 
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
@@ -59,10 +58,9 @@ describe('JsonMinifier', () => {
     );
 
     render(<JsonMinifier toolId="json_minifier" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/paste json/i), {
-      target: { value: '{bad}' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /minify/i }));
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: '{bad}' } });
+    fireEvent.click(screen.getByRole('button', { name: /压缩/ }));
 
     await waitFor(() => {
       // 组件显示 "ERR_PARSE_FAILED: ..."

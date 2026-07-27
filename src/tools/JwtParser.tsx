@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { CodeEditor } from '@/components/ui/code-editor';
 import { Label } from '@/components/ui/label';
 import { invokeCommand, CommandError } from '@/lib/ipc';
 import type { ToolProps } from './registry';
@@ -43,16 +43,17 @@ export function JwtParser({ toolId }: ToolProps) {
   return (
     <div className="grid grid-cols-2 gap-4 h-full">
       <div className="flex flex-col gap-2">
-        <Label>JWT Token</Label>
-        <Textarea
-          placeholder="Paste JWT token here..."
+        <Label>JWT 令牌</Label>
+        <CodeEditor
+          placeholder="在此粘贴 JWT 令牌..."
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          className="flex-1 font-mono text-sm"
+          onChange={setText}
+          language="plaintext"
+          className="flex-1"
           data-testid="input"
         />
         <Button onClick={handleParse} disabled={loading || !text}>
-          {loading ? 'Parsing...' : 'Parse'}
+          {loading ? '解析中...' : '解析'}
         </Button>
       </div>
 
@@ -67,39 +68,39 @@ export function JwtParser({ toolId }: ToolProps) {
         ) : extra ? (
           <>
             <div className="flex flex-col gap-1">
-              <Label>Header</Label>
-              <Textarea
+              <Label>头部(Header)</Label>
+              <CodeEditor
                 readOnly
                 value={JSON.stringify(extra.header, null, 2)}
-                className="font-mono text-sm"
+                language="json"
                 data-testid="header"
               />
             </div>
             <div className="flex flex-col gap-1">
-              <Label>Payload</Label>
-              <Textarea
+              <Label>载荷(Payload)</Label>
+              <CodeEditor
                 readOnly
                 value={JSON.stringify(extra.payload, null, 2)}
-                className="font-mono text-sm"
+                language="json"
                 data-testid="payload"
               />
             </div>
             <div className="flex flex-col gap-1">
-              <Label>Signature</Label>
-              <Textarea
+              <Label>签名(Signature)</Label>
+              <CodeEditor
                 readOnly
                 value={extra.signature}
-                className="font-mono text-sm"
+                language="plaintext"
                 data-testid="signature"
               />
             </div>
             {extra.expires_at && (
-              <div className="text-xs text-muted-foreground">Expires at: {extra.expires_at}</div>
+              <div className="text-xs text-muted-foreground">过期时间: {extra.expires_at}</div>
             )}
           </>
         ) : (
           <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-            Parse a JWT to see its parts
+            解析 JWT 后将展示各部分内容
           </div>
         )}
       </div>

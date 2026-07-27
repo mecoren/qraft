@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { CodeEditor } from '@/components/ui/code-editor';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -56,7 +56,7 @@ export function HashCalculator({ toolId }: ToolProps) {
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <Label htmlFor="algo-select" className="text-xs">
-            Algorithm
+            算法
           </Label>
           <Select value={algorithm} onValueChange={(v) => setAlgorithm(v as typeof algorithm)}>
             <SelectTrigger id="algo-select" className="w-32">
@@ -72,24 +72,25 @@ export function HashCalculator({ toolId }: ToolProps) {
           </Select>
         </div>
         <Button onClick={handleCompute} disabled={loading || !text}>
-          {loading ? 'Computing...' : 'Compute'}
+          {loading ? '计算中...' : '计算'}
         </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-4 flex-1">
         <div className="flex flex-col gap-2">
-          <Label>Input Text</Label>
-          <Textarea
-            placeholder="Enter text to hash..."
+          <Label>输入文本</Label>
+          <CodeEditor
+            placeholder="输入待哈希的文本..."
             value={text}
-            onChange={(e) => setText(e.target.value)}
-            className="flex-1 font-mono text-sm"
+            onChange={setText}
+            language="plaintext"
+            className="flex-1"
             data-testid="input"
           />
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label>Hash</Label>
+          <Label>哈希值</Label>
           {progress && (
             <div className="flex flex-col gap-1">
               <Progress value={progress.percent} />
@@ -104,16 +105,17 @@ export function HashCalculator({ toolId }: ToolProps) {
               {error}
             </div>
           ) : (
-            <Textarea
+            <CodeEditor
               readOnly
               value={output?.text ?? ''}
-              className="flex-1 font-mono text-sm break-all"
+              language="plaintext"
+              className="flex-1"
               data-testid="output"
             />
           )}
           {output?.meta && (
             <span className="text-xs text-muted-foreground">
-              {output.meta.input_bytes} bytes · {output.meta.duration_ms}ms
+              {output.meta.input_bytes} 字节 · {output.meta.duration_ms}ms
             </span>
           )}
         </div>

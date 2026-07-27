@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { CodeEditor } from '@/components/ui/code-editor';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -52,52 +52,53 @@ export function UrlCodec({ toolId }: ToolProps) {
   return (
     <div className="grid grid-cols-2 gap-4 h-full">
       <div className="flex flex-col gap-2">
-        <Label>Input</Label>
-        <Textarea
-          placeholder="Enter text..."
+        <Label>输入</Label>
+        <CodeEditor
+          placeholder="输入文本..."
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          className="flex-1 font-mono text-sm"
+          onChange={setText}
+          language="plaintext"
+          className="flex-1"
           data-testid="input"
         />
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Label htmlFor="url-action" className="text-xs">
-              Action
+              操作
             </Label>
             <Select value={action} onValueChange={(v) => setAction(v as 'encode' | 'decode')}>
               <SelectTrigger id="url-action" className="w-28">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="encode">Encode</SelectItem>
-                <SelectItem value="decode">Decode</SelectItem>
+                <SelectItem value="encode">编码</SelectItem>
+                <SelectItem value="decode">解码</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="flex items-center gap-2">
             <Switch
               id="url-component"
-              aria-label="Component"
+              aria-label="组件编码"
               checked={component}
               onCheckedChange={setComponent}
             />
             <Label htmlFor="url-component" className="text-xs">
-              Component
+              组件编码
             </Label>
           </div>
           <Button onClick={handleExecute} disabled={loading || !text}>
-            {loading ? 'Running...' : 'Execute'}
+            {loading ? '执行中...' : '执行'}
           </Button>
         </div>
       </div>
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <Label>Output</Label>
+          <Label>输出</Label>
           {output?.meta && (
             <span className="text-xs text-muted-foreground">
-              {output.meta.input_bytes} → {output.meta.output_bytes} bytes ·{' '}
+              {output.meta.input_bytes} → {output.meta.output_bytes} 字节 ·{' '}
               {output.meta.duration_ms}ms
             </span>
           )}
@@ -110,10 +111,11 @@ export function UrlCodec({ toolId }: ToolProps) {
             {error}
           </div>
         ) : (
-          <Textarea
+          <CodeEditor
             readOnly
             value={output?.text ?? ''}
-            className="flex-1 font-mono text-sm"
+            language="plaintext"
+            className="flex-1"
             data-testid="output"
           />
         )}

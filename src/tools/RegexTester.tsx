@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { CodeEditor } from '@/components/ui/code-editor';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { invokeCommand, CommandError } from '@/lib/ipc';
@@ -60,11 +60,11 @@ export function RegexTester({ toolId }: ToolProps) {
       <div className="grid grid-cols-[1fr_120px_auto] gap-3 items-end">
         <div className="flex flex-col gap-1">
           <Label htmlFor="pattern-input" className="text-xs">
-            Pattern
+            正则表达式
           </Label>
           <Input
             id="pattern-input"
-            placeholder="Enter regex pattern..."
+            placeholder="输入正则表达式..."
             value={pattern}
             onChange={(e) => setPattern(e.target.value)}
             className="font-mono text-sm"
@@ -73,39 +73,40 @@ export function RegexTester({ toolId }: ToolProps) {
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="flags-input" className="text-xs">
-            Flags
+            标志位
           </Label>
           <Input
             id="flags-input"
-            placeholder="flags"
+            placeholder="标志位"
             value={flags}
             onChange={(e) => setFlags(e.target.value)}
             className="font-mono text-sm"
           />
         </div>
         <Button onClick={handleTest} disabled={loading || !pattern || !text}>
-          {loading ? 'Testing...' : 'Test'}
+          {loading ? '测试中...' : '测试'}
         </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-4 flex-1">
         <div className="flex flex-col gap-2">
-          <Label>Test text</Label>
-          <Textarea
-            placeholder="Enter test text..."
+          <Label>测试文本</Label>
+          <CodeEditor
+            placeholder="输入测试文本..."
             value={text}
-            onChange={(e) => setText(e.target.value)}
-            className="flex-1 font-mono text-sm"
+            onChange={setText}
+            language="plaintext"
+            className="flex-1"
             data-testid="input"
           />
         </div>
 
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <Label>Matches</Label>
+            <Label>匹配结果</Label>
             {extra && (
               <span className="text-xs text-muted-foreground">
-                {extra.match_count} match{extra.match_count === 1 ? '' : 'es'}
+                {extra.match_count} 个匹配
               </span>
             )}
           </div>
@@ -131,10 +132,10 @@ export function RegexTester({ toolId }: ToolProps) {
                     </div>
                     {m.groups.length > 0 && (
                       <div className="mt-1 pl-4 text-xs text-muted-foreground">
-                        groups:{' '}
+                        分组:{' '}
                         {m.groups.map((g, gi) => (
                           <span key={gi} className="font-mono">
-                            [{gi + 1}]={g ?? '<none>'}{' '}
+                            [{gi + 1}]={g ?? '<无>'}{' '}
                           </span>
                         ))}
                       </div>
@@ -142,12 +143,18 @@ export function RegexTester({ toolId }: ToolProps) {
                   </li>
                 ))}
                 {extra.matches.length === 0 && (
-                  <li className="text-sm text-muted-foreground">No matches found.</li>
+                  <li className="text-sm text-muted-foreground">未找到匹配项。</li>
                 )}
               </ul>
             </ScrollArea>
           ) : (
-            <Textarea readOnly value="" className="flex-1 font-mono text-sm" data-testid="output" />
+            <CodeEditor
+              readOnly
+              value=""
+              language="plaintext"
+              className="flex-1"
+              data-testid="output"
+            />
           )}
         </div>
       </div>

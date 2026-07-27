@@ -77,11 +77,11 @@ export function TimestampConverter({ toolId }: ToolProps) {
       <div className="flex items-end gap-4">
         <div className="flex flex-col gap-1 flex-1">
           <Label htmlFor="ts-input" className="text-xs">
-            Input (Unix seconds / millis / date string)
+            输入(Unix 秒 / 毫秒 / 日期字符串)
           </Label>
           <Input
             id="ts-input"
-            placeholder="Enter timestamp or date string..."
+            placeholder="输入时间戳或日期字符串..."
             value={text}
             onChange={(e) => setText(e.target.value)}
             className="font-mono text-sm"
@@ -90,7 +90,7 @@ export function TimestampConverter({ toolId }: ToolProps) {
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="tz-select" className="text-xs">
-            Timezone
+            时区
           </Label>
           <Select value={timezone} onValueChange={setTimezone}>
             <SelectTrigger id="tz-select" className="w-48">
@@ -106,7 +106,7 @@ export function TimestampConverter({ toolId }: ToolProps) {
           </Select>
         </div>
         <Button onClick={handleConvert} disabled={loading || !text}>
-          {loading ? 'Converting...' : 'Convert'}
+          {loading ? '转换中...' : '转换'}
         </Button>
       </div>
 
@@ -122,25 +122,25 @@ export function TimestampConverter({ toolId }: ToolProps) {
       {extra && (
         <ScrollArea className="flex-1 rounded-md border p-4" data-testid="output">
           <dl className="grid grid-cols-[180px_1fr_auto] gap-x-4 gap-y-3 text-sm">
-            <dt className="font-semibold">Unix (seconds)</dt>
+            <dt className="font-semibold">Unix(秒)</dt>
             <dd className="font-mono">{extra.unix_seconds}</dd>
             <dd>
               <button
                 className="text-xs text-primary hover:underline"
                 onClick={() => handleCopy(String(extra.unix_seconds))}
               >
-                Copy
+                复制
               </button>
             </dd>
 
-            <dt className="font-semibold">Unix (millis)</dt>
+            <dt className="font-semibold">Unix(毫秒)</dt>
             <dd className="font-mono">{extra.unix_millis}</dd>
             <dd>
               <button
                 className="text-xs text-primary hover:underline"
                 onClick={() => handleCopy(String(extra.unix_millis))}
               >
-                Copy
+                复制
               </button>
             </dd>
 
@@ -151,22 +151,22 @@ export function TimestampConverter({ toolId }: ToolProps) {
                 className="text-xs text-primary hover:underline"
                 onClick={() => handleCopy(extra.iso8601)}
               >
-                Copy
+                复制
               </button>
             </dd>
 
-            <dt className="font-semibold">Local ({timezone})</dt>
+            <dt className="font-semibold">本地时间({timezone})</dt>
             <dd className="font-mono break-all">{extra.local}</dd>
             <dd>
               <button
                 className="text-xs text-primary hover:underline"
                 onClick={() => handleCopy(extra.local)}
               >
-                Copy
+                复制
               </button>
             </dd>
 
-            <dt className="font-semibold">Relative</dt>
+            <dt className="font-semibold">相对时间</dt>
             <dd className="font-mono">{extra.relative}</dd>
             <dd />
           </dl>

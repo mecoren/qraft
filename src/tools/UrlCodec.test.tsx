@@ -27,9 +27,9 @@ describe('UrlCodec', () => {
 
   it('renders input, output, action select and component switch', () => {
     render(<UrlCodec toolId="url_codec" metadata={null as never} />);
-    expect(screen.getByPlaceholderText(/enter text/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /execute/i })).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: /component/i })).toBeInTheDocument();
+    expect(screen.getByTestId('input')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /执行/ })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /组件编码/ })).toBeInTheDocument();
   });
 
   it('calls tool_execute with action=encode, component=false by default', async () => {
@@ -39,10 +39,9 @@ describe('UrlCodec', () => {
     });
 
     render(<UrlCodec toolId="url_codec" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/enter text/i), {
-      target: { value: 'hello world' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /execute/i }));
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: 'hello world' } });
+    fireEvent.click(screen.getByRole('button', { name: /执行/ }));
 
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
@@ -59,10 +58,9 @@ describe('UrlCodec', () => {
     );
 
     render(<UrlCodec toolId="url_codec" metadata={null as never} />);
-    fireEvent.change(screen.getByPlaceholderText(/enter text/i), {
-      target: { value: '%ZZ' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /execute/i }));
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: '%ZZ' } });
+    fireEvent.click(screen.getByRole('button', { name: /执行/ }));
 
     await waitFor(() => {
       expect(screen.getByText(/PARSE_FAILED/i)).toBeInTheDocument();

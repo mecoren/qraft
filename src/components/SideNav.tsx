@@ -12,15 +12,16 @@ import { cn } from '@/lib/utils';
 import { useToolStateStore } from '@/store/toolStateStore';
 import type { ToolCategory, ToolMetadata } from '@/types/tool';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ThemeModeToggle } from '@/components/ui/theme-mode-toggle';
 
-/** 分类 → 显示名与图标映射,与 Rust ToolCategory 对齐 */
+/** 分类 → 中文显示名与图标映射,与 Rust ToolCategory 对齐 */
 const CATEGORY_META: Record<ToolCategory, { label: string; icon: LucideIcon }> = {
-  formatter: { label: 'Formatter', icon: Braces },
-  encoder: { label: 'Encoder', icon: Binary },
-  generator: { label: 'Generator', icon: Wand2 },
-  parser: { label: 'Parser', icon: FileSearch },
-  converter: { label: 'Converter', icon: ArrowLeftRight },
-  comparator: { label: 'Comparator', icon: GitCompare },
+  formatter: { label: '格式化', icon: Braces },
+  encoder: { label: '编解码', icon: Binary },
+  generator: { label: '生成器', icon: Wand2 },
+  parser: { label: '解析器', icon: FileSearch },
+  converter: { label: '转换器', icon: ArrowLeftRight },
+  comparator: { label: '比较器', icon: GitCompare },
 };
 
 const CATEGORY_ORDER: ToolCategory[] = [
@@ -54,6 +55,13 @@ export function SideNav(): JSX.Element {
     return CATEGORY_ORDER.flatMap((c) => grouped.get(c) ?? []);
   }, [grouped]);
 
+  /** toolId → 在 flatTools 中的索引,供键盘导航定位按钮(避免渲染期 mutation) */
+  const flatIndexMap = useMemo(() => {
+    const m = new Map<string, number>();
+    flatTools.forEach((t, i) => m.set(t.id, i));
+    return m;
+  }, [flatTools]);
+
   const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     e.preventDefault();
@@ -62,11 +70,13 @@ export function SideNav(): JSX.Element {
     buttonRefs.current[next]?.focus();
   };
 
-  let flatIndex = -1;
-
   return (
-    <nav aria-label="工具导航" className="h-full w-56 border-r border-border bg-card">
-      <ScrollArea className="h-full">
+    <nav
+      aria-label="工具导航"
+      className="flex h-full w-56 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
+    >
+      {/* 工具列表滚动区 */}
+      <ScrollArea className="flex-1">
         <ul className="flex flex-col gap-4 p-2">
           {CATEGORY_ORDER.map((cat) => {
             const list = grouped.get(cat);
@@ -81,8 +91,7 @@ export function SideNav(): JSX.Element {
                 </h3>
                 <ul className="flex flex-col">
                   {list.map((t) => {
-                    flatIndex += 1;
-                    const idx = flatIndex;
+                    const idx = flatIndexMap.get(t.id) ?? 0;
                     const active = t.id === currentToolId;
                     return (
                       <li key={t.id}>
@@ -96,10 +105,10 @@ export function SideNav(): JSX.Element {
                           onKeyDown={(e) => handleKeyDown(e, idx)}
                           className={cn(
                             'w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors',
-                            'hover:bg-accent hover:text-accent-foreground',
-                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                            'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring',
                             active &&
-                              'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
+                              'bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground',
                           )}
                         >
                           {t.name}
@@ -113,6 +122,11 @@ export function SideNav(): JSX.Element {
           })}
         </ul>
       </ScrollArea>
+
+      {/* 侧栏底部:主题模式切换 */}
+      <div className="border-t border-sidebar-border p-2">
+        <ThemeModeToggle variant="sidebar" />
+      </div>
     </nav>
   );
 }
