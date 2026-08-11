@@ -46,6 +46,12 @@ export interface ColorPalette {
   accentBg: string;
   accentFg: string;
   destructive: string;
+  /** 状态语义色:成功(绿),对应 CSS 变量 --success */
+  success: string;
+  /** 状态语义色:警告(琥珀),对应 CSS 变量 --warning */
+  warning: string;
+  /** 状态语义色:信息(蓝),对应 CSS 变量 --info */
+  info: string;
   border: string;
   input: string;
   ring: string;
@@ -84,6 +90,9 @@ const obsidian: ColorPalette = {
   accentBg: 'oklch(0.28 0.05 250)',
   accentFg: 'oklch(0.96 0.01 264)',
   destructive: 'oklch(0.704 0.191 22.216)',
+  success: 'oklch(0.72 0.15 155)',
+  warning: 'oklch(0.80 0.13 75)',
+  info: 'oklch(0.70 0.12 240)',
   border: 'oklch(1 0 0 / 10%)',
   input: 'oklch(1 0 0 / 15%)',
   ring: 'oklch(0.62 0.19 250)',
@@ -118,6 +127,9 @@ const deepSea: ColorPalette = {
   accentBg: 'oklch(0.27 0.02 220)',
   accentFg: 'oklch(0.96 0.01 220)',
   destructive: 'oklch(0.704 0.191 22.216)',
+  success: 'oklch(0.72 0.15 155)',
+  warning: 'oklch(0.80 0.13 75)',
+  info: 'oklch(0.70 0.12 240)',
   border: 'oklch(1 0 0 / 10%)',
   input: 'oklch(1 0 0 / 15%)',
   ring: 'oklch(0.62 0.16 220)',
@@ -152,6 +164,9 @@ const twilight: ColorPalette = {
   accentBg: 'oklch(0.27 0.02 25)',
   accentFg: 'oklch(0.96 0.01 25)',
   destructive: 'oklch(0.704 0.191 22.216)',
+  success: 'oklch(0.72 0.15 155)',
+  warning: 'oklch(0.80 0.13 75)',
+  info: 'oklch(0.70 0.12 240)',
   border: 'oklch(1 0 0 / 10%)',
   input: 'oklch(1 0 0 / 15%)',
   ring: 'oklch(0.62 0.20 25)',
@@ -186,6 +201,9 @@ const emeraldNight: ColorPalette = {
   accentBg: 'oklch(0.27 0.02 162)',
   accentFg: 'oklch(0.96 0.01 162)',
   destructive: 'oklch(0.704 0.191 22.216)',
+  success: 'oklch(0.72 0.15 155)',
+  warning: 'oklch(0.80 0.13 75)',
+  info: 'oklch(0.70 0.12 240)',
   border: 'oklch(1 0 0 / 10%)',
   input: 'oklch(1 0 0 / 15%)',
   ring: 'oklch(0.62 0.16 162)',
@@ -220,6 +238,9 @@ const daylight: ColorPalette = {
   accentBg: 'oklch(0.95 0.03 256)',
   accentFg: 'oklch(0.20 0.01 264)',
   destructive: 'oklch(0.577 0.245 27.325)',
+  success: 'oklch(0.50 0.12 155)',
+  warning: 'oklch(0.55 0.14 75)',
+  info: 'oklch(0.50 0.12 240)',
   border: 'oklch(0.92 0.005 264)',
   input: 'oklch(0.92 0.005 264)',
   ring: 'oklch(0.54 0.18 256)',
@@ -284,6 +305,9 @@ export function deriveCustomPalette(accent: string): ColorPalette {
     accentBg: `color-mix(in srgb, ${accent} 15%, transparent)`,
     accentFg: 'oklch(0.96 0 0)',
     destructive: 'oklch(0.704 0.191 22.216)',
+    success: 'oklch(0.72 0.15 155)',
+    warning: 'oklch(0.80 0.13 75)',
+    info: 'oklch(0.70 0.12 240)',
     border: 'oklch(1 0 0 / 10%)',
     input: 'oklch(1 0 0 / 15%)',
     ring: accent,

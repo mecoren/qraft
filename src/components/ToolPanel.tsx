@@ -14,8 +14,8 @@ export interface ToolPanelProps {
 }
 
 const ALERT_STYLE: Record<AlertLevel, string> = {
-  info: 'bg-blue-500/10 text-blue-500',
-  warning: 'bg-yellow-500/10 text-yellow-500',
+  info: 'bg-info/10 text-info',
+  warning: 'bg-warning/10 text-warning',
   error: 'bg-destructive/10 text-destructive',
 };
 

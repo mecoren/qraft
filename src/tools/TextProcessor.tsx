@@ -224,42 +224,44 @@ function GroupFragment({
 }
 
 /**
+ * 把当前输入按指定转换处理:成功时把结果写入 **输出框**,
+ * **不改动输入**;输出只读副本,不会随输入实时同步,需要时再点转换。
+ * 失败时弹 toast 提示并保持输出不变。
+ */
+/**
  * 文本处理工具主组件
  *
  * - 上方"配置"区域(与 SQL 格式化器一致)以嵌套 ButtonGroup 放置
  *   4 组共 7 个文本转换按钮:组内紧密拼边、组间留出 gap-2。
- * - 下方为左右两栏的输入/输出编辑器,与所有"配置 → 输入 → 输出"工具
- *   同构,保持工具面板视觉一致。
+ * - 下方为左右两栏的输入/输出编辑器:输入框可编辑,转换按钮只
+ *   把结果写入 **输出框**,输入保持原值不动。
  */
 export function TextProcessor(_props: ToolProps): JSX.Element {
-  const [text, setText] = useState('');
+  const [input, setInput] = useState('');
+  const [output, setOutput] = useState('');
 
-  /**
-   * 把当前输入按指定转换处理:成功时把转换结果写回输入框(输出框同步),
-   * 失败时弹 toast 提示并保持原文本不变。
-   */
   const handleApply = useCallback(
     (id: TransformId) => {
-      if (!text) return;
+      if (!input) return;
       const def = TRANSFORMS_BY_ID.get(id);
       if (!def) return;
       try {
-        const next = def.apply(text);
-        if (next === text) {
+        const next = def.apply(input);
+        if (next === input) {
           toast.info(`${def.label}:文本无需转换`);
           return;
         }
-        setText(next);
+        setOutput(next);
       } catch (e) {
         toast.error(
           `${def.label}失败:${e instanceof Error ? e.message : String(e)}`,
         );
       }
     },
-    [text],
+    [input],
   );
 
-  const disabled = !text;
+  const disabled = !input;
 
   function renderGroup(ids: readonly TransformId[]): JSX.Element {
     return (
@@ -296,7 +298,7 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
         <ConfigRow
           icon={Wand2}
           label="转换"
-          hint="点击按钮把当前输入替换为转换结果;同组内紧密拼接,组间留白"
+          hint="点击按钮把当前输入的转换结果写入输出框,输入不变;同组内紧密拼接,组间留白"
         >
           {/* 外层 ButtonGroup 起容器作用 —— 仅作为 flex 父节点,
               配合 `has-[>[data-slot=button-group]]:gap-2` 自动在子组之间
@@ -318,8 +320,8 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
           <CodeEditor
             title="输入"
             language="plaintext"
-            value={text}
-            onChange={setText}
+            value={input}
+            onChange={setInput}
             placeholder="在此粘贴或输入文本..."
             className="h-full"
             data-testid="input"
@@ -331,10 +333,10 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
             readOnly
             title="输出"
             language="plaintext"
-            value={text}
+            value={output}
             className="h-full"
             data-testid="output"
-            actions={<CopyAction text={text} testId="output-copy" />}
+            actions={<CopyAction text={output} testId="output-copy" />}
           />
         </ResizablePanel>
       </ResizablePanelGroup>

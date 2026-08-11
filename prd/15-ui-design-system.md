@@ -241,6 +241,25 @@ export default {
 };
 ```
 
+#### 项目实际：Token 体系（OKLCH + data-palette 分层）
+
+> 📌 **项目实际**
+>
+> MVP 落地后 Token 体系已演进为三层架构，替换上文 HSL 示例：
+>
+> | 层级 | 文件 | 职责 |
+> |------|------|------|
+> | Layer 1 | `src/lib/design-tokens.ts` | 语义化 `ColorPalette` 接口 + 5 套预设主题（4 深 1 亮）+ 自定义 accent 派生工厂 |
+> | Layer 2 | `src/styles/globals.css` | `[data-palette="..."]` 块注入 CSS 变量；`@theme inline` 映射为 Tailwind utility |
+> | Layer 3 | `src/lib/color-theme.ts` | 无闪烁主题切换（`data-palette` + `.dark` 类 + inline style），持久化到 localStorage |
+>
+> 核心约定：
+>
+> 1. **色彩空间**：全部使用 OKLCH（感知均匀），语义变量（`--primary` / `--background` / `--border` 等）通过 `@theme inline` 映射为 `bg-primary` / `text-background` / `border-border` 等 utility，主题切换无需重渲染 React。
+> 2. **状态语义色**：在基础语义色之外定义 `--success` / `--warning` / `--info` 三个状态色 token，每个主题块独立取值（深色用亮阶、亮色用深阶保证 WCAG AA 对比度）。组件禁止硬编码 `emerald-*` / `amber-*` / `blue-*` 等色阶，统一使用 `text-success` / `bg-warning/10` / `border-info/50`。
+> 3. **圆角 token 体系**：全局基准 `--radius: 0.5rem`（8px），对齐 shadcn/ui 官方默认值；派生 `--radius-xs/sm/md/lg/xl/2xl`（4px / 4px / 6px / 8px / 12px / 16px）。组件统一使用 `rounded-sm` / `rounded-md` / `rounded-lg` 等层级，禁止书写具体像素值。按钮（`rounded-md`=6px）、卡片（`rounded-lg`=8px）等弧度与 shadcn 组件完全一致。
+> 4. **禁止硬编码**：组件中不得出现 `#xxxxxx`、`rgb()`、`oklch()` 直接量或 Tailwind 具体色阶类；工具类（颜色转换、Canvas 绘图、Monaco 编辑器主题）除外。
+
 ### 3.3 暗色与亮色主题
 
 #### 主题切换实现

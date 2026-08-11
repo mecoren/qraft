@@ -92,9 +92,9 @@ export function TextCompare(_props: ToolProps): JSX.Element {
                 <span className="text-body-sm font-semibold">差异</span>
                 {(stats.added > 0 || stats.removed > 0 || stats.modified > 0) && (
                   <span className="text-xs text-muted-foreground">
-                    <span className="text-green-600 dark:text-green-400">+{stats.added}</span>
+                    <span className="text-success">+{stats.added}</span>
                     {'  '}
-                    <span className="text-red-600 dark:text-red-400">−{stats.removed}</span>
+                    <span className="text-destructive">−{stats.removed}</span>
                     {'  '}
                     <span>~{stats.modified}</span>
                   </span>

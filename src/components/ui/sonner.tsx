@@ -54,6 +54,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme}
       className="toaster group"
+      // 右上方显示 —— 与 shadcn Radix Alert 在工具栏右上角展示的语义一致
+      position="top-right"
       icons={{
         success: <CheckCircle2 className="size-4" />,
         info: <Info className="size-4" />,

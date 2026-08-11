@@ -8,7 +8,9 @@
  *   精确地把「直接子按钮」与「子组 / 分隔符 / 文本」区分开。
  * - 圆角分发:容器默认把组内所有按钮圆角清零
  *   (`[&>[data-slot=button]]:rounded-none`),再通过 :first-child /
- *   :last-child 只给整组首末两个真实按钮补回圆角 —— 与官方逐字一致。
+ *   :last-child 给整组首末两个真实按钮补回与 Button 一致的圆角
+ *   (rounded-l-md / rounded-r-md,跟随项目 --radius 体系),
+ *   与 shadcn 官方 ButtonGroup 默认行为逐字一致。
  * - 组内按钮用 `-ml-px` 让相邻 border 重叠为同一条线(视觉无缝)。
  * - 嵌套:子 ButtonGroup 是独立 flex 容器,父容器通过
  *   `has-[>[data-slot=button-group]]:gap-2` 在子组之间生成 gap。
