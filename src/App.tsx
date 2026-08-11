@@ -15,6 +15,7 @@ import { useHistoryStore } from '@/store/historyStore';
 import { useUiStore } from '@/store/uiStore';
 import { useShortcut } from '@/hooks/useShortcut';
 import { listen } from '@/lib/ipc';
+import { cn } from '@/lib/utils';
 
 import type {
   ConfigChangedPayload,
@@ -114,12 +115,24 @@ export function App(): JSX.Element {
         <div className="flex min-h-0 flex-1">
           <Sidebar />
           <main className="min-w-0 flex-1 bg-background-layer">
-            {/* settings 以弹窗形式悬浮展示,底层仍显示当前页 */}
-            {view === 'welcome' && <WelcomePage />}
-            {view === 'tool' && currentToolId && <ToolPanel toolId={currentToolId} />}
-            {view === 'tool' && !currentToolId && <WelcomePage />}
-            {view === 'extensions' && <ExtensionsPage />}
-            {view === 'history' && <HistoryPanel onSelect={handleSelectHistory} />}
+            {/* settings 以弹窗形式悬浮展示,底层仍显示当前页。
+             * 各页面常驻挂载,用 display:none 切换显隐:组件不卸载,DOM 与本地 state 保留,
+             * 因此切换页面再回来时,工具输入/输出数据与滚动位置均不丢失。
+             * 欢迎页激活条件:view=welcome,或 tool 视图下尚未选中工具 */}
+            <div
+              className={cn('h-full', !(view === 'welcome' || (view === 'tool' && !currentToolId)) && 'hidden')}
+            >
+              <WelcomePage />
+            </div>
+            <div className={cn('h-full', !(view === 'tool' && currentToolId) && 'hidden')}>
+              <ToolPanel toolId={currentToolId ?? ''} />
+            </div>
+            <div className={cn('h-full', view !== 'extensions' && 'hidden')}>
+              <ExtensionsPage />
+            </div>
+            <div className={cn('h-full', view !== 'history' && 'hidden')}>
+              <HistoryPanel onSelect={handleSelectHistory} />
+            </div>
           </main>
         </div>
       </div>

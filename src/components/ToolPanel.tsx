@@ -1,4 +1,4 @@
-import { createElement, type JSX } from 'react';
+import { createElement, useEffect, useState, type JSX } from 'react';
 import { Star } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -54,9 +54,14 @@ export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element 
   const entry = getCatalogEntry(toolId);
   const isFavorite = useUiStore((s) => s.favorites.includes(toolId));
   const toggleFavorite = useUiStore((s) => s.toggleFavorite);
-  // 小写命名 + createElement,明确表示从注册表查找组件类型并实例化,而非在渲染期创建新组件
-  // 避免 React Compiler ESLint 规则 react-hooks/static-components 误报
-  const toolComponent = getToolComponent(toolId);
+
+  // 工具级 keepalive:记录已访问过的工具 id,全部保持挂载,切换工具时仅切换显隐。
+  // 工具组件内部的本地 state(输入/输出/选项)与滚动位置随 DOM 保留,切走再切回不丢失。
+  const [visited, setVisited] = useState<string[]>(() => (toolId ? [toolId] : []));
+  useEffect(() => {
+    if (!toolId) return;
+    setVisited((v) => (v.includes(toolId) ? v : [...v, toolId]));
+  }, [toolId]);
 
   if (!entry) {
     return (
@@ -110,15 +115,26 @@ export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element 
         </button>
       </header>
 
-      {/* 工具工作区:由工具组件自行管理内部布局与滚动 */}
+      {/* 工具工作区:由工具组件自行管理内部布局与滚动。
+       * 遍历所有已访问工具,当前工具显示、其余 display:none(DOM 不卸载,内容/滚动保留) */}
       <div className="min-h-0 flex-1 overflow-hidden px-6 pb-5">
-        {toolComponent ? (
-          createElement(toolComponent, { toolId, metadata: catalogToMetadata(entry) })
-        ) : (
-          <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
-            该工具界面尚未接入,敬请期待
-          </div>
-        )}
+        {visited.map((id) => {
+          const visitedEntry = getCatalogEntry(id);
+          // 小写命名 + createElement,明确表示从注册表查找组件类型并实例化,而非在渲染期创建新组件
+          // 避免 React Compiler ESLint 规则 react-hooks/static-components 误报
+          const visitedComponent = getToolComponent(id);
+          return (
+            <div key={id} className={cn('h-full', id !== toolId && 'hidden')}>
+              {visitedEntry && visitedComponent ? (
+                createElement(visitedComponent, { toolId: id, metadata: catalogToMetadata(visitedEntry) })
+              ) : (
+                <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+                  该工具界面尚未接入,敬请期待
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* 底部 alerts */}

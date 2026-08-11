@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { ToolPanel } from './ToolPanel';
 import { useToolStateStore } from '@/store/toolStateStore';
 
@@ -45,5 +45,26 @@ describe('ToolPanel', () => {
   it('renders empty state when toolId not found', () => {
     render(<ToolPanel toolId="unknown" />);
     expect(screen.getByText(/未找到工具/)).toBeInTheDocument();
+  });
+
+  it('keeps tool input after switching away and back (keepalive)', () => {
+    const { rerender } = render(<ToolPanel toolId="base64_codec" />);
+    // 在 Base64Codec 输入框输入内容
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: 'keep me' } });
+
+    // 切到 json_formatter:当前工作区切换为 JSON 格式化器,Base64 输入被隐藏
+    rerender(<ToolPanel toolId="json_formatter" />);
+    expect(
+      screen.getByRole('heading', { level: 1, name: /JSON 格式化器/i }),
+    ).toBeInTheDocument();
+
+    // 切回 base64_codec:两个工具实例常驻(keepalive),Base64 输入内容保留
+    rerender(<ToolPanel toolId="base64_codec" />);
+    expect(screen.getByRole('heading', { level: 1, name: /Base64/i })).toBeInTheDocument();
+    const inputs = screen.getAllByTestId('input');
+    expect(inputs.length).toBe(2);
+    const values = inputs.map((c) => c.querySelector('textarea')?.value ?? '');
+    expect(values).toContain('keep me');
   });
 });
