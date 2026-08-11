@@ -27,6 +27,31 @@ describe('unwrapResponse', () => {
     if (!r.ok) expect(r.error.code).toBe('ERR_PARSE_FAILED');
   });
 
+  it('normalizes Rust payload (kind/detail) into code/details', () => {
+    // Rust 端 ErrorInfo 序列化为 { kind, detail, message },字段名与前端不同
+    const resp: CommandResponse<string> = {
+      success: false,
+      error: { kind: 'ERR_PARSE_FAILED', detail: 'bad json', message: 'parse failed: bad json' },
+    };
+    const r = unwrapResponse(resp);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.code).toBe('ERR_PARSE_FAILED');
+      expect(r.error.details).toBe('bad json');
+      expect(r.error.message).toBe('parse failed: bad json');
+    }
+  });
+
+  it('prefers kind over code when both present', () => {
+    const resp: CommandResponse<string> = {
+      success: false,
+      error: { kind: 'ERR_KIND', code: 'ERR_CODE', message: 'm' },
+    };
+    const r = unwrapResponse(resp);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('ERR_KIND');
+  });
+
   it('returns ERR_INTERNAL when success true but data missing', () => {
     const resp: CommandResponse<string> = { success: true };
     const r = unwrapResponse(resp);

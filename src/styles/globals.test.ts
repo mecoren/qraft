@@ -43,7 +43,7 @@ describe('globals.css 主题系统(Tailwind v4 + OKLCH + data-palette)', () => {
 
   it('提供圆角令牌与字体回退', () => {
     const css = readFileSync(resolve(__dirname, 'globals.css'), 'utf-8');
-    expect(css).toMatch(/--radius:\s*0\.625rem/);
+    expect(css).toMatch(/--radius:\s*0\.375rem/);
     expect(css).toMatch(/--app-font-family/);
   });
 });

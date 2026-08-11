@@ -8,25 +8,25 @@
  * 与 daylight 主题保持一致,确保应用启动初始化前样式已可用
  * ============================================================ */
 :root {
-  --radius: 0.625rem;
+  --radius: 0.375rem;
   --background: oklch(0.99 0.005 264);
   --foreground: oklch(0.18 0.01 264);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.18 0.01 264);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.18 0.01 264);
-  --primary: oklch(0.55 0.22 264);
+  --primary: oklch(0.54 0.18 256);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.96 0.01 264);
   --secondary-foreground: oklch(0.20 0.01 264);
   --muted: oklch(0.96 0.01 264);
   --muted-foreground: oklch(0.52 0.01 264);
-  --accent: oklch(0.96 0.01 264);
+  --accent: oklch(0.95 0.03 256);
   --accent-foreground: oklch(0.20 0.01 264);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.92 0.005 264);
   --input: oklch(0.92 0.005 264);
-  --ring: oklch(0.55 0.22 264);
+  --ring: oklch(0.54 0.18 256);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -34,12 +34,56 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.97 0.005 264);
   --sidebar-foreground: oklch(0.18 0.01 264);
-  --sidebar-primary: oklch(0.55 0.22 264);
+  --sidebar-primary: oklch(0.54 0.18 256);
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.95 0.01 264);
+  --sidebar-accent: oklch(0.93 0.04 256);
   --sidebar-accent-foreground: oklch(0.20 0.01 264);
   --sidebar-border: oklch(0.92 0.005 264);
-  --sidebar-ring: oklch(0.55 0.22 264);
+  --sidebar-ring: oklch(0.54 0.18 256);
+  /* DevToys 视觉令牌:欢迎页 hero 渐变(紫 → 粉 → 白) */
+  --hero-from: oklch(0.74 0.15 295);
+  --hero-via: oklch(0.82 0.11 325);
+  --hero-to: oklch(0.95 0.04 300);
+  --hero-foreground: oklch(0.22 0.02 264);
+  /* 工具卡片阴影 */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 3px rgb(0 0 0 / 0.05);
+  --shadow-card-hover: 0 4px 12px rgb(0 0 0 / 0.09), 0 1px 3px rgb(0 0 0 / 0.06);
+  /* Dashboard 改版新增:卡片 hover 渐变光晕 + KPI 强调色 */
+  --card-glow: oklch(0 0 0 / 4%);
+  --kpi-accent: var(--primary);
+  /* 文本比较 diff 着色(行底色 / 行内强调) */
+  --diff-add-line: oklch(0.94 0.05 155);
+  --diff-add-emph: oklch(0.86 0.09 155);
+  --diff-remove-line: oklch(0.95 0.04 25);
+  --diff-remove-emph: oklch(0.88 0.08 25);
+  /* 行号编辑器 gutter */
+  --editor-gutter-fg: oklch(0.62 0.01 264);
+  --editor-gutter-bg: oklch(0.98 0.005 264);
+  /* Monaco 编辑器主题色(亮色:黑底 alpha) */
+  --editor-selection-bg: oklch(0 0 0 / 10%);
+  --editor-inactive-selection-bg: oklch(0 0 0 / 7%);
+  --editor-line-highlight-bg: oklch(0 0 0 / 3%);
+  --editor-bracket-match-bg: oklch(0.54 0.18 256 / 13%);
+  --editor-bracket-match-border: transparent;
+  --scrollbar-slider-bg: oklch(0 0 0 / 12%);
+  --scrollbar-slider-hover-bg: oklch(0 0 0 / 20%);
+  --scrollbar-slider-active-bg: oklch(0 0 0 / 27%);
+  /* —— Mica 材质透明度 token(亮色基底,daylight 继承此值)—— */
+  /* Mica 色调:浅灰半透明,作为标题栏/L1 兜底着色 */
+  --mica-tint: oklch(0.99 0.005 264 / 60%);
+  /* L2 结构层透明度:亮色 Mica 较浅,结构层需更不透明以保证可读性 */
+  --layer-base: 85%;
+  /* L3 内容层透明度:亮色完全不透明,确保 WCAG AA 对比度 */
+  --layer-content: 100%;
+  /* —— 派生分层背景色(直接用于 bg-* utility,L1 mica 透出)——
+   * 利用 CSS 变量惰性求值:此处仅定义公式,各主题块覆盖 --sidebar /
+   * --background / --card / --layer-base / --layer-content 后自动适配 */
+  --bg-sidebar-layer: color-mix(in srgb, var(--sidebar) var(--layer-base), transparent);
+  --bg-background-layer: color-mix(in srgb, var(--background) var(--layer-base), transparent);
+  --bg-card-layer: color-mix(in srgb, var(--card) var(--layer-content), transparent);
+  --bg-popover-layer: color-mix(in srgb, var(--popover) var(--layer-content), transparent);
+  /* 标题栏与侧边栏同源同透明度,保证视觉一致 */
+  --bg-titlebar: var(--bg-sidebar-layer);
 }
 
 /* ============================================================
@@ -52,18 +96,18 @@
   --card-foreground: oklch(0.96 0.01 264);
   --popover: oklch(0.21 0.01 264);
   --popover-foreground: oklch(0.96 0.01 264);
-  --primary: oklch(0.62 0.19 264);
+  --primary: oklch(0.62 0.19 250);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.27 0.01 264);
   --secondary-foreground: oklch(0.96 0.01 264);
   --muted: oklch(0.24 0.01 264);
   --muted-foreground: oklch(0.68 0.02 264);
-  --accent: oklch(0.27 0.02 264);
+  --accent: oklch(0.28 0.05 250);
   --accent-foreground: oklch(0.96 0.01 264);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.62 0.19 264);
+  --ring: oklch(0.62 0.19 250);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -71,12 +115,40 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.18 0.01 264);
   --sidebar-foreground: oklch(0.96 0.01 264);
-  --sidebar-primary: oklch(0.62 0.19 264);
+  --sidebar-primary: oklch(0.62 0.19 250);
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.24 0.02 264);
+  --sidebar-accent: oklch(0.25 0.05 250);
   --sidebar-accent-foreground: oklch(0.96 0.01 264);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.62 0.19 264);
+  --sidebar-ring: oklch(0.62 0.19 250);
+  --hero-from: oklch(0.42 0.13 295);
+  --hero-via: oklch(0.38 0.10 320);
+  --hero-to: oklch(0.24 0.05 300);
+  --hero-foreground: oklch(0.97 0.01 264);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-card-hover: 0 4px 14px rgb(0 0 0 / 0.5);
+  /* Dashboard 改版新增:深色主题用白底 alpha 营造光晕 */
+  --card-glow: oklch(1 0 0 / 6%);
+  --kpi-accent: var(--primary);
+  --diff-add-line: oklch(0.32 0.06 155 / 55%);
+  --diff-add-emph: oklch(0.42 0.09 155 / 65%);
+  --diff-remove-line: oklch(0.34 0.07 25 / 55%);
+  --diff-remove-emph: oklch(0.44 0.10 25 / 65%);
+  --editor-gutter-fg: oklch(0.60 0.02 264);
+  --editor-gutter-bg: oklch(0.19 0.01 264);
+  /* Monaco 编辑器主题色(深色:白底 alpha) */
+  --editor-selection-bg: oklch(1 0 0 / 13%);
+  --editor-inactive-selection-bg: oklch(1 0 0 / 9%);
+  --editor-line-highlight-bg: oklch(1 0 0 / 5%);
+  --editor-bracket-match-bg: oklch(0.62 0.19 250 / 13%);
+  --editor-bracket-match-border: transparent;
+  --scrollbar-slider-bg: oklch(1 0 0 / 12%);
+  --scrollbar-slider-hover-bg: oklch(1 0 0 / 20%);
+  --scrollbar-slider-active-bg: oklch(1 0 0 / 27%);
+  /* —— Mica 材质 token(深色:结构层更透明以透出 mica 质感)—— */
+  --mica-tint: oklch(0.16 0.01 264 / 60%);
+  --layer-base: 72%;
+  --layer-content: 95%;
 }
 
 /* ============================================================
@@ -114,6 +186,33 @@
   --sidebar-accent-foreground: oklch(0.96 0.01 220);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.62 0.16 220);
+  --hero-from: oklch(0.42 0.13 295);
+  --hero-via: oklch(0.38 0.10 320);
+  --hero-to: oklch(0.24 0.05 300);
+  --hero-foreground: oklch(0.97 0.01 220);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-card-hover: 0 4px 14px rgb(0 0 0 / 0.5);
+  --card-glow: oklch(1 0 0 / 6%);
+  --kpi-accent: var(--primary);
+  --diff-add-line: oklch(0.32 0.06 155 / 55%);
+  --diff-add-emph: oklch(0.42 0.09 155 / 65%);
+  --diff-remove-line: oklch(0.34 0.07 25 / 55%);
+  --diff-remove-emph: oklch(0.44 0.10 25 / 65%);
+  --editor-gutter-fg: oklch(0.60 0.02 220);
+  --editor-gutter-bg: oklch(0.19 0.01 220);
+  /* Monaco 编辑器主题色(深色:白底 alpha) */
+  --editor-selection-bg: oklch(1 0 0 / 13%);
+  --editor-inactive-selection-bg: oklch(1 0 0 / 9%);
+  --editor-line-highlight-bg: oklch(1 0 0 / 5%);
+  --editor-bracket-match-bg: oklch(0.62 0.19 250 / 13%);
+  --editor-bracket-match-border: transparent;
+  --scrollbar-slider-bg: oklch(1 0 0 / 12%);
+  --scrollbar-slider-hover-bg: oklch(1 0 0 / 20%);
+  --scrollbar-slider-active-bg: oklch(1 0 0 / 27%);
+  /* —— Mica 材质 token(深色:结构层更透明以透出 mica 质感)—— */
+  --mica-tint: oklch(0.16 0.01 220 / 60%);
+  --layer-base: 72%;
+  --layer-content: 95%;
 }
 
 /* ============================================================
@@ -151,6 +250,33 @@
   --sidebar-accent-foreground: oklch(0.96 0.01 25);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.62 0.20 25);
+  --hero-from: oklch(0.42 0.13 295);
+  --hero-via: oklch(0.38 0.10 320);
+  --hero-to: oklch(0.24 0.05 300);
+  --hero-foreground: oklch(0.97 0.01 25);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-card-hover: 0 4px 14px rgb(0 0 0 / 0.5);
+  --card-glow: oklch(1 0 0 / 6%);
+  --kpi-accent: var(--primary);
+  --diff-add-line: oklch(0.32 0.06 155 / 55%);
+  --diff-add-emph: oklch(0.42 0.09 155 / 65%);
+  --diff-remove-line: oklch(0.34 0.07 25 / 55%);
+  --diff-remove-emph: oklch(0.44 0.10 25 / 65%);
+  --editor-gutter-fg: oklch(0.60 0.02 25);
+  --editor-gutter-bg: oklch(0.19 0.01 25);
+  /* Monaco 编辑器主题色(深色:白底 alpha) */
+  --editor-selection-bg: oklch(1 0 0 / 13%);
+  --editor-inactive-selection-bg: oklch(1 0 0 / 9%);
+  --editor-line-highlight-bg: oklch(1 0 0 / 5%);
+  --editor-bracket-match-bg: oklch(0.62 0.19 250 / 13%);
+  --editor-bracket-match-border: transparent;
+  --scrollbar-slider-bg: oklch(1 0 0 / 12%);
+  --scrollbar-slider-hover-bg: oklch(1 0 0 / 20%);
+  --scrollbar-slider-active-bg: oklch(1 0 0 / 27%);
+  /* —— Mica 材质 token(深色:结构层更透明以透出 mica 质感)—— */
+  --mica-tint: oklch(0.16 0.01 25 / 60%);
+  --layer-base: 72%;
+  --layer-content: 95%;
 }
 
 /* ============================================================
@@ -188,6 +314,33 @@
   --sidebar-accent-foreground: oklch(0.96 0.01 162);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.62 0.16 162);
+  --hero-from: oklch(0.42 0.13 295);
+  --hero-via: oklch(0.38 0.10 320);
+  --hero-to: oklch(0.24 0.05 300);
+  --hero-foreground: oklch(0.97 0.01 162);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-card-hover: 0 4px 14px rgb(0 0 0 / 0.5);
+  --card-glow: oklch(1 0 0 / 6%);
+  --kpi-accent: var(--primary);
+  --diff-add-line: oklch(0.32 0.06 155 / 55%);
+  --diff-add-emph: oklch(0.42 0.09 155 / 65%);
+  --diff-remove-line: oklch(0.34 0.07 25 / 55%);
+  --diff-remove-emph: oklch(0.44 0.10 25 / 65%);
+  --editor-gutter-fg: oklch(0.60 0.02 162);
+  --editor-gutter-bg: oklch(0.19 0.01 162);
+  /* Monaco 编辑器主题色(深色:白底 alpha) */
+  --editor-selection-bg: oklch(1 0 0 / 13%);
+  --editor-inactive-selection-bg: oklch(1 0 0 / 9%);
+  --editor-line-highlight-bg: oklch(1 0 0 / 5%);
+  --editor-bracket-match-bg: oklch(0.62 0.19 250 / 13%);
+  --editor-bracket-match-border: transparent;
+  --scrollbar-slider-bg: oklch(1 0 0 / 12%);
+  --scrollbar-slider-hover-bg: oklch(1 0 0 / 20%);
+  --scrollbar-slider-active-bg: oklch(1 0 0 / 27%);
+  /* —— Mica 材质 token(深色:结构层更透明以透出 mica 质感)—— */
+  --mica-tint: oklch(0.16 0.01 162 / 60%);
+  --layer-base: 72%;
+  --layer-content: 95%;
 }
 
 /* ============================================================
@@ -200,18 +353,18 @@
   --card-foreground: oklch(0.18 0.01 264);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.18 0.01 264);
-  --primary: oklch(0.55 0.22 264);
+  --primary: oklch(0.54 0.18 256);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.96 0.01 264);
   --secondary-foreground: oklch(0.20 0.01 264);
   --muted: oklch(0.96 0.01 264);
   --muted-foreground: oklch(0.52 0.01 264);
-  --accent: oklch(0.96 0.01 264);
+  --accent: oklch(0.95 0.03 256);
   --accent-foreground: oklch(0.20 0.01 264);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.92 0.005 264);
   --input: oklch(0.92 0.005 264);
-  --ring: oklch(0.55 0.22 264);
+  --ring: oklch(0.54 0.18 256);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -219,12 +372,39 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.97 0.005 264);
   --sidebar-foreground: oklch(0.18 0.01 264);
-  --sidebar-primary: oklch(0.55 0.22 264);
+  --sidebar-primary: oklch(0.54 0.18 256);
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.95 0.01 264);
+  --sidebar-accent: oklch(0.93 0.04 256);
   --sidebar-accent-foreground: oklch(0.20 0.01 264);
   --sidebar-border: oklch(0.92 0.005 264);
-  --sidebar-ring: oklch(0.55 0.22 264);
+  --sidebar-ring: oklch(0.54 0.18 256);
+  --hero-from: oklch(0.74 0.15 295);
+  --hero-via: oklch(0.82 0.11 325);
+  --hero-to: oklch(0.95 0.04 300);
+  --hero-foreground: oklch(0.22 0.02 264);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 3px rgb(0 0 0 / 0.05);
+  --shadow-card-hover: 0 4px 12px rgb(0 0 0 / 0.09), 0 1px 3px rgb(0 0 0 / 0.06);
+  --card-glow: oklch(0 0 0 / 4%);
+  --kpi-accent: var(--primary);
+  --diff-add-line: oklch(0.94 0.05 155);
+  --diff-add-emph: oklch(0.86 0.09 155);
+  --diff-remove-line: oklch(0.95 0.04 25);
+  --diff-remove-emph: oklch(0.88 0.08 25);
+  --editor-gutter-fg: oklch(0.62 0.01 264);
+  --editor-gutter-bg: oklch(0.98 0.005 264);
+  /* Monaco 编辑器主题色(亮色:黑底 alpha) */
+  --editor-selection-bg: oklch(0 0 0 / 10%);
+  --editor-inactive-selection-bg: oklch(0 0 0 / 7%);
+  --editor-line-highlight-bg: oklch(0 0 0 / 3%);
+  --editor-bracket-match-bg: oklch(0.54 0.18 256 / 13%);
+  --editor-bracket-match-border: transparent;
+  --scrollbar-slider-bg: oklch(0 0 0 / 12%);
+  --scrollbar-slider-hover-bg: oklch(0 0 0 / 20%);
+  --scrollbar-slider-active-bg: oklch(0 0 0 / 27%);
+  /* —— Mica 材质 token(亮色:结构层更不透明以保证可读性)—— */
+  --mica-tint: oklch(0.99 0.005 264 / 60%);
+  --layer-base: 85%;
+  --layer-content: 100%;
 }
 
 /* ============================================================
@@ -240,7 +420,7 @@
   --card-foreground: oklch(0.96 0 0);
   --popover: oklch(0.21 0 0);
   --popover-foreground: oklch(0.96 0 0);
-  --primary: oklch(0.62 0.19 264);
+  --primary: oklch(0.62 0.19 250);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.27 0 0);
   --secondary-foreground: oklch(0.96 0 0);
@@ -251,7 +431,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.62 0.19 264);
+  --ring: oklch(0.62 0.19 250);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -259,12 +439,39 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.18 0 0);
   --sidebar-foreground: oklch(0.96 0 0);
-  --sidebar-primary: oklch(0.62 0.19 264);
+  --sidebar-primary: oklch(0.62 0.19 250);
   --sidebar-primary-foreground: oklch(0.99 0 0);
   --sidebar-accent: oklch(0.24 0 0);
   --sidebar-accent-foreground: oklch(0.96 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.62 0.19 264);
+  --sidebar-ring: oklch(0.62 0.19 250);
+  --hero-from: oklch(0.42 0.13 295);
+  --hero-via: oklch(0.38 0.10 320);
+  --hero-to: oklch(0.24 0.05 300);
+  --hero-foreground: oklch(0.97 0 0);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-card-hover: 0 4px 14px rgb(0 0 0 / 0.5);
+  --card-glow: oklch(1 0 0 / 6%);
+  --kpi-accent: var(--primary);
+  --diff-add-line: oklch(0.32 0.06 155 / 55%);
+  --diff-add-emph: oklch(0.42 0.09 155 / 65%);
+  --diff-remove-line: oklch(0.34 0.07 25 / 55%);
+  --diff-remove-emph: oklch(0.44 0.10 25 / 65%);
+  --editor-gutter-fg: oklch(0.60 0 0);
+  --editor-gutter-bg: oklch(0.19 0 0);
+  /* Monaco 编辑器主题色(深色:白底 alpha) */
+  --editor-selection-bg: oklch(1 0 0 / 13%);
+  --editor-inactive-selection-bg: oklch(1 0 0 / 9%);
+  --editor-line-highlight-bg: oklch(1 0 0 / 5%);
+  --editor-bracket-match-bg: oklch(0.62 0.19 250 / 13%);
+  --editor-bracket-match-border: transparent;
+  --scrollbar-slider-bg: oklch(1 0 0 / 12%);
+  --scrollbar-slider-hover-bg: oklch(1 0 0 / 20%);
+  --scrollbar-slider-active-bg: oklch(1 0 0 / 27%);
+  /* —— Mica 材质 token(深色:结构层更透明以透出 mica 质感)—— */
+  --mica-tint: oklch(0.16 0 0 / 60%);
+  --layer-base: 72%;
+  --layer-content: 95%;
 }
 
 /* 深色主题统一启用 color-scheme: dark,让原生控件(滚动条等)也跟随 */
@@ -322,8 +529,54 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --animate-accordion-down: accordion-down 0.2s ease-out;
-  --animate-accordion-up: accordion-up 0.2s ease-out;
+  /* Mica 材质分层背景 → Tailwind utility
+   * 业务组件用 bg-sidebar-layer / bg-background-layer / bg-card-layer /
+   * bg-popover-layer 即可分层叠加,让 L1 mica 透出
+   * (bg-titlebar 与 bg-sidebar-layer 同源,已由 --bg-titlebar 统一) */
+  --color-mica-tint: var(--mica-tint);
+  --color-sidebar-layer: var(--bg-sidebar-layer);
+  --color-background-layer: var(--bg-background-layer);
+  --color-card-layer: var(--bg-card-layer);
+  --color-popover-layer: var(--bg-popover-layer);
+  --color-titlebar: var(--bg-titlebar);
+  /* DevToys 视觉令牌 → Tailwind utility */
+  --color-hero-from: var(--hero-from);
+  --color-hero-via: var(--hero-via);
+  --color-hero-to: var(--hero-to);
+  --color-hero-foreground: var(--hero-foreground);
+  --color-diff-add-line: var(--diff-add-line);
+  --color-diff-add-emph: var(--diff-add-emph);
+  --color-diff-remove-line: var(--diff-remove-line);
+  --color-diff-remove-emph: var(--diff-remove-emph);
+  --color-editor-gutter-fg: var(--editor-gutter-fg);
+  --color-editor-gutter-bg: var(--editor-gutter-bg);
+  --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
+  /* Dashboard 改版新增 token → Tailwind utility */
+  --color-card-glow: var(--card-glow);
+  --color-kpi-accent: var(--kpi-accent);
+  --animate-accordion-down: accordion-down var(--duration-base, 200ms) var(--ease-standard, ease-out);
+  --animate-accordion-up: accordion-up var(--duration-base, 200ms) var(--ease-standard, ease-out);
+  /* 字号 token(双变量格式:Tailwind v4 自动生成 text-* utility 并设置 size + line-height) */
+  --text-body-sm: 0.8125rem;
+  --text-body-sm--line-height: 1.4;
+  --text-caption: 0.6875rem;
+  --text-caption--line-height: 1.4;
+  --text-hero: 1.625rem;
+  --text-hero--line-height: 1.2;
+  /* 动画速率 token */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  /* 间距 token(用于 globals.css 手写选择器,业务组件继续用 Tailwind spacing utility) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
 }
 
 @keyframes accordion-down {
@@ -348,16 +601,34 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* html / body 背景透明,让原生 Mica / vibrancy 透过客户区可见。
+   * 实际着色由各层级组件(.bg-sidebar-layer / .bg-background-layer /
+   * .bg-card-layer)半透明叠加,确保正文可读性。 */
+  html,
   body {
-    @apply bg-background text-foreground;
-    /* 字体相关变量由 theme.ts 注入,未设置时回退到 system-ui */
-    font-family: var(--app-font-family, system-ui, -apple-system, sans-serif);
+    background: transparent;
+  }
+  body {
+    @apply text-foreground;
+    /* 字体相关变量由 theme.ts 注入;未设置时回退到 Segoe UI(DevToys/Windows 默认字体),
+       跨平台逐级降级到 system-ui */
+    font-family: var(
+      --app-font-family,
+      'Segoe UI Variable',
+      'Segoe UI',
+      system-ui,
+      -apple-system,
+      sans-serif
+    );
     font-weight: var(--app-font-weight, 400);
   }
+  /* 等宽字体(Mono)：由 theme.ts 的 applyMonoFontFamily 注入 --app-mono-font-family,
+   * 未设置时回退到 JetBrains Mono 默认栈。
+   * 应用范围：code/pre/.font-mono 类、Monaco 编辑器、行号编辑器、日志、DDL、数据表等宽内容。 */
   code,
   pre,
   .font-mono {
-    font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, monospace;
+    font-family: var(--app-mono-font-family, 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, ui-monospace, SFMono-Regular, Menlo, 'DejaVu Sans Mono', monospace);
   }
 }
 
@@ -369,3 +640,219 @@
 [data-slot="scroll-area-viewport"]::-webkit-scrollbar {
   display: none;
 }
+
+/* ============================================================
+ * Markdown 预览排版(GitHub 风格,跟随主题变量)
+ * margin/padding 已 token 化为 var(--space-*);font-size 为 GitHub 风格
+ * 排版专用值,保留直接量(无对应全局 token,不应与 spacing 混用)
+ * ============================================================ */
+.markdown-body {
+  font-size: 0.875rem;
+  line-height: 1.7;
+  word-break: break-word;
+}
+.markdown-body h1,
+.markdown-body h2 {
+  margin: 1.25rem 0 var(--space-3);
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.markdown-body h1 {
+  font-size: 1.5rem;
+}
+.markdown-body h2 {
+  font-size: 1.25rem;
+}
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin: var(--space-4) 0 var(--space-2);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.markdown-body h3 {
+  font-size: 1.0625rem;
+}
+.markdown-body p {
+  margin: var(--space-2) 0;
+}
+.markdown-body a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.markdown-body ul,
+.markdown-body ol {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-5);
+}
+.markdown-body ul {
+  list-style: disc;
+}
+.markdown-body ol {
+  list-style: decimal;
+}
+.markdown-body li + li {
+  margin-top: var(--space-1);
+}
+.markdown-body blockquote {
+  margin: var(--space-3) 0;
+  padding: var(--space-1) 0 var(--space-1) var(--space-3);
+  border-left: 3px solid var(--border);
+  color: var(--muted-foreground);
+}
+.markdown-body code {
+  padding: 0.125rem var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  font-size: 0.8125em; /* em 相对单位,跟随父级缩放 */
+}
+.markdown-body pre {
+  margin: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--muted);
+  overflow-x: auto;
+}
+.markdown-body pre code {
+  padding: 0;
+  background: transparent;
+}
+.markdown-body table {
+  margin: var(--space-3) 0;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-body-sm); /* 13px,与业务正文一致 */
+}
+.markdown-body th,
+.markdown-body td {
+  padding: 0.375rem var(--space-3);
+  border: 1px solid var(--border);
+  text-align: left;
+}
+.markdown-body th {
+  background: var(--muted);
+  font-weight: 600;
+}
+.markdown-body hr {
+  margin: 1.25rem 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+.markdown-body img {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+}
+
+/* ============================================================
+ * 自定义标题栏(Mica 材质适配)
+ *
+ * - .titlebar:整个标题栏,使用 L2 半透明背景(--bg-sidebar-layer),
+ *   与侧边栏同源保持一致;高度 36px
+ * - .titlebar-drag:可拖拽区域(data-tauri-drag-region),
+ *   双击切换最大化由 Tauri 内置支持
+ * - .window-control:单个窗口控制按钮,命中区 48×36px
+ * - .window-control--close:hover 反色警示(--destructive 红底白图标)
+ * - .platform-mac .titlebar:macOS 左侧留 78px 红绿灯空间
+ *
+ * 鼠标交互优化:hover 用背景 alpha 提升而非缩放,避免抖动;
+ * 过渡时长统一 var(--duration-fast) = 150ms。
+ * ============================================================ */
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding-right: 0; /* 右侧由 window-controls 占满 */
+  background: var(--bg-sidebar-layer);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  user-select: none;
+  -webkit-user-select: none;
+  flex-shrink: 0;
+}
+
+/* macOS:左侧留出 78px 给原生红绿灯(traffic lights) */
+.platform-mac .titlebar {
+  padding-left: 78px;
+}
+
+.titlebar-drag {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-3);
+  min-width: 0;
+}
+
+.titlebar-title {
+  font-size: var(--text-body-sm);
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.window-controls {
+  display: flex;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.window-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--foreground);
+  cursor: default;
+  transition: background-color var(--duration-fast, 150ms) var(--ease-standard, ease-out);
+  -webkit-app-region: no-drag;
+}
+
+.window-control:hover {
+  background: color-mix(in srgb, var(--muted-foreground) 12%, transparent);
+}
+
+.window-control:active {
+  background: color-mix(in srgb, var(--muted-foreground) 20%, transparent);
+}
+
+.window-control:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+/* 关闭按钮:hover 反色警示(红底白图标),符合 Win11 行为约定 */
+.window-control--close:hover {
+  background: var(--destructive);
+  color: oklch(0.99 0 0);
+}
+
+.window-control--close:active {
+  background: color-mix(in srgb, var(--destructive) 85%, black);
+  color: oklch(0.99 0 0);
+}
+
+/* ============================================================
+ * Linux 回退:无原生 Mica,用 CSS backdrop-filter 模拟模糊
+ * 仅在 .platform-linux 根类下激活,避免影响 Win/mac 原生效果
+ * ============================================================ */
+.platform-linux .titlebar,
+.platform-linux .bg-sidebar-layer,
+.platform-linux .bg-background-layer {
+  backdrop-filter: blur(20px) saturate(125%);
+  -webkit-backdrop-filter: blur(20px) saturate(125%);
+}
+

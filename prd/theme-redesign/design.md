@@ -60,7 +60,8 @@ Layer 3: color-theme.ts      ← 无闪烁切换器（applyPalette + localStorag
 | `theme_mode` | 主题模式（light/dark/system） | `'light'` |
 | `color_palette` | 主题 ID（obsidian/deep-sea/twilight/emerald-night/daylight/custom/system） | `'daylight'` |
 | `custom_palette_accent` | 自定义主题的 accent 色（HEX） | `null` |
-| `font_family` | 字体族名称 | `null`（系统默认） |
+| `font_family` | 界面字体族名称 | `null`（系统默认） |
+| `mono_font_family` | 代码字体族名称 | `null`（默认 JetBrains Mono） |
 | `font_size_level` | 字号级别（0-4） | `1`（标准） |
 | `font_weight_level` | 字重级别（0-4） | `1`（常规） |
 

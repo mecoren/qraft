@@ -39,14 +39,26 @@ const INTERNAL_ERROR: ErrorInfo = {
 };
 
 /**
- * 解包 CommandResponse,失败返回 ErrorInfo。
+ * 解包 CommandResponse,失败返回归一化后的 ErrorInfo。
  * 当 success=true 但 data 缺失时视为 ERR_INTERNAL。
+ *
+ * Rust 端 ErrorInfo 序列化为 `{ kind, detail, message }`,前端类型为
+ * `{ code, message, details }`,这里统一映射,确保上层 `code` / `details` 有值。
  */
 export function unwrapResponse<T>(resp: CommandResponse<T>): Result<T, ErrorInfo> {
   if (resp.success && resp.data !== undefined) {
     return { ok: true, value: resp.data };
   }
-  return { ok: false, error: resp.error ?? INTERNAL_ERROR };
+  const err = resp.error;
+  if (!err) return { ok: false, error: INTERNAL_ERROR };
+  return {
+    ok: false,
+    error: {
+      code: err.kind ?? err.code ?? INTERNAL_ERROR.code,
+      message: err.message ?? INTERNAL_ERROR.message,
+      details: err.detail !== undefined ? err.detail : err.details,
+    },
+  };
 }
 
 /** 原始 invoke 透传,不做解包,供特殊场景使用 */

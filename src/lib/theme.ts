@@ -14,6 +14,7 @@
  */
 
 import { initColorThemeOnStartup, type PaletteId, PALETTE_STORAGE_KEY } from './color-theme';
+import { DEFAULT_MONO_FONT_FAMILY } from './fontFamilies';
 
 // ============================================================
 // 颜色主题:启动初始化(迁移旧 key + 调用 color-theme)
@@ -51,12 +52,12 @@ export function initThemeOnStartup(): () => void {
 // 字体设置:字体族 / 字号 / 字重
 // ============================================================
 
-// ── 字体族 ──
+// ── 字体族(UI) ──
 
 export const FONT_FAMILY_STORAGE_KEY = 'font_family';
 
 /**
- * 将字体族应用到 <html> 根元素
+ * 将 UI 字体族应用到 <html> 根元素
  *
  * - 非空:设置 style.fontFamily 和 CSS 变量 --app-font-family
  * - null:清除自定义字体,回退到 CSS 默认(system-ui)
@@ -74,10 +75,41 @@ export function applyFontFamily(fontFamily: string | null) {
 }
 
 /**
- * 读取持久化的字体族,未设置返回 null(系统默认)
+ * 读取持久化的 UI 字体族,未设置返回 null(系统默认)
  */
 export function getStoredFontFamily(): string | null {
   return localStorage.getItem(FONT_FAMILY_STORAGE_KEY);
+}
+
+// ── 字体族(代码/Mono) ──
+
+export const MONO_FONT_FAMILY_STORAGE_KEY = 'mono_font_family';
+
+/**
+ * 将代码字体族应用到 <html> 根元素
+ *
+ * - 非空:设置 CSS 变量 --app-mono-font-family(含 fallback 栈)
+ * - null:清除自定义字体,回退到 CSS 默认(JetBrains Mono 栈)
+ *
+ * 应用范围:code/pre/.font-mono、Monaco 编辑器、行号编辑器、日志、
+ * DDL、数据表等宽内容(见 globals.css 与 code-editor.tsx)。
+ */
+export function applyMonoFontFamily(fontFamily: string | null) {
+  const root = document.documentElement;
+  if (fontFamily) {
+    // 自定义字体在前,fallback 链保留默认 Mono 栈兜底
+    const stack = `'${fontFamily}', ${DEFAULT_MONO_FONT_FAMILY}`;
+    root.style.setProperty('--app-mono-font-family', stack);
+  } else {
+    root.style.removeProperty('--app-mono-font-family');
+  }
+}
+
+/**
+ * 读取持久化的代码字体族,未设置返回 null(默认 JetBrains Mono)
+ */
+export function getStoredMonoFontFamily(): string | null {
+  return localStorage.getItem(MONO_FONT_FAMILY_STORAGE_KEY);
 }
 
 // ── 字号级别 ──
@@ -156,13 +188,14 @@ export function getStoredFontWeightLevel(): number {
 // ── 启动初始化 ──
 
 /**
- * 应用启动时恢复字体设置(字体族 + 字号 + 字重)
+ * 应用启动时恢复字体设置(UI 字体族 + 代码字体族 + 字号 + 字重)
  *
  * 在 React 渲染前调用,避免字体闪烁。
  * 与 initThemeOnStartup 并列使用。
  */
 export function initFontSettingsOnStartup() {
   applyFontFamily(getStoredFontFamily());
+  applyMonoFontFamily(getStoredMonoFontFamily());
   applyFontSizeLevel(getStoredFontSizeLevel());
   applyFontWeightLevel(getStoredFontWeightLevel());
 }

@@ -55,7 +55,7 @@ pub use store::config::{GeneralConfig, ShortcutBinding, ThemeConfig, ThemeMode, 
 /// - 配置/历史存储初始化失败
 /// - Tauri 应用启动失败
 #[cfg(not(test))]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used, clippy::too_many_lines)]
 pub fn run() -> anyhow::Result<()> {
     use std::sync::Arc;
 
@@ -88,6 +88,12 @@ pub fn run() -> anyhow::Result<()> {
         .plugin(tauri_plugin_shell::init())
         // Updater 插件:自动更新检查与下载(零网络原则的唯一例外,见 PRD 13-security.md §3.1)
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // Window State 插件:记住窗口所在屏幕、位置与大小,重启后精确恢复。
+        // 完全对照 wait-home/desktop 的实现:默认 Builder(全部 StateFlags,含 VISIBLE),
+        // 窗口以 visible:false 创建,插件在 on_window_ready 恢复位置/大小/最大化并 show()。
+        // 必须在 Builder 阶段注册(Tauri 2 先创建 config 声明的窗口再执行 setup 回调,
+        // setup 中动态注册会错过 on_window_ready,导致既不恢复也不监听 Moved/Resized)。
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             let registry = crate::core::registry::ToolRegistry::global();
             tracing::info!("registered {} tools", registry.list().len());
@@ -112,6 +118,33 @@ pub fn run() -> anyhow::Result<()> {
 
             app.manage(state);
             app.manage(AuthorizedPaths::new());
+
+            // 应用原生窗口材质效果(Windows: Mica / macOS: vibrancy / Linux: 无原生,前端 CSS 回退)
+            // 失败仅 warn,不阻塞启动;窗口仍可用,只是无模糊质感
+            #[cfg(target_os = "windows")]
+            {
+                use window_vibrancy::apply_mica;
+                if let Some(window) = app.get_webview_window("main") {
+                    if let Err(e) = apply_mica(&window, None) {
+                        tracing::warn!("apply_mica failed: {e}");
+                    }
+                }
+            }
+
+            #[cfg(target_os = "macos")]
+            {
+                use window_vibrancy::{NSVisualEffectMaterial, apply_vibrancy};
+                if let Some(window) = app.get_webview_window("main") {
+                    if let Err(e) = apply_vibrancy(
+                        &window,
+                        NSVisualEffectMaterial::Sidebar,
+                        None,
+                        None,
+                    ) {
+                        tracing::warn!("apply_vibrancy failed: {e}");
+                    }
+                }
+            }
 
             Ok(())
         })

@@ -19,6 +19,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-updater = "2"
+tauri-plugin-window-state = "2"
 
 # —— 以下为 Core 层新增依赖(Tauri 已有依赖保持不变)——
 tokio = { version = "1.40", features = ["rt", "rt-multi-thread", "macros", "time", "fs", "sync"] }
@@ -55,6 +56,10 @@ async-stream = "0.3"
 
 # 禁止引入网络相关 crate(见 13-security.md §3.1):
 #   tauri-plugin-http / reqwest / ureq —— 均不允许
+
+# 桌面端云母 / vibrancy 材质(Windows apply_mica / macOS apply_vibrancy;
+# Linux 无原生支持,自动 no-op,由前端 CSS backdrop-filter 回退)
+window-vibrancy = "0.8"
 
 # Windows 平台:DirectWrite 系统字体枚举(仅 Windows target 引入)
 [target.'cfg(target_os = "windows")'.dependencies]

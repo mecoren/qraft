@@ -40,15 +40,16 @@
 | ME-05 | JSON 输入框启用 `json` 语言、其他默认 `plaintext` | JSON 工具有语法高亮与括号匹配 |
 | ME-06 | JWT 解析结果 Header/Payload/Signature 分别用 Monaco 只读展示 | JSON 部分用 `json` 语言，Signature 用 `plaintext` |
 
-### 2.3 字体设置（移植自 wait-home）
+### 2.3 字体设置（移植自 wait-home / 重构：双字体族）
 
 | 需求 ID | 描述 | 验收标准 |
 |---------|------|---------|
-| FS-01 | 字体族下拉选择，调用 Rust `list_system_fonts` | 优先推荐 MiSans，列表项用字体自身渲染预览 |
-| FS-02 | 5 级字号：小/标准/大/特大/超大 | 通过 root font-size 缩放 rem |
-| FS-03 | 5 级字重：细/常规/中等/半粗/粗体 | 通过 root font-weight 注入 |
-| FS-04 | 字体预览区实时展示当前字体族 + 字重 | 中英文双语预览文本 |
-| FS-05 | 字体设置持久化到 localStorage | 重启应用恢复设置 |
+| FS-01 | 界面字体（UI Font Family）下拉选择，调用 Rust `list_system_fonts` | 可搜索匹配；清空后回退默认 UI 字体；显示"已读取系统 N 个字体族" |
+| FS-02 | 代码字体（Mono Font Family）下拉选择，默认 JetBrains Mono | 仅展示 Mono/Code/Console 等关键字命中的字体并按分数降序；作用于 Monaco 编辑器、AI 代码块、日志、DDL、数据表等宽内容 |
+| FS-03 | 5 级字号：小/标准/大/特大/超大 | 通过 root font-size 缩放 rem |
+| FS-04 | 5 级字重：细/常规/中等/半粗/粗体 | 通过 root font-weight 注入 |
+| FS-05 | 字体预览区实时展示当前 UI 字体 + 代码字体 + 字重 | UI 字体中英文双语预览；代码字体用 SQL/TS 代码片段预览 |
+| FS-06 | 字体设置持久化到 localStorage | 重启应用恢复设置；UI 字体 key=`font_family`，代码字体 key=`mono_font_family` |
 
 ### 2.4 全量中文化
 
@@ -98,7 +99,9 @@
 - [ ] ThemeModeToggle 在侧边栏底部可点击循环切换模式（system/light/dark）
 - [ ] 所有工具的输入/输出框使用 Monaco 编辑器，JSON 输入有语法高亮
 - [ ] Monaco 主题跟随应用主题切换（深色主题用 vs-dark，亮色用 vs）
-- [ ] 字体族下拉显示系统字体列表，选择后立即生效并持久化
+- [ ] 界面字体下拉可搜索匹配系统字体，显示"已读取系统 N 个字体族"，清空回退默认 UI 字体
+- [ ] 代码字体下拉默认 JetBrains Mono，仅展示 Mono/Code/Console 命中字体并按分数降序
+- [ ] 代码字体作用于 Monaco 编辑器、行号编辑器、code/pre/.font-mono（日志/DDL/数据表）
 - [ ] 字号/字重级别按钮可点击切换，预览区实时更新，设置持久化
 - [ ] 所有 UI 文案为中文（含设置标签、按钮、快捷键名称、空状态提示）
 - [ ] `pnpm test` 全部通过（已有测试可能需同步更新断言）

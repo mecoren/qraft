@@ -3,7 +3,6 @@ pub mod base64_codec;
 pub mod color_converter;
 pub mod hash_calculator;
 pub mod json_formatter;
-pub mod json_minifier;
 pub mod jwt_parser;
 pub mod regex_tester;
 pub mod timestamp_converter;

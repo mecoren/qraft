@@ -1,7 +1,7 @@
 ---
 title: 版本演进与路线图
 version: v1.0
-last_updated: 2026-07-25
+last_updated: 2026-07-29
 author: [wait]
 audience: 一年经验的开发者
 ---
@@ -148,18 +148,18 @@ Qraft 是一个有长期愿景的项目，不可能一蹴而就。如果没有�
 
 **P1 工具（12 个）**：
 
-- [ ] hmac_generator
-- [ ] diff_tool
-- [ ] json_diff
-- [ ] cron_parser
-- [ ] hash_text
-- [ ] hex_codec
-- [ ] html_encoder
-- [ ] number_base_converter
-- [ ] lorem_ipsum_generator
-- [ ] password_generator
-- [ ] case_converter
-- [ ] xml_formatter
+- [x] hmac_generator
+- [x] diff_tool
+- [x] json_diff
+- [x] cron_parser
+- [x] hash_text
+- [x] hex_codec
+- [x] html_encoder
+- [x] number_base_converter
+- [x] lorem_ipsum_generator
+- [x] password_generator
+- [x] case_converter
+- [x] xml_formatter
 
 **新增功能**：
 
@@ -167,7 +167,7 @@ Qraft 是一个有长期愿景的项目，不可能一蹴而就。如果没有�
 - [ ] 工具收藏分组
 - [ ] 工具 Preset 保存与加载
 - [ ] Workspace 命名保存
-- [ ] 亮色主题
+- [x] 亮色主题
 - [ ] i18n（中文支持）
 - [ ] 命令面板模糊搜索（fuse.js）
 - [ ] 错误报告导出
@@ -194,17 +194,17 @@ Qraft 是一个有长期愿景的项目，不可能一蹴而就。如果没有�
 
 **P2 工具（10+ 个）**：
 
-- [ ] qr_code_generator
+- [x] qr_code_generator
 - [ ] sql_formatter
-- [ ] markdown_preview
-- [ ] certificate_parser
+- [x] markdown_preview
+- [x] certificate_parser
 - [ ] public_key_parser
 - [ ] nanoid_generator
 - [ ] byte_converter
-- [ ] text_diff_inspector
+- [x] text_diff_inspector
 - [ ] image_metadata
-- [ ] json_path_tester
-- [ ] yaml_formatter
+- [x] json_path_tester
+- [x] yaml_formatter
 - [ ] toml_formatter
 
 **核心新特性**：
@@ -214,7 +214,7 @@ Qraft 是一个有长期愿景的项目，不可能一蹴而就。如果没有�
 - [ ] 社区工具市场（如规模允许）
 - [ ] 多窗口支持
 - [ ] 工具使用频率排序
-- [ ] 自定义强调色
+- [x] 自定义强调色
 
 **架构演进**：
 
@@ -486,3 +486,9 @@ flowchart TD
 - [14-build-and-distribution.md](./14-build-and-distribution.md) — 打包分发（每个版本的发布流程）
 - [17-dev-workflow.md](./17-dev-workflow.md) — 开发规范（贡献流程的详细规范）
 - [18-known-issues.md](./18-known-issues.md) — 已知问题（路线图中需解决的问题）
+
+---
+
+## 变更记录
+
+- 2026-07-29: 根据实际实现状态同步路线图,v0.1/v1.0/v2.0 工具均已实现,UI Token 全量化完成,快捷键导航类实现(工具操作类延后 v1.1)

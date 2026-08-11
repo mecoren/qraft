@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { invoke } from '@tauri-apps/api/core';
 import { App } from './App';
 import { useToolStateStore } from '@/store/toolStateStore';
 import { useHistoryStore } from '@/store/historyStore';
 import { useConfigStore } from '@/store/configStore';
+import { useUiStore } from '@/store/uiStore';
 import type { ToolMetadata } from '@/types/tool';
 import type { CommandResponse } from '@/types/ipc';
 import type { UserConfig, HistoryEntry } from '@/types';
@@ -13,6 +14,7 @@ import { DEFAULT_USER_CONFIG } from '@/types/config';
 
 const invokeMock = invoke as unknown as ReturnType<typeof vi.fn>;
 
+// 仅用于满足 tool_list IPC 的 happy-path mock;侧栏/命令面板实际从静态目录渲染
 const tools: ToolMetadata[] = [
   {
     id: 'json_formatter',
@@ -76,6 +78,13 @@ function setupHappyPath() {
 
 beforeEach(() => {
   invokeMock.mockReset();
+  useUiStore.setState({
+    view: 'welcome',
+    sidebarCollapsed: false,
+    favorites: [],
+    recents: [],
+    expandedCategories: [],
+  });
   useToolStateStore.setState({
     availableTools: [],
     currentToolId: null,
@@ -87,36 +96,49 @@ beforeEach(() => {
 });
 
 describe('smoke: SideNav 显示工具分组', () => {
-  it('渲染 Formatter 与 Encoder 两个分组', async () => {
+  it('渲染工具分类分组标题', async () => {
     setupHappyPath();
     await act(async () => {
       render(<App />);
     });
-    expect(await screen.findByRole('heading', { name: /^格式化$/ })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /^编解码$/ })).toBeInTheDocument();
+    // 当前 7 个分类分组标题均渲染(默认折叠,仅显示分组标签)
+    // 限定在侧栏内查询:欢迎页「所有工具」分区也含分类名,会与侧栏重名
+    const sidebar = screen.getByRole('navigation');
+    expect(await within(sidebar).findByText('编解码器')).toBeInTheDocument();
+    expect(within(sidebar).getByText('格式化工具')).toBeInTheDocument();
   });
 
-  it('每个工具在对应分组下渲染为按钮', async () => {
-    setupHappyPath();
-    await act(async () => {
-      render(<App />);
-    });
-    expect(await screen.findByRole('button', { name: /json formatter/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /base64 codec/i })).toBeInTheDocument();
-  });
-});
-
-describe('smoke: 点击工具切换 ToolPanel', () => {
-  it('点击 JSON Formatter 后,主区域显示该工具名', async () => {
+  it('展开分组后工具渲染为按钮', async () => {
     setupHappyPath();
     const user = userEvent.setup();
     await act(async () => {
       render(<App />);
     });
-    const btn = await screen.findByRole('button', { name: /json formatter/i });
-    await user.click(btn);
-    // ToolPanel header 包含工具名,加上 SideNav 的按钮文本,至少出现 2 次
-    expect(screen.getAllByText(/json formatter/i).length).toBeGreaterThanOrEqual(2);
+    // 展开「编解码器」分组(限定在侧栏内查询,避免与欢迎页网格卡片重名)
+    const sidebar = screen.getByRole('navigation');
+    await user.click(await within(sidebar).findByTestId('nav-cat-encoder'));
+    // 该分组下的工具渲染为按钮
+    expect(
+      await within(sidebar).findByRole('button', { name: /Base64文本编码\/解码/i }),
+    ).toBeInTheDocument();
+    expect(within(sidebar).getByRole('button', { name: /GZip压缩\/解压缩/i })).toBeInTheDocument();
+  });
+});
+
+describe('smoke: 点击工具切换 ToolPanel', () => {
+  it('点击工具后主区域显示该工具名', async () => {
+    setupHappyPath();
+    const user = userEvent.setup();
+    await act(async () => {
+      render(<App />);
+    });
+    const sidebar = screen.getByRole('navigation');
+    await user.click(await within(sidebar).findByTestId('nav-cat-formatter'));
+    await user.click(await within(sidebar).findByRole('button', { name: /JSON 格式化器/i }));
+    // 主区域页头显示工具名
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /JSON 格式化器/i }),
+    ).toBeInTheDocument();
   });
 
   it('切换工具后 currentToolId 更新', async () => {
@@ -125,7 +147,9 @@ describe('smoke: 点击工具切换 ToolPanel', () => {
     await act(async () => {
       render(<App />);
     });
-    await user.click(await screen.findByRole('button', { name: /base64 codec/i }));
+    const sidebar = screen.getByRole('navigation');
+    await user.click(await within(sidebar).findByTestId('nav-cat-encoder'));
+    await user.click(await within(sidebar).findByRole('button', { name: /Base64文本编码\/解码/i }));
     expect(useToolStateStore.getState().currentToolId).toBe('base64_codec');
   });
 });
@@ -145,7 +169,7 @@ describe('smoke: Ctrl+K 打开 CommandPalette', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('命令面板中输入 base64 后仅显示 Base64 Codec', async () => {
+  it('命令面板中输入 base64 后显示相关工具', async () => {
     setupHappyPath();
     const user = userEvent.setup();
     await act(async () => {
@@ -155,7 +179,9 @@ describe('smoke: Ctrl+K 打开 CommandPalette', () => {
     const dialog = await screen.findByRole('dialog');
     const input = dialog.querySelector('input') as HTMLInputElement;
     await user.type(input, 'base64');
-    expect(screen.getByRole('option', { name: /base64 codec/i })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: /json formatter/i })).not.toBeInTheDocument();
+    // base64 相关工具出现(现含文本与图片两个)
+    expect(screen.getByRole('option', { name: /Base64文本编码\/解码/i })).toBeInTheDocument();
+    // 不相关工具被过滤
+    expect(screen.queryByRole('option', { name: /Cron 表达式解析器/i })).not.toBeInTheDocument();
   });
 });

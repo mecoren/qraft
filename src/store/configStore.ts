@@ -1,7 +1,27 @@
 import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
-import type { UserConfig } from '@/types/config';
+import { DEFAULT_USER_CONFIG, type UserConfig } from '@/types/config';
 import type { ConfigChangedPayload, ErrorInfo } from '@/types/ipc';
+
+/**
+ * 用默认值回填持久化配置中缺失的字段。
+ *
+ * 旧版本保存的配置可能缺少新增字段(如 toolPrefs),
+ * 直接读取其 undefined 子字段会触发
+ * "Cannot read properties of undefined (reading 'xxx')" 崩溃。
+ * 这里与默认配置做一次深合并做兜底。
+ */
+function normalizeConfig(raw: UserConfig): UserConfig {
+  return {
+    ...DEFAULT_USER_CONFIG,
+    ...raw,
+    general: { ...DEFAULT_USER_CONFIG.general, ...raw.general },
+    theme: { ...DEFAULT_USER_CONFIG.theme, ...raw.theme },
+    shortcuts: { ...DEFAULT_USER_CONFIG.shortcuts, ...raw.shortcuts },
+    toolPrefs: { ...DEFAULT_USER_CONFIG.toolPrefs, ...(raw.toolPrefs ?? {}) },
+    favorites: raw.favorites ?? DEFAULT_USER_CONFIG.favorites,
+  };
+}
 
 interface ConfigState {
   config: UserConfig | null;
@@ -42,7 +62,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ loading: true, error: null });
     const r = await safeInvoke<UserConfig>('config_get_all');
     if (r.ok) {
-      set({ config: r.value, loading: false });
+      set({ config: normalizeConfig(r.value), loading: false });
     } else {
       set({ loading: false, error: r.error.message });
     }
@@ -57,8 +77,8 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         general: { ...current.general },
         theme: { ...current.theme },
         shortcuts: { ...current.shortcuts },
-        toolPrefs: { ...current.toolPrefs },
-        favorites: [...current.favorites],
+        toolPrefs: { ...(current.toolPrefs ?? {}) },
+        favorites: [...(current.favorites ?? [])],
       };
       setByPath(next as unknown as Record<string, unknown>, key, value);
       set({ config: next });
@@ -84,8 +104,8 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       general: { ...current.general },
       theme: { ...current.theme },
       shortcuts: { ...current.shortcuts },
-      toolPrefs: { ...current.toolPrefs },
-      favorites: [...current.favorites],
+      toolPrefs: { ...(current.toolPrefs ?? {}) },
+      favorites: [...(current.favorites ?? [])],
     };
     setByPath(next as unknown as Record<string, unknown>, payload.key, payload.newValue);
     set({ config: next });

@@ -6,7 +6,8 @@ import path from 'node:path';
 // Vite 配置:Tauri + React + HMR
 // - server.port 1420 是 Tauri 约定的开发端口
 // - envPrefix 包含 TAURI_ENV_ 前缀变量
-// - build.target 适配三平台 WebView(Chrome 100 / Safari 13)
+  // - build.target 适配三平台 WebView(Chrome 100 / Safari 14)
+  //   注:Safari 14 起支持 BigInt,进制转换器等工具依赖 BigInt 做任意精度运算,故不低于 14
 // - Tailwind v4 通过 @tailwindcss/vite 插件接入,CSS 内 @import "tailwindcss" 即可
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -26,7 +27,7 @@ export default defineConfig({
   },
   envPrefix: ['VITE_', 'TAURI_ENV_'],
   build: {
-    target: ['es2021', 'chrome100', 'safari13'],
+    target: ['es2021', 'chrome100', 'safari14'],
     minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
   },

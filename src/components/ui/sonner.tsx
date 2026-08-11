@@ -1,7 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CircleCheck, Info, LoaderCircle, OctagonX, TriangleAlert } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  LoaderCircle,
+  TriangleAlert,
+} from 'lucide-react';
 import { Toaster as Sonner } from 'sonner';
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
@@ -49,17 +55,25 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme}
       className="toaster group"
       icons={{
-        success: <CircleCheck className="h-4 w-4" />,
-        info: <Info className="h-4 w-4" />,
-        warning: <TriangleAlert className="h-4 w-4" />,
-        error: <OctagonX className="h-4 w-4" />,
-        loading: <LoaderCircle className="h-4 w-4 animate-spin" />,
+        success: <CheckCircle2 className="size-4" />,
+        info: <Info className="size-4" />,
+        warning: <TriangleAlert className="size-4" />,
+        error: <AlertCircle className="size-4" />,
+        loading: <LoaderCircle className="size-4 animate-spin" />,
       }}
       toastOptions={{
+        // 双行结构:左侧图标 + 右侧标题/描述,与 shadcn Alert 风格一致
+        // 通过 gap-x / 标题字号提升层次感;description 用 muted-foreground
         classNames: {
           toast:
-            'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',
-          description: 'group-[.toast]:text-muted-foreground',
+            'group toast group-[.toaster]:bg-popover-layer group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg group-[.toaster]:grid group-[.toaster]:grid-cols-[auto_1fr] group-[.toaster]:items-start group-[.toaster]:gap-x-3 group-[.toaster]:gap-y-1',
+          // 让默认图标(图标已被 icons 渲染成 sonner 自带的 <svg> 节点)靠左对齐
+          icon: 'group-[.toast]:col-start-1 group-[.toast]:row-span-2 group-[.toast]:mt-0.5',
+          // 标题列(sonner 在 description 存在时把主消息包到 .title;此处简单把主消息也拉成标题样式)
+          title:
+            'group-[.toast]:col-start-2 group-[.toast]:row-start-1 group-[.toast]:font-medium group-[.toast]:text-sm group-[.toast]:text-foreground group-[.toast]:leading-none group-[.toast]:tracking-tight',
+          description:
+            'group-[.toast]:col-start-2 group-[.toast]:row-start-2 group-[.toast]:text-sm group-[.toast]:text-muted-foreground',
           actionButton: 'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
           cancelButton: 'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
         },

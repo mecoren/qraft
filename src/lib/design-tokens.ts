@@ -63,38 +63,38 @@ export interface ColorPalette {
 // 5 套预设主题(4 深色 + 1 亮色)
 // ============================================================
 
-/** 黑曜石 - 默认深色(VS Code Dark+ 风格,蓝调) */
+/** 黑曜石 - 默认深色(DevToys Fluent 风格,azure 蓝调) */
 const obsidian: ColorPalette = {
   id: 'obsidian',
   displayName: '黑曜石',
   mode: 'dark',
-  accent: 'oklch(0.62 0.19 264)',
+  accent: 'oklch(0.62 0.19 250)',
   background: 'oklch(0.16 0.01 264)',
   foreground: 'oklch(0.96 0.01 264)',
   card: 'oklch(0.21 0.01 264)',
   cardForeground: 'oklch(0.96 0.01 264)',
   popover: 'oklch(0.21 0.01 264)',
   popoverForeground: 'oklch(0.96 0.01 264)',
-  primary: 'oklch(0.62 0.19 264)',
+  primary: 'oklch(0.62 0.19 250)',
   primaryForeground: 'oklch(0.99 0 0)',
   secondary: 'oklch(0.27 0.01 264)',
   secondaryForeground: 'oklch(0.96 0.01 264)',
   muted: 'oklch(0.24 0.01 264)',
   mutedForeground: 'oklch(0.68 0.02 264)',
-  accentBg: 'oklch(0.27 0.02 264)',
+  accentBg: 'oklch(0.28 0.05 250)',
   accentFg: 'oklch(0.96 0.01 264)',
   destructive: 'oklch(0.704 0.191 22.216)',
   border: 'oklch(1 0 0 / 10%)',
   input: 'oklch(1 0 0 / 15%)',
-  ring: 'oklch(0.62 0.19 264)',
+  ring: 'oklch(0.62 0.19 250)',
   sidebar: 'oklch(0.18 0.01 264)',
   sidebarForeground: 'oklch(0.96 0.01 264)',
-  sidebarPrimary: 'oklch(0.62 0.19 264)',
+  sidebarPrimary: 'oklch(0.62 0.19 250)',
   sidebarPrimaryForeground: 'oklch(0.99 0 0)',
-  sidebarAccent: 'oklch(0.24 0.02 264)',
+  sidebarAccent: 'oklch(0.25 0.05 250)',
   sidebarAccentForeground: 'oklch(0.96 0.01 264)',
   sidebarBorder: 'oklch(1 0 0 / 10%)',
-  sidebarRing: 'oklch(0.62 0.19 264)',
+  sidebarRing: 'oklch(0.62 0.19 250)',
 };
 
 /** 深海 - 青蓝调 */
@@ -199,38 +199,38 @@ const emeraldNight: ColorPalette = {
   sidebarRing: 'oklch(0.62 0.16 162)',
 };
 
-/** 日光 - 亮色模式默认(应用启动默认主题) */
+/** 日光 - 亮色模式默认(应用启动默认主题,DevToys Fluent 风格 azure) */
 const daylight: ColorPalette = {
   id: 'daylight',
   displayName: '日光',
   mode: 'light',
-  accent: 'oklch(0.55 0.22 264)',
+  accent: 'oklch(0.54 0.18 256)',
   background: 'oklch(0.99 0.005 264)',
   foreground: 'oklch(0.18 0.01 264)',
   card: 'oklch(1 0 0)',
   cardForeground: 'oklch(0.18 0.01 264)',
   popover: 'oklch(1 0 0)',
   popoverForeground: 'oklch(0.18 0.01 264)',
-  primary: 'oklch(0.55 0.22 264)',
+  primary: 'oklch(0.54 0.18 256)',
   primaryForeground: 'oklch(0.99 0 0)',
   secondary: 'oklch(0.96 0.01 264)',
   secondaryForeground: 'oklch(0.20 0.01 264)',
   muted: 'oklch(0.96 0.01 264)',
   mutedForeground: 'oklch(0.52 0.01 264)',
-  accentBg: 'oklch(0.96 0.01 264)',
+  accentBg: 'oklch(0.95 0.03 256)',
   accentFg: 'oklch(0.20 0.01 264)',
   destructive: 'oklch(0.577 0.245 27.325)',
   border: 'oklch(0.92 0.005 264)',
   input: 'oklch(0.92 0.005 264)',
-  ring: 'oklch(0.55 0.22 264)',
+  ring: 'oklch(0.54 0.18 256)',
   sidebar: 'oklch(0.97 0.005 264)',
   sidebarForeground: 'oklch(0.18 0.01 264)',
-  sidebarPrimary: 'oklch(0.55 0.22 264)',
+  sidebarPrimary: 'oklch(0.54 0.18 256)',
   sidebarPrimaryForeground: 'oklch(0.99 0 0)',
-  sidebarAccent: 'oklch(0.95 0.01 264)',
+  sidebarAccent: 'oklch(0.93 0.04 256)',
   sidebarAccentForeground: 'oklch(0.20 0.01 264)',
   sidebarBorder: 'oklch(0.92 0.005 264)',
-  sidebarRing: 'oklch(0.55 0.22 264)',
+  sidebarRing: 'oklch(0.54 0.18 256)',
 };
 
 /** 所有预设主题(只读常量) */

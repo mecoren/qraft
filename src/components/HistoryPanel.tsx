@@ -26,7 +26,7 @@ export function HistoryPanel({ onSelect }: HistoryPanelProps): JSX.Element {
   });
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background-layer">
       <header className="flex items-center gap-2 px-4 py-2 border-b border-border">
         <h2 className="text-sm font-semibold flex-1">历史记录</h2>
         <Button

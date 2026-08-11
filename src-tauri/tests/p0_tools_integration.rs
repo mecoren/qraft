@@ -1,11 +1,12 @@
 //! P0 工具集成测试:验证 10 个工具均已被 inventory 收录到 `ToolRegistry`。
 //! 这是对子计划 05 整体交付的回归测试,任何工具被误删或未声明 mod 都会被发现。
+//!
+//! 注:json_minifier 自从改为纯前端工具后不再以 Rust 实现,已从 P0 列表中移除。
 
 use qraft_lib::core::registry::ToolRegistry;
 
 const P0_TOOL_IDS: &[&str] = &[
     "json_formatter",
-    "json_minifier",
     "base64_codec",
     "url_codec",
     "jwt_parser",

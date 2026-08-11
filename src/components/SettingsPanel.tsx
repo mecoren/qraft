@@ -1,20 +1,14 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useEffect, useState, type CSSProperties, type JSX } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type JSX } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import { Palette, Type, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { FontPicker } from '@/components/ui/font-picker';
 import { Separator } from '@/components/ui/separator';
 import {
   Card,
@@ -36,16 +30,23 @@ import {
   applyFontFamily,
   applyFontSizeLevel,
   applyFontWeightLevel,
+  applyMonoFontFamily,
   FONT_FAMILY_STORAGE_KEY,
+  MONO_FONT_FAMILY_STORAGE_KEY,
   FONT_SIZE_LEVELS,
   FONT_SIZE_STORAGE_KEY,
   FONT_WEIGHT_LEVELS,
   FONT_WEIGHT_STORAGE_KEY,
   getStoredFontFamily,
+  getStoredMonoFontFamily,
   getStoredFontSizeLevel,
   getStoredFontWeightLevel,
 } from '@/lib/theme';
 import { listSystemFonts, type FontInfo } from '@/lib/fonts';
+import {
+  buildFontFamilyOptions,
+  type FontFamilyOption,
+} from '@/lib/fontFamilies';
 import { cn } from '@/lib/utils';
 
 const SHORTCUT_KEYS: Array<{ key: keyof ShortcutBinding; label: string }> = [
@@ -61,10 +62,13 @@ const SHORTCUT_KEYS: Array<{ key: keyof ShortcutBinding; label: string }> = [
   { key: 'close_panel', label: '关闭面板' },
 ];
 
-const schema = z.object({
+const generalSchema = z.object({
   maxHistory: z.number().int().min(0).max(10000),
   jsonIndent: z.number().int().min(0).max(8),
   confirmOnClear: z.boolean(),
+});
+
+const shortcutSchema = z.object({
   shortcuts: z.object(
     SHORTCUT_KEYS.reduce(
       (acc, s) => ({ ...acc, [s.key]: z.string().min(1) }),
@@ -73,7 +77,7 @@ const schema = z.object({
   ),
 });
 
-type FormValues = z.infer<typeof schema>;
+type GeneralFormValues = z.infer<typeof generalSchema>;
 
 // ===== CheckUpdateResponse:与 Rust shell::updater::CheckUpdateResponse 对齐 =====
 // 字段使用 camelCase(Rust 端 #[serde(rename_all = "camelCase")])
@@ -204,7 +208,7 @@ function ThemeCard({ label, preview, selected, onSelect }: ThemeCardProps) {
 // 主题区块
 // ============================================================
 
-function ThemeSection() {
+export function ThemeSection() {
   // ── 主题选择(预设 + 自定义 + 跟随系统)──
   const [paletteId, setPaletteId] = useState<PaletteId>(() => getStoredPaletteId());
   const [customAccent, setCustomAccent] = useState<string>(
@@ -289,9 +293,14 @@ function ThemeSection() {
 // 字体区块
 // ============================================================
 
-function FontSection() {
-  // ── 字体族 ──
+export function FontSection() {
+  // ── UI 字体族 ──
   const [fontFamily, setFontFamily] = useState<string | null>(() => getStoredFontFamily());
+  // ── 代码字体族(Mono) ──
+  const [monoFontFamily, setMonoFontFamily] = useState<string | null>(() =>
+    getStoredMonoFontFamily(),
+  );
+
   const [fonts, setFonts] = useState<FontInfo[]>([]);
   const [fontsLoading, setFontsLoading] = useState(true);
 
@@ -309,15 +318,23 @@ function FontSection() {
     };
   }, []);
 
-  const handleFontFamilyChange = (value: string) => {
-    // "__system_default__" 代表系统默认(清除自定义字体)
-    const family = value === '__system_default__' ? null : value;
+  const handleFontFamilyChange = (family: string | null) => {
     setFontFamily(family);
     applyFontFamily(family);
     if (family) {
       localStorage.setItem(FONT_FAMILY_STORAGE_KEY, family);
     } else {
       localStorage.removeItem(FONT_FAMILY_STORAGE_KEY);
+    }
+  };
+
+  const handleMonoFontFamilyChange = (family: string | null) => {
+    setMonoFontFamily(family);
+    applyMonoFontFamily(family);
+    if (family) {
+      localStorage.setItem(MONO_FONT_FAMILY_STORAGE_KEY, family);
+    } else {
+      localStorage.removeItem(MONO_FONT_FAMILY_STORAGE_KEY);
     }
   };
 
@@ -339,9 +356,29 @@ function FontSection() {
     localStorage.setItem(FONT_WEIGHT_STORAGE_KEY, String(level));
   };
 
-  // 预览文本的 inline style:应用当前字体族 + 字重
+  // 构造 UI 字体 / 代码字体下拉选项
+  // - 系统字体列表只取 family 字段(字符串数组)
+  // - UI 字体：展示全部已安装字体
+  // - 代码字体：仅展示 Mono/Code/Console 等关键字命中的字体，并按分数降序
+  const installedFamilyNames = useMemo(() => fonts.map((f) => f.family), [fonts]);
+  const uiFontOptions: FontFamilyOption[] = useMemo(
+    () => buildFontFamilyOptions(installedFamilyNames, 'ui', '默认 UI 字体'),
+    [installedFamilyNames],
+  );
+  const monoFontOptions: FontFamilyOption[] = useMemo(
+    () => buildFontFamilyOptions(installedFamilyNames, 'mono', '默认代码字体'),
+    [installedFamilyNames],
+  );
+
+  // 预览文本的 inline style：UI 字体族 + 字重；代码字体预览单独一块
   const previewStyle: CSSProperties = {
     fontFamily: fontFamily ? `'${fontFamily}', system-ui, sans-serif` : undefined,
+    fontWeight: FONT_WEIGHT_LEVELS[fontWeightLevel].weight,
+  };
+  const monoPreviewStyle: CSSProperties = {
+    fontFamily: monoFontFamily
+      ? `'${monoFontFamily}', 'JetBrains Mono', ui-monospace, monospace`
+      : undefined,
     fontWeight: FONT_WEIGHT_LEVELS[fontWeightLevel].weight,
   };
 
@@ -352,38 +389,47 @@ function FontSection() {
           <Type className="size-5 text-muted-foreground" />
           字体
         </CardTitle>
-        <CardDescription>选择应用全局字体、字号与字重,设置自动缓存</CardDescription>
+        <CardDescription>
+          选择界面字体与代码字体，设置自动缓存。代码字体作用于 SQL 编辑器、AI 代码块、日志、DDL 与数据表等宽内容。
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {/* 字体族下拉选择 */}
+        {/* 字体族：界面字体 + 代码字体 双选择器 */}
         <div className="flex flex-col gap-2">
-          <Label>字体族</Label>
-          {fontsLoading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              加载系统字体列表…
-            </div>
-          ) : (
-            <Select
-              value={fontFamily ?? '__system_default__'}
-              onValueChange={handleFontFamilyChange}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__system_default__">系统默认</SelectItem>
-                {fonts.map((font) => (
-                  <SelectItem
-                    key={font.family}
-                    value={font.family}
-                    style={{ fontFamily: `'${font.family}', sans-serif` }}
-                  >
-                    {font.displayName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <div className="flex items-center justify-between">
+            <Label>界面字体</Label>
+            {!fontsLoading && (
+              <span className="text-xs text-muted-foreground">
+                已读取系统 {fonts.length} 个字体族
+              </span>
+            )}
+          </div>
+          <FontPicker
+            value={fontFamily}
+            options={uiFontOptions}
+            placeholder="默认 UI 字体"
+            loading={fontsLoading}
+            onChange={handleFontFamilyChange}
+            aria-label="界面字体"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <Label>代码字体</Label>
+            <span className="text-xs text-muted-foreground">默认 JetBrains Mono</span>
+          </div>
+          <FontPicker
+            value={monoFontFamily}
+            options={monoFontOptions}
+            placeholder="默认代码字体"
+            loading={fontsLoading}
+            onChange={handleMonoFontFamilyChange}
+            aria-label="代码字体"
+          />
+          <p className="text-xs text-muted-foreground">
+            优先展示名称接近 Mono / Code / Console 的系统已安装字体。
+          </p>
         </div>
 
         {/* 字号级别按钮组 */}
@@ -431,9 +477,9 @@ function FontSection() {
           </div>
         </div>
 
-        {/* 字体预览 */}
+        {/* 字体预览：UI 字体 */}
         <div className="rounded-lg border bg-muted/30 p-4">
-          <p className="mb-2 text-xs text-muted-foreground">预览</p>
+          <p className="mb-2 text-xs text-muted-foreground">界面字体预览</p>
           <div style={previewStyle} className="flex flex-col gap-1">
             <p className="text-lg">The quick brown fox jumps over the lazy dog</p>
             <p className="text-lg">敏捷的棕色狐狸跳过了懒狗的背</p>
@@ -442,23 +488,130 @@ function FontSection() {
             </p>
           </div>
         </div>
+
+        {/* 字体预览：代码字体(Mono) */}
+        <div className="rounded-lg border bg-muted/30 p-4">
+          <p className="mb-2 text-xs text-muted-foreground">代码字体预览</p>
+          <div style={monoPreviewStyle} className="flex flex-col gap-1 font-mono">
+            <p className="text-sm">{'SELECT * FROM users WHERE id = 42;'}</p>
+            <p className="text-sm">{'const greet = (name: string) => `Hello, ${name}!`;'}</p>
+            <p className="text-sm text-muted-foreground">
+              {'0123456789 abcdefghijklmnopqrstuvwxyz'}
+            </p>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
 }
 
-export function SettingsPanel(): JSX.Element {
+/**
+ * 通用设置区块:最大历史数 / JSON 缩进 / 确认清空。
+ * 独立组件供设置面板与设置弹窗复用。
+ */
+export function GeneralSection(): JSX.Element {
   const config = useConfigStore((s) => s.config);
   const setConfig = useConfigStore((s) => s.setConfig);
 
   // mode: 'onChange' 让验证在输入时触发,便于即时反馈
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
+  const form = useForm<GeneralFormValues>({
+    resolver: zodResolver(generalSchema),
     mode: 'onChange',
     defaultValues: {
       maxHistory: 100,
       jsonIndent: 2,
       confirmOnClear: true,
+    },
+  });
+
+  // 配置加载后同步表单
+  useEffect(() => {
+    if (!config) return;
+    form.reset({
+      maxHistory: config.general.maxHistory,
+      // jsonIndent 来自 toolPrefs.json_formatter.values.indent,缺省 2
+      // 用可选链保护 toolPrefs 本身,防止旧配置缺少该字段时崩溃
+      jsonIndent:
+        (config.toolPrefs?.['json_formatter']?.values?.indent as number | undefined) ?? 2,
+      confirmOnClear: config.general.confirmOnClear,
+    });
+  }, [config, form]);
+
+  const onSubmit = async (values: GeneralFormValues) => {
+    await setConfig('general.max_history', values.maxHistory);
+    await setConfig('general.confirm_on_clear', values.confirmOnClear);
+    await setConfig('toolPrefs.json_formatter.values.indent', values.jsonIndent);
+    toast.success('设置已保存');
+  };
+
+  const errors = form.formState.errors;
+
+  return (
+    <form
+      onSubmit={form.handleSubmit(onSubmit)}
+      className="flex flex-col gap-6"
+      aria-label="通用设置表单"
+    >
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">通用</CardTitle>
+          <CardDescription>历史记录与清空确认</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="maxHistory">最大历史数</Label>
+            <Input
+              id="maxHistory"
+              type="number"
+              {...form.register('maxHistory', { valueAsNumber: true })}
+            />
+            {errors.maxHistory && (
+              <span className="text-xs text-destructive">必须为 0 或正整数</span>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="jsonIndent">JSON 默认缩进</Label>
+            <Input
+              id="jsonIndent"
+              type="number"
+              {...form.register('jsonIndent', { valueAsNumber: true })}
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              id="confirmOnClear"
+              type="checkbox"
+              {...form.register('confirmOnClear')}
+            />
+            <Label htmlFor="confirmOnClear">清空前确认</Label>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex gap-2">
+        <Button type="submit">保存</Button>
+        <Button type="button" variant="outline" onClick={() => form.reset()}>
+          重置
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * 快捷键区块:自定义各功能的快捷键绑定。
+ * 独立组件供设置面板与设置弹窗复用。
+ */
+export function ShortcutSection(): JSX.Element {
+  const config = useConfigStore((s) => s.config);
+  const setConfig = useConfigStore((s) => s.setConfig);
+
+  const form = useForm<{ shortcuts: ShortcutBinding }>({
+    resolver: zodResolver(shortcutSchema),
+    mode: 'onChange',
+    defaultValues: {
       shortcuts: {
         open_command_palette: 'Ctrl+K',
         toggle_sidebar: 'Ctrl+B',
@@ -474,35 +627,55 @@ export function SettingsPanel(): JSX.Element {
     },
   });
 
-  // 配置加载后同步表单
   useEffect(() => {
     if (!config) return;
-    form.reset({
-      maxHistory: config.general.maxHistory,
-      // jsonIndent 来自 toolPrefs.json_formatter.values.indent,缺省 2
-      jsonIndent: (config.toolPrefs['json_formatter']?.values?.indent as number | undefined) ?? 2,
-      confirmOnClear: config.general.confirmOnClear,
-      shortcuts: { ...config.shortcuts },
-    });
+    form.reset({ shortcuts: { ...config.shortcuts } });
   }, [config, form]);
 
-  const onSubmit = async (values: FormValues) => {
-    // 多次调用 setConfig 持久化每个变更字段
-    // key 使用 snake_case 以匹配 Rust 后端字段命名约定
-    await setConfig('general.max_history', values.maxHistory);
-    await setConfig('general.confirm_on_clear', values.confirmOnClear);
-    await setConfig('toolPrefs.json_formatter.values.indent', values.jsonIndent);
+  const onSubmit = async (values: { shortcuts: ShortcutBinding }) => {
     for (const k of Object.keys(values.shortcuts) as Array<keyof ShortcutBinding>) {
       await setConfig(`shortcuts.${k}`, values.shortcuts[k]);
     }
-    toast.success('设置已保存');
+    toast.success('快捷键已保存');
   };
 
-  const errors = form.formState.errors;
-
   return (
-    <div className="h-full overflow-auto bg-background">
-      <div className="max-w-2xl mx-auto p-6 flex flex-col gap-6">
+    <form
+      onSubmit={form.handleSubmit(onSubmit)}
+      className="flex flex-col gap-6"
+      aria-label="快捷键表单"
+    >
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">快捷键</CardTitle>
+          <CardDescription>自定义各功能的快捷键绑定</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            {SHORTCUT_KEYS.map((s) => (
+              <div key={s.key} className="flex flex-col gap-1">
+                <Label htmlFor={`sc-${s.key}`}>{s.label}</Label>
+                <Input id={`sc-${s.key}`} {...form.register(`shortcuts.${s.key}`)} />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex gap-2">
+        <Button type="submit">保存快捷键</Button>
+        <Button type="button" variant="outline" onClick={() => form.reset()}>
+          重置
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function SettingsPanel(): JSX.Element {
+  return (
+    <div className="h-full overflow-auto bg-background-layer">
+      <div className="p-6 flex flex-col gap-6">
         <h2 className="text-lg font-semibold">设置</h2>
 
         {/* 主题区块:主题网格 + 自定义 accent */}
@@ -511,74 +684,11 @@ export function SettingsPanel(): JSX.Element {
         {/* 字体区块:字体族 + 字号 + 字重 + 预览 */}
         <FontSection />
 
-        {/* 通用设置表单:最大历史数 / JSON 缩进 / 确认清空 / 快捷键 */}
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col gap-6"
-          aria-label="通用设置表单"
-        >
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">通用</CardTitle>
-              <CardDescription>历史记录与清空确认</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="maxHistory">最大历史数</Label>
-                <Input
-                  id="maxHistory"
-                  type="number"
-                  {...form.register('maxHistory', { valueAsNumber: true })}
-                />
-                {errors.maxHistory && (
-                  <span className="text-xs text-destructive">必须为 0 或正整数</span>
-                )}
-              </div>
+        {/* 通用设置表单:最大历史数 / JSON 缩进 / 确认清空 */}
+        <GeneralSection />
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="jsonIndent">JSON 默认缩进</Label>
-                <Input
-                  id="jsonIndent"
-                  type="number"
-                  {...form.register('jsonIndent', { valueAsNumber: true })}
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  id="confirmOnClear"
-                  type="checkbox"
-                  {...form.register('confirmOnClear')}
-                />
-                <Label htmlFor="confirmOnClear">清空前确认</Label>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">快捷键</CardTitle>
-              <CardDescription>自定义各功能的快捷键绑定</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                {SHORTCUT_KEYS.map((s) => (
-                  <div key={s.key} className="flex flex-col gap-1">
-                    <Label htmlFor={`sc-${s.key}`}>{s.label}</Label>
-                    <Input id={`sc-${s.key}`} {...form.register(`shortcuts.${s.key}`)} />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="flex gap-2">
-            <Button type="submit">保存</Button>
-            <Button type="button" variant="outline" onClick={() => form.reset()}>
-              重置
-            </Button>
-          </div>
-        </form>
+        {/* 快捷键表单 */}
+        <ShortcutSection />
 
         <Separator />
 

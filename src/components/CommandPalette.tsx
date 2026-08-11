@@ -8,9 +8,10 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Settings, Trash2, Search } from 'lucide-react';
-import { useToolStateStore } from '@/store/toolStateStore';
+import { History, Home, Settings, Trash2 } from 'lucide-react';
 import { useHistoryStore } from '@/store/historyStore';
+import { useUiStore } from '@/store/uiStore';
+import { TOOL_CATALOG } from '@/lib/tool-catalog';
 
 export interface CommandPaletteProps {
   open: boolean;
@@ -27,9 +28,9 @@ export function CommandPalette({
   onOpenSettings,
   onOpenHistory,
 }: CommandPaletteProps): JSX.Element {
-  const tools = useToolStateStore((s) => s.availableTools);
-  const selectTool = useToolStateStore((s) => s.selectTool);
   const clearHistory = useHistoryStore((s) => s.clearHistory);
+  const openTool = useUiStore((s) => s.openTool);
+  const goWelcome = useUiStore((s) => s.goWelcome);
 
   // Esc 关闭由 Dialog 内部 Radix 处理,此处仅作冗余兜底
   useEffect(() => {
@@ -41,14 +42,9 @@ export function CommandPalette({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onOpenChange]);
 
-  const handleSelectTool = (toolId: string) => {
-    selectTool(toolId);
-    onOpenChange(false);
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 overflow-hidden max-w-xl">
+      <DialogContent className="max-w-xl overflow-hidden p-0">
         <DialogTitle className="sr-only">命令面板</DialogTitle>
         <DialogDescription className="sr-only">搜索工具或操作,回车执行</DialogDescription>
         <Command shouldFilter={true}>
@@ -56,21 +52,38 @@ export function CommandPalette({
           <CommandList className="max-h-80">
             <CommandEmpty>无匹配项</CommandEmpty>
             <CommandGroup heading="工具">
-              {tools.map((t) => (
+              {TOOL_CATALOG.map((entry) => (
                 <CommandItem
-                  key={t.id}
-                  value={`${t.name} ${t.tags.join(' ')}`}
-                  onSelect={() => handleSelectTool(t.id)}
+                  key={entry.id}
+                  value={`${entry.name} ${entry.keywords.join(' ')}`}
+                  onSelect={() => {
+                    if (entry.special === 'settings') onOpenSettings?.();
+                    else if (entry.special === 'extensions') useUiStore.getState().setView('extensions');
+                    else openTool(entry.id);
+                    onOpenChange(false);
+                  }}
                 >
-                  <Search aria-hidden className="h-4 w-4 opacity-50" />
-                  <span>{t.name}</span>
-                  {t.description && (
-                    <span className="ml-2 text-xs text-muted-foreground">{t.description}</span>
+                  <entry.icon aria-hidden className="h-4 w-4 opacity-50" />
+                  <span>{entry.name}</span>
+                  {entry.description && (
+                    <span className="ml-2 truncate text-xs text-muted-foreground">
+                      {entry.description}
+                    </span>
                   )}
                 </CommandItem>
               ))}
             </CommandGroup>
             <CommandGroup heading="操作">
+              <CommandItem
+                value="home welcome 所有工具 首页"
+                onSelect={() => {
+                  goWelcome();
+                  onOpenChange(false);
+                }}
+              >
+                <Home aria-hidden className="h-4 w-4 opacity-50" />
+                <span>返回所有工具</span>
+              </CommandItem>
               <CommandItem
                 value="settings open settings 打开设置"
                 onSelect={() => {
@@ -88,7 +101,7 @@ export function CommandPalette({
                   onOpenChange(false);
                 }}
               >
-                <Settings aria-hidden className="h-4 w-4 opacity-50" />
+                <History aria-hidden className="h-4 w-4 opacity-50" />
                 <span>打开历史</span>
               </CommandItem>
               <CommandItem

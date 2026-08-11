@@ -1,0 +1,221 @@
+/**
+ * 图片格式转换器 —— canvas 重编码(PNG / JPEG / WebP / BMP 输入,输出 PNG / JPEG / WebP)
+ */
+
+import { useCallback, useRef, useState, type DragEvent, type JSX } from 'react';
+import { Download, FileImage, FolderOpen, X } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ConfigRow, ConfigSection } from '@/components/config-card';
+import { downloadBlob, formatBytes, readFileAsDataUrl } from '@/lib/file-utils';
+import type { ToolProps } from './registry';
+
+type TargetFormat = 'image/png' | 'image/jpeg' | 'image/webp';
+
+const FORMAT_LABEL: Record<TargetFormat, string> = {
+  'image/png': 'PNG',
+  'image/jpeg': 'JPEG',
+  'image/webp': 'WebP',
+};
+
+const EXT: Record<TargetFormat, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+};
+
+interface LoadedImage {
+  name: string;
+  size: number;
+  type: string;
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
+export function ImageConverter(_props: ToolProps): JSX.Element {
+  const [image, setImage] = useState<LoadedImage | null>(null);
+  const [format, setFormat] = useState<TargetFormat>('image/png');
+  const [quality, setQuality] = useState('0.92');
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const loadFile = useCallback(async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('仅支持图片文件');
+      return;
+    }
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('图片解码失败'));
+        img.src = dataUrl;
+      });
+      setImage({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        dataUrl,
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  }, []);
+
+  const convert = useCallback(async () => {
+    if (!image) return;
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('图片加载失败'));
+      img.src = image.dataUrl;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      toast.error('Canvas 不可用');
+      return;
+    }
+    // JPEG 无透明通道:先铺白底
+    if (format === 'image/jpeg') {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    ctx.drawImage(img, 0, 0);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, format, Number(quality)),
+    );
+    if (!blob) {
+      toast.error('转换失败:目标格式可能不受支持');
+      return;
+    }
+    const base = image.name.replace(/\.[^.]+$/, '') || 'image';
+    downloadBlob(`${base}.${EXT[format]}`, blob);
+    toast.success(`已导出 ${FORMAT_LABEL[format]}(${formatBytes(blob.size)})`);
+  }, [image, format, quality]);
+
+  const onDrop = useCallback(
+    (e: DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      const file = e.dataTransfer.files[0];
+      if (file) void loadFile(file);
+    },
+    [loadFile],
+  );
+
+  return (
+    <div className="flex h-full flex-col gap-3" data-testid="image-converter">
+      <ConfigSection>
+        <ConfigRow icon={FileImage} label="目标格式">
+          <Select value={format} onValueChange={(v) => setFormat(v as TargetFormat)}>
+            <SelectTrigger data-testid="ic-format" className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(FORMAT_LABEL) as TargetFormat[]).map((f) => (
+                <SelectItem key={f} value={f}>
+                  {FORMAT_LABEL[f]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </ConfigRow>
+        {format !== 'image/png' ? (
+          <ConfigRow icon={FileImage} label="质量" hint="有损格式的压缩质量">
+            <Select value={quality} onValueChange={setQuality}>
+              <SelectTrigger data-testid="ic-quality" className="w-28">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">最高(100%)</SelectItem>
+                <SelectItem value="0.92">高(92%)</SelectItem>
+                <SelectItem value="0.8">中(80%)</SelectItem>
+                <SelectItem value="0.6">低(60%)</SelectItem>
+              </SelectContent>
+            </Select>
+          </ConfigRow>
+        ) : null}
+      </ConfigSection>
+
+      {/* 图片区 */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-body-sm font-semibold">图片</h2>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" data-testid="ic-open" onClick={() => fileRef.current?.click()}>
+            <FolderOpen aria-hidden className="size-3.5" /> 选择图片
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            data-testid="ic-clear"
+            disabled={!image}
+            onClick={() => setImage(null)}
+          >
+            <X aria-hidden className="size-3.5" /> 清除
+          </Button>
+          <Button size="sm" data-testid="ic-convert" disabled={!image} onClick={() => void convert()}>
+            <Download aria-hidden className="size-3.5" /> 转换并导出
+          </Button>
+        </div>
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        data-testid="ic-file"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void loadFile(file);
+          e.target.value = '';
+        }}
+      />
+      <div
+        data-testid="ic-dropzone"
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
+        className={`flex min-h-0 flex-1 flex-col items-center justify-center gap-2 overflow-auto rounded-lg border ${
+          dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
+        } p-4 shadow-card transition-colors`}
+      >
+        {image ? (
+          <>
+            <img
+              src={image.dataUrl}
+              alt={image.name}
+              data-testid="ic-preview"
+              className="max-h-[70%] max-w-full object-contain"
+            />
+            <p className="text-xs text-muted-foreground" data-testid="ic-info">
+              {image.name} · {image.width}×{image.height} · {formatBytes(image.size)} ·{' '}
+              {image.type}
+            </p>
+          </>
+        ) : (
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <FileImage aria-hidden className="size-8" />
+            <p className="text-xs">拖放图片到此处,或点击「选择图片」</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

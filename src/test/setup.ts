@@ -1,12 +1,43 @@
+import 'reflect-metadata';
 import '@testing-library/jest-dom/vitest';
 import { vi, afterEach } from 'vitest';
 import React from 'react';
 import { cleanup } from '@testing-library/react';
 
+// jsdom 在 about:blank URL 下不提供 localStorage,且 Node 22+ 的实验性 localStorage
+// 全局会与之冲突(输出 "localStorage is not available")。
+// 这里注入一个内存版 Storage,供 zustand persist / color-theme 等模块在测试中使用。
+class MemoryStorage implements Storage {
+  private store = new Map<string, string>();
+  get length(): number {
+    return this.store.size;
+  }
+  clear(): void {
+    this.store.clear();
+  }
+  getItem(key: string): string | null {
+    return this.store.has(key) ? (this.store.get(key) as string) : null;
+  }
+  key(index: number): string | null {
+    return Array.from(this.store.keys())[index] ?? null;
+  }
+  removeItem(key: string): void {
+    this.store.delete(key);
+  }
+  setItem(key: string, value: string): void {
+    this.store.set(key, String(value));
+  }
+}
+vi.stubGlobal('localStorage', new MemoryStorage());
+vi.stubGlobal('sessionStorage', new MemoryStorage());
+
 // 每个测试后清理 DOM,避免状态泄漏
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  // 清空 localStorage,避免 zustand persist 持久化数据跨测试泄漏
+  localStorage.clear();
+  sessionStorage.clear();
 });
 
 // Mock @tauri-apps/api/core 的 invoke,避免 jsdom 调用真实 IPC
@@ -35,6 +66,19 @@ vi.mock('@monaco-editor/react', () => ({
 // Mock @tauri-apps/api/event 的 listen,返回空 unlisten
 vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
+}));
+
+// Mock @tauri-apps/api/window:jsdom 无真实窗口,模拟窗口控制 API
+// 供自定义标题栏(WindowControls / useMaximized)在测试中调用不报错
+vi.mock('@tauri-apps/api/window', () => ({
+  getCurrentWindow: () => ({
+    show: vi.fn().mockResolvedValue(undefined),
+    minimize: vi.fn().mockResolvedValue(undefined),
+    toggleMaximize: vi.fn().mockResolvedValue(undefined),
+    close: vi.fn().mockResolvedValue(undefined),
+    isMaximized: vi.fn().mockResolvedValue(false),
+    onResized: vi.fn().mockResolvedValue(() => {}),
+  }),
 }));
 
 // jsdom 不提供 ResizeObserver,Radix ScrollArea / Select / @tanstack/react-virtual 依赖它

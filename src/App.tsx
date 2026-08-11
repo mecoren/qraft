@@ -1,15 +1,21 @@
-import { useEffect, useState, useCallback, type JSX } from 'react';
+import { useEffect, useState, type JSX } from 'react';
 import { Toaster, toast } from 'sonner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { SideNav } from '@/components/SideNav';
+import { Sidebar } from '@/components/layout/Sidebar';
+import { Titlebar } from '@/components/layout/Titlebar';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ToolPanel } from '@/components/ToolPanel';
 import { HistoryPanel } from '@/components/HistoryPanel';
-import { SettingsPanel } from '@/components/SettingsPanel';
+import { SettingsDialog } from '@/components/SettingsDialog';
+import { WelcomePage } from '@/pages/WelcomePage';
+import { ExtensionsPage } from '@/pages/ExtensionsPage';
 import { useConfigStore } from '@/store/configStore';
 import { useToolStateStore } from '@/store/toolStateStore';
 import { useHistoryStore } from '@/store/historyStore';
+import { useUiStore } from '@/store/uiStore';
+import { useShortcut } from '@/hooks/useShortcut';
 import { listen } from '@/lib/ipc';
+
 import type {
   ConfigChangedPayload,
   ToolProgressPayload,
@@ -19,10 +25,9 @@ import type {
 } from '@/types/ipc';
 import type { HistoryEntry } from '@/types/history';
 
-type View = 'tool' | 'history' | 'settings';
-
 export function App(): JSX.Element {
-  const [view, setView] = useState<View>('tool');
+  const view = useUiStore((s) => s.view);
+  const setView = useUiStore((s) => s.setView);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   const loadConfig = useConfigStore((s) => s.loadConfig);
@@ -77,37 +82,46 @@ export function App(): JSX.Element {
     applyToolFailed,
   ]);
 
-  // 全局快捷键:Ctrl+K 打开命令面板
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setPaletteOpen((v) => !v);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  // —— 全局快捷键(导航类) ——
+  // 工具操作类快捷键(execute_tool/clear_input/copy_output/search)需工具组件
+  // 契约改造,标注 TODO(v1.1) 延后实现。
+  useShortcut('open_command_palette', () => setPaletteOpen((v) => !v), []);
+  useShortcut('toggle_sidebar', () => useUiStore.getState().toggleSidebar(), []);
+  useShortcut('toggle_settings', () => setView('settings'), [setView]);
+  useShortcut('switch_tool', () => setPaletteOpen(true), []);
+  useShortcut('open_history', () => setView('history'), [setView]);
+  // Esc 关闭当前打开的面板:命令面板 > 设置弹窗 > 历史/扩展页 > 回到工具/欢迎页
+  useShortcut('close_panel', () => {
+    if (paletteOpen) {
+      setPaletteOpen(false);
+    } else if (view === 'settings') {
+      setView(currentToolId ? 'tool' : 'welcome');
+    } else if (view === 'history' || view === 'extensions') {
+      setView(currentToolId ? 'tool' : 'welcome');
+    }
+  }, [paletteOpen, view, currentToolId, setView]);
 
-  const handleSelectHistory = useCallback((entry: HistoryEntry) => {
-    useToolStateStore.getState().selectTool(entry.toolId);
-    setView('tool');
-  }, []);
+  const handleSelectHistory = (entry: HistoryEntry) => {
+    useUiStore.getState().openTool(entry.toolId);
+  };
 
   return (
     <ErrorBoundary>
-      <div className="flex h-screen w-screen overflow-hidden">
-        <SideNav />
-        <main className="flex-1 min-w-0">
-          {view === 'tool' && currentToolId && <ToolPanel toolId={currentToolId} />}
-          {view === 'tool' && !currentToolId && (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              请从侧边栏选择工具,或按 Ctrl+K 打开命令面板
-            </div>
-          )}
-          {view === 'history' && <HistoryPanel onSelect={handleSelectHistory} />}
-          {view === 'settings' && <SettingsPanel />}
-        </main>
+      {/* 顶层:flex-col 让 Titlebar 固定顶部,下方为侧栏 + 主区水平布局
+       * h-screen 撑满视口;overflow-hidden 防止 Mica 透明时溢出滚动 */}
+      <div className="flex h-screen w-screen flex-col overflow-hidden">
+        <Titlebar />
+        <div className="flex min-h-0 flex-1">
+          <Sidebar />
+          <main className="min-w-0 flex-1 bg-background-layer">
+            {/* settings 以弹窗形式悬浮展示,底层仍显示当前页 */}
+            {view === 'welcome' && <WelcomePage />}
+            {view === 'tool' && currentToolId && <ToolPanel toolId={currentToolId} />}
+            {view === 'tool' && !currentToolId && <WelcomePage />}
+            {view === 'extensions' && <ExtensionsPage />}
+            {view === 'history' && <HistoryPanel onSelect={handleSelectHistory} />}
+          </main>
+        </div>
       </div>
 
       <CommandPalette
@@ -115,6 +129,16 @@ export function App(): JSX.Element {
         onOpenChange={setPaletteOpen}
         onOpenSettings={() => setView('settings')}
         onOpenHistory={() => setView('history')}
+      />
+
+      {/* key 让每次打开时弹窗重挂载,initialRect() 重新按当前视口尺寸居中
+       * 避免小屏→大屏窗口变化后,弹窗停留在原位置(被 resize clamp 在边缘)造成不居中 */}
+      <SettingsDialog
+        key={String(view === 'settings')}
+        open={view === 'settings'}
+        onOpenChange={(open) => {
+          if (!open) setView(currentToolId ? 'tool' : 'welcome');
+        }}
       />
 
       <Toaster richColors position="bottom-right" />
