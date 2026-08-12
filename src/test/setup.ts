@@ -46,8 +46,8 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 // Mock @monaco-editor/react:jsdom 无法加载真实 Monaco(依赖 web worker 与丰富 DOM API)
-// 将 Editor 渲染为受控 textarea,保留 value/onChange 等关键 props,
-// 使工具测试可以用 fireEvent.change 触发输入
+// 将 Editor 渲染为受控 textarea、DiffEditor 渲染为两个 textarea,
+// 保留 value/onChange 等关键 props,使工具测试可以用 fireEvent.change 触发输入
 vi.mock('@monaco-editor/react', () => ({
   default: function MockMonacoEditor(props: {
     value?: string;
@@ -60,6 +60,24 @@ vi.mock('@monaco-editor/react', () => ({
       onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) =>
         props.onChange?.(e.target.value),
     });
+  },
+  DiffEditor: function MockMonacoDiffEditor(props: {
+    original?: string;
+    modified?: string;
+    readOnly?: boolean;
+  }) {
+    return React.createElement(
+      'div',
+      { 'data-testid': 'monaco-diff-editor' },
+      React.createElement('textarea', {
+        value: props.original ?? '',
+        readOnly: props.readOnly,
+      }),
+      React.createElement('textarea', {
+        value: props.modified ?? '',
+        readOnly: props.readOnly,
+      }),
+    );
   },
 }));
 

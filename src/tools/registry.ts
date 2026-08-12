@@ -74,6 +74,7 @@ import { ListComparer } from './ListComparer';
 import { ColorBlindnessSimulator } from './ColorBlindnessSimulator';
 import { ImageConverter } from './ImageConverter';
 import { TextCompare } from './TextCompare';
+import { DuplicateDetector } from './DuplicateDetector';
 
 registerTool('json_formatter', JsonFormatter);
 // 复用历史 toolId `json_minifier`,以兼容既有收藏夹与最近使用(localStorage)中已存储的引用
@@ -109,3 +110,4 @@ registerTool('list_comparer', ListComparer);
 registerTool('color_blindness_simulator', ColorBlindnessSimulator);
 registerTool('image_converter', ImageConverter);
 registerTool('text_compare', TextCompare);
+registerTool('duplicate_detector', DuplicateDetector);

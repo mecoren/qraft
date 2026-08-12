@@ -58,7 +58,7 @@ function NavItem({ icon: Icon, label, active, depth = 0, onClick, testId }: NavI
       aria-current={active ? 'true' : undefined}
       onClick={onClick}
       className={cn(
-        'relative flex w-full items-center gap-2 rounded-md py-1.5 pr-2 text-body-sm transition-all duration-base ease-standard',
+        'relative flex w-full items-center gap-2 rounded-md py-1.5 pr-2 text-sm transition-all duration-base ease-standard',
         depth === 0 ? 'pl-2.5' : 'pl-7',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring',
         active
@@ -101,7 +101,7 @@ function NavGroup({ icon, label, expanded, onToggle, children, testId }: NavGrou
         aria-expanded={expanded}
         onClick={onToggle}
         className={cn(
-          'flex w-full items-center gap-2 rounded-md py-1.5 pl-2.5 pr-2 text-body-sm transition-colors',
+          'flex w-full items-center gap-2 rounded-md py-1.5 pl-2.5 pr-2 text-sm transition-colors',
           'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring',
         )}
@@ -301,7 +301,7 @@ export function Sidebar(): JSX.Element {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="输入以搜索工具..."
             aria-label="搜索工具"
-            className="h-8 border-sidebar-border bg-background pl-8 text-body-sm focus-visible:ring-2 focus-visible:ring-sidebar-ring/60"
+            className="h-8 border-sidebar-border bg-background pl-8 text-sm focus-visible:ring-2 focus-visible:ring-sidebar-ring/60"
           />
         </div>
       </div>

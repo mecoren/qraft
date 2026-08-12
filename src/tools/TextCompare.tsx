@@ -1,133 +1,389 @@
 /**
- * 文本比较工具 —— 对齐 DevToys 截图的旗舰页面
+ * 文本比较工具 —— 基于 Monaco DiffEditor 的旗舰页面
  *
  * 结构:
- * - 配置卡片:行内模式开关(关闭 / 开启)
- * - 编辑区:原始文本 / 修改后文本(LineEditor),中间可拖拽分隔
- * - 差异区:并排 diff 视图 + 统计(+新增 −删除 ~修改)+ 全屏弹窗
- * 编辑区与差异区之间同样可拖拽调整比例。
+ * - 顶部工具栏:行内模式开关 + 差异统计(+新增 −删除 ~修改)+ 原始/修改后文本的
+ *   粘贴 / 打开文件 / 清除 操作 + 全屏按钮
+ * - 主区域:单个 Monaco DiffEditor,左右两个面板均可直接编辑填值,
+ *   差异由 Monaco 实时高亮;行内模式切换 renderSideBySide
+ * - 全屏弹窗:只读放大展示当前差异
+ *
+ * 设计说明:
+ * - @monaco-editor/react 的 DiffEditor 对 original / modified props 是受控的
+ *   (任一变化即 setModel 重建 model、重置光标),因此这里采用非受控策略:
+ *   挂载时传入空串作为初始值,之后一律通过编辑器实例 setValue 修改内容,
+ *   当前文本保存在 ref 中,避免每次按键都重建 diff model。
+ * - 差异统计来自 diffEditor.getLineChanges()(onDidUpdateDiff 时刷新),
+ *   语义与旧版 alignDiff / summarizeDiff 保持一致:新增行 / 删除行 / 修改行。
+ * - Monaco 的行内模式(renderSideBySide=false)下 original 侧为只读(引擎限制)。
  */
 
-import { useMemo, useState, type JSX } from 'react';
-import { Columns2, Maximize2 } from 'lucide-react';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
+import {
+  DiffEditor,
+  type DiffBeforeMount,
+  type Monaco,
+  type MonacoDiffEditor,
+} from '@monaco-editor/react';
+import type { editor } from 'monaco-editor';
+import { ClipboardPaste, Columns2, FolderOpen, Maximize2, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
-import { CodeEditor } from '@/components/ui/code-editor';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { alignDiff, diffLines, summarizeDiff } from '@/lib/diff';
-import { DiffView } from '@/tools/text-compare/DiffView';
+import { defineThemeFor, getThemeName, useMonacoTheme } from '@/components/ui/monaco-theme';
+import { readClipboardText } from '@/lib/clipboard';
+import { readFileAsText } from '@/lib/file-utils';
 import type { ToolProps } from './registry';
 
+type DiffTarget = 'original' | 'modified';
+
+interface DiffStats {
+  added: number;
+  removed: number;
+  modified: number;
+}
+
+const ZERO_STATS: DiffStats = { added: 0, removed: 0, modified: 0 };
+
+/** 把 Monaco 的 ILineChange 汇总为新增 / 删除 / 修改 行数 */
+function summarizeLineChanges(changes: readonly editor.ILineChange[]): DiffStats {
+  let added = 0;
+  let removed = 0;
+  let modified = 0;
+  for (const c of changes) {
+    const origCount =
+      c.originalStartLineNumber > 0
+        ? c.originalEndLineNumber - c.originalStartLineNumber + 1
+        : 0;
+    const modCount =
+      c.modifiedStartLineNumber > 0
+        ? c.modifiedEndLineNumber - c.modifiedStartLineNumber + 1
+        : 0;
+    const paired = Math.min(origCount, modCount);
+    modified += paired;
+    added += modCount - paired;
+    removed += origCount - paired;
+  }
+  return { added, removed, modified };
+}
+
+function ToolbarButton({
+  label,
+  onClick,
+  children,
+  testId,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+  testId?: string;
+}): ReactNode {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {children}
+    </button>
+  );
+}
+
 export function TextCompare(_props: ToolProps): JSX.Element {
-  const [oldText, setOldText] = useState('');
-  const [newText, setNewText] = useState('');
   const [inlineMode, setInlineMode] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [stats, setStats] = useState<DiffStats>(ZERO_STATS);
+  // 全屏打开瞬间的文本快照(全屏为只读展示,无需实时同步)
+  const [fullscreenSnapshot, setFullscreenSnapshot] = useState<{
+    original: string;
+    modified: string;
+  } | null>(null);
+  const themeName = useMonacoTheme();
 
-  const rows = useMemo(() => alignDiff(diffLines(oldText, newText)), [oldText, newText]);
-  const stats = useMemo(() => summarizeDiff(rows), [rows]);
+  const diffRef = useRef<MonacoDiffEditor | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
+  const originalTextRef = useRef('');
+  const modifiedTextRef = useRef('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileTargetRef = useRef<DiffTarget>('modified');
+
+  // 主题名变化时,重新定义并切换 Monaco 主题(无需重挂载编辑器)
+  useEffect(() => {
+    const monaco = monacoRef.current;
+    if (!monaco) return;
+    defineThemeFor(monaco, themeName);
+    monaco.editor.setTheme(themeName);
+  }, [themeName]);
+
+  const handleBeforeMount: DiffBeforeMount = useCallback((monaco) => {
+    monacoRef.current = monaco;
+    defineThemeFor(monaco, getThemeName());
+  }, []);
+
+  /** 从 DiffEditor 实例读取 diff 统计 */
+  const refreshStats = useCallback(() => {
+    const diff = diffRef.current;
+    if (!diff) return;
+    const changes = diff.getLineChanges();
+    setStats(changes ? summarizeLineChanges(changes) : ZERO_STATS);
+  }, []);
+
+  const handleMount = useCallback(
+    (diff: MonacoDiffEditor, monaco: Monaco) => {
+      monacoRef.current = monaco;
+      diffRef.current = diff;
+      originalTextRef.current = diff.getOriginalEditor().getValue();
+      modifiedTextRef.current = diff.getModifiedEditor().getValue();
+
+      // diff 重算完成时刷新统计(输入会触发重算)
+      diff.onDidUpdateDiff(() => refreshStats());
+      // 内容变化时同步 ref
+      diff.getOriginalEditor().onDidChangeModelContent(() => {
+        originalTextRef.current = diff.getOriginalEditor().getValue();
+      });
+      diff.getModifiedEditor().onDidChangeModelContent(() => {
+        modifiedTextRef.current = diff.getModifiedEditor().getValue();
+      });
+      refreshStats();
+    },
+    [refreshStats],
+  );
+
+  const setText = (target: DiffTarget, text: string): void => {
+    const diff = diffRef.current;
+    if (!diff) return;
+    const side = target === 'original' ? diff.getOriginalEditor() : diff.getModifiedEditor();
+    side.setValue(text);
+  };
+
+  const handlePaste = async (target: DiffTarget): Promise<void> => {
+    const text = await readClipboardText();
+    if (!text) {
+      toast.info('剪贴板为空或不可用');
+      return;
+    }
+    setText(target, text);
+  };
+
+  const handleFileChange = async (files: FileList | null): Promise<void> => {
+    const file = files?.[0];
+    if (!file) return;
+    try {
+      const text = await readFileAsText(file);
+      setText(fileTargetRef.current, text);
+    } catch {
+      toast.error('读取文件失败');
+    }
+    // 允许重复选择同一文件
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const pickFile = (target: DiffTarget): void => {
+    fileTargetRef.current = target;
+    fileInputRef.current?.click();
+  };
+
+  const clearText = (target: DiffTarget): void => {
+    setText(target, '');
+  };
+
+  const openFullscreen = useCallback(() => {
+    setFullscreenSnapshot({
+      original: originalTextRef.current,
+      modified: modifiedTextRef.current,
+    });
+    setFullscreen(true);
+  }, []);
+
+  const closeFullscreen = useCallback((open: boolean) => {
+    setFullscreen(open);
+    if (!open) setFullscreenSnapshot(null);
+  }, []);
+
+  const hasDiff = stats.added > 0 || stats.removed > 0 || stats.modified > 0;
+
+  /** 与 CodeEditor 保持一致的展示优化 options */
+  const diffOptions = useMemo<editor.IDiffEditorConstructionOptions>(
+    () => ({
+      originalEditable: true,
+      readOnly: false,
+      renderSideBySide: !inlineMode,
+      fontFamily:
+        "var(--app-mono-font-family, 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace)",
+      fontLigatures: true,
+      fontSize: 13,
+      lineHeight: 20,
+      lineNumbers: 'on',
+      glyphMargin: false,
+      folding: false,
+      minimap: { enabled: false },
+      scrollBeyondLastLine: false,
+      automaticLayout: true,
+      wordWrap: 'on',
+      diffWordWrap: 'on',
+      tabSize: 2,
+      renderLineHighlight: 'all',
+      renderWhitespace: 'selection',
+      smoothScrolling: true,
+      cursorBlinking: 'smooth',
+      cursorSmoothCaretAnimation: 'on',
+      padding: { top: 10, bottom: 10 },
+      scrollbar: {
+        verticalScrollbarSize: 10,
+        horizontalScrollbarSize: 10,
+        useShadows: false,
+      },
+      guides: {
+        indentation: true,
+        highlightActiveIndentation: true,
+      },
+      bracketPairColorization: { enabled: true },
+      roundedSelection: true,
+      overviewRulerLanes: 0,
+      scrollBeyondLastColumn: 0,
+      contextmenu: true,
+      fixedOverflowWidgets: true,
+      // 不折叠未变更区域,保持与旧版一致的"全量并排"观感
+      hideUnchangedRegions: { enabled: false },
+    }),
+    [inlineMode],
+  );
+
+  const renderActionGroup = (label: string, target: DiffTarget) => (
+    <div className="flex items-center gap-0.5">
+      <span className="mr-0.5 text-xs text-muted-foreground">{label}</span>
+      <ToolbarButton
+        label={`${label}：粘贴`}
+        testId={`paste-${target}`}
+        onClick={() => void handlePaste(target)}
+      >
+        <ClipboardPaste aria-hidden className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        label={`${label}：打开文件`}
+        testId={`open-${target}`}
+        onClick={() => pickFile(target)}
+      >
+        <FolderOpen aria-hidden className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        label={`${label}：清除`}
+        testId={`clear-${target}`}
+        onClick={() => clearText(target)}
+      >
+        <X aria-hidden className="size-3.5" />
+      </ToolbarButton>
+    </div>
+  );
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="text-compare">
-      {/* 配置 */}
+      {/* 顶部工具栏:行内模式 + 差异统计 + 操作 */}
       <section aria-label="配置">
-        <h2 className="mb-1.5 text-body-sm font-semibold">配置</h2>
         <div className="rounded-lg border border-border bg-card shadow-card">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <Columns2 aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-            <span className="flex-1 text-body-sm">行内模式</span>
-            <span className="text-xs text-muted-foreground">{inlineMode ? '开启' : '关闭'}</span>
-            <Switch
-              data-testid="inline-mode-switch"
-              aria-label="行内模式"
-              checked={inlineMode}
-              onCheckedChange={setInlineMode}
-            />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
+            <div className="flex items-center gap-3">
+              <Columns2 aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+              <span className="text-body-sm">行内模式</span>
+              <span className="text-xs text-muted-foreground">{inlineMode ? '开启' : '关闭'}</span>
+              <Switch
+                data-testid="inline-mode-switch"
+                aria-label="行内模式"
+                checked={inlineMode}
+                onCheckedChange={setInlineMode}
+              />
+            </div>
+
+            <div className="h-4 w-px bg-border" aria-hidden />
+
+            {/* 差异统计 */}
+            <div className="flex items-baseline gap-3">
+              <span className="text-body-sm font-semibold">差异</span>
+              {hasDiff ? (
+                <span className="text-xs text-muted-foreground">
+                  <span className="text-success">+{stats.added}</span>
+                  {'  '}
+                  <span className="text-destructive">−{stats.removed}</span>
+                  {'  '}
+                  <span>~{stats.modified}</span>
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">无差异</span>
+              )}
+            </div>
+
+            <div className="ml-auto flex flex-wrap items-center gap-3">
+              {renderActionGroup('原始', 'original')}
+              {renderActionGroup('修改后', 'modified')}
+              <div className="h-4 w-px bg-border" aria-hidden />
+              <ToolbarButton
+                label="全屏查看差异"
+                testId="diff-fullscreen"
+                onClick={openFullscreen}
+              >
+                <Maximize2 aria-hidden className="size-3.5" />
+              </ToolbarButton>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 编辑区 + 差异区(垂直可拖拽) */}
-      <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={42} minSize={20} className="min-h-0">
-          <ResizablePanelGroup orientation="horizontal" className="h-full">
-            <ResizablePanel defaultSize={50} minSize={15} className="min-h-0 min-w-0">
-              <CodeEditor
-                title="原始文本"
-                language="plaintext"
-                value={oldText}
-                onChange={setOldText}
-                className="h-full"
-                data-testid="old-editor"
-              />
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel minSize={15} className="min-h-0 min-w-0">
-              <CodeEditor
-                title="修改后文本"
-                language="plaintext"
-                value={newText}
-                onChange={setNewText}
-                className="h-full"
-                data-testid="new-editor"
-              />
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </ResizablePanel>
-
-        <ResizableHandle withHandle />
-
-        <ResizablePanel minSize={20} className="min-h-0">
-          <section
-            aria-label="差异"
-            className="flex h-full flex-col overflow-hidden rounded-md border border-border bg-card"
-          >
-            <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
-              <div className="flex items-baseline gap-3">
-                <span className="text-body-sm font-semibold">差异</span>
-                {(stats.added > 0 || stats.removed > 0 || stats.modified > 0) && (
-                  <span className="text-xs text-muted-foreground">
-                    <span className="text-success">+{stats.added}</span>
-                    {'  '}
-                    <span className="text-destructive">−{stats.removed}</span>
-                    {'  '}
-                    <span>~{stats.modified}</span>
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                data-testid="diff-fullscreen"
-                title="全屏查看差异"
-                aria-label="全屏查看差异"
-                onClick={() => setFullscreen(true)}
-                className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Maximize2 aria-hidden className="size-3.5" />
-              </button>
+      {/* DiffEditor 主区域 */}
+      <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-border bg-card">
+        <DiffEditor
+          language="plaintext"
+          theme={themeName}
+          beforeMount={handleBeforeMount}
+          onMount={handleMount}
+          options={diffOptions}
+          className="h-full"
+          loading={
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+              加载编辑器…
             </div>
-            <div className="min-h-0 flex-1">
-              <DiffView rows={rows} inline={inlineMode} className="h-full" />
-            </div>
-          </section>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+          }
+        />
+      </div>
 
-      {/* 全屏差异弹窗 */}
-      <Dialog open={fullscreen} onOpenChange={setFullscreen}>
+      {/* 全屏差异弹窗(只读快照) */}
+      <Dialog open={fullscreen} onOpenChange={closeFullscreen}>
         <DialogContent className="flex h-[85vh] max-w-[90vw] flex-col">
           <DialogTitle className="text-sm font-semibold">差异</DialogTitle>
           <DialogDescription className="sr-only">原始文本与修改后文本的并排差异</DialogDescription>
           <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-border">
-            <DiffView rows={rows} inline={inlineMode} className="h-full" />
+            <DiffEditor
+              language="plaintext"
+              theme={themeName}
+              beforeMount={handleBeforeMount}
+              original={fullscreenSnapshot?.original}
+              modified={fullscreenSnapshot?.modified}
+              options={{ ...diffOptions, readOnly: true, originalEditable: false }}
+              className="h-full"
+              loading={
+                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                  加载编辑器…
+                </div>
+              }
+            />
           </div>
         </DialogContent>
       </Dialog>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        aria-hidden
+        className="hidden"
+        onChange={(e) => void handleFileChange(e.target.files)}
+      />
     </div>
   );
 }

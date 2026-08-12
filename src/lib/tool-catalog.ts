@@ -335,6 +335,14 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
     icon: ListChecks,
     keywords: ['list', 'compare', '列表', '比对'],
   },
+  {
+    id: 'duplicate_detector',
+    name: '重复行检测器',
+    description: '检测文本中的重复行并按策略去重',
+    category: 'text',
+    icon: ListChecks,
+    keywords: ['duplicate', 'dedupe', '去重', '重复行', 'unique', '重复'],
+  },
 
   // —— 转换器 ——
   {
