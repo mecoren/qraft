@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import type { ToolMetadata } from '@/types/tool';
 
 /**
@@ -11,25 +11,30 @@ export interface ToolProps {
 }
 
 type ToolComponent = ComponentType<ToolProps>;
+type ToolComponentLoader = () => Promise<{ default: ToolComponent }>;
+type LazyToolComponent = LazyExoticComponent<ToolComponent>;
 
-// 全局 UI 工具注册表:toolId → React 组件。
+// 全局 UI 工具注册表:toolId → 懒加载组件。
 // 与 Rust 端的 ToolRegistry 不同,这里只负责 UI 组件查找。
-const REGISTRY = new Map<string, ToolComponent>();
+// 所有工具均通过 React.lazy 注册,首次渲染某工具时才执行其模块 import(),
+// 因此每个工具(及其专属依赖,如 Monaco / jsqr / marked)会拆分为独立 chunk,
+// 启动时不再一次性加载全部 40+ 工具,显著降低首屏 bundle 与内存占用。
+const REGISTRY = new Map<string, LazyToolComponent>();
 
 /**
- * 注册工具 UI 组件。每个工具模块在文件末尾调用一次。
+ * 注册工具 UI 组件(懒加载)。每个工具模块调用一次。
  * @param toolId 与 Rust 端 ToolMetadata.id 严格一致
- * @param component 渲染该工具界面的 React 组件
+ * @param loader 返回 `{ default: 组件 }` 的异步 loader,首次渲染该工具时才执行
  */
-export function registerTool(toolId: string, component: ToolComponent): void {
-  REGISTRY.set(toolId, component);
+export function registerTool(toolId: string, loader: ToolComponentLoader): void {
+  REGISTRY.set(toolId, lazy(loader));
 }
 
 /**
- * 按 toolId 查找已注册的 UI 组件。
+ * 按 toolId 查找已注册的懒加载组件。
  * @returns 找不到时返回 null,由 ToolPanel 回退到默认提示
  */
-export function getToolComponent(toolId: string): ToolComponent | null {
+export function getToolComponent(toolId: string): LazyToolComponent | null {
   return REGISTRY.get(toolId) ?? null;
 }
 
@@ -40,74 +45,38 @@ export function clearRegistry(): void {
   REGISTRY.clear();
 }
 
-// —— 工具注册(每个工具模块在此 register)——
-import { JsonFormatter } from './JsonFormatter';
-import { TextProcessor } from './TextProcessor';
-import { Base64Codec } from './Base64Codec';
-import { UrlCodec } from './UrlCodec';
-import { JwtParser } from './JwtParser';
-import { UuidGenerator } from './UuidGenerator';
-import { HashCalculator } from './HashCalculator';
-import { TimestampConverter } from './TimestampConverter';
-import { ColorConverter } from './ColorConverter';
-import { RegexTester } from './RegexTester';
-// —— 纯前端工具 ——
-import { Base64Image } from './Base64Image';
-import { CertificateDecoder } from './CertificateDecoder';
-import { GzipCodec } from './GzipCodec';
-import { HtmlCodec } from './HtmlCodec';
-import { TextEscape } from './TextEscape';
-import { JsonPathTester } from './JsonPathTester';
-import { XmlXsdTester } from './XmlXsdTester';
-import { SqlFormatter } from './SqlFormatter';
-import { XmlFormatter } from './XmlFormatter';
-import { PasswordGenerator } from './PasswordGenerator';
-import { LoremIpsum } from './LoremIpsum';
-import { QrcodeTool } from './QrcodeTool';
-import { NumberBaseConverter } from './NumberBaseConverter';
-import { CronParser } from './CronParser';
-import { JsonYamlConverter } from './JsonYamlConverter';
-import { JsonArrayTable } from './JsonArrayTable';
-import { MarkdownPreview } from './MarkdownPreview';
-import { TextAnalyzer } from './TextAnalyzer';
-import { ListComparer } from './ListComparer';
-import { ColorBlindnessSimulator } from './ColorBlindnessSimulator';
-import { ImageConverter } from './ImageConverter';
-import { TextCompare } from './TextCompare';
-import { DuplicateDetector } from './DuplicateDetector';
-
-registerTool('json_formatter', JsonFormatter);
+// —— 工具注册(懒加载:按需 import,避免首屏一次性加载全部工具)——
+registerTool('json_formatter', () => import('./JsonFormatter').then((m) => ({ default: m.JsonFormatter })));
 // 复用历史 toolId `json_minifier`,以兼容既有收藏夹与最近使用(localStorage)中已存储的引用
-registerTool('json_minifier', TextProcessor);
-registerTool('base64_codec', Base64Codec);
-registerTool('url_codec', UrlCodec);
-registerTool('jwt_parser', JwtParser);
-registerTool('uuid_generator', UuidGenerator);
-registerTool('hash_calculator', HashCalculator);
-registerTool('timestamp_converter', TimestampConverter);
-registerTool('color_converter', ColorConverter);
-registerTool('regex_tester', RegexTester);
+registerTool('json_minifier', () => import('./TextProcessor').then((m) => ({ default: m.TextProcessor })));
+registerTool('base64_codec', () => import('./Base64Codec').then((m) => ({ default: m.Base64Codec })));
+registerTool('url_codec', () => import('./UrlCodec').then((m) => ({ default: m.UrlCodec })));
+registerTool('jwt_parser', () => import('./JwtParser').then((m) => ({ default: m.JwtParser })));
+registerTool('uuid_generator', () => import('./UuidGenerator').then((m) => ({ default: m.UuidGenerator })));
+registerTool('hash_calculator', () => import('./HashCalculator').then((m) => ({ default: m.HashCalculator })));
+registerTool('timestamp_converter', () => import('./TimestampConverter').then((m) => ({ default: m.TimestampConverter })));
+registerTool('color_converter', () => import('./ColorConverter').then((m) => ({ default: m.ColorConverter })));
+registerTool('regex_tester', () => import('./RegexTester').then((m) => ({ default: m.RegexTester })));
 // —— 纯前端工具 ——
-registerTool('base64_image', Base64Image);
-registerTool('certificate_decoder', CertificateDecoder);
-registerTool('gzip_codec', GzipCodec);
-registerTool('html_codec', HtmlCodec);
-registerTool('text_escape', TextEscape);
-registerTool('jsonpath_tester', JsonPathTester);
-registerTool('xml_xsd_tester', XmlXsdTester);
-registerTool('sql_formatter', SqlFormatter);
-registerTool('xml_formatter', XmlFormatter);
-registerTool('password_generator', PasswordGenerator);
-registerTool('lorem_ipsum', LoremIpsum);
-registerTool('qrcode_tool', QrcodeTool);
-registerTool('number_base_converter', NumberBaseConverter);
-registerTool('cron_parser', CronParser);
-registerTool('json_yaml_converter', JsonYamlConverter);
-registerTool('json_array_table', JsonArrayTable);
-registerTool('markdown_preview', MarkdownPreview);
-registerTool('text_analyzer', TextAnalyzer);
-registerTool('list_comparer', ListComparer);
-registerTool('color_blindness_simulator', ColorBlindnessSimulator);
-registerTool('image_converter', ImageConverter);
-registerTool('text_compare', TextCompare);
-registerTool('duplicate_detector', DuplicateDetector);
+registerTool('certificate_decoder', () => import('./CertificateDecoder').then((m) => ({ default: m.CertificateDecoder })));
+registerTool('gzip_codec', () => import('./GzipCodec').then((m) => ({ default: m.GzipCodec })));
+registerTool('html_codec', () => import('./HtmlCodec').then((m) => ({ default: m.HtmlCodec })));
+registerTool('text_escape', () => import('./TextEscape').then((m) => ({ default: m.TextEscape })));
+registerTool('jsonpath_tester', () => import('./JsonPathTester').then((m) => ({ default: m.JsonPathTester })));
+registerTool('xml_xsd_tester', () => import('./XmlXsdTester').then((m) => ({ default: m.XmlXsdTester })));
+registerTool('sql_formatter', () => import('./SqlFormatter').then((m) => ({ default: m.SqlFormatter })));
+registerTool('xml_formatter', () => import('./XmlFormatter').then((m) => ({ default: m.XmlFormatter })));
+registerTool('password_generator', () => import('./PasswordGenerator').then((m) => ({ default: m.PasswordGenerator })));
+registerTool('lorem_ipsum', () => import('./LoremIpsum').then((m) => ({ default: m.LoremIpsum })));
+registerTool('qrcode_tool', () => import('./QrcodeTool').then((m) => ({ default: m.QrcodeTool })));
+registerTool('number_base_converter', () => import('./NumberBaseConverter').then((m) => ({ default: m.NumberBaseConverter })));
+registerTool('cron_parser', () => import('./CronParser').then((m) => ({ default: m.CronParser })));
+registerTool('json_yaml_converter', () => import('./JsonYamlConverter').then((m) => ({ default: m.JsonYamlConverter })));
+registerTool('json_array_table', () => import('./JsonArrayTable').then((m) => ({ default: m.JsonArrayTable })));
+registerTool('markdown_preview', () => import('./MarkdownPreview').then((m) => ({ default: m.MarkdownPreview })));
+registerTool('text_analyzer', () => import('./TextAnalyzer').then((m) => ({ default: m.TextAnalyzer })));
+registerTool('list_comparer', () => import('./ListComparer').then((m) => ({ default: m.ListComparer })));
+registerTool('color_blindness_simulator', () => import('./ColorBlindnessSimulator').then((m) => ({ default: m.ColorBlindnessSimulator })));
+registerTool('image_converter', () => import('./ImageConverter').then((m) => ({ default: m.ImageConverter })));
+registerTool('text_compare', () => import('./TextCompare').then((m) => ({ default: m.TextCompare })));
+registerTool('duplicate_detector', () => import('./DuplicateDetector').then((m) => ({ default: m.DuplicateDetector })));

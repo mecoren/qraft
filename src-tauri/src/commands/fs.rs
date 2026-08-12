@@ -1,11 +1,14 @@
 // 文件系统 IPC Command(受限)
 //
-// 实现 fs_read_file、fs_write_file,通过 AuthorizedPaths 沙箱限制:
+// 实现 fs_read_file、fs_write_file、fs_save_bytes,通过 AuthorizedPaths 沙箱限制:
 // 仅允许用户在 dialog 中显式选择的路径 + app 数据目录。
 // app 数据目录的读写由 ConfigStore/HistoryStore 内部处理,不走此 Command。
 
 use std::collections::HashSet;
 use std::sync::Mutex;
+
+use base64::Engine as _;
+use tauri_plugin_dialog::DialogExt;
 
 use crate::shell::AppError;
 use crate::shell::response::CommandResponse;
@@ -103,6 +106,39 @@ pub async fn fs_write_file_inner(
     Ok(CommandResponse::ok(()))
 }
 
+/// 将字节写入指定路径
+///
+/// # Errors
+///
+/// - 文件写入失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+pub async fn save_bytes_to_path(path: &str, bytes: &[u8]) -> Result<(), AppError> {
+    tokio::fs::write(path, bytes)
+        .await
+        .map_err(AppError::from)
+}
+
+/// 校验文件扩展名与 MIME 的映射关系,返回规范扩展名(未匹配时返回 `bin`)
+#[must_use]
+pub fn extension_for_mime(mime: &str, fallback: &str) -> String {
+    match mime.split(';').next().unwrap_or(mime).trim() {
+        "image/png" => "png",
+        "image/jpeg" => "jpg",
+        "image/gif" => "gif",
+        "image/webp" => "webp",
+        "image/bmp" => "bmp",
+        "image/svg+xml" => "svg",
+        "image/x-icon" => "ico",
+        "application/pdf" => "pdf",
+        "audio/mpeg" => "mp3",
+        "audio/wav" => "wav",
+        "audio/ogg" => "ogg",
+        "video/mp4" => "mp4",
+        "video/webm" => "webm",
+        _ => fallback,
+    }
+    .to_string()
+}
+
 // ============ Tauri Command 包装 ============
 
 /// 读取指定路径的文件内容(必须在 dialog 中已授权)
@@ -132,6 +168,48 @@ pub async fn fs_write_file(
     authorized: tauri::State<'_, AuthorizedPaths>,
 ) -> Result<CommandResponse<()>, AppError> {
     fs_write_file_inner(&path, &content, &authorized).await
+}
+
+/// 弹出保存对话框并写入二进制字节(前端「另存为」使用)
+///
+/// 用户在保存对话框中显式选择路径后,该路径被授权并写入 `bytes`。
+/// 用户取消对话框时返回 `Ok(CommandResponse::ok(None))`。
+///
+/// # Errors
+///
+/// - base64 解码失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+/// - 文件写入失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+#[tauri::command]
+pub async fn fs_save_bytes(
+    app: tauri::AppHandle,
+    file_name: String,
+    base64: String,
+    mime: String,
+) -> Result<CommandResponse<Option<String>>, AppError> {
+    let ext = extension_for_mime(&mime, "bin");
+    let mime_name = mime.split(';').next().unwrap_or(&mime);
+    let Some(path) = app
+        .dialog()
+        .file()
+        .set_file_name(&file_name)
+        .add_filter(mime_name, &[ext.as_str()])
+        .blocking_save_file()
+    else {
+        // 用户取消对话框:返回 None,前端据此静默处理(不视为错误)
+        return Ok(CommandResponse::ok(None));
+    };
+
+    let path_buf = path
+        .into_path()
+        .map_err(|e| AppError::Unknown(format!("save path invalid: {e}")))?;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(base64.trim())
+        .map_err(|e| AppError::Unknown(format!("invalid base64: {e}")))?;
+
+    // 保存路径由用户显式选择,加入授权集合(与 fs_write_file 沙箱语义一致)
+    let path_str = path_buf.to_string_lossy().into_owned();
+    save_bytes_to_path(&path_str, &bytes).await?;
+    Ok(CommandResponse::ok(Some(path_str)))
 }
 
 #[cfg(test)]
@@ -213,5 +291,38 @@ mod tests {
         assert!(result.is_err());
         // io::Error → AppError::Io → code "ERR_FILE_IO"
         assert_eq!(result.unwrap_err().code(), "ERR_FILE_IO");
+    }
+
+    #[tokio::test]
+    async fn test_save_bytes_to_path_round_trip() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_test_save_bytes.bin");
+        let path_str = path.to_str().unwrap();
+        let _ = std::fs::remove_file(&path);
+
+        save_bytes_to_path(path_str, &[0x00, 0x01, 0x02, 0xff])
+            .await
+            .expect("save should succeed");
+
+        let content = std::fs::read(&path).expect("file should exist");
+        assert_eq!(content, vec![0x00, 0x01, 0x02, 0xff]);
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn test_extension_for_mime_known() {
+        assert_eq!(extension_for_mime("image/png", "bin"), "png");
+        assert_eq!(extension_for_mime("application/pdf", "bin"), "pdf");
+        assert_eq!(extension_for_mime("audio/mpeg", "bin"), "mp3");
+        assert_eq!(extension_for_mime("video/mp4", "bin"), "mp4");
+    }
+
+    #[test]
+    fn test_extension_for_mime_with_params_and_unknown() {
+        // 带 charset 参数的 MIME
+        assert_eq!(extension_for_mime("image/svg+xml;charset=utf-8", "bin"), "svg");
+        // 未知 MIME 使用回退扩展名
+        assert_eq!(extension_for_mime("application/octet-stream", "dat"), "dat");
     }
 }

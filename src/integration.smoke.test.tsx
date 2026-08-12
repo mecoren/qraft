@@ -119,7 +119,7 @@ describe('smoke: SideNav 显示工具分组', () => {
     await user.click(await within(sidebar).findByTestId('nav-cat-encoder'));
     // 该分组下的工具渲染为按钮
     expect(
-      await within(sidebar).findByRole('button', { name: /Base64文本编码\/解码/i }),
+      await within(sidebar).findByRole('button', { name: /Base64 转换器/i }),
     ).toBeInTheDocument();
     expect(within(sidebar).getByRole('button', { name: /GZip压缩\/解压缩/i })).toBeInTheDocument();
   });
@@ -149,7 +149,7 @@ describe('smoke: 点击工具切换 ToolPanel', () => {
     });
     const sidebar = screen.getByRole('navigation');
     await user.click(await within(sidebar).findByTestId('nav-cat-encoder'));
-    await user.click(await within(sidebar).findByRole('button', { name: /Base64文本编码\/解码/i }));
+    await user.click(await within(sidebar).findByRole('button', { name: /Base64 转换器/i }));
     expect(useToolStateStore.getState().currentToolId).toBe('base64_codec');
   });
 });
@@ -179,8 +179,8 @@ describe('smoke: Ctrl+K 打开 CommandPalette', () => {
     const dialog = await screen.findByRole('dialog');
     const input = dialog.querySelector('input') as HTMLInputElement;
     await user.type(input, 'base64');
-    // base64 相关工具出现(现含文本与图片两个)
-    expect(screen.getByRole('option', { name: /Base64文本编码\/解码/i })).toBeInTheDocument();
+    // base64 相关工具出现(统一 Base64 转换器)
+    expect(screen.getByRole('option', { name: /Base64 转换器/i })).toBeInTheDocument();
     // 不相关工具被过滤
     expect(screen.queryByRole('option', { name: /Cron 表达式解析器/i })).not.toBeInTheDocument();
   });

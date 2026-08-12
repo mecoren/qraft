@@ -65,7 +65,7 @@ pub fn run() -> anyhow::Result<()> {
     use crate::commands::clipboard::{clipboard_read_text, clipboard_write_text};
     use crate::commands::config::{config_get, config_get_all, config_reset, config_set};
     use crate::commands::font::list_system_fonts;
-    use crate::commands::fs::{AuthorizedPaths, fs_read_file, fs_write_file};
+    use crate::commands::fs::{AuthorizedPaths, fs_read_file, fs_save_bytes, fs_write_file};
     use crate::commands::history::{history_clear, history_list};
     use crate::commands::tool::{
         tool_cancel, tool_execute, tool_execute_stream, tool_list, tool_metadata,
@@ -164,6 +164,7 @@ pub fn run() -> anyhow::Result<()> {
             clipboard_write_text,
             fs_read_file,
             fs_write_file,
+            fs_save_bytes,
             app_open_external,
             app_version,
             app_quit,

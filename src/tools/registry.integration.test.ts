@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { getToolComponent } from './registry';
 
-// 必须在 import registry.ts 之后再 import 各工具,而 registry.ts 末尾已 import 所有工具,
-// 因此这里只需 import 一次 registry 模块即可触发全部注册。
+// import registry 模块即完成全部工具的懒加载登记(React.lazy 只登记 loader,
+// 不真正执行模块 import),因此这里只需 import 一次即可断言各 toolId 均有组件。
 import './registry';
 
 const P0_TOOL_IDS = [

@@ -1,10 +1,17 @@
-import { createElement, useEffect, useState, type JSX } from 'react';
+import {
+  createElement,
+  Suspense,
+  useEffect,
+  useState,
+  type ComponentType,
+  type JSX,
+} from 'react';
 import { Star } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { getCatalogEntry, type CatalogEntry } from '@/lib/tool-catalog';
 import { useUiStore } from '@/store/uiStore';
-import { getToolComponent } from '@/tools/registry';
+import { getToolComponent, type ToolProps } from '@/tools/registry';
 import { ICON_STROKE_WIDTH } from '@/lib/icon-constants';
 import type { ToolMetadata, ToolCategory, Alert, AlertLevel } from '@/types/tool';
 
@@ -116,7 +123,9 @@ export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element 
       </header>
 
       {/* 工具工作区:由工具组件自行管理内部布局与滚动。
-       * 遍历所有已访问工具,当前工具显示、其余 display:none(DOM 不卸载,内容/滚动保留) */}
+       * 遍历所有已访问工具,当前工具显示、其余 display:none(DOM 不卸载,内容/滚动保留)。
+       * 工具组件为懒加载(React.lazy):首次访问时经 Suspense 展示加载态,
+       * 模块加载完成后缓存,再次切回无需重新请求 chunk。 */}
       <div className="min-h-0 flex-1 overflow-hidden px-6 pb-5">
         {visited.map((id) => {
           const visitedEntry = getCatalogEntry(id);
@@ -126,7 +135,21 @@ export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element 
           return (
             <div key={id} className={cn('h-full', id !== toolId && 'hidden')}>
               {visitedEntry && visitedComponent ? (
-                createElement(visitedComponent, { toolId: id, metadata: catalogToMetadata(visitedEntry) })
+                <Suspense
+                  fallback={
+                    <div
+                      role="status"
+                      className="flex h-full items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground"
+                    >
+                      加载工具…
+                    </div>
+                  }
+                >
+                  {createElement(visitedComponent as ComponentType<ToolProps>, {
+                    toolId: id,
+                    metadata: catalogToMetadata(visitedEntry),
+                  })}
+                </Suspense>
               ) : (
                 <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
                   该工具界面尚未接入,敬请期待

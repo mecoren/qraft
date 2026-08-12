@@ -107,6 +107,8 @@ class ResizeObserverMock {
     this.cb = cb;
   }
   observe(target: Element): void {
+    // 补充 borderBoxSize/contentBoxSize:react-resizable-panels 会读取
+    // entry.borderBoxSize[0].inlineSize 来计算面板尺寸,缺失会导致运行时崩溃
     this.cb(
       [
         {
@@ -121,6 +123,8 @@ class ResizeObserverMock {
             right: 800,
             bottom: 600,
           },
+          borderBoxSize: [{ inlineSize: 800, blockSize: 600 }],
+          contentBoxSize: [{ inlineSize: 800, blockSize: 600 }],
         },
       ] as unknown as ResizeObserverEntry[],
       this,
