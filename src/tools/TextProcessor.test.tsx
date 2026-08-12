@@ -21,20 +21,55 @@ vi.mock('@/components/ui/code-editor', () => ({
     value,
     onChange,
     readOnly,
+    title,
+    actions,
+    statusBarRight,
+    showCharCount = true,
+    showStatusBar = true,
     'data-testid': testId,
   }: {
     value: string;
     onChange?: (v: string) => void;
     readOnly?: boolean;
+    title?: string;
+    actions?: React.ReactNode;
+    statusBarRight?: React.ReactNode;
+    showCharCount?: boolean;
+    showStatusBar?: boolean;
     'data-testid'?: string;
   }) => (
     <div data-testid={testId}>
+      <div>
+        {title && <span>{title}</span>}
+        {actions}
+      </div>
       <textarea
         data-testid={testId ? `${testId}-textarea` : undefined}
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
         readOnly={readOnly}
       />
+      {showStatusBar && (
+        <div data-testid={testId ? `${testId}-status` : undefined}>
+          <span data-testid={testId ? `${testId}-status-pos` : undefined}>
+            行 1, 列 {value.length + 1}
+          </span>
+          {value.length > 0 && (
+            <span data-testid={testId ? `${testId}-status-sel` : undefined}>
+              (已选择{value.length})
+            </span>
+          )}
+          {statusBarRight ? (
+            <span>{statusBarRight}</span>
+          ) : (
+            showCharCount && (
+              <span data-testid={testId ? `${testId}-char-count` : undefined}>
+                {Array.from(value).length} 字符
+              </span>
+            )
+          )}
+        </div>
+      )}
     </div>
   ),
 }));
@@ -227,5 +262,57 @@ describe('TextProcessor component', () => {
     expect(getInput().value).toBe(chineseToUnicode(original));
     fireEvent.click(screen.getByTestId('textproc-btn-unicodeToChinese'));
     expect(getInput().value).toBe(original);
+  });
+
+  it('shows 0-character counts in both status bars when empty', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expect(screen.getByTestId('input-char-count').textContent).toBe('0 字符');
+    expect(screen.getByTestId('output-char-count').textContent).toBe('0 字符');
+  });
+
+  it('places the char count inside the status bar, not the header', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    const inputStatus = screen.getByTestId('input-status');
+    const outputStatus = screen.getByTestId('output-status');
+    expect(inputStatus.contains(screen.getByTestId('input-char-count'))).toBe(true);
+    expect(outputStatus.contains(screen.getByTestId('output-char-count'))).toBe(true);
+  });
+
+  it('updates the input char count as the user types', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: '你好，世界!' } });
+    expect(screen.getByTestId('input-char-count').textContent).toBe('6 字符');
+  });
+
+  it('counts by Unicode code points (emoji is a single char, not two)', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'a😀' } });
+    expect(screen.getByTestId('input-char-count').textContent).toBe('2 字符');
+  });
+
+  it('updates the output char count after a transform', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: '你好，世界!' } });
+    fireEvent.click(screen.getByTestId('textproc-btn-urlEncode'));
+    const encoded = urlEncode('你好，世界!');
+    expect(screen.getByTestId('output-char-count').textContent).toBe(
+      `${Array.from(encoded).length} 字符`,
+    );
+  });
+
+  it('renders a status bar at the bottom of each editor showing line/column', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expect(screen.getByTestId('input-status-pos').textContent).toBe('行 1, 列 1');
+    expect(screen.getByTestId('output-status-pos').textContent).toBe('行 1, 列 1');
+    // 空内容时不应显示「已选择」
+    expect(screen.queryByTestId('input-status-sel')).toBeNull();
+    expect(screen.queryByTestId('output-status-sel')).toBeNull();
+  });
+
+  it('shows the selection count in the status bar when the input is non-empty', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'hello' } });
+    // mock 中 mock 的选区长度 = value.length
+    expect(screen.getByTestId('input-status-sel').textContent).toBe('(已选择5)');
   });
 });

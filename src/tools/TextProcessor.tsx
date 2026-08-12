@@ -224,22 +224,21 @@ function GroupFragment({
 }
 
 /**
- * 把当前输入按指定转换处理:成功时把结果写入 **输出框**,
- * **不改动输入**;输出只读副本,不会随输入实时同步,需要时再点转换。
- * 失败时弹 toast 提示并保持输出不变。
- */
-/**
  * 文本处理工具主组件
  *
  * - 上方"配置"区域(与 SQL 格式化器一致)以嵌套 ButtonGroup 放置
  *   4 组共 7 个文本转换按钮:组内紧密拼边、组间留出 gap-2。
  * - 下方为左右两栏的输入/输出编辑器:输入框可编辑,转换按钮只
  *   把结果写入 **输出框**,输入保持原值不动。
+ * - 输入/输出编辑器底部状态栏(CodeEditor 内置)右侧显示字符数,
+ *   随内容实时更新。
  */
 export function TextProcessor(_props: ToolProps): JSX.Element {
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
 
+  // 把当前输入按指定转换处理:成功时把结果写入输出框、不改动输入;
+  // 输出为只读副本,不会随输入实时同步,需要时再点转换。失败时弹 toast 并保持输出不变。
   const handleApply = useCallback(
     (id: TransformId) => {
       if (!input) return;

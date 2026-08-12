@@ -21,10 +21,11 @@
 import {
   useEffect,
   useRef,
+  useState,
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import Editor, { type BeforeMount, type Monaco } from '@monaco-editor/react';
+import Editor, { type BeforeMount, type Monaco, type OnMount } from '@monaco-editor/react';
 import { ClipboardPaste, FolderOpen, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -73,6 +74,12 @@ export interface CodeEditorProps {
   showOpenFile?: boolean;
   /** 是否显示「清除」按钮(仅非只读时生效),默认 true */
   showClear?: boolean;
+  /** 是否显示底部状态栏(行/列/选区数),默认 true */
+  showStatusBar?: boolean;
+  /** 追加到状态栏右侧的自定义内容;未提供时默认显示内置字符统计 */
+  statusBarRight?: ReactNode;
+  /** 是否在状态栏右侧显示字符统计(仅在未提供 statusBarRight 时生效),默认 true */
+  showCharCount?: boolean;
   /** 测试用 data-testid */
   'data-testid'?: string;
 }
@@ -115,12 +122,45 @@ export function CodeEditor({
   showPaste = true,
   showOpenFile = true,
   showClear = true,
+  showStatusBar = true,
+  statusBarRight,
+  showCharCount = true,
   'data-testid': dataTestId,
 }: CodeEditorProps): ReactNode {
   const monacoRef = useRef<Monaco | null>(null);
+  const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // 主题名随 data-palette 变化,触发 Editor 重新应用主题
   const themeName = useMonacoTheme();
+
+  // 光标位置(行/列均为 1-based)、当前选区字符数;无选区时 selected=0
+  const [cursor, setCursor] = useState<{ line: number; column: number }>({
+    line: 1,
+    column: 1,
+  });
+  const [selected, setSelected] = useState(0);
+
+  // 按 Unicode 码点统计字符数(emoji / 生僻字等代理对计 1 个),与 TextAnalyzer 口径一致
+  const charCount = Array.from(value).length;
+
+  const updateStatus = (): void => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const pos = editor.getPosition();
+    if (pos) setCursor({ line: pos.lineNumber, column: pos.column });
+    const sel = editor.getSelection();
+    if (sel) {
+      const model = editor.getModel();
+      setSelected(sel.isEmpty() || !model ? 0 : model.getValueLengthInRange(sel));
+    }
+  };
+
+  const handleMount: OnMount = (editor) => {
+    editorRef.current = editor;
+    editor.onDidChangeCursorPosition(updateStatus);
+    editor.onDidChangeCursorSelection(updateStatus);
+    updateStatus();
+  };
 
   // 主题名变化时,重新定义并切换 Monaco 主题(无需重挂载编辑器)
   useEffect(() => {
@@ -224,6 +264,7 @@ export function CodeEditor({
           theme={themeName}
           value={value}
           beforeMount={handleBeforeMount}
+          onMount={handleMount}
           onChange={(v) => onChange?.(v ?? '')}
           loading={
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
@@ -293,6 +334,42 @@ export function CodeEditor({
         className="hidden"
         onChange={(e) => void handleFileChange(e.target.files)}
       />
+
+      {showStatusBar && (
+        <div
+          data-testid={dataTestId ? `${dataTestId}-status` : undefined}
+          className="flex items-center justify-end gap-2 border-t border-input px-2 py-0.5 text-xs tabular-nums text-muted-foreground"
+        >
+          <span
+            data-testid={dataTestId ? `${dataTestId}-status-pos` : undefined}
+            aria-label={`行 ${cursor.line}, 列 ${cursor.column}`}
+          >
+            行 {cursor.line}, 列 {cursor.column}
+          </span>
+          {selected > 0 && (
+            <span
+              data-testid={dataTestId ? `${dataTestId}-status-sel` : undefined}
+              aria-label={`已选择 ${selected}`}
+            >
+              (已选择{selected})
+            </span>
+          )}
+          {statusBarRight ? (
+            <span className="ml-1 flex items-center gap-2">{statusBarRight}</span>
+          ) : (
+            showCharCount && (
+              <span
+                data-testid={dataTestId ? `${dataTestId}-char-count` : undefined}
+                title={`${charCount} 个字符`}
+                aria-label={`${charCount} 个字符`}
+                className="whitespace-nowrap tabular-nums"
+              >
+                {charCount} 字符
+              </span>
+            )
+          )}
+        </div>
+      )}
     </div>
   );
 }
