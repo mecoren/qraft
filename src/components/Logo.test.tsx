@@ -3,12 +3,12 @@ import { render } from '@testing-library/react';
 import { Logo } from './Logo';
 
 describe('Logo', () => {
-  it('renders an SVG with the toolbox viewBox and currentColor fill', () => {
+  it('renders an SVG with the brand viewBox and currentColor stroke', () => {
     const { container } = render(<Logo />);
     const svg = container.querySelector('svg');
     expect(svg).not.toBeNull();
-    expect(svg).toHaveAttribute('viewBox', '0 0 220 166');
-    expect(svg).toHaveAttribute('fill', 'currentColor');
+    expect(svg).toHaveAttribute('viewBox', '0 0 120 120');
+    expect(svg).toHaveAttribute('stroke', 'currentColor');
   });
 
   it('is decorative via aria-hidden', () => {
@@ -17,10 +17,10 @@ describe('Logo', () => {
     expect(svg).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('renders two toolbox paths (body + keyhole)', () => {
+  it('renders an outlined window frame and three code-symbol strokes', () => {
     const { container } = render(<Logo />);
-    const paths = container.querySelectorAll('svg path');
-    expect(paths).toHaveLength(2);
+    expect(container.querySelectorAll('svg rect')).toHaveLength(1);
+    expect(container.querySelectorAll('svg path')).toHaveLength(3);
   });
 
   it('passes className through to the svg element', () => {

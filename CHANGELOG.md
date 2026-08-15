@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- 应用图标与内嵌 Logo 重新设计:IDE 窗口图标(圆角矩形外框 + 顶部标题栏:左侧标签 + 右侧三个圆点 + 内容区 `</>` 代码符号),参考参考图纯黑风格 + 透明背景,圆角按项目 UI `--radius-lg=8px` 在 1024 画布按比例派生(约 80px)
+  - 新增 `assets/app-icon.svg` 作为图标单一来源(替代 `assets/toolbox.svg`)
+  - `scripts/generate-app-icon.js` 改为直接渲染 `app-icon.svg`
+  - 重新生成 `src-tauri/icons/` 全套平台图标(Windows ICO / macOS ICNS / 各尺寸 PNG / iOS / Android)
+  - `src/components/Logo.tsx` 简化为「外框 + `</>`」核心语义(标题栏细节在 size-4 16px 下会糊,省略),`stroke` 跟随 `currentColor`
+
 ## [0.1.0] - 2026-07-25
 
 ### Added
