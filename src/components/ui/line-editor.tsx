@@ -125,9 +125,13 @@ export function LineEditor({
       )}
     >
       {showToolbar && (
-        <div className="flex items-center justify-between gap-2 border-b border-border px-2 py-0.5">
-          <span className="truncate pl-1 text-xs font-medium text-foreground">{title}</span>
-          <span className="flex items-center">
+        // 工具栏:min-w-0 + flex-1 让标题 truncate 在 flex 容器中真正生效,
+        // 避免长路径把工具栏撑爆溢出。右侧动作区 shrink-0 保证按钮不被挤压消失
+        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border px-2 py-0.5">
+          <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground">
+            {title}
+          </span>
+          <span className="flex shrink-0 items-center">
             {!readOnly && showPaste && (
               <ToolbarButton label="粘贴" testId={testId ? `${testId}-paste` : undefined} onClick={() => void handlePaste()}>
                 <ClipboardPaste aria-hidden className="size-3.5" />

@@ -6,6 +6,7 @@ import { useMemo, useState, type JSX } from 'react';
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/ui/code-editor';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { downloadText } from '@/lib/file-utils';
 import type { ToolProps } from './registry';
 
@@ -121,7 +122,7 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card shadow-card">
+        <ScrollArea className="min-h-0 flex-1 rounded-lg border border-border bg-card shadow-card">
           {result.error ? (
             <p data-testid="jat-error" className="px-4 py-3 text-xs text-destructive">
               {result.error}
@@ -131,35 +132,38 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
               输入 JSON 对象数组后自动生成表格
             </p>
           ) : (
-            <table className="w-full border-collapse text-body-sm" data-testid="jat-table">
-              <thead className="sticky top-0 bg-secondary">
-                <tr>
-                  {result.table.columns.map((c) => (
-                    <th
-                      key={c}
-                      className="border-b border-border px-3 py-2 text-left font-semibold"
-                    >
-                      {c}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {result.table.rows.map((row, i) => (
-                  // eslint-disable-next-line react-x/no-array-index-key -- 行无稳定业务主键,表格为只读展示
-                  <tr key={i} className="odd:bg-transparent even:bg-muted/40">
-                    {row.map((cell, j) => (
-                      // eslint-disable-next-line react-x/no-array-index-key -- 单元格随行重建
-                      <td key={j} className="border-b border-border px-3 py-1.5 align-top">
-                        {cell}
-                      </td>
+            <>
+              <table className="w-full border-collapse text-body-sm" data-testid="jat-table">
+                <thead className="sticky top-0 bg-secondary">
+                  <tr>
+                    {result.table.columns.map((c) => (
+                      <th
+                        key={c}
+                        className="border-b border-border px-3 py-2 text-left font-semibold"
+                      >
+                        {c}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {result.table.rows.map((row, i) => (
+                    // eslint-disable-next-line react-x/no-array-index-key -- 行无稳定业务主键,表格为只读展示
+                    <tr key={i} className="odd:bg-transparent even:bg-muted/40">
+                      {row.map((cell, j) => (
+                        // eslint-disable-next-line react-x/no-array-index-key -- 单元格随行重建
+                        <td key={j} className="border-b border-border px-3 py-1.5 align-top">
+                          {cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <ScrollBar orientation="horizontal" />
+            </>
           )}
-        </div>
+        </ScrollArea>
       </div>
     </div>
   );

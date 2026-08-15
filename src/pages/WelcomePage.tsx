@@ -25,6 +25,7 @@ import { useUiStore } from '@/store/uiStore';
 import { openExternal } from '@/lib/open-external';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const ISSUES_URL = 'https://github.com/mecoren/qraft/issues/new';
 const APP_VERSION = 'v0.1.0';
@@ -148,7 +149,7 @@ export function WelcomePage(): JSX.Element {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background-layer">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <ScrollArea className="min-h-0 flex-1">
         {/* Hero 通栏(纯背景,沿用页面 bg-background-layer) */}
         <div
           data-testid="welcome-hero"
@@ -270,7 +271,7 @@ export function WelcomePage(): JSX.Element {
             </Button>
           </div>
         </div>
-      </div>
+      </ScrollArea>
     </div>
   );
 }

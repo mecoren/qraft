@@ -30,6 +30,7 @@ import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
 import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import {
   Select,
@@ -191,7 +192,7 @@ function FileDropzone({
           e.target.value = '';
         }}
       />
-      <div
+      <ScrollArea
         data-testid="b64-dropzone"
         onDragOver={(e) => {
           e.preventDefault();
@@ -199,24 +200,26 @@ function FileDropzone({
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        className={`flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-lg border p-4 shadow-card transition-colors ${
+        className={`min-h-0 flex-1 rounded-lg border shadow-card transition-colors ${
           dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
         }`}
       >
-        {fileInfo ? (
-          <div className="flex flex-col items-center gap-2">
-            <FileDown aria-hidden className="size-8 text-primary" />
-            <p className="text-xs text-muted-foreground" data-testid="b64-file-info">
-              {fileInfo.name} · {formatBytes(fileInfo.size)} · {fileInfo.mime}
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <FolderOpen aria-hidden className="size-8" />
-            <p className="text-xs">{mode.hint}</p>
-          </div>
-        )}
-      </div>
+        <div className="flex h-full min-h-full items-center justify-center p-4">
+          {fileInfo ? (
+            <div className="flex flex-col items-center gap-2">
+              <FileDown aria-hidden className="size-8 text-primary" />
+              <p className="text-xs text-muted-foreground" data-testid="b64-file-info">
+                {fileInfo.name} · {formatBytes(fileInfo.size)} · {fileInfo.mime}
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+              <FolderOpen aria-hidden className="size-8" />
+              <p className="text-xs">{mode.hint}</p>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }
@@ -298,17 +301,19 @@ function BinaryPreview({
           <Save aria-hidden className="size-3.5" /> 另存为
         </HeaderAction>
       </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-3">
-        {error ? (
-          <p role="alert" data-testid="b64-error" className="text-xs text-destructive">
-            {error}
-          </p>
-        ) : !result ? (
-          <p className="text-xs text-muted-foreground">{mode.hint}</p>
-        ) : (
-          <PreviewBody modeId={mode.id} url={previewUrl} result={result} />
-        )}
-      </div>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex h-full min-h-[200px] items-center justify-center p-3">
+          {error ? (
+            <p role="alert" data-testid="b64-error" className="text-xs text-destructive">
+              {error}
+            </p>
+          ) : !result ? (
+            <p className="text-xs text-muted-foreground">{mode.hint}</p>
+          ) : (
+            <PreviewBody modeId={mode.id} url={previewUrl} result={result} />
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { formatDistanceToNow } from 'date-fns';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useHistoryStore } from '@/store/historyStore';
 import type { HistoryEntry } from '@/types/history';
 
@@ -46,7 +47,7 @@ export function HistoryPanel({ onSelect }: HistoryPanelProps): JSX.Element {
           暂无历史记录
         </div>
       ) : (
-        <div ref={parentRef} className="flex-1 overflow-auto" aria-label="历史记录列表">
+        <ScrollArea viewportRef={parentRef} className="min-h-0 flex-1" aria-label="历史记录列表">
           <ul style={{ height: `${virtualizer.getTotalSize()}px` }} className="relative">
             {virtualizer.getVirtualItems().map((vi) => {
               const entry = entries[vi.index];
@@ -75,7 +76,7 @@ export function HistoryPanel({ onSelect }: HistoryPanelProps): JSX.Element {
               );
             })}
           </ul>
-        </div>
+        </ScrollArea>
       )}
     </div>
   );

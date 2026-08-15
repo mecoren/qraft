@@ -11,6 +11,7 @@ use base64::Engine as _;
 use tauri_plugin_dialog::DialogExt;
 
 use crate::shell::AppError;
+use crate::shell::fs_reveal::fs_reveal_in_explorer_inner;
 use crate::shell::response::CommandResponse;
 
 /// 授权路径集合
@@ -129,6 +130,7 @@ pub fn extension_for_mime(mime: &str, fallback: &str) -> String {
         "image/svg+xml" => "svg",
         "image/x-icon" => "ico",
         "application/pdf" => "pdf",
+        "text/plain" => "txt",
         "audio/mpeg" => "mp3",
         "audio/wav" => "wav",
         "audio/ogg" => "ogg",
@@ -185,6 +187,7 @@ pub async fn fs_save_bytes(
     file_name: String,
     base64: String,
     mime: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
 ) -> Result<CommandResponse<Option<String>>, AppError> {
     let ext = extension_for_mime(&mime, "bin");
     let mime_name = mime.split(';').next().unwrap_or(&mime);
@@ -206,10 +209,70 @@ pub async fn fs_save_bytes(
         .decode(base64.trim())
         .map_err(|e| AppError::Unknown(format!("invalid base64: {e}")))?;
 
-    // 保存路径由用户显式选择,加入授权集合(与 fs_write_file 沙箱语义一致)
+    // 保存路径由用户显式选择,加入授权集合(与 fs_write_file 沙箱语义一致),
+    // 便于后续直接 fs_write_file 覆盖保存,无需再次弹窗
     let path_str = path_buf.to_string_lossy().into_owned();
+    authorized.authorize(&path_str);
     save_bytes_to_path(&path_str, &bytes).await?;
     Ok(CommandResponse::ok(Some(path_str)))
+}
+
+/// 在系统文件管理器中定位指定文件
+///
+/// # Errors
+///
+/// - 路径为空/不存在时返回 `AppError::Io`(`ERR_FILE_IO`)
+/// - 平台命令启动失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+#[tauri::command]
+pub fn fs_reveal_in_explorer(path: String) -> Result<CommandResponse<()>, AppError> {
+    fs_reveal_in_explorer_inner(&path)
+}
+
+/// 打开文件对话框的返回结果(路径 + 内容)
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenFileResult {
+    pub path: String,
+    pub content: String,
+}
+
+/// 弹出打开文件对话框,读取选中文件的内容
+///
+/// 用户在打开对话框中显式选择的路径会被加入授权集合,此后可通过
+/// `fs_read_file` 重新读取或 `fs_write_file` 直接覆盖保存。
+/// 用户取消对话框时返回 `Ok(CommandResponse::ok(None))`。
+///
+/// # Errors
+///
+/// - 文件读取失败(不存在/权限不足/编码非法)时返回 `AppError::Io`(`ERR_FILE_IO`)
+#[tauri::command]
+pub async fn fs_open_dialog(
+    app: tauri::AppHandle,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<Option<OpenFileResult>>, AppError> {
+    let Some(path) = app
+        .dialog()
+        .file()
+        .set_title("打开文本文件")
+        .blocking_pick_file()
+    else {
+        // 用户取消对话框:返回 None,前端据此静默处理(不视为错误)
+        return Ok(CommandResponse::ok(None));
+    };
+
+    let path_buf = path
+        .into_path()
+        .map_err(|e| AppError::Unknown(format!("open path invalid: {e}")))?;
+    let path_str = path_buf.to_string_lossy().into_owned();
+    authorized.authorize(&path_str);
+    let resp = fs_read_file_inner(&path_str, &authorized).await?;
+    let content = resp
+        .data
+        .ok_or_else(|| AppError::Unknown("fs_open_dialog: empty response".into()))?;
+    Ok(CommandResponse::ok(Some(OpenFileResult {
+        path: path_str,
+        content,
+    })))
 }
 
 #[cfg(test)]

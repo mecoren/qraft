@@ -671,7 +671,68 @@
   }
 }
 
-/* 滚动区原生滚动条占位隐藏,避免分组图标相对顶部/底部图标左移 */
+/* ============================================================
+ * 全局滚动条美化(参考 DevToys 风格)—— 全应用统一
+ * - 10px 细滚动条,track 半透明圆角,thumb 主题色圆角滑块(2px 内缩)
+ * - thumb 最小 28px,便于抓取;hover/active 加深 + 平滑过渡
+ * - 颜色全部取自主题 token(--scrollbar-slider-*),深浅主题自动适配
+ *
+ * 覆盖范围:
+ * - 所有原生滚动条(工具区 / 侧栏 / 设置 / 历史面板 / 编辑器左栏等)
+ * - Radix ScrollArea 自绘滚动条:scroll-area.tsx 的 thumb 改用同一 token
+ * - Monaco / DiffEditor 滚动条:code-editor.tsx 与 TextCompare.tsx 的
+ *   sliderSize 对齐为 6px,下方 CSS 补充圆角与过渡
+ * - 编辑器 Tab 栏横条:删除旧局部覆盖,直接继承本样式
+ * ============================================================ */
+* {
+  scrollbar-color: var(--scrollbar-slider-bg)
+    color-mix(in oklch, var(--foreground) 5%, transparent);
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: color-mix(in oklch, var(--foreground) 5%, transparent);
+  border-radius: 2em;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-slider-bg);
+  /* padding-box + 2px 透明 border:滑块四周内缩 2px,更精致(同 DevToys) */
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  min-height: 28px;
+  min-width: 28px;
+  border-radius: 2em;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-slider-hover-bg);
+}
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--scrollbar-slider-active-bg);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Monaco 编辑器滚动条滑块:圆角 + hover 过渡,与全局滚动条美化观感一致。
+ * Monaco 使用自绘滚动条(overlay 浮动),颜色由 monaco-theme.ts 的
+ * scrollbarSlider.* 控制,这里仅补充圆角、过渡与最小尺寸 */
+.monaco-editor .scrollbar .slider {
+  border-radius: 3px;
+  transition: background-color 0.3s ease;
+}
+.monaco-editor .scrollbar.vertical .slider {
+  min-height: 28px;
+}
+.monaco-editor .scrollbar.horizontal .slider {
+  min-width: 28px;
+}
+
+/* 滚动区原生滚动条占位隐藏,避免分组图标相对顶部/底部图标左移;
+ * 同时作用于 Tab 栏 ScrollArea(横向)与左侧「打开的编辑器」面板(纵向) */
 [data-slot="scroll-area-viewport"] {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -791,9 +852,11 @@
  * 自定义标题栏(Mica 材质适配)
  *
  * - .titlebar:整个标题栏,使用 L2 半透明背景(--bg-sidebar-layer),
- *   与侧边栏同源保持一致;高度 36px
- * - .titlebar-drag:可拖拽区域(data-tauri-drag-region),
- *   双击切换最大化由 Tauri 内置支持
+ *   与侧边栏同源保持一致;高度 36px;relative 供中段绝对居中
+ * - .titlebar-left:左段,展示当前工具图标 + 名称(仅工具页),悬浮弹描述 Tooltip
+ * - .titlebar-fill:拖拽填充区(data-tauri-drag-region),flex:1 撑满剩余宽度
+ * - .titlebar-center:中段,Logo + "Qraft",absolute 水平居中
+ * - .titlebar-tool:工具名悬浮区,按钮化重置,hover 背景 alpha 微提升
  * - .window-control:单个窗口控制按钮,命中区 48×36px
  * - .window-control--close:hover 反色警示(--destructive 红底白图标)
  * - .platform-mac .titlebar:macOS 左侧留 78px 红绿灯空间
@@ -803,6 +866,7 @@
  * ============================================================ */
 
 .titlebar {
+  position: relative;
   display: flex;
   align-items: center;
   height: 36px;
@@ -819,14 +883,55 @@
   padding-left: 78px;
 }
 
-.titlebar-drag {
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+  padding-left: var(--space-3);
+}
+
+.titlebar-fill {
   flex: 1;
   height: 100%;
+  min-width: 0;
+}
+
+.titlebar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding-left: var(--space-3);
-  min-width: 0;
+  height: 100%;
+}
+
+.titlebar-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 100%;
+  max-width: 320px;
+  padding: 0 var(--space-1);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--muted-foreground);
+  cursor: default;
+  transition: color var(--duration-fast, 150ms) var(--ease-standard, ease-out);
+}
+
+/* 悬浮不加背景,仅文字色微微提亮以暗示可交互 */
+.titlebar-tool:hover,
+.titlebar-tool:focus-visible {
+  background: transparent;
+  color: var(--foreground);
+}
+
+/* 工具名继承按钮的 muted 色,与中段品牌名(foreground)区分层级 */
+.titlebar-tool .titlebar-title {
+  color: inherit;
 }
 
 .titlebar-title {
@@ -928,5 +1033,7 @@
   top: 0 !important;
   bottom: auto !important;
 }
+
+
 
 

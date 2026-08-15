@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { downloadBlob, formatBytes, readFileAsDataUrl } from '@/lib/file-utils';
 import type { ToolProps } from './registry';
 
@@ -184,7 +185,7 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
           e.target.value = '';
         }}
       />
-      <div
+      <ScrollArea
         data-testid="ic-dropzone"
         onDragOver={(e) => {
           e.preventDefault();
@@ -192,30 +193,32 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        className={`flex min-h-0 flex-1 flex-col items-center justify-center gap-2 overflow-auto rounded-lg border ${
+        className={`min-h-0 flex-1 rounded-lg border ${
           dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
-        } p-4 shadow-card transition-colors`}
+        } shadow-card transition-colors`}
       >
-        {image ? (
-          <>
-            <img
-              src={image.dataUrl}
-              alt={image.name}
-              data-testid="ic-preview"
-              className="max-h-[70%] max-w-full object-contain"
-            />
-            <p className="text-xs text-muted-foreground" data-testid="ic-info">
-              {image.name} · {image.width}×{image.height} · {formatBytes(image.size)} ·{' '}
-              {image.type}
-            </p>
-          </>
-        ) : (
-          <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <FileImage aria-hidden className="size-8" />
-            <p className="text-xs">拖放图片到此处,或点击「选择图片」</p>
-          </div>
-        )}
-      </div>
+        <div className="flex h-full min-h-full flex-col items-center justify-center gap-2 p-4">
+          {image ? (
+            <>
+              <img
+                src={image.dataUrl}
+                alt={image.name}
+                data-testid="ic-preview"
+                className="max-h-[70%] max-w-full object-contain"
+              />
+              <p className="text-xs text-muted-foreground" data-testid="ic-info">
+                {image.name} · {image.width}×{image.height} · {formatBytes(image.size)} ·{' '}
+                {image.type}
+              </p>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+              <FileImage aria-hidden className="size-8" />
+              <p className="text-xs">拖放图片到此处,或点击「选择图片」</p>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }

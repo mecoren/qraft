@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FontPicker } from '@/components/ui/font-picker';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
   Card,
@@ -60,6 +61,7 @@ const SHORTCUT_KEYS: Array<{ key: keyof ShortcutBinding; label: string }> = [
   { key: 'open_history', label: '打开历史' },
   { key: 'search', label: '搜索' },
   { key: 'close_panel', label: '关闭面板' },
+  { key: 'save_file', label: '保存编辑器' },
 ];
 
 const generalSchema = z.object({
@@ -149,9 +151,9 @@ export function UpdateSection(): JSX.Element {
             <p className="text-xs text-muted-foreground">当前版本 v{updateInfo.currentVersion}</p>
           </div>
           {updateInfo.notes && (
-            <pre className="max-h-40 overflow-auto text-xs whitespace-pre-wrap">
-              {updateInfo.notes}
-            </pre>
+            <ScrollArea className="max-h-40 rounded-md border border-border">
+              <pre className="p-2 text-xs whitespace-pre-wrap">{updateInfo.notes}</pre>
+            </ScrollArea>
           )}
           <div className="flex gap-2">
             <Button onClick={handleInstallUpdate} disabled={installing}>
@@ -674,26 +676,28 @@ export function ShortcutSection(): JSX.Element {
 
 export function SettingsPanel(): JSX.Element {
   return (
-    <div className="h-full overflow-auto bg-background-layer">
-      <div className="p-6 flex flex-col gap-6">
-        <h2 className="text-lg font-semibold">设置</h2>
+    <div className="h-full bg-background-layer">
+      <ScrollArea className="h-full">
+        <div className="p-6 flex flex-col gap-6">
+          <h2 className="text-lg font-semibold">设置</h2>
 
-        {/* 主题区块:主题网格 + 自定义 accent */}
-        <ThemeSection />
+          {/* 主题区块:主题网格 + 自定义 accent */}
+          <ThemeSection />
 
-        {/* 字体区块:字体族 + 字号 + 字重 + 预览 */}
-        <FontSection />
+          {/* 字体区块:字体族 + 字号 + 字重 + 预览 */}
+          <FontSection />
 
-        {/* 通用设置表单:最大历史数 / JSON 缩进 / 确认清空 */}
-        <GeneralSection />
+          {/* 通用设置表单:最大历史数 / JSON 缩进 / 确认清空 */}
+          <GeneralSection />
 
-        {/* 快捷键表单 */}
-        <ShortcutSection />
+          {/* 快捷键表单 */}
+          <ShortcutSection />
 
-        <Separator />
+          <Separator />
 
-        <UpdateSection />
-      </div>
+          <UpdateSection />
+        </div>
+      </ScrollArea>
     </div>
   );
 }

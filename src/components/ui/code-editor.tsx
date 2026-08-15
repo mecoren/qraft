@@ -31,7 +31,8 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { readClipboardText } from '@/lib/clipboard';
 import { readFileAsText } from '@/lib/file-utils';
-import { defineThemeFor, getThemeName, useMonacoTheme } from './monaco-theme';
+import { defineThemeFor, defineVsCodeTheme, getThemeName, useMonacoTheme } from './monaco-theme';
+import { MonacoContextMenu, type MonacoEditor } from './monaco-context-menu';
 
 /** 编辑器支持的语言(未列出的语言会回退为 plaintext,不会报错) */
 export type EditorLanguage =
@@ -66,6 +67,12 @@ export interface CodeEditorProps {
   minimap?: boolean;
   /** 工具栏标题;提供时才渲染顶部标题栏(也可与 actions 连用) */
   title?: string;
+  /**
+   * 自定义工具栏标题区内容;提供时替换默认的 title 文本展示。
+   * 用于以面包屑(路径分段)等自定义 UI 取代纯文本标题,
+   * 仍受 `title` 的「非空才显示工具栏」逻辑控制。
+   */
+  header?: ReactNode;
   /** 追加到工具栏右侧的自定义按钮(如复制按钮) */
   actions?: ReactNode;
   /** 是否显示「粘贴」按钮(仅非只读时生效),默认 true */
@@ -82,6 +89,30 @@ export interface CodeEditorProps {
   showCharCount?: boolean;
   /** 测试用 data-testid */
   'data-testid'?: string;
+  /**
+   * 固定 Monaco 主题名(如 monaco-theme 的 VSCODE_THEME_NAME)。
+   * 提供时编辑器使用该固定主题,不随 data-palette 变化;缺省时保持
+   * 原有跟随调色板的行为不变。向后兼容的可选扩展。
+   */
+  fixedTheme?: string;
+  /**
+   * 嵌入模式:去除容器自身的圆角与边框,由父容器统一提供外框。
+   *
+   * 适用于编辑器已被装入已带边框/圆角的卡片场景(典型:code-editor-workspace
+   * 的 EditorWorkbench 把 CodeEditor 放进 `rounded-lg border border-border`
+   * 的右侧主页面卡片)。若不开启此模式,会出现:
+   * 1) 外层 rounded-lg(8px) 与内层 rounded-md(6px) 双层圆角嵌套
+   * 2) 外层 --border 与内层 --input 边框颜色不一致(暗色主题下分别
+   *    是 10% / 15% 白色),形成双重边框的"双线"观感
+   * 3) 父容器顶部圆角处,子容器直角内容直接露出
+   *
+   * 开启后容器不再画 `rounded-md border border-input`,完全由父容器
+   * 控制外框;内部工具栏的 `border-b` / 状态栏的 `border-t` 仍保留,
+   * 用于编辑器内部各区域的水平分隔(此时颜色跟随父容器的 --border)。
+   *
+   * 默认 false,保持独立使用时的卡片外观(向后兼容)。
+   */
+  embedded?: boolean;
 }
 
 function ToolbarButton({
@@ -118,20 +149,28 @@ export function CodeEditor({
   className,
   minimap = false,
   title,
+  header,
   actions,
-  showPaste = true,
-  showOpenFile = true,
-  showClear = true,
+  showPaste = false,
+  showOpenFile = false,
+  showClear = false,
   showStatusBar = true,
   statusBarRight,
   showCharCount = true,
   'data-testid': dataTestId,
+  fixedTheme,
+  embedded = false,
 }: CodeEditorProps): ReactNode {
   const monacoRef = useRef<Monaco | null>(null);
-  const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+  const editorRef = useRef<MonacoEditor | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // 主题名随 data-palette 变化,触发 Editor 重新应用主题
-  const themeName = useMonacoTheme();
+  // 中文右键菜单:open + 鼠标坐标(受控 Radix ContextMenu)
+  const [ctxOpen, setCtxOpen] = useState(false);
+  const [ctxPos, setCtxPos] = useState({ x: 0, y: 0 });
+  // 主题名随 data-palette 变化,触发 Editor 重新应用主题;
+  // 提供 fixedTheme 时使用固定主题(hook 无条件调用,再合并取优)
+  const paletteThemeName = useMonacoTheme();
+  const themeName = fixedTheme ?? paletteThemeName;
 
   // 光标位置(行/列均为 1-based)、当前选区字符数;无选区时 selected=0
   const [cursor, setCursor] = useState<{ line: number; column: number }>({
@@ -159,21 +198,41 @@ export function CodeEditor({
     editorRef.current = editor;
     editor.onDidChangeCursorPosition(updateStatus);
     editor.onDidChangeCursorSelection(updateStatus);
+    // 拦截 Monaco 原生右键菜单:Monaco 0.56 ESM 包无本地化 API,原生菜单恒为英文。
+    // preventDefault 后由 MonacoContextMenu(受控 Radix ContextMenu)在鼠标位置
+    // 弹出中文菜单,菜单项通过 editor.getAction(id).run() 执行相同动作。
+    editor.onContextMenu((e) => {
+      // e.event 是 Monaco 封装的 IMouseEvent;e.event.browserEvent 才是原生 MouseEvent,
+      // 其 clientX/clientY 为视口坐标,供 fixed 定位的菜单使用。
+      const native = e.event.browserEvent;
+      native.preventDefault();
+      setCtxPos({ x: native.clientX, y: native.clientY });
+      setCtxOpen(true);
+    });
     updateStatus();
   };
 
-  // 主题名变化时,重新定义并切换 Monaco 主题(无需重挂载编辑器)
+  // 主题名变化时,重新定义并切换 Monaco 主题(无需重挂载编辑器);
+  // 使用 fixedTheme 时主题为常量,只需确保应用,不随 data-palette 重定义
   useEffect(() => {
     const monaco = monacoRef.current;
     if (!monaco) return;
-    defineThemeFor(monaco, themeName);
-    monaco.editor.setTheme(themeName);
-  }, [themeName]);
+    if (fixedTheme) {
+      monaco.editor.setTheme(fixedTheme);
+    } else {
+      defineThemeFor(monaco, themeName);
+      monaco.editor.setTheme(themeName);
+    }
+  }, [themeName, fixedTheme]);
 
   // 在 monaco 实例就绪时定义初始主题
   const handleBeforeMount: BeforeMount = (monaco) => {
     monacoRef.current = monaco;
-    defineThemeFor(monaco, getThemeName());
+    if (fixedTheme) {
+      defineVsCodeTheme(monaco);
+    } else {
+      defineThemeFor(monaco, getThemeName());
+    }
   };
 
   const handlePaste = async () => {
@@ -200,6 +259,7 @@ export function CodeEditor({
 
   const showHeader =
     Boolean(title) ||
+    Boolean(header) ||
     Boolean(actions) ||
     (!readOnly && (showPaste || showOpenFile || showClear));
 
@@ -215,14 +275,25 @@ export function CodeEditor({
       data-testid={dataTestId}
       data-slot="code-editor"
       className={cn(
-        'relative flex min-h-[200px] h-full w-full flex-col overflow-hidden rounded-md border border-input',
+        'relative flex min-h-[200px] h-full w-full flex-col',
+        // 非嵌入模式:独立使用时自带圆角 + 边框,作为自包含的"卡片"
+        // 嵌入模式:由父容器统一提供外框,避免双层圆角 / 双重边框
+        !embedded && 'overflow-hidden rounded-md border border-input',
         className,
       )}
     >
       {showHeader && (
-        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 border-b border-input px-2 py-0.5">
-          <span className="truncate pl-1 text-xs font-medium text-foreground">{title}</span>
-          <span className="flex items-center">
+        // 工具栏:
+        // - flex(不 wrap):窄屏下右侧按钮区保持一行,标题区单行 truncate,
+        //   避免换行后与 Tab 栏错位重叠
+        // - min-w-0:让子项的 truncate 在 flex 容器中真正生效(默认 min-width: auto 会让
+        //   truncate 失效,文字会把容器撑爆溢出)
+        // - shrink-0 在右侧动作区:保证"粘贴/打开/清除"按钮永远不被挤压消失
+        <div className="flex min-w-0 items-center justify-between gap-x-2 border-b border-input px-2 py-0.5">
+          <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground">
+            {header ?? title}
+          </span>
+          <span className="flex shrink-0 items-center">
             {!readOnly && showPaste && (
               <ToolbarButton
                 label="粘贴"
@@ -273,6 +344,10 @@ export function CodeEditor({
           }
           options={{
             readOnly,
+            // Monaco 默认 useShadowDOM: true,编辑器(含右键菜单)渲染在 Shadow DOM 内,
+            // 应用样式无法穿透 shadow 边界覆盖菜单。关闭后菜单回到普通 DOM,
+            // 由 monaco-menu-style.ts 注入的 shadcn 化覆盖样式即可生效。
+            useShadowDOM: false,
             // 通过 CSS 变量 --app-mono-font-family 跟随用户在设置中选择的代码字体
             // (由 theme.ts 的 applyMonoFontFamily 注入,未设置时回退到 JetBrains Mono 栈)
             fontFamily:
@@ -298,8 +373,12 @@ export function CodeEditor({
             cursorSmoothCaretAnimation: 'on',
             padding: { top: 10, bottom: 10 },
             scrollbar: {
+              // 滚动条尺寸与全局美化一致:轨道 10px、滑块可见 6px
+              // (全局 thumb = 10px - 2px×2 透明 border 内缩)
               verticalScrollbarSize: 10,
               horizontalScrollbarSize: 10,
+              verticalSliderSize: 6,
+              horizontalSliderSize: 6,
               useShadows: false,
             },
             guides: {
@@ -311,7 +390,8 @@ export function CodeEditor({
             roundedSelection: true,
             overviewRulerLanes: 0,
             scrollBeyondLastColumn: 0,
-            contextmenu: true,
+            // 禁用 Monaco 自带的英文右键菜单,改用 MonacoContextMenu 中文菜单
+            contextmenu: false,
             fixedOverflowWidgets: true,
           }}
         />
@@ -325,6 +405,15 @@ export function CodeEditor({
             {placeholder}
           </div>
         )}
+        {/* 中文右键菜单:拦截 Monaco 原生英文菜单后在鼠标位置弹出 */}
+        <MonacoContextMenu
+          editor={editorRef.current}
+          readOnly={readOnly}
+          open={ctxOpen}
+          position={ctxPos}
+          onClose={() => setCtxOpen(false)}
+          data-testid={dataTestId ? `${dataTestId}-context-menu` : undefined}
+        />
       </div>
 
       <input
@@ -338,26 +427,14 @@ export function CodeEditor({
       {showStatusBar && (
         <div
           data-testid={dataTestId ? `${dataTestId}-status` : undefined}
-          className="flex items-center justify-end gap-2 border-t border-input px-2 py-0.5 text-xs tabular-nums text-muted-foreground"
+          className="flex items-center justify-between gap-1 border-t border-input px-2 py-0.5 text-xs tabular-nums text-muted-foreground"
         >
-          <span
-            data-testid={dataTestId ? `${dataTestId}-status-pos` : undefined}
-            aria-label={`行 ${cursor.line}, 列 ${cursor.column}`}
-          >
-            行 {cursor.line}, 列 {cursor.column}
-          </span>
-          {selected > 0 && (
-            <span
-              data-testid={dataTestId ? `${dataTestId}-status-sel` : undefined}
-              aria-label={`已选择 ${selected}`}
-            >
-              (已选择{selected})
-            </span>
-          )}
-          {statusBarRight ? (
-            <span className="ml-1 flex items-center gap-2">{statusBarRight}</span>
-          ) : (
-            showCharCount && (
+          {/* 左侧扩展区(预留:Git branch / errors / warnings),与 VSCode 底部左对齐 */
+          /* 目前留空,后续可扩展 */}
+          <span className="flex min-w-0 items-center gap-2" />
+          {/* 右侧主信息区,模仿 VSCode 右对齐细节;语言模式(statusBarRight)固定在最右 */}
+          <span className="flex items-center gap-2">
+            {showCharCount && (
               <span
                 data-testid={dataTestId ? `${dataTestId}-char-count` : undefined}
                 title={`${charCount} 个字符`}
@@ -366,8 +443,25 @@ export function CodeEditor({
               >
                 {charCount} 字符
               </span>
-            )
-          )}
+            )}
+            {selected > 0 && (
+              <span
+                data-testid={dataTestId ? `${dataTestId}-status-sel` : undefined}
+                aria-label={`已选择 ${selected}`}
+              >
+                (已选择{selected})
+              </span>
+            )}
+            <span
+              data-testid={dataTestId ? `${dataTestId}-status-pos` : undefined}
+              aria-label={`行 ${cursor.line}, 列 ${cursor.column}`}
+            >
+              行 {cursor.line}, 列 {cursor.column}
+            </span>
+            {statusBarRight && (
+              <span className="ml-1 flex items-center">{statusBarRight}</span>
+            )}
+          </span>
         </div>
       )}
     </div>

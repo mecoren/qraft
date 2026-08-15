@@ -1,0 +1,83 @@
+/**
+ * PathBreadcrumb —— 路径面包屑(编辑器工具栏标题)
+ *
+ * 将本地文件绝对路径按平台分隔符(/ 与 \\)拆分为多段,
+ * 用 shadcn Breadcrumb 组件渲染,末段为当前页(不可点击),
+ * 前段为面包屑项(hover 高亮)。
+ *
+ * 路径拆分明细:
+ * - Windows 路径如 C:\Users\wait\Downloads\PTS…重置轨道.md 拆为
+ *   ["C:", "Users", "wait", "Downloads", "PTS…重置轨道.md"]
+ * - POSIX 路径如 /home/user/foo.md 拆为 ["home", "user", "foo.md"]
+ * - 空字符串(untitled 文件,未保存)返回 null,不渲染
+ *
+ * 设计取舍:
+ * - 每段单独 <li> + title=完整路径片段(超长时被原生 tooltip 展示)
+ * - 段间分隔符用默认 ChevronRight,与 VSCode 资源管理器面包屑视觉接近
+ * - 不做点击跳转(本应用无文件系统路由器);末段保持不可点击
+ *   与面包屑的「当前项」语义一致
+ */
+import { Fragment, type JSX } from 'react';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+
+export interface PathBreadcrumbProps {
+  /** 完整绝对路径;空值(untitled)时不渲染 */
+  path: string;
+  /** 测试定位用 */
+  'data-testid'?: string;
+}
+
+/** 按平台分隔符拆分路径,空段过滤 */
+function splitPath(path: string): string[] {
+  return path
+    .split(/[/\\]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
+export function PathBreadcrumb({
+  path,
+  'data-testid': dataTestId,
+}: PathBreadcrumbProps): JSX.Element | null {
+  const segments = splitPath(path);
+  if (segments.length === 0) return null;
+
+  return (
+    <Breadcrumb data-testid={dataTestId}>
+      <BreadcrumbList>
+        {segments.map((segment, index) => {
+          const isLast = index === segments.length - 1;
+          return (
+            // Item + Separator 都作为 <ol> 的直接子节点(同层 <li>),
+            // shadcn 标准结构;不可再用 <BreadcrumbItem> 包 Separator
+            // (会形成 <li> 嵌套 <li> 的 HTML 错误)
+            <Fragment key={`${index}-${segment}`}>
+              <BreadcrumbItem>
+                {isLast ? (
+                  <BreadcrumbPage title={segment} className="truncate">
+                    {segment}
+                  </BreadcrumbPage>
+                ) : (
+                  <span
+                    title={segment}
+                    className="truncate transition-colors hover:text-foreground"
+                    data-testid={`${dataTestId}-segment-${index}`}
+                  >
+                    {segment}
+                  </span>
+                )}
+              </BreadcrumbItem>
+              {!isLast && <BreadcrumbSeparator />}
+            </Fragment>
+          );
+        })}
+      </BreadcrumbList>
+    </Breadcrumb>
+  );
+}

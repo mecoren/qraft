@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { invokeCommand, CommandError } from '@/lib/ipc';
 import type { ToolProps } from './registry';
 import type { ToolOutput } from '@/types/tool';
@@ -57,7 +58,8 @@ export function JwtParser({ toolId }: ToolProps) {
         </Button>
       </div>
 
-      <div className="flex flex-col gap-2 overflow-auto">
+      <ScrollArea className="min-h-0 rounded-md border border-border">
+        <div className="flex flex-col gap-2 p-3">
         {error ? (
           <div
             role="alert"
@@ -103,7 +105,8 @@ export function JwtParser({ toolId }: ToolProps) {
             解析 JWT 后将展示各部分内容
           </div>
         )}
-      </div>
+        </div>
+      </ScrollArea>
     </div>
   );
 }

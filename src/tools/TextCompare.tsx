@@ -237,8 +237,11 @@ export function TextCompare(_props: ToolProps): JSX.Element {
       cursorSmoothCaretAnimation: 'on',
       padding: { top: 10, bottom: 10 },
       scrollbar: {
+        // 与全局滚动条美化一致:轨道 10px、滑块可见 6px
         verticalScrollbarSize: 10,
         horizontalScrollbarSize: 10,
+        verticalSliderSize: 6,
+        horizontalSliderSize: 6,
         useShadows: false,
       },
       guides: {

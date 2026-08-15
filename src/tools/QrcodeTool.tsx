@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodeEditor } from '@/components/ui/code-editor';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { CopyAction } from '@/components/copy-action';
 import { downloadBlob, downloadText, readFileAsDataUrl } from '@/lib/file-utils';
 import type { ToolProps } from './registry';
@@ -192,7 +193,7 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
               e.target.value = '';
             }}
           />
-          <div
+          <ScrollArea
             data-testid="qr-dropzone"
             onDragOver={(e) => {
               e.preventDefault();
@@ -200,20 +201,22 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
             }}
             onDragLeave={() => setDragOver(false)}
             onDrop={onDrop}
-            className={`flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-lg border ${
+            className={`min-h-0 flex-1 rounded-lg border ${
               dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
-            } p-4 shadow-card transition-colors`}
+            } shadow-card transition-colors`}
           >
-            {scanPreview ? (
-              <img
-                src={scanPreview}
-                alt="待识别的二维码图片"
-                className="max-h-full max-w-full object-contain"
-              />
-            ) : (
-              <p className="text-xs text-muted-foreground">拖放二维码图片到此处</p>
-            )}
-          </div>
+            <div className="flex h-full min-h-full items-center justify-center p-4">
+              {scanPreview ? (
+                <img
+                  src={scanPreview}
+                  alt="待识别的二维码图片"
+                  className="max-h-full max-w-full object-contain"
+                />
+              ) : (
+                <p className="text-xs text-muted-foreground">拖放二维码图片到此处</p>
+              )}
+            </div>
+          </ScrollArea>
         </div>
         <CodeEditor
           title="识别结果"

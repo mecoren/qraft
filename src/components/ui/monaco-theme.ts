@@ -141,6 +141,56 @@ export function defineThemeFor(monaco: Monaco, name: string): void {
   });
 }
 
+/** 固定 VSCode 深色(Visual Studio Dark)主题名,与 app 调色板完全解耦 */
+export const VSCODE_THEME_NAME = 'qraft-vscode-dark';
+
+/**
+ * 定义一套硬编码的 VSCode vs-dark 配色主题。
+ *
+ * 与 defineThemeFor 不同,这里不读取任何 CSS 变量,全部使用 VSCode 原生
+ * vs-dark 的 hex 值(背景 #1e1e1e、行号 #858585、当前行 #2f2f2f、光标
+ * #aeafad、选区 #264f78 等),因此不随应用 data-palette 变化。
+ * 语法高亮继承 vs-dark 基线(inherit: true, rules: []),与 VSCode 默认
+ * 深色主题观感一致。供 CodeEditor 的 fixedTheme prop 使用。
+ */
+export function defineVsCodeTheme(monaco: Monaco): void {
+  monaco.editor.defineTheme(VSCODE_THEME_NAME, {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [],
+    colors: {
+      'editor.background': '#1e1e1e',
+      'editor.foreground': '#d4d4d4',
+      'editorLineNumber.foreground': '#858585',
+      'editorLineNumber.activeForeground': '#c6c6c6',
+      'editorGutter.background': '#1e1e1e',
+      'editor.selectionBackground': '#264f78',
+      'editor.inactiveSelectionBackground': '#1e3a5c',
+      'editor.lineHighlightBackground': '#2f2f2f',
+      'editor.lineHighlightBorder': '#00000000',
+      'editorCursor.foreground': '#aeafad',
+      'editorIndentGuide.background': '#404040',
+      'editorIndentGuide.activeBackground': '#707070',
+      'editorWidget.background': '#252526',
+      'editorWidget.border': '#454545',
+      'editorSuggestWidget.background': '#252526',
+      'editorSuggestWidget.border': '#454545',
+      'editorHoverWidget.background': '#252526',
+      'editorHoverWidget.border': '#454545',
+      'editorBracketMatch.background': '#264f78',
+      'editorBracketMatch.border': '#00000000',
+      'scrollbarSlider.background': '#ffffff1f',
+      'scrollbarSlider.hoverBackground': '#ffffff33',
+      'scrollbarSlider.activeBackground': '#ffffff44',
+      'editorError.foreground': '#f48771',
+      'editorWarning.foreground': '#cca700',
+      'diffEditor.insertedLineBackground': '#264f7870',
+      'diffEditor.removedLineBackground': '#5c323270',
+      'diffEditor.diagonalFill': '#00000000',
+    },
+  });
+}
+
 /**
  * 监听 <html> 的 data-palette 变化,返回与当前调色板匹配的 Monaco 主题名。
  * 供 Editor / DiffEditor 等组件在主题切换时重新定义并应用主题。

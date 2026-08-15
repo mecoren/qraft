@@ -9,6 +9,7 @@
 // CommandResponse 包络);`state` 持有 `tauri::AppHandle` 等运行时类型,仅在
 // 非测试编译下包含,避免测试二进制链接 WebView2 等 native DLL。
 
+pub mod fs_reveal;
 pub mod response;
 pub mod updater;
 
@@ -18,6 +19,7 @@ pub mod state;
 
 // AppError 在 core::error 中定义,Shell 层直接复用,避免类型割裂
 pub use crate::core::error::AppError;
+pub use fs_reveal::{fs_reveal_in_explorer_inner, reveal_command_for_platform};
 pub use response::{CommandResponse, ErrorInfo};
 pub use updater::{AvailableUpdate, CheckUpdateResponse, build_check_update_response};
 

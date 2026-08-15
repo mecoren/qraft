@@ -14,13 +14,15 @@ import {
   groupCatalogByCategory,
 } from '@/lib/tool-catalog';
 import { ICON_STROKE_WIDTH } from '@/lib/icon-constants';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function ExtensionsPage(): JSX.Element {
   const grouped = useMemo(() => groupCatalogByCategory(TOOL_ONLY_CATALOG), []);
 
   return (
-    <div className="h-full overflow-y-auto bg-background-layer">
-      <div className="mx-auto max-w-3xl px-8 py-8">
+    <div className="h-full bg-background-layer">
+      <ScrollArea className="h-full">
+        <div className="mx-auto max-w-3xl px-8 py-8">
         <header className="flex items-center gap-3">
           <span className="flex size-10 items-center justify-center rounded-lg border border-border bg-card">
             <Puzzle aria-hidden className="size-5" strokeWidth={ICON_STROKE_WIDTH} />
@@ -61,7 +63,8 @@ export function ExtensionsPage(): JSX.Element {
             全部离线运行,不访问网络。
           </p>
         </section>
-      </div>
+        </div>
+      </ScrollArea>
     </div>
   );
 }

@@ -2,12 +2,74 @@
 //
 // 实现 app_open_external(仅 http/https)、app_version、app_quit、app_check_update、app_install_update。
 
+use std::sync::Mutex;
+
+use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_updater::UpdaterExt;
 
 use crate::shell::AppError;
 use crate::shell::response::CommandResponse;
 use crate::shell::updater::{AvailableUpdate, CheckUpdateResponse, build_check_update_response};
+
+// ============ 窗口关闭守卫 ============
+
+/// 窗口关闭守卫状态:协调「用户点击关闭窗口」与前端「未保存确认」。
+///
+/// 流程(由 `lib.rs` 的 `on_window_event` 驱动):
+/// 1. 前端加载完成后调用 `window_close_ready` 置位 `webview_ready`。
+/// 2. 用户点窗口关闭 → 拦截 `CloseRequested`:若前端已就绪且未处于确认流程,
+///    则 `prevent_close` 并向前端 emit `app:close-requested`。
+/// 3. 前端检查未保存内容:
+///    - 无未保存 → 调用 `app_quit` 直接退出;
+///    - 有未保存 → 弹确认框,确认后 `app_quit`,取消后 `window_close_cancel`
+///      复位 `pending`(下次关闭可再次走确认流程)。
+/// 4. 若前端未就绪(启动瞬间)或 `pending` 已置位(再次点击关闭 = 强制退出),
+///    则放行关闭,避免前端异常/卡死时窗口无法关闭。
+#[derive(Default)]
+pub struct WindowCloseGuard {
+    pub inner: Mutex<WindowCloseGuardState>,
+}
+
+#[derive(Default)]
+pub struct WindowCloseGuardState {
+    /// 前端已加载完成并调用 `window_close_ready` 置位
+    pub webview_ready: bool,
+    /// 已拦截一次关闭并通知前端,等待确认结果
+    pub pending: bool,
+}
+
+/// 前端就绪通知:应用启动、前端加载完成后调用一次
+///
+/// # Errors
+///
+/// - 守卫互斥锁中毒时返回 `AppError::Internal`
+#[tauri::command]
+pub fn window_close_ready(app: tauri::AppHandle) -> Result<CommandResponse<()>, AppError> {
+    let guard = app.state::<WindowCloseGuard>();
+    let mut g = guard
+        .inner
+        .lock()
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("window close guard poisoned: {e}")))?;
+    g.webview_ready = true;
+    Ok(CommandResponse::ok(()))
+}
+
+/// 用户取消退出:复位 `pending`,下次关闭窗口可再次进入确认流程
+///
+/// # Errors
+///
+/// - 守卫互斥锁中毒时返回 `AppError::Internal`
+#[tauri::command]
+pub fn window_close_cancel(app: tauri::AppHandle) -> Result<CommandResponse<()>, AppError> {
+    let guard = app.state::<WindowCloseGuard>();
+    let mut g = guard
+        .inner
+        .lock()
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("window close guard poisoned: {e}")))?;
+    g.pending = false;
+    Ok(CommandResponse::ok(()))
+}
 
 // ============ URL 校验 ============
 

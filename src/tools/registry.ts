@@ -80,3 +80,4 @@ registerTool('color_blindness_simulator', () => import('./ColorBlindnessSimulato
 registerTool('image_converter', () => import('./ImageConverter').then((m) => ({ default: m.ImageConverter })));
 registerTool('text_compare', () => import('./TextCompare').then((m) => ({ default: m.TextCompare })));
 registerTool('duplicate_detector', () => import('./DuplicateDetector').then((m) => ({ default: m.DuplicateDetector })));
+registerTool('text_editor', () => import('./CodeEditor').then((m) => ({ default: m.CodeEditorTool })));

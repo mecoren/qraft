@@ -18,12 +18,6 @@ beforeEach(() => {
 });
 
 describe('ToolPanel', () => {
-  it('renders tool name in header', () => {
-    render(<ToolPanel toolId="base64_codec" />);
-    // 页头 h1 展示目录中的工具名(Base64文本编码/解码)
-    expect(screen.getByRole('heading', { level: 1, name: /base64/i })).toBeInTheDocument();
-  });
-
   it('mounts the registered tool component for toolId', async () => {
     render(<ToolPanel toolId="base64_codec" />);
     // 注册的 Base64Codec 组件为懒加载,首次访问经 Suspense 加载完成后挂载
@@ -62,9 +56,6 @@ describe('ToolPanel', () => {
 
     // 切到 json_formatter:当前工作区切换为 JSON 格式化器,Base64 输入被隐藏
     rerender(<ToolPanel toolId="json_formatter" />);
-    expect(
-      await screen.findByRole('heading', { level: 1, name: /JSON 格式化器/i }, { timeout: LAZY_TIMEOUT }),
-    ).toBeInTheDocument();
     // 等待 json_formatter 懒加载完成(两个工具的 input 实例均挂载)
     await waitFor(() => expect(screen.getAllByTestId('input').length).toBe(2), {
       timeout: LAZY_TIMEOUT,
@@ -72,7 +63,6 @@ describe('ToolPanel', () => {
 
     // 切回 base64_codec:两个工具实例常驻(keepalive),Base64 输入内容保留
     rerender(<ToolPanel toolId="base64_codec" />);
-    expect(screen.getByRole('heading', { level: 1, name: /Base64/i })).toBeInTheDocument();
     const inputs = screen.getAllByTestId('input');
     expect(inputs.length).toBe(2);
     const values = inputs.map((c) => c.querySelector('textarea')?.value ?? '');

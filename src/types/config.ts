@@ -24,6 +24,8 @@ export interface ShortcutBinding {
   open_history: string;
   search: string;
   close_panel: string;
+  /** 保存当前编辑器(文本编辑器 Ctrl+S) */
+  save_file: string;
 }
 
 export interface ToolPref {
@@ -58,6 +60,7 @@ export const DEFAULT_SHORTCUTS: ShortcutBinding = {
   open_history: 'Ctrl+H',
   search: 'Ctrl+F',
   close_panel: 'Esc',
+  save_file: 'Ctrl+S',
 };
 
 export const DEFAULT_USER_CONFIG: UserConfig = {

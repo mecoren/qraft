@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CodeEditor } from '@/components/ui/code-editor';
@@ -503,7 +504,7 @@ export function DuplicatesTable({
       </div>
 
       {/* 表格主体(虚拟滚动) */}
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+      <ScrollArea viewportRef={scrollRef} className="min-h-0 flex-1">
         {rows.length === 0 ? (
           <div
             className="flex h-full items-center justify-center px-3 py-6 text-center text-xs text-muted-foreground"
@@ -548,7 +549,7 @@ export function DuplicatesTable({
             })}
           </div>
         )}
-      </div>
+      </ScrollArea>
     </div>
   );
 }

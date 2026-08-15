@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ToolProps } from './registry';
 
 function pad(n: number): string {
@@ -124,7 +125,7 @@ export function CronParser(_props: ToolProps): JSX.Element {
           <h2 className="text-body-sm font-semibold">接下来的计划日期</h2>
           <CopyAction text={nextText} testId="cron-copy" />
         </div>
-        <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card shadow-card">
+        <ScrollArea className="min-h-0 flex-1 rounded-lg border border-border bg-card shadow-card">
           {parsed && 'next' in parsed ? (
             <ul className="divide-y divide-border">
               {parsed.next.map((t) => (
@@ -136,7 +137,7 @@ export function CronParser(_props: ToolProps): JSX.Element {
           ) : (
             <p className="px-4 py-3 text-xs text-muted-foreground">-</p>
           )}
-        </div>
+        </ScrollArea>
       </section>
     </div>
   );

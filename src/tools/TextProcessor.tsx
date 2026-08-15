@@ -324,6 +324,11 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
             placeholder="在此粘贴或输入文本..."
             className="h-full"
             data-testid="input"
+            // 文本工具需要粘贴 / 打开文件 / 清除辅助按钮;编辑器工作区不使用 CodeEditor,
+            // 不受 CodeEditor 默认关闭工具栏的全局影响。
+            showPaste
+            showOpenFile
+            showClear
           />
         </ResizablePanel>
         <ResizableHandle withHandle />

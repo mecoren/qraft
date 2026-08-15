@@ -135,10 +135,8 @@ describe('smoke: 点击工具切换 ToolPanel', () => {
     const sidebar = screen.getByRole('navigation');
     await user.click(await within(sidebar).findByTestId('nav-cat-formatter'));
     await user.click(await within(sidebar).findByRole('button', { name: /JSON 格式化器/i }));
-    // 主区域页头显示工具名
-    expect(
-      await screen.findByRole('heading', { level: 1, name: /JSON 格式化器/i }),
-    ).toBeInTheDocument();
+    // 标题栏左段显示当前工具名(工具标题区已迁移至 Titlebar)
+    expect(await screen.findByTestId('titlebar-tool-name')).toHaveTextContent(/JSON 格式化器/i);
   });
 
   it('切换工具后 currentToolId 更新', async () => {

@@ -355,6 +355,27 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
     icon: ListChecks,
     keywords: ['duplicate', 'dedupe', '去重', '重复行', 'unique', '重复'],
   },
+  {
+    id: 'text_editor',
+    name: '文本编辑器',
+    description:
+      'VSCode 风格工作区:打开的编辑器列表 + 多 Tab 文本编辑 + 打开/保存本地文件 + 跨重启持久化',
+    category: 'text',
+    icon: FileCode2,
+    keywords: [
+      'editor',
+      'text',
+      'vscode',
+      'monaco',
+      '编辑器',
+      '代码',
+      'syntax highlight',
+      'tab',
+      '工作区',
+      '打开文件',
+      '本地文件',
+    ],
+  },
 
   // —— 转换器 ——
   {
