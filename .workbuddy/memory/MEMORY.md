@@ -25,3 +25,11 @@ Rust Core → Tauri Shell → React UI；IPC 用 `invoke` / `listen`。
 - **dist 锁文件 EPERM**：`pnpm build` 的 `emptyDir(dist)` 若 `dist/index.html` 被上一次崩溃的 rolldown/esbuild 子进程锁住，会 EPERM。恢复办法：把 `dist` 改名移开（rename 不受影响），重新 build 生成全新 `dist`。
 - **集成测试架构对齐**：`App/SideNav/ToolPanel/CommandPalette` 集成测试已按「静态目录 `TOOL_CATALOG`(中文名) + 可折叠 `Sidebar` + `openTool`」重写。侧栏按钮查询必须用 `within(screen.getByRole('navigation'))` 限定作用域，否则会与 `WelcomePage`「所有工具」网格中的同名卡片冲突（网格经虚拟化仅渲染前段工具）。
 - 验证命令：`pnpm exec tsc --noEmit` / `pnpm test`(vitest, 140 用例全绿) / `pnpm build`(tsc + vite)。
+
+## 品牌图标 / Logo
+- **单一来源**：`prd/logo/icon.svg`（512×512，透明背景，窗口+代码符号）。
+- **主控 SVG**：`assets/app-icon.svg` 由 `prd/logo/icon.svg` 缩放至 1024×1024 得到，应保持同步。
+- **光栅主图**：`assets/source-icon.png`（1024×1024）作为 `tauri icon` 的输入源。
+- **Tauri 完整图标集**：运行 `./node_modules/.bin/tauri icon assets/source-icon.png` 重新生成 `src-tauri/icons/`（含 Windows Store logos、Android mipmap、iOS AppIcon、icon.ico、icon.icns）。
+- **导出尺寸**：`prd/logo/icon_32.png`、`icon_128.png`、`icon_256.png`、`icon_512.png` 分别对应 `32x32`、`128x128`、`128x128@2x`、`icon.png`。
+- **注意**：`scripts/generate-app-icon.js` 依赖 `sharp`，当前 `node_modules` 中未安装 sharp（仅 `temp-sharp-bin` 缓存），因此直接用 `tauri icon` 栅格化更可靠。
