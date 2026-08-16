@@ -491,3 +491,21 @@ export function groupCatalogByCategory(
   }
   return map;
 }
+
+/**
+ * 全量目录按分类的预构建映射(模块加载时计算一次)。
+ * 侧栏等每次渲染都需要分类列表的场景直接复用此稳定引用,
+ * 无需在 render 期重复 filter/groupBy。
+ */
+export const CATALOG_BY_CATEGORY: ReadonlyMap<
+  CatalogCategoryId,
+  readonly CatalogEntry[]
+> = (() => {
+  const map = new Map<CatalogCategoryId, CatalogEntry[]>();
+  for (const c of CATALOG_CATEGORIES) map.set(c.id, []);
+  for (const e of TOOL_CATALOG) {
+    if (e.special) continue;
+    map.get(e.category)?.push(e);
+  }
+  return map;
+})();

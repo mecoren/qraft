@@ -28,7 +28,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   CATALOG_CATEGORIES,
-  TOOL_CATALOG,
+  CATALOG_BY_CATEGORY,
   getCatalogEntry,
   searchCatalog,
   type CatalogEntry,
@@ -372,7 +372,7 @@ export function Sidebar(): JSX.Element {
               </NavGroup>
 
               {CATALOG_CATEGORIES.map((cat) => {
-                const entries = TOOL_CATALOG.filter((e) => !e.special && e.category === cat.id);
+                const entries = CATALOG_BY_CATEGORY.get(cat.id) ?? [];
                 if (entries.length === 0) return null;
                 return (
                   <NavGroup

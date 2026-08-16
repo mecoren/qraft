@@ -153,7 +153,7 @@ export function MonacoContextMenu({
   const handlePaste = useCallback(async (): Promise<void> => {
     onClose();
     if (!editor) return;
-    let text = '';
+    let text: string;
     try {
       text = await navigator.clipboard.readText();
     } catch {

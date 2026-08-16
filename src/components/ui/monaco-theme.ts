@@ -25,6 +25,27 @@ const DARK_PALETTES = new Set([
 ]);
 
 /**
+ * 颜色解析缓存(按 CSS 变量名)。同一调色板下变量值不变,
+ * 主题切换时由 defineThemeFor 清空。避免每次定义主题都对同一批变量
+ * 重复创建/读取 DOM 元素(原实现每个变量各做一次建/删元素,主题切换
+ * 按变量数量次 DOM 抖动)。
+ */
+const colorCache = new Map<string, string>();
+
+/** 复用的单个隐藏元素,用于借助浏览器把任意颜色函数解析为 rgb() */
+let probeEl: HTMLSpanElement | null = null;
+function getProbe(): HTMLSpanElement {
+  if (!probeEl) {
+    const el = document.createElement('span');
+    el.style.position = 'absolute';
+    el.style.visibility = 'hidden';
+    document.body.appendChild(el);
+    probeEl = el;
+  }
+  return probeEl;
+}
+
+/**
  * 读取 :root 上的 CSS 变量,并将其规范化为 Monaco 可接受的 hex 颜色。
  *
  * 重要:Monaco 主题(无论 colors 还是语法高亮 token)只接受 hex
@@ -41,20 +62,22 @@ const DARK_PALETTES = new Set([
  */
 function resolveColor(name: string, fallback: string): string {
   if (typeof window === 'undefined') return fallback;
+  const cached = colorCache.get(name);
+  if (cached) return cached;
+
   const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   // 已是 hex 直接返回
   if (/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(raw)) {
+    colorCache.set(name, raw);
     return raw;
   }
-  // 借助浏览器把任意格式解析为 rgb()
-  const el = document.createElement('span');
-  el.style.position = 'absolute';
-  el.style.visibility = 'hidden';
+  // 借助浏览器把任意格式解析为 rgb()(复用单个隐藏元素,避免重复建/删 DOM)
+  const el = getProbe();
   el.style.color = raw || fallback;
-  document.body.appendChild(el);
   const computed = getComputedStyle(el).color;
-  document.body.removeChild(el);
-  return rgbToHex(computed) ?? fallback;
+  const hex = rgbToHex(computed) ?? fallback;
+  colorCache.set(name, hex);
+  return hex;
 }
 
 /** 把 'rgb()' / 'rgba()' 转为 '#rrggbb' 或 '#rrggbbaa' */
@@ -81,6 +104,8 @@ export function getThemeName(): string {
  */
 export function defineThemeFor(monaco: Monaco, name: string): void {
   const palette = name.replace(/^qraft-/, '') || 'daylight';
+  // 切换调色板后变量值变化,清空颜色缓存以重新解析
+  colorCache.clear();
   const isDark = DARK_PALETTES.has(palette);
 
   monaco.editor.defineTheme(name, {

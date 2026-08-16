@@ -140,11 +140,11 @@ const CN_SYMBOL_MAP: Record<string, string> = {
   '—': '-',
   '·': '.',
   '～': '~',
-  '　': ' ',
+  '\u3000': ' ',
 };
 
 export function chineseSymbolToEnglish(input: string): string {
-  return input.replace(/[，。、；：！？（）【】「」『』《》〈〉“”‘’…—·～　]/g, (ch) =>
+  return input.replace(/[，。、；：！？（）【】「」『』《》〈〉“”‘’…—·～\u3000]/g, (ch) =>
     CN_SYMBOL_MAP[ch] ?? ch,
   );
 }

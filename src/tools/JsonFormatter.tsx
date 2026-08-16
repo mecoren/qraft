@@ -137,13 +137,14 @@ export function JsonFormatter({ toolId }: ToolProps) {
   // 输入或缩进变化后自动格式化到右侧输出(防抖,避免每次按键都调用)
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!text.trim()) {
-      setOutput('');
-      setMeta(null);
-      return;
-    }
     debounceRef.current = setTimeout(() => {
-      void runFormat(true);
+      if (!text.trim()) {
+        // 空输入:在异步回调内清空,避免在 effect 同步体内 setState 触发的级联渲染
+        setOutput('');
+        setMeta(null);
+      } else {
+        void runFormat(true);
+      }
     }, 400);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);

@@ -110,8 +110,11 @@ export function useShortcut(
   handler: () => void,
   deps: readonly unknown[],
 ): void {
-  const config = useConfigStore((s) => s.config);
-  const combo = config?.shortcuts[key] ?? DEFAULT_SHORTCUTS[key];
+  // 仅订阅该快捷键对应的单个字符串(而非整个 config 对象),
+  // 避免切换主题/字体等无关配置变更时触发本 hook 重渲染并重建监听器。
+  const combo = useConfigStore(
+    (s) => s.config?.shortcuts[key] ?? DEFAULT_SHORTCUTS[key],
+  );
 
   useEffect(() => {
     const parsed = parseShortcut(combo);

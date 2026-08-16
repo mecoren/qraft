@@ -18,7 +18,9 @@ export interface UseToolResult {
  * 组件卸载时若有未完成流式任务,自动调用 tool_cancel 取消。
  */
 export function useTool(toolId: string): UseToolResult {
-  const metadata = useToolStateStore((s) => s.availableTools.find((t) => t.id === toolId) ?? null);
+  // 使用 Map 索引而非 availableTools.find,返回的是构建后稳定的对象引用,
+  // 避免 store 任意更新都触发 find 返回新数组元素引用导致的无效重渲染。
+  const metadata = useToolStateStore((s) => s.toolMetadataById.get(toolId) ?? null);
   const running = useToolStateStore((s) => s.running);
   const executeTool = useToolStateStore((s) => s.executeTool);
   const executeStreamAction = useToolStateStore((s) => s.executeStream);

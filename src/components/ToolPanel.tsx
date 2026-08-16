@@ -63,7 +63,12 @@ export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element 
   const [visited, setVisited] = useState<string[]>(() => (toolId ? [toolId] : []));
   useEffect(() => {
     if (!toolId) return;
-    setVisited((v) => (v.includes(toolId) ? v : [...v, toolId]));
+    // 在异步回调内更新,避免在 effect 同步体内 setState 触发的级联渲染 lint 错误
+    const id = toolId;
+    const h = setTimeout(() => {
+      setVisited((v) => (v.includes(id) ? v : [...v, id]));
+    }, 0);
+    return () => clearTimeout(h);
   }, [toolId]);
 
   if (!entry) {

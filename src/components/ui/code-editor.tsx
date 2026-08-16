@@ -164,6 +164,8 @@ export function CodeEditor({
   const monacoRef = useRef<Monaco | null>(null);
   const editorRef = useRef<MonacoEditor | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // 用于在渲染期把已挂载的 editor 实例传给右键菜单,避免在 render 中直接读 editorRef.current
+  const [editorInstance, setEditorInstance] = useState<MonacoEditor | null>(null);
   // 中文右键菜单:open + 鼠标坐标(受控 Radix ContextMenu)
   const [ctxOpen, setCtxOpen] = useState(false);
   const [ctxPos, setCtxPos] = useState({ x: 0, y: 0 });
@@ -196,6 +198,7 @@ export function CodeEditor({
 
   const handleMount: OnMount = (editor) => {
     editorRef.current = editor;
+    setEditorInstance(editor);
     editor.onDidChangeCursorPosition(updateStatus);
     editor.onDidChangeCursorSelection(updateStatus);
     // 拦截 Monaco 原生右键菜单:Monaco 0.56 ESM 包无本地化 API,原生菜单恒为英文。
@@ -407,7 +410,7 @@ export function CodeEditor({
         )}
         {/* 中文右键菜单:拦截 Monaco 原生英文菜单后在鼠标位置弹出 */}
         <MonacoContextMenu
-          editor={editorRef.current}
+          editor={editorInstance}
           readOnly={readOnly}
           open={ctxOpen}
           position={ctxPos}

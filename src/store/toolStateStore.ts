@@ -28,6 +28,8 @@ interface ExecuteArgs {
 
 interface ToolState {
   availableTools: ToolMetadata[];
+  /** 按 id 索引的元数据 Map,提供 O(1) 稳定引用查找,避免每次 store 更新都重新 find 出新对象 */
+  toolMetadataById: Map<string, ToolMetadata>;
   currentToolId: string | null;
   running: boolean;
   streamingTasks: Map<string, StreamingTaskState>;
@@ -50,6 +52,7 @@ interface ToolState {
 
 export const useToolStateStore = create<ToolState>((set) => ({
   availableTools: [],
+  toolMetadataById: new Map(),
   currentToolId: null,
   running: false,
   streamingTasks: new Map(),
@@ -57,7 +60,9 @@ export const useToolStateStore = create<ToolState>((set) => ({
   loadTools: async () => {
     const r = await safeInvoke<ToolMetadata[]>('tool_list');
     if (r.ok) {
-      set({ availableTools: r.value });
+      const byId = new Map<string, ToolMetadata>();
+      for (const t of r.value) byId.set(t.id, t);
+      set({ availableTools: r.value, toolMetadataById: byId });
     }
     // 失败时不抛,UI 依赖 availableTools 长度即可判断
   },

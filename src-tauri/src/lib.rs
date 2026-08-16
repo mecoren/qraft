@@ -113,7 +113,7 @@ pub fn run() -> anyhow::Result<()> {
             std::fs::create_dir_all(&data_dir)?;
             let history_path = data_dir.join("history.jsonl");
             let history_store: Arc<dyn HistoryStore> =
-                Arc::new(JsonlHistoryStore::new(history_path));
+                Arc::new(JsonlHistoryStore::new(history_path, config_store.clone()));
 
             let state = AppState::new(executor, config_store, history_store);
             state

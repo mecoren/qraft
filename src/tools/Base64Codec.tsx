@@ -56,6 +56,15 @@ import {
   type Base64Mode,
   type Direction,
 } from './base64-utils';
+
+/** 将 base64 字符串解码为二进制字节数组(用于构造 Blob 预览) */
+function base64ToUint8Array(b64: string): Uint8Array {
+  const clean = b64.replace(/\s+/g, '');
+  const bin = typeof atob === 'function' ? atob(clean) : Buffer.from(clean, 'base64').toString('binary');
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
 import type { OutputMeta, ToolOutput } from '@/types/tool';
 import type { ToolProps } from './registry';
 
@@ -292,7 +301,24 @@ function BinaryPreview({
   error: string | null;
   onSave: () => void;
 }): JSX.Element {
-  const previewUrl = result ? `data:${result.mime};base64,${result.base64}` : '';
+  // 使用 Blob URL 而非 data: URL:大文件时 data URL 比二进制体积大 ~33%
+  // 且常驻内存;Blob URL 零额外拷贝,并在组件卸载/结果变更时释放,降低内存占用。
+  const [objectUrl, setObjectUrl] = useState('');
+  useEffect(() => {
+    // setState 统一放在 setTimeout 回调中,避免 effect 同步体内 setState 触发的级联渲染 lint 错误
+    if (!result) {
+      const h = setTimeout(() => setObjectUrl(''), 0);
+      return () => clearTimeout(h);
+    }
+    // 将 base64 解码为二进制再构造 Blob(真正的二进制预览,而 base64 文本无法直接预览)
+    const bin = base64ToUint8Array(result.base64);
+    const url = URL.createObjectURL(new Blob([bin.buffer as ArrayBuffer], { type: result.mime }));
+    const h = setTimeout(() => setObjectUrl(url), 0);
+    return () => {
+      clearTimeout(h);
+      URL.revokeObjectURL(url);
+    };
+  }, [result]);
   return (
     <div className="flex h-full min-h-[200px] flex-col overflow-hidden rounded-md border border-input bg-card">
       <div className="flex items-center justify-between border-b border-input px-2 py-0.5">
@@ -310,7 +336,7 @@ function BinaryPreview({
           ) : !result ? (
             <p className="text-xs text-muted-foreground">{mode.hint}</p>
           ) : (
-            <PreviewBody modeId={mode.id} url={previewUrl} result={result} />
+            <PreviewBody modeId={mode.id} url={objectUrl} result={result} />
           )}
         </div>
       </ScrollArea>

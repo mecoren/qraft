@@ -46,21 +46,28 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
   const [scanPreview, setScanPreview] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // 防抖 + 请求序号,避免每次按键都同步生成二维码(输入快时仅取最后一次结果)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seqRef = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
-    // 空输入走 catch 分支返回空,避免在 effect 中同步 setState 触发级联渲染
-    const target = text.trim() ? text : '';
-    void QRCode.toDataURL(target, { width: 280, margin: 2 }).then(
-      (url) => {
-        if (!cancelled) setQrDataUrl(url);
-      },
-      () => {
-        if (!cancelled) setQrDataUrl('');
-      },
-    );
+    const mySeq = ++seqRef.current;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      // 空文本直接生成空串(走 catch 分支返回空),所有 setState 放在异步回调内,
+      // 避免在 effect 同步体内 setState 触发的级联渲染 lint 错误。
+      const target = text.trim() ? text : '';
+      void QRCode.toDataURL(target, { width: 280, margin: 2 }).then(
+        (url) => {
+          if (seqRef.current === mySeq) setQrDataUrl(url);
+        },
+        () => {
+          if (seqRef.current === mySeq) setQrDataUrl('');
+        },
+      );
+    }, 400);
     return () => {
-      cancelled = true;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [text]);
 
