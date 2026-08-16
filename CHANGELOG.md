@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 应用图标全面改用最终设计稿:浅灰 `#F5F5F5` 圆角方形底色 + 近黑 `#1A1A1A` 的「圆角窗口外框 + 顶部标题栏(左侧标签 + 右侧三个窗口控制圆点)+ 内容区 `</>` 代码符号」,细节与原设计稿完全一致
+  - `assets/app-icon.svg` 替换为设计稿原样内容(补充 `viewBox="0 0 614.4 614.4"`),继续作为图标单一来源
+  - `src/components/Logo.tsx` 重写为完整细节版 SVG,颜色映射 `var(--logo-bg)` / `var(--logo-fg)` 主题变量
+  - `globals.css` 新增 logo 主题 token:亮色默认 `#F5F5F5` / `#1A1A1A`,5 套暗色调色板(obsidian / deep-sea / twilight / emerald-night / custom)自动反色为 `#1A1A1A` / `#F5F5F5`
+  - 侧栏品牌区 / 标题栏中段 / 欢迎页 Hero 的 Logo 引用点适配(移除原 primary 容器与文本色类)
+  - 重新生成 `src-tauri/icons/` 全套平台图标(Windows ICO / macOS ICNS / 各尺寸 PNG / iOS / Android / Appx)
+  - 打包图标(任务栏/桌面)使用亮色原版,无主题感知;暗色反色作用于应用内 Logo
+
 - 应用图标与内嵌 Logo 重新设计:IDE 窗口图标(圆角矩形外框 + 顶部标题栏:左侧标签 + 右侧三个圆点 + 内容区 `</>` 代码符号),参考参考图纯黑风格 + 透明背景,圆角按项目 UI `--radius-lg=8px` 在 1024 画布按比例派生(约 80px)
   - 新增 `assets/app-icon.svg` 作为图标单一来源(替代 `assets/toolbox.svg`)
   - `scripts/generate-app-icon.js` 改为直接渲染 `app-icon.svg`

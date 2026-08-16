@@ -63,7 +63,7 @@ export function Titlebar(): JSX.Element {
 
         {/* 中段:应用 Logo + 名称,绝对居中 */}
         <div className="titlebar-center" data-tauri-drag-region>
-          <Logo className="size-4 text-muted-foreground" />
+          <Logo className="size-4" />
           <span className="titlebar-title">Qraft</span>
         </div>
 

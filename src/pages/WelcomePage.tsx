@@ -156,7 +156,7 @@ export function WelcomePage(): JSX.Element {
           className="relative overflow-hidden px-8 py-9"
         >
           <div className="flex items-center gap-3">
-            <Logo className="size-10 shrink-0 text-hero-foreground" />
+            <Logo className="size-10 shrink-0" />
             <h1 className="text-hero font-bold leading-tight tracking-tight text-hero-foreground">
               欢迎使用 Qraft
               <span className="ml-2 align-middle text-xs font-normal text-hero-foreground/70">
