@@ -18,20 +18,14 @@
  * - 卸载时清空 Titlebar 菜单栏(由 useToolMenus effect cleanup 自动处理)
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { DiffEditor, type Monaco } from '@monaco-editor/react';
+import { DiffEditor, type Monaco, type MonacoDiffEditor } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
-import { FilePlus2, FolderOpen } from 'lucide-react';
+import { FilePlus2, FolderOpen, GitCompareArrows } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { defineThemeFor, getThemeName, useMonacoTheme } from '@/components/ui/monaco-theme';
 import { useShortcut } from '@/hooks/useShortcut';
 import { listen, safeInvoke } from '@/lib/ipc';
@@ -52,13 +46,21 @@ import {
 } from './fileOps';
 import { useToolMenus } from '@/store/toolMenubarStore';
 import type { ToolMenu } from '@/types/tool-menu';
-import type { EditorTab } from './schema';
+import type { ComparePair, EditorTab } from './schema';
 
 /** 批量关闭意图:用于未保存确认通过后执行对应 store 动作 */
 type BatchCloseAction = 'close-others' | 'close-right' | 'close-all';
 
 /** workspace 变更后持久化防抖间隔(ms) */
 const PERSIST_DEBOUNCE_MS = 400;
+
+/** 生成稳定唯一对比 id */
+function createCompareId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `compare-${crypto.randomUUID()}`;
+  }
+  return `compare-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const workspace = useEditorWorkspaceStore((s) => s.workspace);
@@ -73,10 +75,17 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
    * 存储层不落盘(纯会话内 UI 状态),关闭文件时同步剔除失效 id。
    */
   const [selectedTabIds, setSelectedTabIds] = useState<string[]>([]);
-  /** 文件对比差异对话框:null = 关闭;否则为两个对比文件 */
-  const [comparePair, setComparePair] = useState<
-    { left: EditorTab; right: EditorTab } | null
-  >(null);
+  /** 已创建的对比项列表(不落盘,纯会话内 UI 状态) */
+  const [compares, setCompares] = useState<ComparePair[]>([]);
+  /** 当前激活的对比项 id(主区域显示其 diff) */
+  const [activeCompareId, setActiveCompareId] = useState<string | null>(null);
+  /**
+   * 分隔条 hover / 拖拽中状态:
+   * 拖拽分隔条时鼠标会移出侧栏面板,导致侧栏悬浮态丢失、按钮/徽章闪烁;
+   * 这两个状态同步给 EditorLeftSidebar(actionsForced)保持按钮稳定显示。
+   */
+  const [handleHovered, setHandleHovered] = useState(false);
+  const [handleActive, setHandleActive] = useState(false);
 
   // 首次挂载从 Rust config 还原工作区
   useEffect(() => {
@@ -137,6 +146,16 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   }, []);
 
   const activeTab = workspace.tabs.find((t) => t.id === workspace.activeTabId) ?? null;
+  /** 当前激活的对比项及左右文件(引用失效时回退 null) */
+  const activeCompare =
+    (activeCompareId && compares.find((cp) => cp.id === activeCompareId)) ?? null;
+  const compareLeft = activeCompare
+    ? workspace.tabs.find((t) => t.id === activeCompare.leftTabId) ?? null
+    : null;
+  const compareRight = activeCompare
+    ? workspace.tabs.find((t) => t.id === activeCompare.rightTabId) ?? null
+    : null;
+  const showCompare = Boolean(activeCompare && compareLeft && compareRight);
 
   /** 打开本地文件对话框并载入(或激活已打开的同路径 Tab) */
   const handleOpen = useCallback(async () => {
@@ -144,6 +163,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       const result = await openTextFileDialog();
       if (result) {
         useEditorWorkspaceStore.getState().openLocalFile(result.path, result.content);
+        setActiveCompareId(null);
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '打开文件失败');
@@ -192,12 +212,20 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   // 快捷键字符串可到设置里自定义;无激活 Tab 时是安全的 no-op。
   useShortcut('save_file', handleSave, [handleSave]);
 
-  /** 请求关闭单个 Tab:未保存时先弹确认,干净则直接关闭 */
+  /**
+   * 请求关闭单个 Tab:
+   * - 未保存 → 弹「保存 / 不保存 / 取消」
+   * - 固定 Tab(无论是否未保存)→ 弹「关闭 / 取消」确认
+   * - 其余干净 Tab → 直接关闭
+   */
   const requestCloseTab = useCallback((id: string) => {
     const state = useEditorWorkspaceStore.getState();
     const tab = state.workspace.tabs.find((t) => t.id === id);
     if (!tab) return;
-    if (tab.content !== tab.savedContent) {
+    if (tab.pinned) {
+      // 固定 Tab 关闭一律确认,避免误关用户特意保留的 Tab
+      setUnsaved({ mode: 'close-pinned', tabId: id });
+    } else if (tab.content !== tab.savedContent) {
       setUnsaved({ mode: 'close-tab', tabId: id });
     } else {
       state.closeTab(id);
@@ -279,20 +307,48 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   }, []);
 
   /**
-   * 左栏选中处理(单击 / Ctrl+点击):
-   * - additive=false(普通点击):单选该文件,清除其它多选
-   * - additive=true(Ctrl/Cmd+点击):切换该文件在选中集合中的存在
-   * 同时总是激活该 Tab。
+   * 左栏选中处理(单击 / Ctrl+点击)。
+   *
+   * 「选中集合」= selectedTabIds ∪ {activeTabId}(去重),表示当前参与对比的候选文件。
+   * - additive=false(普通点击):仅激活该文件,清空多选(选中集合=仅该文件)
+   * - additive=true(Ctrl/Cmd+点击):**先把原先高亮(激活)的文件纳入选中集**,
+   *   再切换点击的文件在选中集中的存在,避免激活文件在切 Tab 后丢失
+   *
+   * 选中集合最多 2 个文件:
+   * - 第 3 个时**直接报错**并拒绝加入,避免选中过多后对比时静默只取前两个
    */
   const handleSelectMany = useCallback((id: string, additive: boolean) => {
     const state = useEditorWorkspaceStore.getState();
     const tab = state.workspace.tabs.find((t) => t.id === id);
     if (!tab) return;
+    if (additive) {
+      // 基准选中集:当前激活 Tab 必须计入(去重),保证"原先高亮的"不丢失
+      const base = selectedTabIds.includes(workspace.activeTabId ?? '')
+        ? selectedTabIds
+        : [...selectedTabIds, ...(workspace.activeTabId ? [workspace.activeTabId] : [])];
+      // 点击的文件已在选中集 → 取消;否则加入
+      const next = base.includes(id)
+        ? base.filter((x) => x !== id)
+        : [...base, id];
+      if (new Set(next).size > 2) {
+        toast.error('一次最多选中两个文件进行对比');
+        return;
+      }
+      state.switchTab(id);
+      setActiveCompareId(null);
+      setSelectedTabIds(next);
+      return;
+    }
+    // 普通点击:仅激活该文件,清空多选
     state.switchTab(id);
-    setSelectedTabIds((prev) => {
-      if (!additive) return [];
-      return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-    });
+    setActiveCompareId(null);
+    setSelectedTabIds([]);
+  }, [selectedTabIds, workspace.activeTabId]);
+
+  /** 点击左栏普通文件:激活该 Tab 并退出对比视图 */
+  const handleSelectTab = useCallback((id: string) => {
+    useEditorWorkspaceStore.getState().switchTab(id);
+    setActiveCompareId(null);
   }, []);
 
   /** 关闭文件后,从选中集合剔除已关闭的 Tab,避免残留失效 id */
@@ -302,27 +358,74 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   }, [workspace.tabs]);
 
   /**
-   * 比较所选内容:从激活 Tab + 多选集合中取前两个文件,
-   * 打开 Monaco DiffEditor 并排对比差异。
+   * 比较所选内容:从多选集合中取参与对比的两个文件。
+   *
+   * 选择集为「恰好 2 个」时直接对比;不足 2 个提示需选中两个;
+   * 超过 2 个时**直接报错**,避免静默只取前两个造成困惑。
    */
   const handleCompareSelected = useCallback(() => {
     const state = useEditorWorkspaceStore.getState();
-    const { tabs, activeTabId } = state.workspace;
-    // 确定参与对比的文件顺序:激活 Tab 优先,随后按多选顺序补足
+    const { tabs } = state.workspace;
+    // 参与对比的候选 = 多选集合 + 激活 Tab(去重)
     const chosen: EditorTab[] = [];
-    const active = tabs.find((t) => t.id === activeTabId);
-    if (active) chosen.push(active);
     for (const id of selectedTabIds) {
-      if (chosen.length >= 2) break;
       const tab = tabs.find((t) => t.id === id);
       if (tab && !chosen.some((c) => c.id === tab.id)) chosen.push(tab);
     }
+    const active = tabs.find((t) => t.id === state.workspace.activeTabId);
+    if (active && !chosen.some((c) => c.id === active.id)) chosen.push(active);
     if (chosen.length < 2) {
       toast.info('请先选中至少两个文件再进行对比');
       return;
     }
-    setComparePair({ left: chosen[0], right: chosen[1] });
+    if (chosen.length > 2) {
+      toast.error('一次只能对比两个文件,请先取消多余的选中再试');
+      return;
+    }
+    const pair: ComparePair = {
+      id: createCompareId(),
+      leftTabId: chosen[0].id,
+      rightTabId: chosen[1].id,
+    };
+    setCompares((prev) => [...prev, pair]);
+    setActiveCompareId(pair.id);
   }, [selectedTabIds]);
+
+  /** 点击左栏对比项:切换激活该对比 */
+  const handleSelectCompare = useCallback((id: string) => {
+    setActiveCompareId(id);
+  }, []);
+
+  /** 关闭对比项:移除该对比,激活态自动跳到相邻(或清空) */
+  const handleCloseCompare = useCallback((id: string) => {
+    setCompares((prev) => {
+      const next = prev.filter((cp) => cp.id !== id);
+      setActiveCompareId((active) => {
+        if (active !== id) return active;
+        const idx = prev.findIndex((cp) => cp.id === id);
+        return next[Math.min(idx, next.length - 1)]?.id ?? null;
+      });
+      return next;
+    });
+  }, []);
+
+  /** 关闭整个「对比差异」分组:清空全部对比项并退出对比视图 */
+  const handleCloseAllCompares = useCallback(() => {
+    setCompares([]);
+    setActiveCompareId(null);
+  }, []);
+
+  /** 对比项引用的 Tab 被关闭时,自动清理该对比项 */
+  useEffect(() => {
+    setCompares((prev) => {
+      const valid = new Set(useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.id));
+      const next = prev.filter((cp) => valid.has(cp.leftTabId) && valid.has(cp.rightTabId));
+      if (next.length !== prev.length) {
+        setActiveCompareId((active) => (active && next.some((cp) => cp.id === active) ? active : next[0]?.id ?? null));
+      }
+      return next;
+    });
+  }, [workspace.tabs]);
 
   /**
    * 全部保存:遍历 dirty Tab 逐个保存。
@@ -341,6 +444,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
 
   const handleNewTab = useCallback(() => {
     useEditorWorkspaceStore.getState().newBlankTab();
+    setActiveCompareId(null);
   }, []);
 
   /** 切换左栏显隐(菜单「视图」) */
@@ -477,11 +581,14 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     });
   }, [unsaved, saveTabById]);
 
-  /** 未保存对话框:不保存关闭 / 放弃并退出 */
+  /** 未保存对话框:不保存关闭 / 确认关闭固定 Tab / 放弃并退出 */
   const handleUnsavedDiscard = useCallback(() => {
     if (!unsaved) return;
     const state = useEditorWorkspaceStore.getState();
-    if (unsaved.mode === 'close-tab' && unsaved.tabId) {
+    if (
+      (unsaved.mode === 'close-tab' || unsaved.mode === 'close-pinned') &&
+      unsaved.tabId
+    ) {
       state.closeTab(unsaved.tabId);
     } else if (unsaved.mode === 'close-all') {
       state.closeAllTabs();
@@ -509,7 +616,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
 
   const dirtyCount = workspace.tabs.filter((t) => t.content !== t.savedContent).length;
   const unsavedTabTitle =
-    unsaved?.mode === 'close-tab' && unsaved.tabId
+    (unsaved?.mode === 'close-tab' || unsaved?.mode === 'close-pinned') && unsaved.tabId
       ? workspace.tabs.find((t) => t.id === unsaved.tabId)?.title
       : undefined;
 
@@ -530,9 +637,14 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
             activeTabId={workspace.activeTabId}
             dirtyCount={workspace.tabs.filter((t) => t.content !== t.savedContent).length}
             selectedTabIds={selectedTabIds}
-            onSelect={(id) => useEditorWorkspaceStore.getState().switchTab(id)}
+            onSelect={handleSelectTab}
             onSelectMany={handleSelectMany}
             onCompareSelected={handleCompareSelected}
+            compares={compares}
+            activeCompareId={activeCompareId}
+            onSelectCompare={handleSelectCompare}
+            onCloseCompare={handleCloseCompare}
+            onCloseAllCompares={handleCloseAllCompares}
             onClose={requestCloseTab}
             onCloseOthers={(id) => requestCloseBatch('close-others', id)}
             onCloseRight={(id) => requestCloseBatch('close-right', id)}
@@ -546,19 +658,28 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
             onCloseAll={requestCloseAll}
             saveAllDisabled={workspace.tabs.length === 0}
             closeAllDisabled={workspace.tabs.length === 0}
+            // 拖拽分隔条期间强制按钮/徽章保持显示(避免鼠标移出面板导致闪烁)
+            actionsForced={handleHovered || handleActive}
             data-testid="editor-sidebar"
           />
         </div>
         {/* 自定义拖拽分隔条:位于两卡片中间,hover/聚焦时高亮 */}
-        <SidebarResizeHandle />
+        <SidebarResizeHandle
+          onHoverChange={setHandleHovered}
+          onActiveChange={setHandleActive}
+        />
         {/* 右侧主页面卡片:含 Tab 栏与编辑器。
           编辑器直接撑满整个卡片内容区(去掉内边距与上下间距),与设计图一致。 */}
         <div className="flex h-full min-w-0 min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm">
           <EditorTabsBar
             tabs={workspace.tabs}
             activeTabId={workspace.activeTabId}
-            onSelect={(id) => useEditorWorkspaceStore.getState().switchTab(id)}
+            onSelect={handleSelectTab}
             onClose={requestCloseTab}
+            compares={compares}
+            activeCompareId={activeCompareId}
+            onSelectCompare={handleSelectCompare}
+            onCloseCompare={handleCloseCompare}
             onCloseOthers={(id) => requestCloseBatch('close-others', id)}
             onCloseRight={(id) => requestCloseBatch('close-right', id)}
             onCloseSaved={requestCloseSaved}
@@ -571,7 +692,21 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
           />
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {activeTab ? (
+          {showCompare && compareLeft && compareRight ? (
+            /* 对比差异视图:直接在页面中显示,两侧均可直接编辑 */
+            <FileCompareView
+              key={activeCompareId ?? 'compare'}
+              left={compareLeft}
+              right={compareRight}
+              onChangeLeft={(v) =>
+                useEditorWorkspaceStore.getState().setTabContent(compareLeft.id, v)
+              }
+              onChangeRight={(v) =>
+                useEditorWorkspaceStore.getState().setTabContent(compareRight.id, v)
+              }
+              data-testid="compare-view"
+            />
+          ) : activeTab ? (
             <CodeEditor
               key={activeTab.id}
               data-testid="editor"
@@ -632,25 +767,15 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         data-testid="unsaved-dialog"
       />
 
-      {/* 文件对比差异对话框:左栏多选 ≥2 个文件后,右键 → 比较所选内容 */}
-      <FileCompareDialog
-        open={comparePair !== null}
-        left={comparePair?.left ?? null}
-        right={comparePair?.right ?? null}
-        onOpenChange={(open) => {
-          if (!open) setComparePair(null);
-        }}
-        data-testid="compare-dialog"
-      />
       </div>
     </TooltipProvider>
   );
 }
 
-/** 对比差异对话框的 Monaco DiffEditor 配置(与编辑器展示风格保持一致) */
+/** 对比差异视图的 Monaco DiffEditor 配置(与文本比较工具一致,两侧均可编辑) */
 const diffOptions: editor.IDiffEditorConstructionOptions = {
-  originalEditable: false,
-  readOnly: true,
+  originalEditable: true,
+  readOnly: false,
   renderSideBySide: true,
   useShadowDOM: false,
   fontFamily:
@@ -693,28 +818,35 @@ const diffOptions: editor.IDiffEditorConstructionOptions = {
 };
 
 /**
- * 文件对比差异对话框 —— 两个已打开文件的内容并排 Diff
+ * 文件对比差异视图 —— 两个已打开文件的内容并排 Diff(直接嵌入主区域)
  *
- * - 左侧为「原文件」,右侧为「目标文件」,均由 Monaco DiffEditor 只读渲染,
+ * - 左侧为「原文件」,右侧为「目标文件」,由 Monaco DiffEditor 渲染,
  *   差异行高亮,差异区域可折叠。
- * - 对话框顶部以「左 文件 A ↔ 右 文件 B」的形式展示对比双方文件名。
- * - 关闭时通过 onOpenChange(false) 由父组件清空 comparePair。
+ * - 与文本比较工具一致:**两侧均可直接编辑**,编辑内容实时写回对应
+ *   文件 Tab(通过 onChangeLeft / onChangeRight 回调),diff 差异实时重算。
+ * - 非受控策略(参考 TextCompare):挂载时用初始值 setValue 一次,
+ *   之后内容保存在 Monaco model 内,不通过 props 重建,避免每次按键重建 diff。
+ * - 顶部以「左 文件 A ↔ 右 文件 B」的形式展示对比双方文件名。
  */
-function FileCompareDialog({
-  open,
+function FileCompareView({
   left,
   right,
-  onOpenChange,
+  onChangeLeft,
+  onChangeRight,
   'data-testid': dataTestId,
 }: {
-  open: boolean;
-  left: EditorTab | null;
-  right: EditorTab | null;
-  onOpenChange: (open: boolean) => void;
+  left: EditorTab;
+  right: EditorTab;
+  /** 左侧(原文件)内容变化回调(写回对应 Tab) */
+  onChangeLeft: (value: string) => void;
+  /** 右侧(目标文件)内容变化回调(写回对应 Tab) */
+  onChangeRight: (value: string) => void;
   'data-testid'?: string;
 }): JSX.Element {
   const themeName = useMonacoTheme();
   const monacoRef = useRef<Monaco | null>(null);
+  // 挂载时的初始内容快照(仅在首次挂载时写入编辑器)
+  const initialRef = useRef({ left: left.content, right: right.content });
 
   const handleBeforeMount = useCallback((monaco: Monaco) => {
     monacoRef.current = monaco;
@@ -729,55 +861,66 @@ function FileCompareDialog({
     monaco.editor.setTheme(themeName);
   }, [themeName]);
 
+  /** 挂载 DiffEditor:写入初始内容,并订阅两侧内容变化写回 */
+  const handleMount = useCallback(
+    (diff: MonacoDiffEditor, monaco: Monaco) => {
+      monacoRef.current = monaco;
+      const originalEditor = diff.getOriginalEditor();
+      const modifiedEditor = diff.getModifiedEditor();
+      originalEditor.setValue(initialRef.current.left);
+      modifiedEditor.setValue(initialRef.current.right);
+      originalEditor.onDidChangeModelContent(() => {
+        onChangeLeft(originalEditor.getValue());
+      });
+      modifiedEditor.onDidChangeModelContent(() => {
+        onChangeRight(modifiedEditor.getValue());
+      });
+    },
+    [onChangeLeft, onChangeRight],
+  );
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        data-testid={dataTestId}
-        className="flex h-[85vh] max-w-[92vw] flex-col"
+    <div
+      data-testid={dataTestId}
+      className="flex h-full min-h-0 w-full min-w-0 flex-col"
+    >
+      {/* 对比双方文件名头 */}
+      <div
+        data-testid={`${dataTestId}-headers`}
+        className="flex shrink-0 items-center gap-2 border-b border-input px-2 py-1 text-xs"
       >
-        <DialogTitle className="text-sm font-semibold">比较所选内容</DialogTitle>
-        <DialogDescription className="sr-only">
-          两个已打开文件的并排差异对比
-        </DialogDescription>
-        {/* 对比双方文件名头 */}
-        <div
-          data-testid={`${dataTestId}-headers`}
-          className="flex items-center gap-2 text-xs"
+        <span
+          data-testid={`${dataTestId}-left-title`}
+          className="min-w-0 flex-1 truncate rounded px-1.5 py-0.5 bg-muted text-muted-foreground"
+          title={left.path ?? left.title}
         >
-          <span
-            data-testid={`${dataTestId}-left-title`}
-            className="min-w-0 flex-1 truncate rounded px-1.5 py-0.5 bg-muted text-muted-foreground"
-            title={left?.path ?? left?.title}
-          >
-            {left?.title ?? '—'}
-          </span>
-          <span className="shrink-0 text-muted-foreground">↔</span>
-          <span
-            data-testid={`${dataTestId}-right-title`}
-            className="min-w-0 flex-1 truncate rounded px-1.5 py-0.5 bg-muted text-muted-foreground"
-            title={right?.path ?? right?.title}
-          >
-            {right?.title ?? '—'}
-          </span>
-        </div>
-        <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-border">
-          <DiffEditor
-            language="plaintext"
-            theme={themeName}
-            beforeMount={handleBeforeMount}
-            original={left?.content}
-            modified={right?.content}
-            options={diffOptions}
-            className="h-full"
-            loading={
-              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                加载编辑器…
-              </div>
-            }
-          />
-        </div>
-      </DialogContent>
-    </Dialog>
+          {left.title}
+        </span>
+        <GitCompareArrows aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+        <span
+          data-testid={`${dataTestId}-right-title`}
+          className="min-w-0 flex-1 truncate rounded px-1.5 py-0.5 bg-muted text-muted-foreground"
+          title={right.path ?? right.title}
+        >
+          {right.title}
+        </span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <DiffEditor
+          language="plaintext"
+          theme={themeName}
+          beforeMount={handleBeforeMount}
+          onMount={handleMount}
+          options={diffOptions}
+          className="h-full"
+          loading={
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+              加载编辑器…
+            </div>
+          }
+        />
+      </div>
+    </div>
   );
 }
 
@@ -797,13 +940,32 @@ function FileCompareDialog({
  * - hover/focus/active:显示一条与分割空间同宽(4px)的主色蓝线,
  *   同时出现 grip 图标,用户一眼即可识别「此处可拖动调整宽度」
  */
-function SidebarResizeHandle(): JSX.Element {
+function SidebarResizeHandle({
+  onHoverChange,
+  onActiveChange,
+}: {
+  /** hover 状态变化回调(父组件用于联动侧栏动作按钮显隐) */
+  onHoverChange?: (v: boolean) => void;
+  /** 拖拽中状态变化回调(同上) */
+  onActiveChange?: (v: boolean) => void;
+}): JSX.Element {
   const startWidthRef = useRef<number>(0);
   const startXRef = useRef<number>(0);
   const [active, setActive] = useState(false);
   const [hovered, setHovered] = useState(false);
   /** 订阅当前左栏宽度,用于可访问性 aria-valuenow 实时跟随拖拽更新 */
   const sidebarWidth = useEditorWorkspaceStore((s) => s.workspace.sidebarWidth);
+
+  /** 统一的 hover 状态更新:内部 state + 外部回调保持同步 */
+  const updateHovered = (v: boolean): void => {
+    setHovered(v);
+    onHoverChange?.(v);
+  };
+  /** 统一的拖拽中状态更新:内部 state + 外部回调保持同步 */
+  const updateActive = (v: boolean): void => {
+    setActive(v);
+    onActiveChange?.(v);
+  };
 
   const onMouseDown = (e: React.MouseEvent<HTMLDivElement>): void => {
     e.preventDefault();
@@ -813,7 +975,7 @@ function SidebarResizeHandle(): JSX.Element {
     document.body.style.cursor = 'col-resize';
     // eslint-disable-next-line react-hooks/immutability
     document.body.style.userSelect = 'none';
-    setActive(true);
+    updateActive(true);
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
@@ -831,7 +993,7 @@ function SidebarResizeHandle(): JSX.Element {
     document.body.style.cursor = '';
     // eslint-disable-next-line react-hooks/immutability
     document.body.style.userSelect = '';
-    setActive(false);
+    updateActive(false);
   }
 
   const highlighted = hovered || active;
@@ -840,8 +1002,8 @@ function SidebarResizeHandle(): JSX.Element {
     <div
       data-testid="editor-split-handle"
       onMouseDown={onMouseDown}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => updateHovered(true)}
+      onMouseLeave={() => updateHovered(false)}
       role="separator"
       aria-orientation="vertical"
       aria-valuenow={sidebarWidth}

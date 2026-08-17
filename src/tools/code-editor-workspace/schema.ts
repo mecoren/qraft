@@ -33,6 +33,22 @@ export interface EditorTab {
   pinned: boolean;
 }
 
+/**
+ * 一次文件对比(左栏「对比差异」分组中的一条)
+ *
+ * 只存 Tab id,不存内容快照:渲染时从当前 workspace 的 tabs 实时取内容,
+ * 保证对比双方在编辑后的 diff 是最新的;引用的 Tab 被关闭时由
+ * EditorWorkbench 自动清理对应对比项。
+ */
+export interface ComparePair {
+  /** 稳定唯一 id(React key / 激活切换定位用) */
+  id: string;
+  /** 左侧(原文件)Tab id */
+  leftTabId: string;
+  /** 右侧(目标文件)Tab id */
+  rightTabId: string;
+}
+
 /** 工作区状态(整体持久化单元) */
 export interface Workspace {
   tabs: EditorTab[];
