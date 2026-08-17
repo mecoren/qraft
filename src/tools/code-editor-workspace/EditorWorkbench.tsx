@@ -454,7 +454,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex h-full flex-col bg-background-layer" data-testid="editor-workbench">
-      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 gap-1 overflow-hidden bg-muted/30 p-2" data-testid="editor-split">
+      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 gap-1 overflow-hidden" data-testid="editor-split">
         {/* 左栏卡片:固定像素宽度,由 sidebarWidth(持久化)控制,收起时宽度 0 */}
         <div
           className="h-full shrink-0 overflow-hidden rounded-lg border border-border bg-sidebar shadow-sm transition-shadow"
