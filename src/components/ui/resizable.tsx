@@ -14,7 +14,6 @@
  */
 
 import * as React from 'react';
-import { GripVertical } from 'lucide-react';
 import * as ResizablePrimitive from 'react-resizable-panels';
 
 import { cn } from '@/lib/utils';
@@ -26,7 +25,7 @@ function ResizablePanelGroup({
   return (
     <ResizablePrimitive.Group
       className={cn(
-        'flex h-full w-full gap-3 data-[panel-group-direction=vertical]:flex-col',
+        'flex h-full w-full gap-1 data-[panel-group-direction=vertical]:flex-col',
         className,
       )}
       {...props}
@@ -46,23 +45,19 @@ function ResizableHandle({
   return (
     <ResizablePrimitive.Separator
       className={cn(
-        // 横向分隔条(竖向细线),hover/拖拽时高亮为主题主色
-        'relative flex w-px items-center justify-center bg-border outline-none transition-colors',
-        'hover:bg-primary/60 data-[resize-handle-state=drag]:bg-primary',
+        // 中间不渲染任何图标/组件。4px 宽点击区,默认完全透明(中间无分割线);
+        // 悬浮/聚焦/拖拽时高亮为一条主色线,指示「此处可拖动」(与工作台左栏分隔条一致)。
+        // 注意:react-resizable-panels v4 的拖拽状态属性是 data-separator(取值 active/hover/focus),
+        // 旧版 shadcn 的 data-resize-handle-state 在该版本中不存在。
+        'relative flex h-full w-1 shrink-0 items-center justify-center self-stretch bg-transparent outline-none transition-colors',
+        'hover:bg-primary focus-visible:bg-primary data-[separator=active]:bg-primary',
         'focus-visible:ring-1 focus-visible:ring-ring',
         // 纵向分隔条(横向细线)
-        'data-[panel-group-direction=vertical]:h-px data-[panel-group-direction=vertical]:w-full',
-        '[&[data-panel-group-direction=vertical]>div]:rotate-90',
+        'data-[panel-group-direction=vertical]:h-1 data-[panel-group-direction=vertical]:w-full',
         className,
       )}
       {...props}
-    >
-      {withHandle && (
-        <div className="z-10 flex h-4 w-3 items-center justify-center rounded-sm border bg-muted text-muted-foreground">
-          <GripVertical className="h-2.5 w-2.5" />
-        </div>
-      )}
-    </ResizablePrimitive.Separator>
+    />
   );
 }
 

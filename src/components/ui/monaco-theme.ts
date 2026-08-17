@@ -162,6 +162,12 @@ export function defineThemeFor(monaco: Monaco, name: string): void {
         isDark ? '#5c323270' : '#fbe4e4',
       ),
       'diffEditor.diagonalFill': '#00000000',
+      // DiffEditor 中间分隔条(sash):悬浮/拖拽高亮为主题主色,
+      // 与工具区 ResizableHandle 的悬浮高亮视觉一致
+      'sash.hoverBorder': resolveColor('--primary', isDark ? '#4f7cff' : '#4f7cff'),
+      // 去除左右编辑器中间的常驻分隔线(diffEditor.border),
+      // 让中间默认完全透明,仅在悬浮时显示高亮线,与 ResizableHandle 一致
+      'diffEditor.border': '#00000000',
     },
   });
 }
@@ -212,6 +218,10 @@ export function defineVsCodeTheme(monaco: Monaco): void {
       'diffEditor.insertedLineBackground': '#264f7870',
       'diffEditor.removedLineBackground': '#5c323270',
       'diffEditor.diagonalFill': '#00000000',
+      // DiffEditor 中间分隔条(sash):悬浮/拖拽高亮为主色
+      'sash.hoverBorder': '#4f7cff',
+      // 去除左右编辑器中间的常驻分隔线,默认透明,悬浮时显示高亮线
+      'diffEditor.border': '#00000000',
     },
   });
 }

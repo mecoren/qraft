@@ -18,7 +18,7 @@
  * - 卸载时清空 Titlebar 菜单栏(由 useToolMenus effect cleanup 自动处理)
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { FilePlus2, FolderOpen, GripVertical } from 'lucide-react';
+import { FilePlus2, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
@@ -650,14 +650,6 @@ function SidebarResizeHandle(): JSX.Element {
         className={cn(
           'h-full w-full transition-colors duration-150 ease-out',
           highlighted ? 'bg-primary' : 'bg-transparent',
-        )}
-      />
-      {/* grip 图标:hover/focus/active 时浮在中心,作为「可拖动」 affordance */}
-      <GripVertical
-        aria-hidden
-        className={cn(
-          'absolute z-10 size-3.5 rounded text-muted-foreground transition-opacity duration-150',
-          highlighted ? 'opacity-100' : 'opacity-0',
         )}
       />
     </div>

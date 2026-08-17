@@ -216,6 +216,9 @@ export function TextCompare(_props: ToolProps): JSX.Element {
       originalEditable: true,
       readOnly: false,
       renderSideBySide: !inlineMode,
+      // Monaco 默认 useShadowDOM: true,编辑器与分隔条(sash)渲染在 Shadow DOM 内,
+      // 应用样式无法穿透覆盖;关闭后由 globals.css 统一分隔条悬浮高亮样式
+      useShadowDOM: false,
       fontFamily:
         "var(--app-mono-font-family, 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace)",
       fontLigatures: true,

@@ -7,6 +7,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@/components/ui/resizable';
 import { CopyAction } from '@/components/copy-action';
 import { invokeCommand, CommandError } from '@/lib/ipc';
 import { ArrowDownAZ, ArrowUpAZ, Code2, Minimize2, Wand2 } from 'lucide-react';
@@ -185,74 +190,82 @@ export function JsonFormatter({ toolId }: ToolProps) {
   const disabled = loading || !text;
 
   return (
-    <div className="grid h-full grid-cols-2 gap-4">
-      <CodeEditor
-        title="输入(JSON / XML)"
-        language={isXmlInput ? 'xml' : 'json'}
-        value={text}
-        onChange={setText}
-        className="min-h-0"
-        data-testid="input"
-        actions={
-          <>
-            <Select value={String(indent)} onValueChange={(v) => setIndent(Number(v))}>
-              <SelectTrigger id="indent-select" className="h-7 w-16 px-2 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0">0</SelectItem>
-                <SelectItem value="2">2</SelectItem>
-                <SelectItem value="4">4</SelectItem>
-                <SelectItem value="6">6</SelectItem>
-                <SelectItem value="8">8</SelectItem>
-              </SelectContent>
-            </Select>
-            <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
-            <ActionButton testId="btn-format" onClick={() => void runFormat()} disabled={disabled}>
-              <Wand2 aria-hidden className="size-3.5" />
-              {loading ? '格式化中' : '格式化'}
-            </ActionButton>
-            <ActionButton testId="btn-minify" onClick={() => handleQuickAction('minify')} disabled={disabled}>
-              <Minimize2 aria-hidden className="size-3.5" />
-              压缩
-            </ActionButton>
-            <ActionButton testId="btn-sort-asc" onClick={() => handleQuickAction('sortAsc')} disabled={disabled}>
-              <ArrowUpAZ aria-hidden className="size-3.5" />
-              键升序
-            </ActionButton>
-            <ActionButton testId="btn-sort-desc" onClick={() => handleQuickAction('sortDesc')} disabled={disabled}>
-              <ArrowDownAZ aria-hidden className="size-3.5" />
-              键降序
-            </ActionButton>
-            <ActionButton testId="btn-entity" onClick={() => handleQuickAction('entity')} disabled={disabled}>
-              <Code2 aria-hidden className="size-3.5" />
-              生成实体类
-            </ActionButton>
-            {isXmlInput && (
-              <span className="text-xs text-muted-foreground">已识别 XML,将自动转换为 JSON</span>
-            )}
-          </>
-        }
-      />
+    <div className="flex h-full flex-col" data-testid="json-formatter">
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+      <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <CodeEditor
+          title="输入(JSON / XML)"
+          language={isXmlInput ? 'xml' : 'json'}
+          value={text}
+          onChange={setText}
+          className="h-full"
+          data-testid="input"
+          actions={
+            <>
+              <Select value={String(indent)} onValueChange={(v) => setIndent(Number(v))}>
+                <SelectTrigger id="indent-select" className="h-7 w-16 px-2 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">0</SelectItem>
+                  <SelectItem value="2">2</SelectItem>
+                  <SelectItem value="4">4</SelectItem>
+                  <SelectItem value="6">6</SelectItem>
+                  <SelectItem value="8">8</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+              <ActionButton testId="btn-format" onClick={() => void runFormat()} disabled={disabled}>
+                <Wand2 aria-hidden className="size-3.5" />
+                {loading ? '格式化中' : '格式化'}
+              </ActionButton>
+              <ActionButton testId="btn-minify" onClick={() => handleQuickAction('minify')} disabled={disabled}>
+                <Minimize2 aria-hidden className="size-3.5" />
+                压缩
+              </ActionButton>
+              <ActionButton testId="btn-sort-asc" onClick={() => handleQuickAction('sortAsc')} disabled={disabled}>
+                <ArrowUpAZ aria-hidden className="size-3.5" />
+                键升序
+              </ActionButton>
+              <ActionButton testId="btn-sort-desc" onClick={() => handleQuickAction('sortDesc')} disabled={disabled}>
+                <ArrowDownAZ aria-hidden className="size-3.5" />
+                键降序
+              </ActionButton>
+              <ActionButton testId="btn-entity" onClick={() => handleQuickAction('entity')} disabled={disabled}>
+                <Code2 aria-hidden className="size-3.5" />
+                生成实体类
+              </ActionButton>
+              {isXmlInput && (
+                <span className="text-xs text-muted-foreground">已识别 XML,将自动转换为 JSON</span>
+              )}
+            </>
+          }
+        />
+      </ResizablePanel>
 
-      <CodeEditor
-        readOnly
-        title="输出"
-        language={outputLanguage}
-        value={output}
-        className="min-h-0"
-        data-testid="output"
-        actions={
-          <>
-            {meta && (
-              <span className="text-xs text-muted-foreground">
-                {meta.input_bytes} → {meta.output_bytes} 字节 · {meta.duration_ms}ms
-              </span>
-            )}
-            <CopyAction text={output} testId="output-copy" />
-          </>
-        }
-      />
+      <ResizableHandle withHandle />
+
+      <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <CodeEditor
+          readOnly
+          title="输出"
+          language={outputLanguage}
+          value={output}
+          className="h-full"
+          data-testid="output"
+          actions={
+            <>
+              {meta && (
+                <span className="text-xs text-muted-foreground">
+                  {meta.input_bytes} → {meta.output_bytes} 字节 · {meta.duration_ms}ms
+                </span>
+              )}
+              <CopyAction text={output} testId="output-copy" />
+            </>
+          }
+        />
+      </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }
