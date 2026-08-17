@@ -20,6 +20,8 @@ tauri-plugin-clipboard-manager = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-window-state = "2"
+# 单实例:防止重复启动;通过文件关联/命令行打开文件时,把路径转发给已运行实例
+tauri-plugin-single-instance = "2"
 
 # —— 以下为 Core 层新增依赖(Tauri 已有依赖保持不变)——
 tokio = { version = "1.40", features = ["rt", "rt-multi-thread", "macros", "time", "fs", "sync"] }
@@ -61,11 +63,17 @@ async-stream = "0.3"
 # Linux 无原生支持,自动 no-op,由前端 CSS backdrop-filter 回退)
 window-vibrancy = "0.8"
 
-# Windows 平台:DirectWrite 系统字体枚举(仅 Windows target 引入)
+# Windows 平台:DirectWrite 系统字体枚举 + ShellExecuteW 打开默认文件管理器
+# + 注册表检测默认文件管理器(仅 Windows target 引入;
+# Win32_UI_Shell 提供 ShellExecuteW, Win32_UI_WindowsAndMessaging 提供 SW_SHOWNORMAL,
+# Win32_System_Registry 提供 RegOpenKeyExW 等)
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61", features = [
     "Win32_Graphics_DirectWrite",
     "Win32_Foundation",
+    "Win32_System_Registry",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
 ] }
 
 [dev-dependencies]

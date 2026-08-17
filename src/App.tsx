@@ -16,6 +16,12 @@ import { useUiStore } from '@/store/uiStore';
 import { useShortcut } from '@/hooks/useShortcut';
 import { listen } from '@/lib/ipc';
 import { cn } from '@/lib/utils';
+import {
+  pullPendingOpenFiles,
+  type PendingOpenFile,
+} from '@/tools/code-editor-workspace/fileOps';
+import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
+import { DEFAULT_TOOL_ID } from '@/lib/tool-catalog';
 
 import type {
   ConfigChangedPayload,
@@ -25,6 +31,12 @@ import type {
   ToolFailedPayload,
 } from '@/types/ipc';
 import type { HistoryEntry } from '@/types/history';
+
+/** 在代码编辑器工作区中打开一个本地文件:先切到编辑器工具,再打开文件 Tab */
+function openFileInEditor(path: string, content: string): void {
+  useUiStore.getState().openTool(DEFAULT_TOOL_ID);
+  useEditorWorkspaceStore.getState().openLocalFile(path, content);
+}
 
 export function App(): JSX.Element {
   const view = useUiStore((s) => s.view);
@@ -49,7 +61,7 @@ export function App(): JSX.Element {
     void loadHistory();
   }, [loadConfig, loadTools, loadHistory]);
 
-  // 订阅全局事件:配置变更、历史新增、流式工具事件
+  // 订阅全局事件:配置变更、历史新增、流式工具事件、文件打开
   useEffect(() => {
     const unlisteners: Array<() => void> = [];
     void (async () => {
@@ -70,6 +82,20 @@ export function App(): JSX.Element {
           toast.error(`工具执行失败: ${p.error.message}`);
         }),
       );
+      // 通过文件关联/命令行/拖放「用 Qraft 打开」的文件:实时在编辑器工作区打开
+      unlisteners.push(
+        await listen<PendingOpenFile>('app:open-file', (p) => {
+          if (p?.path) openFileInEditor(p.path, p.content);
+        }),
+      );
+      // 拖放/打开的文件为二进制或不受支持的格式:提示用户(参考 VS Code)
+      unlisteners.push(
+        await listen<string>('app:open-file-unsupported', (fileName) => {
+          if (fileName) {
+            toast.warning(`无法在编辑器中打开「${fileName}」:可能是二进制或不受支持的格式`);
+          }
+        }),
+      );
     })();
     return () => {
       for (const u of unlisteners) u();
@@ -82,6 +108,28 @@ export function App(): JSX.Element {
     applyToolCompleted,
     applyToolFailed,
   ]);
+
+  // 初始化兜底:拉取「打开文件」待处理队列。
+  // 若应用在 webview 就绪前就收到打开文件请求,`app:open-file` 事件可能丢失,
+  // 这里从 Rust 端队列补齐,确保文件最终被打开。
+  useEffect(() => {
+    if (!('__TAURI_INTERNALS__' in window)) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const files = await pullPendingOpenFiles();
+        if (cancelled) return;
+        for (const f of files) {
+          if (f?.path) openFileInEditor(f.path, f.content);
+        }
+      } catch {
+        // 拉取失败静默处理:事件通道仍可能已送达,避免启动阻塞
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // —— 全局快捷键(导航类) ——
   // 工具操作类快捷键(execute_tool/clear_input/copy_output/search)需工具组件

@@ -15,6 +15,12 @@ export interface OpenFileResult {
   content: string;
 }
 
+/** 通过文件关联/命令行「用 Qraft 打开」的待打开文件 */
+export interface PendingOpenFile {
+  path: string;
+  content: string;
+}
+
 /** 通知后端:前端已加载完成,可拦截窗口关闭并询问未保存内容 */
 export async function windowCloseReady(): Promise<void> {
   await safeInvoke('window_close_ready');
@@ -40,6 +46,14 @@ export async function saveToPath(path: string, content: string): Promise<boolean
 export async function revealInExplorer(path: string): Promise<boolean> {
   await invokeCommand<boolean>('fs_reveal_in_explorer', { path });
   return true;
+}
+
+/**
+ * 拉取「通过文件关联/命令行打开」的待打开文件列表(并清空 Rust 端队列)。
+ * 作为 `app:open-file` 事件在 webview 就绪前丢失时的兜底,前端初始化时调用一次。
+ */
+export async function pullPendingOpenFiles(): Promise<PendingOpenFile[]> {
+  return invokeCommand<PendingOpenFile[]>('app_pull_open_files', {});
 }
 
 /** 弹「另存为」对话框并写入;用户取消返回 null,成功返回保存路径 */

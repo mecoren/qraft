@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
 import { useToolStateStore } from './toolStateStore';
+import { DEFAULT_TOOL_ID } from '@/lib/tool-catalog';
 import type { ToolMetadata, ToolOutput } from '@/types/tool';
 import type { CommandResponse } from '@/types/ipc';
 
@@ -43,6 +44,12 @@ describe('toolStateStore.loadTools', () => {
     invokeMock.mockRejectedValueOnce(new Error('ipc'));
     await useToolStateStore.getState().loadTools();
     expect(useToolStateStore.getState().availableTools).toEqual([]);
+  });
+});
+
+describe('toolStateStore initial state', () => {
+  it('默认启动工具为文本编辑器', () => {
+    expect(useToolStateStore.getInitialState().currentToolId).toBe(DEFAULT_TOOL_ID);
   });
 });
 

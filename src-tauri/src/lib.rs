@@ -60,8 +60,8 @@ pub fn run() -> anyhow::Result<()> {
     use std::sync::Arc;
 
     use crate::commands::app::{
-        WindowCloseGuard, app_check_update, app_install_update, app_open_external, app_quit,
-        app_version, window_close_cancel, window_close_ready,
+        WindowCloseGuard, app_check_update, app_install_update, app_open_external,
+        app_pull_open_files, app_quit, app_version, window_close_cancel, window_close_ready,
     };
     use crate::commands::clipboard::{clipboard_read_text, clipboard_write_text};
     use crate::commands::config::{config_get, config_get_all, config_reset, config_set};
@@ -74,10 +74,15 @@ pub fn run() -> anyhow::Result<()> {
     use crate::commands::tool::{
         tool_cancel, tool_execute, tool_execute_stream, tool_list, tool_metadata,
     };
+    use crate::shell::file_open::{
+        PendingOpenFiles, open_dropped_files, open_files_from_args, sanitize_dropped_path,
+    };
     use crate::shell::state::AppState;
     use crate::store::config::{ConfigStore, JsonConfigStore};
     use crate::store::history::{HistoryStore, JsonlHistoryStore};
-    use tauri::{Emitter, Manager};
+    // RunEvent 全平台均需(WindowEvent 拖放处理);其 Opened 变体仅在 macOS 上
+    // 存在,对应分支已用 #[cfg(target_os = "macos")] 门控,非 macOS 不编译。
+    use tauri::{DragDropEvent, Emitter, Manager, RunEvent, WindowEvent};
     use tracing_subscriber::EnvFilter;
 
     tracing_subscriber::fmt()
@@ -90,6 +95,23 @@ pub fn run() -> anyhow::Result<()> {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_shell::init())
+        // 单实例:重复启动时聚焦已有实例,并把命令行传入的文件路径转发过去,
+        // 由已运行实例在编辑器工作区中打开(避免打开两个窗口/文件丢失)。
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // 聚焦主窗口(若已最小化则恢复)
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+            // 把新实例收到的文件参数交给现有实例处理
+            // (single_instance 回调的 `app` 即 `&tauri::AppHandle`,直接复用)
+            let authorized = app.state::<AuthorizedPaths>();
+            let pending = app.state::<PendingOpenFiles>();
+            if let Err(e) = open_files_from_args(app, &authorized, &pending, &args) {
+                tracing::warn!("single_instance: failed to open file from args: {e}");
+            }
+        }))
         // Updater 插件:自动更新检查与下载(零网络原则的唯一例外,见 PRD 13-security.md §3.1)
         .plugin(tauri_plugin_updater::Builder::new().build())
         // Window State 插件:记住窗口所在屏幕、位置与大小,重启后精确恢复。
@@ -122,6 +144,7 @@ pub fn run() -> anyhow::Result<()> {
 
             app.manage(state);
             app.manage(AuthorizedPaths::new());
+            app.manage(PendingOpenFiles::new());
             app.manage(WindowCloseGuard::default());
 
             // 应用原生窗口材质效果(Windows: Mica / macOS: vibrancy / Linux: 无原生,前端 CSS 回退)
@@ -148,6 +171,19 @@ pub fn run() -> anyhow::Result<()> {
                     ) {
                         tracing::warn!("apply_vibrancy failed: {e}");
                     }
+                }
+            }
+
+            // 处理启动时通过命令行传入的文件路径(Windows/Linux 双击或右键
+            // 「用 Qraft 打开」时,系统把路径作为参数传给本进程)。
+            // 注:此刻 webview 可能尚未就绪,emit 事件可能丢失;文件已写入
+            // PendingOpenFiles 队列,前端初始化时会通过 app_pull_open_files 补齐。
+            {
+                let authorized = app.state::<AuthorizedPaths>();
+                let pending = app.state::<PendingOpenFiles>();
+                let args: Vec<String> = std::env::args().collect();
+                if let Err(e) = open_files_from_args(app.handle(), &authorized, &pending, &args) {
+                    tracing::warn!("startup: failed to open file from args: {e}");
                 }
             }
 
@@ -194,12 +230,51 @@ pub fn run() -> anyhow::Result<()> {
             app_quit,
             window_close_ready,
             window_close_cancel,
+            app_pull_open_files,
             app_check_update,
             app_install_update,
             list_system_fonts,
         ])
-        .run(tauri::generate_context!())
-        .map_err(|e| anyhow::anyhow!("tauri run error: {e}"))?;
+        // 捕获 RunEvent::Opened 以处理 macOS 通过文件关联打开文件的事件;
+        // 其余事件(Exit 等)不处理,由默认逻辑正常收尾。
+        .build(tauri::generate_context!())
+        .map_err(|e| anyhow::anyhow!("tauri build error: {e}"))?
+        .run(|app_handle, event| match event {
+            #[cfg(target_os = "macos")]
+            RunEvent::Opened { urls } => {
+                for url in &urls {
+                    // 仅处理 file:// scheme,忽略其它(如自定义协议)
+                    if url.scheme() == "file" {
+                        let Some(path) = url.to_file_path().ok() else {
+                            tracing::warn!("cannot convert url to file path: {url}");
+                            continue;
+                        };
+                        let path = path.to_string_lossy().into_owned();
+                        let authorized = app_handle.state::<AuthorizedPaths>();
+                        let pending = app_handle.state::<PendingOpenFiles>();
+                        if let Err(e) =
+                            open_files_from_args(app_handle, &authorized, &pending, &[path])
+                        {
+                            tracing::warn!("macOS open: failed to open file: {e}");
+                        }
+                    }
+                }
+            }
+            // 拖放文件到窗口:把文本文件交给编辑器工作区打开(参考 VS Code),
+            // 二进制/不支持的文件通过 open_dropped_files 内部 emit 提示前端。
+            RunEvent::WindowEvent { event: window_event, .. } => {
+                if let WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) = window_event {
+                    let authorized = app_handle.state::<AuthorizedPaths>();
+                    let pending = app_handle.state::<PendingOpenFiles>();
+                    let cleaned: Vec<String> = paths
+                        .iter()
+                        .map(|p| sanitize_dropped_path(&p.to_string_lossy()).to_string())
+                        .collect();
+                    open_dropped_files(app_handle, &authorized, &pending, &cleaned);
+                }
+            }
+            _ => {}
+        });
 
     Ok(())
 }

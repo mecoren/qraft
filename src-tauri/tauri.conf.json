@@ -42,6 +42,57 @@
     ],
     "resources": [],
     "externalBin": [],
+    "fileAssociations": [
+      {
+        "ext": ["txt"],
+        "name": "Text Document",
+        "description": "Plain text files",
+        "mimeType": "text/plain",
+        "role": "Editor"
+      },
+      {
+        "ext": ["json"],
+        "name": "JSON Document",
+        "description": "JavaScript Object Notation data files",
+        "mimeType": "application/json",
+        "role": "Editor"
+      },
+      {
+        "ext": ["md", "markdown"],
+        "name": "Markdown Document",
+        "description": "Markdown plain text files",
+        "mimeType": "text/markdown",
+        "role": "Editor"
+      },
+      {
+        "ext": ["csv"],
+        "name": "CSV Document",
+        "description": "Comma-separated values files",
+        "mimeType": "text/csv",
+        "role": "Editor"
+      },
+      {
+        "ext": ["log"],
+        "name": "Log File",
+        "description": "Plain text log files",
+        "mimeType": "text/plain",
+        "role": "Editor"
+      },
+      {
+        "ext": ["xml", "yaml", "yml", "toml", "ini", "conf", "env"],
+        "name": "Configuration Text File",
+        "description": "Configuration and data text files",
+        "mimeType": "text/plain",
+        "role": "Editor"
+      },
+      {
+        "ext": ["js", "ts", "jsx", "tsx", "css", "html", "htm", "py", "rs", "go", "java", "c", "h", "cpp", "hpp", "sh", "bash", "sql", "vue", "svelte"],
+        "name": "Source Code File",
+        "description": "Source code files",
+        "mimeType": "text/plain",
+        "role": "Editor"
+      }
+    ],
     "copyright": "Copyright (c) 2026 Qraft Contributors",
     "category": "DeveloperTool",
     "shortDescription": "Local-first developer toolbox",

@@ -50,7 +50,10 @@ export function PathBreadcrumb({
 
   return (
     <Breadcrumb data-testid={dataTestId}>
-      <BreadcrumbList>
+      {/* 工具栏 breadcrumb 使用 text-xs(font-size 与编辑器 Tab 栏、CodeEditor
+       * 工具栏标题保持一致),与 CodeEditor 的 title span(text-xs font-medium)字号字重
+       * 一致,保证编辑器内所有标题类文字视觉一致 */}
+      <BreadcrumbList className="text-xs">
         {segments.map((segment, index) => {
           const isLast = index === segments.length - 1;
           return (
@@ -60,13 +63,16 @@ export function PathBreadcrumb({
             <Fragment key={`${index}-${segment}`}>
               <BreadcrumbItem>
                 {isLast ? (
-                  <BreadcrumbPage title={segment} className="truncate">
+                  <BreadcrumbPage
+                    title={segment}
+                    className="truncate font-medium text-foreground"
+                  >
                     {segment}
                   </BreadcrumbPage>
                 ) : (
                   <span
                     title={segment}
-                    className="truncate transition-colors hover:text-foreground"
+                    className="font-medium text-muted-foreground truncate transition-colors hover:text-foreground"
                     data-testid={`${dataTestId}-segment-${index}`}
                   >
                     {segment}

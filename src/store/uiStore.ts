@@ -7,7 +7,8 @@
  * - 收藏夹与最近使用列表(localStorage 持久化,重启恢复)
  *
  * 设计说明:
- * - 持久化仅保存用户数据(收藏/最近/侧栏偏好),视图本身不持久化,启动始终回到欢迎页
+ * - 持久化仅保存用户数据(收藏/最近/侧栏偏好),视图本身不持久化,
+ *   启动默认进入 tool 视图(当前工具由 toolStateStore 初始为文本编辑器)
  * - openTool 串联 toolStateStore.selectTool + 最近使用记录 + 视图切换,
  *   是打开工具的唯一入口(侧栏/欢迎页/命令面板共用)
  */
@@ -45,7 +46,7 @@ interface UiState {
 export const useUiStore = create<UiState>()(
   persist(
     (set, get) => ({
-      view: 'welcome',
+      view: 'tool',
       sidebarCollapsed: false,
       favorites: [],
       recents: [],

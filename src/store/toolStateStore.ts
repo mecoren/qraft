@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
+import { DEFAULT_TOOL_ID } from '@/lib/tool-catalog';
 import type { ToolMetadata, ToolInput, ToolOutput, ToolError } from '@/types/tool';
 import type {
   ToolProgressPayload,
@@ -53,7 +54,8 @@ interface ToolState {
 export const useToolStateStore = create<ToolState>((set) => ({
   availableTools: [],
   toolMetadataById: new Map(),
-  currentToolId: null,
+  // 启动默认直接进入文本编辑器(视图不持久化,每次启动回到该初始值)
+  currentToolId: DEFAULT_TOOL_ID,
   running: false,
   streamingTasks: new Map(),
 

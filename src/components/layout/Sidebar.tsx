@@ -2,9 +2,9 @@
  * 应用侧边栏 —— DevToys 风格可折叠导航
  *
  * 两种形态:
- * - 展开(256px):汉堡按钮 + 搜索框;所有工具 / 最近使用(前3) / 收藏夹(可展开) /
+ * - 展开(256px):汉堡按钮 + 搜索框;所有工具 / 文本编辑器(固定) / 收藏夹(可展开) /
  *   7 个分类分组(可展开);底部 管理扩展 + 设置
- * - 折叠(56px 图标栏):汉堡 / 所有工具 / 最近使用工具图标(≤5) / 分类图标 /
+ * - 折叠(56px 图标栏):汉堡 / 所有工具 / 文本编辑器(固定) / 分类图标 /
  *   底部设置;点击分类图标会展开侧栏并展开对应分类
  *
  * 交互:
@@ -29,6 +29,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   CATALOG_CATEGORIES,
   CATALOG_BY_CATEGORY,
+  DEFAULT_TOOL_ID,
   getCatalogEntry,
   searchCatalog,
   type CatalogEntry,
@@ -36,6 +37,9 @@ import {
 import { useUiStore } from '@/store/uiStore';
 import { useToolStateStore } from '@/store/toolStateStore';
 import { ICON_STROKE_WIDTH } from '@/lib/icon-constants';
+
+/** 固定展示在「所有工具」正下方的默认工具(文本编辑器);目录中不存在时降级为不渲染 */
+const defaultEditorEntry = getCatalogEntry(DEFAULT_TOOL_ID);
 
 // ============================================================
 // 通用导航项
@@ -181,7 +185,6 @@ export function Sidebar(): JSX.Element {
   const goWelcome = useUiStore((s) => s.goWelcome);
   const openTool = useUiStore((s) => s.openTool);
   const favorites = useUiStore((s) => s.favorites);
-  const recents = useUiStore((s) => s.recents);
   const expandedCategories = useUiStore((s) => s.expandedCategories);
   const toggleCategory = useUiStore((s) => s.toggleCategory);
   const expandCategory = useUiStore((s) => s.expandCategory);
@@ -192,16 +195,6 @@ export function Sidebar(): JSX.Element {
 
   const searching = query.trim().length > 0;
   const searchResults = useMemo(() => (searching ? searchCatalog(query) : []), [query, searching]);
-
-  /** 最近使用(前 3,过滤掉不存在的条目) */
-  const recentEntries = useMemo(
-    () =>
-      recents
-        .map((id) => getCatalogEntry(id))
-        .filter((e): e is CatalogEntry => e !== null)
-        .slice(0, 3),
-    [recents],
-  );
 
   /** 收藏夹条目 */
   const favoriteEntries = useMemo(
@@ -222,10 +215,6 @@ export function Sidebar(): JSX.Element {
 
   // —— 折叠态:56px 图标栏 ——
   if (collapsed) {
-    const railTools = recents
-      .map((id) => getCatalogEntry(id))
-      .filter((e): e is CatalogEntry => e !== null && !e.special)
-      .slice(0, 5);
     return (
       <nav
         aria-label="工具导航"
@@ -234,19 +223,18 @@ export function Sidebar(): JSX.Element {
       >
         <RailButton icon={Menu} label="展开侧栏" onClick={toggleSidebar} testId="rail-expand" />
         <RailButton icon={Home} label="所有工具" active={view === 'welcome'} onClick={goWelcome} testId="rail-home" />
-        {railTools.length > 0 && <div aria-hidden className="my-1 h-px w-6 bg-sidebar-border" />}
+        {defaultEditorEntry && (
+          <RailButton
+            icon={defaultEditorEntry.icon}
+            label={defaultEditorEntry.name}
+            active={isToolActive(DEFAULT_TOOL_ID)}
+            onClick={() => openTool(DEFAULT_TOOL_ID)}
+            testId="rail-text-editor"
+          />
+        )}
+        <div aria-hidden className="my-1 h-px w-6 bg-sidebar-border" />
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex flex-col items-center gap-1 px-1.5">
-            {railTools.map((e) => (
-              <RailButton
-                key={e.id}
-                icon={e.icon}
-                label={e.name}
-                active={isToolActive(e.id)}
-                onClick={() => openTool(e.id)}
-              />
-            ))}
-            {railTools.length > 0 && <div aria-hidden className="my-1 h-px w-6 bg-sidebar-border" />}
             {CATALOG_CATEGORIES.map((c) => (
               <RailButton
                 key={c.id}
@@ -326,7 +314,7 @@ export function Sidebar(): JSX.Element {
               ))
             )
           ) : (
-            // —— 常态:所有工具 / 最近 / 收藏夹 / 分类树 ——
+            // —— 常态:所有工具 / 文本编辑器(固定) / 收藏夹 / 分类树 ——
             <>
               <NavItem
                 icon={Home}
@@ -336,15 +324,15 @@ export function Sidebar(): JSX.Element {
                 testId="nav-all-tools"
               />
 
-              {recentEntries.map((entry) => (
+              {defaultEditorEntry && (
                 <NavItem
-                  key={entry.id}
-                  icon={entry.icon}
-                  label={entry.name}
-                  active={!entry.special && isToolActive(entry.id)}
-                  onClick={() => openEntry(entry)}
+                  icon={defaultEditorEntry.icon}
+                  label={defaultEditorEntry.name}
+                  active={isToolActive(DEFAULT_TOOL_ID)}
+                  onClick={() => openTool(DEFAULT_TOOL_ID)}
+                  testId="nav-text-editor"
                 />
-              ))}
+              )}
 
               <NavGroup
                 icon={Star}

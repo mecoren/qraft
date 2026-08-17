@@ -107,4 +107,28 @@ describe('App', () => {
     await user.keyboard('{Control>}{k}{/Control}');
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
+
+  it('侧边栏「所有工具」正下方有固定「文本编辑器」菜单项', async () => {
+    setupHappyPath();
+    await act(async () => {
+      render(<App />);
+    });
+    const sidebar = screen.getByRole('navigation');
+    const allTools = within(sidebar).getByTestId('nav-all-tools');
+    const editorBtn = within(sidebar).getByRole('button', { name: /文本编辑器/i });
+    expect(editorBtn).toBeInTheDocument();
+    // 文本编辑器必须紧跟「所有工具」之后(第一个兄弟节点)
+    expect(allTools.nextElementSibling).toBe(editorBtn);
+  });
+
+  it('侧边栏不渲染「最近使用」条目(recents 仅在欢迎页展示)', async () => {
+    useUiStore.setState({ recents: ['base64_codec'] });
+    setupHappyPath();
+    await act(async () => {
+      render(<App />);
+    });
+    const sidebar = screen.getByRole('navigation');
+    // 「最近使用」区域已从侧边栏移除,Base64 转换器不应出现在侧边栏
+    expect(within(sidebar).queryByRole('button', { name: /Base64 转换器/i })).not.toBeInTheDocument();
+  });
 });

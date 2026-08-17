@@ -9,6 +9,7 @@ use tauri_plugin_shell::ShellExt;
 use tauri_plugin_updater::UpdaterExt;
 
 use crate::shell::AppError;
+use crate::shell::file_open::{OpenFilePayload, PendingOpenFiles};
 use crate::shell::response::CommandResponse;
 use crate::shell::updater::{AvailableUpdate, CheckUpdateResponse, build_check_update_response};
 
@@ -170,6 +171,24 @@ pub async fn app_version() -> Result<CommandResponse<String>, AppError> {
 #[tauri::command]
 pub async fn app_quit(app_handle: tauri::AppHandle) -> Result<CommandResponse<()>, AppError> {
     app_quit_inner(&app_handle)
+}
+
+// ============ 文件打开队列 ============
+
+/// 拉取「通过文件关联/命令行打开」的待打开文件列表(并清空队列)
+///
+/// 前端初始化时调用,作为 `app:open-file` 事件丢失时的兜底:
+/// 若应用在 webview 就绪前就收到打开文件请求,事件可能丢失,
+/// 前端挂载后调用此命令即可补齐。
+///
+/// # Errors
+///
+/// - 队列互斥锁中毒时返回 `AppError::Internal`
+#[tauri::command]
+pub fn app_pull_open_files(
+    pending: tauri::State<'_, PendingOpenFiles>,
+) -> Result<CommandResponse<Vec<OpenFilePayload>>, AppError> {
+    Ok(CommandResponse::ok(pending.drain_all()))
 }
 
 // ============ Updater 相关 Command ============

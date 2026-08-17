@@ -104,6 +104,12 @@ export interface CatalogEntry {
   special?: 'settings' | 'extensions';
 }
 
+/**
+ * 应用启动默认打开的工具 id(纯前端文本编辑器,registry 中注册值)。
+ * 供 store 初始状态与侧边栏固定菜单项共享引用。
+ */
+export const DEFAULT_TOOL_ID = 'text_editor';
+
 /** 全部工具目录(顺序即"所有工具"网格与侧栏的展示顺序) */
 export const TOOL_CATALOG: readonly CatalogEntry[] = [
   // —— 编解码器 ——
