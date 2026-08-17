@@ -24,6 +24,13 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -52,10 +59,20 @@ interface NavItemProps {
   depth?: 0 | 1;
   onClick: () => void;
   testId?: string;
+  /** 右键菜单内容(仅工具条目传入);非工具条目不传,保持纯按钮语义 */
+  contextMenu?: React.ReactNode;
 }
 
-function NavItem({ icon: Icon, label, active, depth = 0, onClick, testId }: NavItemProps): JSX.Element {
-  return (
+function NavItem({
+  icon: Icon,
+  label,
+  active,
+  depth = 0,
+  onClick,
+  testId,
+  contextMenu,
+}: NavItemProps): JSX.Element {
+  const button = (
     <button
       type="button"
       data-testid={testId}
@@ -83,6 +100,48 @@ function NavItem({ icon: Icon, label, active, depth = 0, onClick, testId }: NavI
       <Icon aria-hidden className="size-4 shrink-0" strokeWidth={ICON_STROKE_WIDTH} />
       <span className="truncate">{label}</span>
     </button>
+  );
+  // 有右键菜单时用 ContextMenuTrigger 包裹按钮(asChild 保持按钮语义,菜单内容渲染于 Portal,
+  // 点击菜单项不会触发按钮 onClick)
+  if (contextMenu) {
+    return (
+      <ContextMenu>
+        <ContextMenuTrigger asChild>{button}</ContextMenuTrigger>
+        <ContextMenuContent>{contextMenu}</ContextMenuContent>
+      </ContextMenu>
+    );
+  }
+  return button;
+}
+
+/** 工具条目右键菜单内容:收藏/取消收藏 + 已收藏时追加排序(上移/下移) */
+function ToolContextMenuContent({ entry }: { entry: CatalogEntry }): JSX.Element {
+  const favorites = useUiStore((s) => s.favorites);
+  const toggleFavorite = useUiStore((s) => s.toggleFavorite);
+  const moveFavorite = useUiStore((s) => s.moveFavorite);
+  const isFavorite = favorites.includes(entry.id);
+  const index = favorites.indexOf(entry.id);
+
+  return (
+    <>
+      <ContextMenuItem onSelect={() => toggleFavorite(entry.id)}>
+        {isFavorite ? '取消收藏' : '收藏'}
+      </ContextMenuItem>
+      {isFavorite && (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuItem disabled={index <= 0} onSelect={() => moveFavorite(entry.id, 'up')}>
+            上移
+          </ContextMenuItem>
+          <ContextMenuItem
+            disabled={index >= favorites.length - 1}
+            onSelect={() => moveFavorite(entry.id, 'down')}
+          >
+            下移
+          </ContextMenuItem>
+        </>
+      )}
+    </>
   );
 }
 
@@ -310,6 +369,9 @@ export function Sidebar(): JSX.Element {
                   label={entry.name}
                   active={!entry.special && isToolActive(entry.id)}
                   onClick={() => openEntry(entry)}
+                  contextMenu={
+                    !entry.special ? <ToolContextMenuContent entry={entry} /> : undefined
+                  }
                 />
               ))
             )
@@ -331,6 +393,7 @@ export function Sidebar(): JSX.Element {
                   active={isToolActive(DEFAULT_TOOL_ID)}
                   onClick={() => openTool(DEFAULT_TOOL_ID)}
                   testId="nav-text-editor"
+                  contextMenu={<ToolContextMenuContent entry={defaultEditorEntry} />}
                 />
               )}
 
@@ -343,7 +406,7 @@ export function Sidebar(): JSX.Element {
               >
                 {favoriteEntries.length === 0 ? (
                   <p className="px-7 py-1 text-xs text-muted-foreground">
-                    在工具页点击「收藏」按钮添加
+                    右键点击侧栏中的工具即可收藏
                   </p>
                 ) : (
                   favoriteEntries.map((entry) => (
@@ -354,6 +417,9 @@ export function Sidebar(): JSX.Element {
                       depth={1}
                       active={!entry.special && isToolActive(entry.id)}
                       onClick={() => openEntry(entry)}
+                      contextMenu={
+                        !entry.special ? <ToolContextMenuContent entry={entry} /> : undefined
+                      }
                     />
                   ))
                 )}
@@ -379,6 +445,7 @@ export function Sidebar(): JSX.Element {
                         depth={1}
                         active={isToolActive(entry.id)}
                         onClick={() => openTool(entry.id)}
+                        contextMenu={<ToolContextMenuContent entry={entry} />}
                       />
                     ))}
                   </NavGroup>

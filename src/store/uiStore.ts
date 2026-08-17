@@ -37,6 +37,8 @@ interface UiState {
   goWelcome: () => void;
   toggleSidebar: () => void;
   toggleFavorite: (toolId: string) => void;
+  /** 调整收藏夹顺序(相邻交换);工具未收藏或目标越界时保持原状 */
+  moveFavorite: (toolId: string, direction: 'up' | 'down') => void;
   toggleCategory: (categoryId: CatalogCategoryId) => void;
   /** 展开指定分类(供折叠栏点击分类图标时使用) */
   expandCategory: (categoryId: CatalogCategoryId) => void;
@@ -75,6 +77,17 @@ export const useUiStore = create<UiState>()(
             ? s.favorites.filter((id) => id !== toolId)
             : [...s.favorites, toolId],
         })),
+
+      moveFavorite: (toolId, direction) =>
+        set((s) => {
+          const idx = s.favorites.indexOf(toolId);
+          if (idx === -1) return s;
+          const target = direction === 'up' ? idx - 1 : idx + 1;
+          if (target < 0 || target >= s.favorites.length) return s;
+          const next = [...s.favorites];
+          [next[idx], next[target]] = [next[target], next[idx]];
+          return { favorites: next };
+        }),
 
       toggleCategory: (categoryId) =>
         set((s) => ({
