@@ -85,7 +85,7 @@ export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element 
        * 遍历所有已访问工具,当前工具显示、其余 display:none(DOM 不卸载,内容/滚动保留)。
        * 工具组件为懒加载(React.lazy):首次访问时经 Suspense 展示加载态,
        * 模块加载完成后缓存,再次切回无需重新请求 chunk。 */}
-      <div className="min-h-0 flex-1 overflow-hidden px-6 pt-4 pb-5">
+      <div className="min-h-0 flex-1 overflow-hidden px-3 pt-2 pb-3">
         {visited.map((id) => {
           const visitedEntry = getCatalogEntry(id);
           // 小写命名 + createElement,明确表示从注册表查找组件类型并实例化,而非在渲染期创建新组件

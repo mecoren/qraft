@@ -22,7 +22,7 @@ export function ExtensionsPage(): JSX.Element {
   return (
     <div className="h-full bg-background-layer">
       <ScrollArea className="h-full">
-        <div className="mx-auto max-w-3xl px-8 py-8">
+        <div className="mx-auto max-w-3xl px-4 py-4">
         <header className="flex items-center gap-3">
           <span className="flex size-10 items-center justify-center rounded-lg border border-border bg-card">
             <Puzzle aria-hidden className="size-5" strokeWidth={ICON_STROKE_WIDTH} />

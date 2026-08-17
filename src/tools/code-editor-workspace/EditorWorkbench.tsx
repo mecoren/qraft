@@ -2,23 +2,28 @@
  * 编辑器工作区 —— VSCode 风格多文件工作区主组件
  *
  * 布局(自上而下 / 自左而右):
- * - 顶栏操作区:打开文件 / 新建 / 保存 / 全部关闭 / 切换左栏
+ * - 顶部操作区:原工具栏已迁移到 Titlebar 菜单栏(File / View 菜单)
  * - Tab 栏:多文件切换(标题 + 未保存圆点 + 关闭按钮)
  * - 主体:左栏「打开的编辑器」列表 + 中央 Monaco 编辑器
  * - 编辑器自带底部状态栏(行/列/字符数),右侧追加可点击的语言徽章
+ *
+ * 菜单栏(由 Titlebar 渲染):
+ * - File:新建 / 打开 / 保存 / 全部保存 / 关闭 / 全部关闭
+ * - View:切换左栏显隐
  *
  * 生命周期:
  * - 挂载时 hydrate(从 Rust config 还原工作区)
  * - workspace 变更后 400ms 防抖持久化(config_set),仅 ready 后生效
  * - 保存:已绑定路径直接 fs_write_file;untitled 弹「另存为」对话框
+ * - 卸载时清空 Titlebar 菜单栏(由 useToolMenus effect cleanup 自动处理)
  */
-import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
-import { FilePlus2, FolderOpen, GripVertical, Save, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { FilePlus2, FolderOpen, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useShortcut } from '@/hooks/useShortcut';
 import { listen, safeInvoke } from '@/lib/ipc';
 import { writeClipboardText } from '@/lib/clipboard';
@@ -36,6 +41,8 @@ import {
   windowCloseCancel,
   windowCloseReady,
 } from './fileOps';
+import { useToolMenus } from '@/store/toolMenubarStore';
+import type { ToolMenu } from '@/types/tool-menu';
 
 /** 批量关闭意图:用于未保存确认通过后执行对应 store 动作 */
 type BatchCloseAction = 'close-others' | 'close-right' | 'close-all';
@@ -43,11 +50,11 @@ type BatchCloseAction = 'close-others' | 'close-right' | 'close-all';
 /** workspace 变更后持久化防抖间隔(ms) */
 const PERSIST_DEBOUNCE_MS = 400;
 
-export function EditorWorkbench(_props: ToolProps): JSX.Element {
+export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const workspace = useEditorWorkspaceStore((s) => s.workspace);
   const ready = useEditorWorkspaceStore((s) => s.ready);
   const hydrate = useEditorWorkspaceStore((s) => s.hydrate);
-  /** 未保存确认对话框状态(null = 关闭);batchAction 记录批量关闭意图 */
+  /** 未保存对话框状态(null = 关闭);batchAction 记录批量关闭意图 */
   const [unsaved, setUnsaved] = useState<
     { mode: UnsavedMode; tabId?: string; batchAction?: BatchCloseAction } | null
   >(null);
@@ -58,7 +65,7 @@ export function EditorWorkbench(_props: ToolProps): JSX.Element {
   }, [hydrate]);
 
   // 窗口关闭确认:通知后端前端已就绪,并监听「用户点击关闭窗口」事件。
-  // 仅在 Tauri 运行时生效(浏览器 dev / 测试环境跳过)。
+    // 仅在 Tauri 运行时生效(浏览器 dev / 测试环境跳过)。
   useEffect(() => {
     if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
     void windowCloseReady();
@@ -155,7 +162,7 @@ export function EditorWorkbench(_props: ToolProps): JSX.Element {
     }
   }, []);
 
-  /** 保存激活 Tab(工具栏「保存」按钮 / Ctrl+S 快捷键) */
+  /** 保存激活 Tab(菜单「保存」/ Ctrl+S 快捷键) */
   const handleSave = useCallback(() => {
     const state = useEditorWorkspaceStore.getState();
     if (!state.workspace.activeTabId) return;
@@ -177,6 +184,14 @@ export function EditorWorkbench(_props: ToolProps): JSX.Element {
       state.closeTab(id);
     }
   }, []);
+
+  /** 请求关闭当前 Tab(菜单「关闭」) */
+  const handleCloseCurrent = useCallback(() => {
+    const state = useEditorWorkspaceStore.getState();
+    const id = state.workspace.activeTabId;
+    if (!id) return;
+    requestCloseTab(id);
+  }, [requestCloseTab]);
 
   /** 请求全部关闭:存在未保存的非固定 Tab 时先弹确认,干净则直接关闭 */
   const requestCloseAll = useCallback(() => {
@@ -263,6 +278,128 @@ export function EditorWorkbench(_props: ToolProps): JSX.Element {
     useEditorWorkspaceStore.getState().newBlankTab();
   }, []);
 
+  /** 切换左栏显隐(菜单「视图」) */
+  const handleToggleSidebar = useCallback(() => {
+    useEditorWorkspaceStore.getState().toggleLeftSidebar();
+  }, []);
+
+  /**
+   * 注册 Titlebar 菜单栏 —— 工具挂载即注册,卸载自动清空。
+   *
+   * 菜单结构:
+   * - File:
+   *   - 新建 tab(快捷键 Ctrl+N)        → toolbar-new
+   *   - 打开文件...(快捷键 Ctrl+O)      → toolbar-open
+   *   - 分隔线
+   *   - 保存(快捷键 Ctrl+S)             → toolbar-save(disabled 无激活 tab)
+   *   - 全部保存(快捷键 Ctrl+Shift+S)
+   *   - 分隔线
+   *   - 关闭(disabled 无激活 tab)
+   *   - 全部关闭(disabled 无 tab)       → toolbar-close-all
+   * - View:
+   *   - 切换左栏(快捷键 Ctrl+B)         → toolbar-toggle-sidebar
+   *
+   * testId 沿用旧工具栏命名,保证现有测试无需修改。
+   */
+  const menus = useMemo<ToolMenu[]>(
+    () => [
+      {
+        id: 'file',
+        label: '文件',
+        groups: [
+          {
+            items: [
+              {
+                id: 'new',
+                label: '新建',
+                shortcut: 'Ctrl+N',
+                icon: FilePlus2,
+                onSelect: handleNewTab,
+                testId: 'toolbar-new',
+              },
+              {
+                id: 'open',
+                label: '打开...',
+                shortcut: 'Ctrl+O',
+                icon: FolderOpen,
+                onSelect: () => void handleOpen(),
+                testId: 'toolbar-open',
+              },
+            ],
+          },
+          {
+            items: [
+              {
+                id: 'save',
+                label: '保存',
+                shortcut: 'Ctrl+S',
+                onSelect: handleSave,
+                disabled: !activeTab,
+                testId: 'toolbar-save',
+              },
+              {
+                id: 'save-all',
+                label: '全部保存',
+                shortcut: 'Ctrl+Shift+S',
+                onSelect: () => void handleSaveAll(),
+                disabled: workspace.tabs.every((t) => t.content === t.savedContent),
+              },
+            ],
+          },
+          {
+            items: [
+              {
+                id: 'close',
+                label: '关闭',
+                shortcut: 'Ctrl+W',
+                onSelect: handleCloseCurrent,
+                disabled: !activeTab,
+              },
+              {
+                id: 'close-all',
+                label: '全部关闭',
+                shortcut: 'Ctrl+Shift+W',
+                onSelect: requestCloseAll,
+                disabled: workspace.tabs.length === 0,
+                testId: 'toolbar-close-all',
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'view',
+        label: '视图',
+        groups: [
+          {
+            items: [
+              {
+                id: 'toggle-sidebar',
+                label: workspace.leftSidebarVisible ? '隐藏左栏' : '显示左栏',
+                shortcut: 'Ctrl+B',
+                onSelect: handleToggleSidebar,
+                testId: 'toolbar-toggle-sidebar',
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    [
+      activeTab,
+      workspace.leftSidebarVisible,
+      workspace.tabs,
+      handleCloseCurrent,
+      handleNewTab,
+      handleOpen,
+      handleSave,
+      handleSaveAll,
+      handleToggleSidebar,
+      requestCloseAll,
+    ],
+  );
+  useToolMenus(toolId, menus);
+
   /** 未保存对话框:保存并关闭(仅 close-tab;另存为被取消则保持打开) */
   const handleUnsavedSave = useCallback(() => {
     if (!unsaved || unsaved.mode !== 'close-tab' || !unsaved.tabId) return;
@@ -311,65 +448,12 @@ export function EditorWorkbench(_props: ToolProps): JSX.Element {
       ? workspace.tabs.find((t) => t.id === unsaved.tabId)?.title
       : undefined;
 
+  // 移除原顶部工具栏:打开/新建/保存/关闭等操作已迁入 Titlebar 菜单栏。
+  // 空状态仍保留「打开文件 / 新建」快捷按钮(无 Tab 时无菜单可用,作为兜底入口)。
+
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex h-full flex-col bg-background-layer" data-testid="editor-workbench">
-      {/* 顶栏操作区 */}
-      <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button size="sm" variant="ghost" onClick={() => void handleOpen()} data-testid="toolbar-open">
-              <FolderOpen aria-hidden className="size-4" />
-              打开
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>打开本地文本文件</TooltipContent>
-        </Tooltip>
-        <Button size="sm" variant="ghost" onClick={handleNewTab} data-testid="toolbar-new">
-          <FilePlus2 aria-hidden className="size-4" />
-          新建
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => void handleSave()}
-          disabled={!activeTab}
-          data-testid="toolbar-save"
-        >
-          <Save aria-hidden className="size-4" />
-          保存
-        </Button>
-        <div className="flex-1" />
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => useEditorWorkspaceStore.getState().toggleLeftSidebar()}
-          aria-pressed={workspace.leftSidebarVisible}
-          data-testid="toolbar-toggle-sidebar"
-        >
-          {workspace.leftSidebarVisible ? '隐藏左栏' : '显示左栏'}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={requestCloseAll}
-          disabled={workspace.tabs.length === 0}
-          data-testid="toolbar-close-all"
-        >
-          <X aria-hidden className="size-4" />
-          全部关闭
-        </Button>
-      </div>
-
-      {/* 主体:左栏(可拖拽调宽) + 右侧主页面(含 Tab 栏与编辑器)。
-          使用普通 flex 布局 + 自管理拖拽 handle,避免 react-resizable-panels
-          在窄容器下百分比 layout 压缩左 Panel 的问题。
-          左栏宽度经 setSidebarWidth 持久化,重启后还原。
-          两个面板(打开的编辑器 / 编辑器主区)被设计为彼此独立的「卡片」:
-          - 各自带圆角 + 边框 + 背景层
-          - 中间保留 4px 窄间距(gap-1),默认没有分割线
-          - 拖拽手柄恰好填满分割空间:悬浮/聚焦时才显示一条与分割空间同宽的
-            蓝色高亮线 + grip 图标,视觉上明确暗示「此处可拖动」 */}
       <div className="flex h-full min-h-0 w-full min-w-0 flex-1 gap-1 overflow-hidden bg-muted/30 p-2" data-testid="editor-split">
         {/* 左栏卡片:固定像素宽度,由 sidebarWidth(持久化)控制,收起时宽度 0 */}
         <div

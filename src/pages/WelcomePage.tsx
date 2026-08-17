@@ -153,7 +153,7 @@ export function WelcomePage(): JSX.Element {
         {/* Hero 通栏(纯背景,沿用页面 bg-background-layer) */}
         <div
           data-testid="welcome-hero"
-          className="relative overflow-hidden px-8 py-9"
+          className="relative overflow-hidden px-5 py-6"
         >
           <div className="flex items-center gap-3">
             <Logo className="size-10 shrink-0" />
@@ -169,7 +169,7 @@ export function WelcomePage(): JSX.Element {
           </p>
         </div>
 
-        <div className="px-8 pb-6">
+        <div className="px-5 pb-4">
           {/* KPI 行:dashboard 标志性组件 */}
           <div
             data-testid="welcome-kpi-row"

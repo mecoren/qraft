@@ -7,11 +7,20 @@
  * - 双击标题栏切换最大化(Tauri 内置)
  *
  * 布局:.titlebar(flex, 相对定位)
- *   → .titlebar-left(左段:当前工具图标 + 名称,仅工具页显示;名称悬浮弹 Tooltip 描述)
+ *   → .titlebar-left(左段:当前工具图标 + 名称[工具页时] + 工具菜单栏[有菜单时,紧随标题右侧])
  *   → .titlebar-fill(flex:1 拖拽填充区)
  *   → .titlebar-center(中段:Logo + "Qraft",绝对居中)
  *   → <WindowControls />
- * 工具左区不带 data-tauri-drag-region,避免拖拽拦截干扰 Tooltip 悬浮;拖拽面积由 fill 与 center 维持。
+ *
+ * 工具菜单栏:
+ * - 工具组件挂载时调用 useToolMenus(toolId, ...) 注册自己的菜单(File / Edit / View)
+ * - 页面/工具 keepalive 常驻,因此仅当「注册菜单的工具 === 当前激活工具」时,
+ *   在工具名右侧展示 ToolMenuBar;其他功能(欢迎页/历史/扩展/其他工具)一律不显示菜单栏
+ * - 工具图标 + 名称始终展示(仅工具页),有菜单时位于菜单栏左侧(原行为)
+ *
+ * 拖拽适配:
+ * - 菜单栏内的 Trigger / Content 已通过 .menubar-root 选择器置 no-drag,
+ *   拖拽面积由 fill 与 center 维持
  */
 
 import { type JSX } from 'react';
@@ -27,11 +36,20 @@ import { getCatalogEntry } from '@/lib/tool-catalog';
 import { ICON_STROKE_WIDTH } from '@/lib/icon-constants';
 import { useUiStore } from '@/store/uiStore';
 import { useToolStateStore } from '@/store/toolStateStore';
+import { useToolMenusStore } from '@/store/toolMenubarStore';
+import { ToolMenuBar } from './ToolMenuBar';
 
 export function Titlebar(): JSX.Element {
   const view = useUiStore((s) => s.view);
   const currentToolId = useToolStateStore((s) => s.currentToolId);
-  // 仅工具页且已选中工具时,标题栏左侧展示当前工具图标 + 名称
+  // 当前激活工具是否注册了菜单(用于决定左段渲染菜单栏 vs 工具名)
+  // 注意:页面/工具均为 keepalive(DOM 常驻),菜单可能由已切走的工具贡献,
+  // 因此必须校验「注册菜单的工具 === 当前激活工具」,其他功能不显示菜单栏
+  const menus = useToolMenusStore((s) => s.menus);
+  const ownerToolId = useToolMenusStore((s) => s.ownerToolId);
+  const hasMenus =
+    view === 'tool' && currentToolId !== null && ownerToolId === currentToolId && menus.length > 0;
+  // 仅工具页且已选中工具时,标题栏左侧展示当前工具图标 + 名称(无菜单时降级显示)
   const entry = view === 'tool' && currentToolId ? getCatalogEntry(currentToolId) : null;
   // 提取为局部变量,符合 JSX PascalCase 组件约定
   const ToolIcon = entry?.icon;
@@ -39,23 +57,25 @@ export function Titlebar(): JSX.Element {
   return (
     <TooltipProvider delayDuration={500}>
       <header className="titlebar" data-testid="titlebar">
-        {/* 左段:当前工具图标 + 名称,悬浮显示功能描述 */}
+        {/* 左段:当前工具图标 + 名称,右侧(有菜单时)为工具菜单栏 */}
         <div className="titlebar-left">
-          {entry && ToolIcon && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button type="button" className="titlebar-tool" data-testid="titlebar-tool">
-                  <ToolIcon aria-hidden className="size-4" strokeWidth={ICON_STROKE_WIDTH} />
-                  <span className="titlebar-title" data-testid="titlebar-tool-name">
-                    {entry.name}
-                  </span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" sideOffset={6}>
-                {entry.description}
-              </TooltipContent>
-            </Tooltip>
-          )}
+          {entry &&
+            ToolIcon && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="titlebar-tool" data-testid="titlebar-tool">
+                    <ToolIcon aria-hidden className="size-4" strokeWidth={ICON_STROKE_WIDTH} />
+                    <span className="titlebar-title" data-testid="titlebar-tool-name">
+                      {entry.name}
+                    </span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6}>
+                  {entry.description}
+                </TooltipContent>
+              </Tooltip>
+            )}
+          {hasMenus && <ToolMenuBar />}
         </div>
 
         {/* 拖拽填充区:撑满剩余宽度,维持标题栏可拖拽面积 */}

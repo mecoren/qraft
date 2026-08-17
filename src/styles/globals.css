@@ -856,7 +856,7 @@
  * 自定义标题栏(Mica 材质适配)
  *
  * - .titlebar:整个标题栏,使用 L2 半透明背景(--bg-sidebar-layer),
- *   与侧边栏同源保持一致;高度 36px;relative 供中段绝对居中
+ *   与侧边栏同源保持一致;高度 32px;relative 供中段绝对居中
  * - .titlebar-left:左段,展示当前工具图标 + 名称(仅工具页),悬浮弹描述 Tooltip
  * - .titlebar-fill:拖拽填充区(data-tauri-drag-region),flex:1 撑满剩余宽度
  * - .titlebar-center:中段,Logo + "Qraft",absolute 水平居中
@@ -873,7 +873,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  height: 36px;
+  height: 32px;
   padding-right: 0; /* 右侧由 window-controls 占满 */
   background: var(--bg-sidebar-layer);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
@@ -893,6 +893,57 @@
   height: 100%;
   min-width: 0;
   padding-left: var(--space-3);
+  /* 工具名与右侧工具菜单栏之间保留间距;仅工具名时 gap 无副作用 */
+  gap: var(--space-1);
+  /* 工具菜单栏注册时,内容可能超过默认 padding-left:
+   * 取消最小宽度限制,允许左段随菜单横向扩展;仍受 titlebar 容器整体约束 */
+}
+
+/* ============================================================
+ * 工具菜单栏 —— 集成到 Titlebar 的 Menubar 样式
+ *
+ * 设计动机:
+ * - 菜单栏位于 titlebar(32px 高),需贴合 Mica 背景,不能抢眼
+ * - 触发器(Titlebar 上的「文件 / 视图」):扁平按钮,默认透明,
+ *   仅悬浮或 active(菜单展开)时显示 hover 高亮 — 与 Win11 原生菜单一致
+ * - 下拉内容:用 popover-layer,与已有 dialog / dropdown 同源
+ * - 拖拽适配:整个 .menubar-root 及其后代均 -webkit-app-region: no-drag,
+ *   避免菜单触发器误触发原生窗口拖拽
+ * ============================================================ */
+
+/* 拖拽适配:整个菜单栏子树均 no-drag,仅 titlebar-fill / titlebar-center
+ * 区域可拖拽(由 data-tauri-drag-region 控制) */
+.menubar-root,
+.menubar-root * {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* 菜单栏根容器继承 titlebar 的字体族,与左段标题字体一致 */
+.menubar-root {
+  font-family: inherit;
+  color: var(--foreground);
+}
+
+/* 触发器在 titlebar 中的视觉微调:
+ * - 默认透明:与 titlebar 同色,不破坏 Mica 一体感
+ * - hover / focus / active 用 bg-accent,与下拉内容视觉关联
+ * - 字号 / 字重 / 前景色与 .titlebar-title 对齐,保持左段视觉一致 */
+.menubar-trigger {
+  color: var(--foreground);
+  /* 与 .titlebar-title 同字族 / 字号 / 行高,确保文本基线对齐到同一网格 */
+  font-size: var(--text-body-sm);
+  line-height: 1.4;
+  font-weight: 500;
+  transition: color var(--duration-fast, 150ms) var(--ease-standard, ease-out),
+    background-color var(--duration-fast, 150ms) var(--ease-standard, ease-out);
+}
+.menubar-trigger:hover,
+.menubar-trigger:focus {
+  color: var(--foreground);
+}
+.menubar-trigger[data-state='open'] {
+  color: var(--foreground);
 }
 
 .titlebar-fill {
@@ -959,8 +1010,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 36px;
+  width: 46px;
+  height: 32px;
   border: none;
   background: transparent;
   color: var(--foreground);
@@ -1020,8 +1071,8 @@
 [data-sonner-toaster][data-y-position][data-x-position] {
   bottom: auto !important;
   left: auto !important;
-  /* 自定义标题栏 36px + 12px 呼吸空间 = 48px,符合右上角视觉 */
-  top: 48px !important;
+  /* 自定义标题栏 32px + 12px 呼吸空间 = 44px,符合右上角视觉 */
+  top: 44px !important;
   right: var(--offset-right) !important;
   margin: 0 !important;
 }

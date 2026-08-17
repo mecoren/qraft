@@ -80,9 +80,11 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
+import userEvent from '@testing-library/user-event';
 import { listen, safeInvoke } from '@/lib/ipc';
 import { CodeEditorTool } from './CodeEditor';
 import { useEditorWorkspaceStore } from './code-editor-workspace/useEditorWorkspaceStore';
+import { ToolMenuBar } from '@/components/layout/ToolMenuBar';
 import {
   openTextFileDialog,
   saveToPath,
@@ -111,8 +113,56 @@ beforeEach(() => {
   (listen as unknown as Mock).mockResolvedValue(() => {});
 });
 
+/**
+ * 测试包装器 —— 模拟生产环境的 AppShell:
+ * - 顶部 header 容纳 Titlebar 中的菜单栏区域(ToolMenuBar)
+ * - 下方渲染 CodeEditorTool,使其挂载并通过 useToolMenus 注册菜单
+ *
+ * 之所以需要这个包装:菜单栏从原编辑器内工具栏迁移到 Titlebar,
+ * 测试必须同时挂载菜单栏所在位置(注册菜单的 store 才会填充数据)
+ * 与工具组件,否则 `getByTestId('tool-menubar-trigger-file')` 无法找到元素。
+ */
+function ToolWorkspaceShell(): React.JSX.Element {
+  return (
+    <div>
+      <header data-testid="titlebar">
+        <ToolMenuBar />
+      </header>
+      <CodeEditorTool toolId="text_editor" metadata={null as never} />
+    </div>
+  );
+}
+
 const renderTool = (): void => {
-  render(<CodeEditorTool toolId="text_editor" metadata={null as never} />);
+  render(<ToolWorkspaceShell />);
+};
+
+/**
+ * 编辑器工具栏已迁移到 Titlebar 菜单栏(File / View 菜单),
+ * 测试需要先打开顶级菜单触发器,再点击具体菜单项。
+ * - 工具栏项默认在 '文件' 菜单下(testId: toolbar-*)
+ * - 切换左栏项在 '视图' 菜单下(testId: toolbar-toggle-sidebar)
+ *
+ * 关键实现细节:
+ * - Radix Menubar 的 Trigger 用 pointer 事件监听点击;jsdom 中 fireEvent.click()
+ *   不会触发表单 click → mousedown 序列,菜单不会展开。必须用 userEvent.click()
+ *   才能完整模拟 pointerdown + mousedown + pointerup + click,触发 Radix 状态机
+ * - 菜单 Content 通过 Portal 渲染到 document.body;getByTestId 默认查找整个 DOM,
+ *   无需指定 container
+ */
+const user = userEvent.setup();
+async function clickMenubarItem(menu: 'file' | 'view', testId: string): Promise<void> {
+  await user.click(screen.getByTestId(`tool-menubar-trigger-${menu}`));
+  // Portal 渲染后,菜单项出现在 document.body 末尾;user.click 会等待元素可交互
+  await user.click(await screen.findByTestId(testId));
+}
+
+const clickToolbarItem = (testId: string): Promise<void> => {
+  // 默认归属 '文件' 菜单;view 菜单的项由调用方显式指定
+  if (testId === 'toolbar-toggle-sidebar') {
+    return clickMenubarItem('view', testId);
+  }
+  return clickMenubarItem('file', testId);
 };
 
 describe('CodeEditorTool workspace', () => {
@@ -126,7 +176,7 @@ describe('CodeEditorTool workspace', () => {
   it('creates an untitled tab when clicking 新建', async () => {
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-new'));
+    await clickToolbarItem('toolbar-new');
 
     // untitled-1 Tab 出现在 Tab 栏与左栏
     expect(screen.getByTestId('editor-tabs-tab-untitled-1')).toBeInTheDocument();
@@ -141,7 +191,7 @@ describe('CodeEditorTool workspace', () => {
     });
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-open'));
+    await clickToolbarItem('toolbar-open');
 
     // 本地文件:编辑器左上角标题展示完整路径
     await waitFor(() => {
@@ -160,12 +210,12 @@ describe('CodeEditorTool workspace', () => {
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce(file);
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-open'));
+    await clickToolbarItem('toolbar-open');
     // 标题为完整路径
     await waitFor(() =>
       expect(screen.getByTestId('editor-title').textContent).toBe('/x.json'),
     );
-    fireEvent.click(screen.getByTestId('toolbar-open'));
+    await clickToolbarItem('toolbar-open');
     await waitFor(() => expect(screen.getAllByTestId(/editor-tabs-tab-/)).toHaveLength(1));
   });
 
@@ -176,7 +226,7 @@ describe('CodeEditorTool workspace', () => {
     });
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-open'));
+    await clickToolbarItem('toolbar-open');
     await waitFor(() =>
       expect(screen.getByTestId('editor-title').textContent).toBe('/a.txt'),
     );
@@ -191,7 +241,7 @@ describe('CodeEditorTool workspace', () => {
 
     // 保存 → dirty 消失
     (saveToPath as unknown as Mock).mockResolvedValueOnce(true);
-    fireEvent.click(screen.getByTestId('toolbar-save'));
+    await clickToolbarItem('toolbar-save');
     await waitFor(() => expect(screen.queryByTestId('editor-tabs-dirty-a.txt')).toBeNull());
     expect(saveToPath).toHaveBeenCalledWith('/a.txt', 'hello world');
   });
@@ -199,8 +249,8 @@ describe('CodeEditorTool workspace', () => {
   it('switches tabs and closes via the tabs bar close button', async () => {
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-new'));
-    fireEvent.click(screen.getByTestId('toolbar-new'));
+    await clickToolbarItem('toolbar-new');
+    await clickToolbarItem('toolbar-new');
     await waitFor(() =>
       expect(screen.getByTestId('editor-tabs-tab-untitled-2')).toBeInTheDocument(),
     );
@@ -218,8 +268,8 @@ describe('CodeEditorTool workspace', () => {
   it('closes a tab via middle-click on the tab', async () => {
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-new'));
-    fireEvent.click(screen.getByTestId('toolbar-new'));
+    await clickToolbarItem('toolbar-new');
+    await clickToolbarItem('toolbar-new');
     await waitFor(() =>
       expect(screen.getByTestId('editor-tabs-tab-untitled-2')).toBeInTheDocument(),
     );
@@ -235,8 +285,8 @@ describe('CodeEditorTool workspace', () => {
   it('does not close on left-click of the tab (only switches)', async () => {
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-new'));
-    fireEvent.click(screen.getByTestId('toolbar-new'));
+    await clickToolbarItem('toolbar-new');
+    await clickToolbarItem('toolbar-new');
     await waitFor(() =>
       expect(screen.getByTestId('editor-tabs-tab-untitled-2')).toBeInTheDocument(),
     );
@@ -249,13 +299,13 @@ describe('CodeEditorTool workspace', () => {
   it('closes all tabs via toolbar action', async () => {
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-new'));
-    fireEvent.click(screen.getByTestId('toolbar-new'));
+    await clickToolbarItem('toolbar-new');
+    await clickToolbarItem('toolbar-new');
     await waitFor(() =>
       expect(screen.getByTestId('editor-tabs-tab-untitled-2')).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByTestId('toolbar-close-all'));
+    await clickToolbarItem('toolbar-close-all');
     await waitFor(() => expect(screen.getByTestId('editor-empty')).toBeInTheDocument());
     expect(screen.getByTestId('editor-tabs-empty')).toBeInTheDocument();
   });
@@ -263,7 +313,7 @@ describe('CodeEditorTool workspace', () => {
   it('closes a clean tab via the sidebar close icon', async () => {
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-new'));
+    await clickToolbarItem('toolbar-new');
     await waitFor(() => expect(screen.getByTestId('editor-tabs-tab-untitled-1')).toBeInTheDocument());
 
     // 左栏 hover 图标切换为关闭按钮,点击直接关闭(无未保存)
@@ -275,7 +325,7 @@ describe('CodeEditorTool workspace', () => {
   it('collapses and expands the file list by clicking the sidebar header', async () => {
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-new'));
+    await clickToolbarItem('toolbar-new');
     await waitFor(() => expect(screen.getByTestId('editor-tabs-tab-untitled-1')).toBeInTheDocument());
 
     // 点击标题区 → 折叠(列表隐藏)
@@ -306,7 +356,7 @@ describe('CodeEditorTool workspace', () => {
     });
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-open'));
+    await clickToolbarItem('toolbar-open');
     await waitFor(() =>
       expect(screen.getByTestId('editor-title').textContent).toBe('/a.txt'),
     );
@@ -330,7 +380,7 @@ describe('CodeEditorTool workspace', () => {
     });
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-open'));
+    await clickToolbarItem('toolbar-open');
     await waitFor(() =>
       expect(screen.getByTestId('editor-title').textContent).toBe('/s.txt'),
     );
@@ -350,27 +400,30 @@ describe('CodeEditorTool workspace', () => {
   it('toggles the left sidebar visibility', async () => {
     renderTool();
     await screen.findByTestId('editor-empty');
-    // 左栏可见:按钮显示「隐藏左栏」
+    // 左栏可见:菜单项文案随左栏状态变化
     expect(screen.getByTestId('editor-sidebar')).toBeInTheDocument();
+    // 打开「视图」菜单以检查 toggle 项目文案
+    await user.click(screen.getByTestId('tool-menubar-trigger-view'));
     expect(screen.getByTestId('toolbar-toggle-sidebar')).toHaveTextContent('隐藏左栏');
+    // 关闭菜单以便下一次打开
+    await user.keyboard('{Escape}');
 
-    // 点击 → 左栏收起(store 状态翻转,按钮变「显示左栏」)
-    fireEvent.click(screen.getByTestId('toolbar-toggle-sidebar'));
-    await waitFor(() =>
-      expect(screen.getByTestId('toolbar-toggle-sidebar')).toHaveTextContent('显示左栏'),
-    );
+    // 点击 → 左栏收起(store 状态翻转,菜单项文案变「显示左栏」)
+    await clickToolbarItem('toolbar-toggle-sidebar');
+    await user.click(screen.getByTestId('tool-menubar-trigger-view'));
+    expect(screen.getByTestId('toolbar-toggle-sidebar')).toHaveTextContent('显示左栏');
+    await user.keyboard('{Escape}');
 
     // 再点 → 展开
-    fireEvent.click(screen.getByTestId('toolbar-toggle-sidebar'));
-    await waitFor(() =>
-      expect(screen.getByTestId('toolbar-toggle-sidebar')).toHaveTextContent('隐藏左栏'),
-    );
+    await clickToolbarItem('toolbar-toggle-sidebar');
+    await user.click(screen.getByTestId('tool-menubar-trigger-view'));
+    expect(screen.getByTestId('toolbar-toggle-sidebar')).toHaveTextContent('隐藏左栏');
   });
 
   it('persists the workspace via config_set after hydrate', async () => {
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-new'));
+    await clickToolbarItem('toolbar-new');
     await waitFor(() => expect(screen.getByTestId('editor-title').textContent).toBe('untitled-1'));
 
     // 防抖 400ms 后 persist
@@ -421,7 +474,7 @@ describe('CodeEditorTool workspace', () => {
   it('follows the app palette without locking a fixed editor theme', async () => {
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-new'));
+    await clickToolbarItem('toolbar-new');
     await waitFor(() => expect(screen.getByTestId('editor-title').textContent).toBe('untitled-1'));
     // 不再传 fixedTheme:编辑器颜色跟随应用 data-palette 亮/暗切换
     expect(screen.queryByTestId('editor-fixed-theme')).toBeNull();
@@ -435,7 +488,7 @@ describe('CodeEditorTool workspace', () => {
     });
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-open'));
+    await clickToolbarItem('toolbar-open');
     await waitFor(() =>
       expect(screen.getByTestId('editor-title').textContent).toBe('/b.txt'),
     );
@@ -463,7 +516,7 @@ describe('CodeEditorTool workspace', () => {
     });
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-open'));
+    await clickToolbarItem('toolbar-open');
     await waitFor(() =>
       expect(screen.getByTestId('editor-title').textContent).toBe('/b.txt'),
     );
@@ -487,7 +540,7 @@ describe('CodeEditorTool workspace', () => {
     (saveToPath as unknown as Mock).mockResolvedValueOnce(true);
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-open'));
+    await clickToolbarItem('toolbar-open');
     await waitFor(() =>
       expect(screen.getByTestId('editor-title').textContent).toBe('/c.txt'),
     );
@@ -510,7 +563,7 @@ describe('CodeEditorTool workspace', () => {
     });
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-open'));
+    await clickToolbarItem('toolbar-open');
     await waitFor(() =>
       expect(screen.getByTestId('editor-title').textContent).toBe('/d.txt'),
     );
@@ -519,14 +572,14 @@ describe('CodeEditorTool workspace', () => {
     await waitFor(() => expect(screen.getByTestId('editor-tabs-dirty-d.txt')).toBeInTheDocument());
 
     // 全部关闭 → 弹确认 → 取消 → Tab 保留
-    fireEvent.click(screen.getByTestId('toolbar-close-all'));
+    await clickToolbarItem('toolbar-close-all');
     await waitFor(() => expect(screen.getByTestId('unsaved-dialog')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('unsaved-dialog-cancel'));
     await waitFor(() => expect(screen.queryByTestId('unsaved-dialog')).toBeNull());
     expect(screen.getByTestId('editor-tabs-tab-d.txt')).toBeInTheDocument();
 
     // 再次全部关闭 → 确认全部不保存 → 清空
-    fireEvent.click(screen.getByTestId('toolbar-close-all'));
+    await clickToolbarItem('toolbar-close-all');
     await waitFor(() => expect(screen.getByTestId('unsaved-dialog')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('unsaved-dialog-discard'));
     await waitFor(() => expect(screen.getByTestId('editor-empty')).toBeInTheDocument());
@@ -551,7 +604,7 @@ describe('CodeEditorTool workspace', () => {
     });
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-open'));
+    await clickToolbarItem('toolbar-open');
     await waitFor(() =>
       expect(screen.getByTestId('editor-title').textContent).toBe('/q.txt'),
     );
@@ -600,7 +653,7 @@ describe('CodeEditorTool workspace', () => {
     });
     renderTool();
     await screen.findByTestId('editor-empty');
-    fireEvent.click(screen.getByTestId('toolbar-open'));
+    await clickToolbarItem('toolbar-open');
     await waitFor(() =>
       expect(screen.getByTestId('editor-title').textContent).toBe('/clean.txt'),
     );

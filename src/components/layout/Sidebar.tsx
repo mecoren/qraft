@@ -2,7 +2,7 @@
  * 应用侧边栏 —— DevToys 风格可折叠导航
  *
  * 两种形态:
- * - 展开(256px):汉堡按钮 + 搜索框;所有工具 / 文本编辑器(固定) / 收藏夹(可展开) /
+ * - 展开(224px):汉堡按钮 + 搜索框;所有工具 / 文本编辑器(固定) / 收藏夹(可展开) /
  *   7 个分类分组(可展开);底部 管理扩展 + 设置
  * - 折叠(56px 图标栏):汉堡 / 所有工具 / 文本编辑器(固定) / 分类图标 /
  *   底部设置;点击分类图标会展开侧栏并展开对应分类
@@ -260,12 +260,12 @@ export function Sidebar(): JSX.Element {
     );
   }
 
-  // —— 展开态:256px ——
+  // —— 展开态:224px ——
   return (
     <nav
       aria-label="工具导航"
       data-testid="sidebar"
-      className="flex h-full w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar-layer text-sidebar-foreground"
+      className="flex h-full w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar-layer text-sidebar-foreground"
     >
       {/* 顶部:折叠按钮 + 搜索 */}
       <div className="flex items-center gap-2 px-3 pb-2 pt-3">
