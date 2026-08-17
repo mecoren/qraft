@@ -18,12 +18,21 @@
  * - 卸载时清空 Titlebar 菜单栏(由 useToolMenus effect cleanup 自动处理)
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { DiffEditor, type Monaco } from '@monaco-editor/react';
+import type { editor } from 'monaco-editor';
 import { FilePlus2, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { defineThemeFor, getThemeName, useMonacoTheme } from '@/components/ui/monaco-theme';
 import { useShortcut } from '@/hooks/useShortcut';
 import { listen, safeInvoke } from '@/lib/ipc';
 import { writeClipboardText } from '@/lib/clipboard';
@@ -43,6 +52,7 @@ import {
 } from './fileOps';
 import { useToolMenus } from '@/store/toolMenubarStore';
 import type { ToolMenu } from '@/types/tool-menu';
+import type { EditorTab } from './schema';
 
 /** 批量关闭意图:用于未保存确认通过后执行对应 store 动作 */
 type BatchCloseAction = 'close-others' | 'close-right' | 'close-all';
@@ -57,6 +67,15 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   /** 未保存对话框状态(null = 关闭);batchAction 记录批量关闭意图 */
   const [unsaved, setUnsaved] = useState<
     { mode: UnsavedMode; tabId?: string; batchAction?: BatchCloseAction } | null
+  >(null);
+  /**
+   * 左栏 Ctrl+多选选中的文件(id 集合,不含激活 Tab 自身)。
+   * 存储层不落盘(纯会话内 UI 状态),关闭文件时同步剔除失效 id。
+   */
+  const [selectedTabIds, setSelectedTabIds] = useState<string[]>([]);
+  /** 文件对比差异对话框:null = 关闭;否则为两个对比文件 */
+  const [comparePair, setComparePair] = useState<
+    { left: EditorTab; right: EditorTab } | null
   >(null);
 
   // 首次挂载从 Rust config 还原工作区
@@ -258,6 +277,52 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       toast.error(e instanceof Error ? e.message : '无法在文件管理器中显示');
     });
   }, []);
+
+  /**
+   * 左栏选中处理(单击 / Ctrl+点击):
+   * - additive=false(普通点击):单选该文件,清除其它多选
+   * - additive=true(Ctrl/Cmd+点击):切换该文件在选中集合中的存在
+   * 同时总是激活该 Tab。
+   */
+  const handleSelectMany = useCallback((id: string, additive: boolean) => {
+    const state = useEditorWorkspaceStore.getState();
+    const tab = state.workspace.tabs.find((t) => t.id === id);
+    if (!tab) return;
+    state.switchTab(id);
+    setSelectedTabIds((prev) => {
+      if (!additive) return [];
+      return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+    });
+  }, []);
+
+  /** 关闭文件后,从选中集合剔除已关闭的 Tab,避免残留失效 id */
+  useEffect(() => {
+    const valid = new Set(useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.id));
+    setSelectedTabIds((prev) => prev.filter((x) => valid.has(x)));
+  }, [workspace.tabs]);
+
+  /**
+   * 比较所选内容:从激活 Tab + 多选集合中取前两个文件,
+   * 打开 Monaco DiffEditor 并排对比差异。
+   */
+  const handleCompareSelected = useCallback(() => {
+    const state = useEditorWorkspaceStore.getState();
+    const { tabs, activeTabId } = state.workspace;
+    // 确定参与对比的文件顺序:激活 Tab 优先,随后按多选顺序补足
+    const chosen: EditorTab[] = [];
+    const active = tabs.find((t) => t.id === activeTabId);
+    if (active) chosen.push(active);
+    for (const id of selectedTabIds) {
+      if (chosen.length >= 2) break;
+      const tab = tabs.find((t) => t.id === id);
+      if (tab && !chosen.some((c) => c.id === tab.id)) chosen.push(tab);
+    }
+    if (chosen.length < 2) {
+      toast.info('请先选中至少两个文件再进行对比');
+      return;
+    }
+    setComparePair({ left: chosen[0], right: chosen[1] });
+  }, [selectedTabIds]);
 
   /**
    * 全部保存:遍历 dirty Tab 逐个保存。
@@ -464,7 +529,10 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
             tabs={workspace.tabs}
             activeTabId={workspace.activeTabId}
             dirtyCount={workspace.tabs.filter((t) => t.content !== t.savedContent).length}
+            selectedTabIds={selectedTabIds}
             onSelect={(id) => useEditorWorkspaceStore.getState().switchTab(id)}
+            onSelectMany={handleSelectMany}
+            onCompareSelected={handleCompareSelected}
             onClose={requestCloseTab}
             onCloseOthers={(id) => requestCloseBatch('close-others', id)}
             onCloseRight={(id) => requestCloseBatch('close-right', id)}
@@ -563,8 +631,153 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         onCancel={handleUnsavedCancel}
         data-testid="unsaved-dialog"
       />
+
+      {/* 文件对比差异对话框:左栏多选 ≥2 个文件后,右键 → 比较所选内容 */}
+      <FileCompareDialog
+        open={comparePair !== null}
+        left={comparePair?.left ?? null}
+        right={comparePair?.right ?? null}
+        onOpenChange={(open) => {
+          if (!open) setComparePair(null);
+        }}
+        data-testid="compare-dialog"
+      />
       </div>
     </TooltipProvider>
+  );
+}
+
+/** 对比差异对话框的 Monaco DiffEditor 配置(与编辑器展示风格保持一致) */
+const diffOptions: editor.IDiffEditorConstructionOptions = {
+  originalEditable: false,
+  readOnly: true,
+  renderSideBySide: true,
+  useShadowDOM: false,
+  fontFamily:
+    "var(--app-mono-font-family, 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace)",
+  fontLigatures: true,
+  fontSize: 13,
+  lineHeight: 20,
+  lineNumbers: 'on',
+  glyphMargin: false,
+  folding: false,
+  minimap: { enabled: false },
+  scrollBeyondLastLine: false,
+  automaticLayout: true,
+  wordWrap: 'on',
+  diffWordWrap: 'on',
+  renderLineHighlight: 'all',
+  renderWhitespace: 'selection',
+  smoothScrolling: true,
+  cursorBlinking: 'smooth',
+  cursorSmoothCaretAnimation: 'on',
+  padding: { top: 10, bottom: 10 },
+  scrollbar: {
+    verticalScrollbarSize: 10,
+    horizontalScrollbarSize: 10,
+    verticalSliderSize: 6,
+    horizontalSliderSize: 6,
+    useShadows: false,
+  },
+  guides: {
+    indentation: true,
+    highlightActiveIndentation: true,
+  },
+  bracketPairColorization: { enabled: true },
+  roundedSelection: true,
+  overviewRulerLanes: 0,
+  scrollBeyondLastColumn: 0,
+  contextmenu: false,
+  fixedOverflowWidgets: true,
+  hideUnchangedRegions: { enabled: false },
+};
+
+/**
+ * 文件对比差异对话框 —— 两个已打开文件的内容并排 Diff
+ *
+ * - 左侧为「原文件」,右侧为「目标文件」,均由 Monaco DiffEditor 只读渲染,
+ *   差异行高亮,差异区域可折叠。
+ * - 对话框顶部以「左 文件 A ↔ 右 文件 B」的形式展示对比双方文件名。
+ * - 关闭时通过 onOpenChange(false) 由父组件清空 comparePair。
+ */
+function FileCompareDialog({
+  open,
+  left,
+  right,
+  onOpenChange,
+  'data-testid': dataTestId,
+}: {
+  open: boolean;
+  left: EditorTab | null;
+  right: EditorTab | null;
+  onOpenChange: (open: boolean) => void;
+  'data-testid'?: string;
+}): JSX.Element {
+  const themeName = useMonacoTheme();
+  const monacoRef = useRef<Monaco | null>(null);
+
+  const handleBeforeMount = useCallback((monaco: Monaco) => {
+    monacoRef.current = monaco;
+    defineThemeFor(monaco, getThemeName());
+  }, []);
+
+  // 主题变化时重新定义并切换 Monaco 主题(无需重挂载编辑器)
+  useEffect(() => {
+    const monaco = monacoRef.current;
+    if (!monaco) return;
+    defineThemeFor(monaco, themeName);
+    monaco.editor.setTheme(themeName);
+  }, [themeName]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        data-testid={dataTestId}
+        className="flex h-[85vh] max-w-[92vw] flex-col"
+      >
+        <DialogTitle className="text-sm font-semibold">比较所选内容</DialogTitle>
+        <DialogDescription className="sr-only">
+          两个已打开文件的并排差异对比
+        </DialogDescription>
+        {/* 对比双方文件名头 */}
+        <div
+          data-testid={`${dataTestId}-headers`}
+          className="flex items-center gap-2 text-xs"
+        >
+          <span
+            data-testid={`${dataTestId}-left-title`}
+            className="min-w-0 flex-1 truncate rounded px-1.5 py-0.5 bg-muted text-muted-foreground"
+            title={left?.path ?? left?.title}
+          >
+            {left?.title ?? '—'}
+          </span>
+          <span className="shrink-0 text-muted-foreground">↔</span>
+          <span
+            data-testid={`${dataTestId}-right-title`}
+            className="min-w-0 flex-1 truncate rounded px-1.5 py-0.5 bg-muted text-muted-foreground"
+            title={right?.path ?? right?.title}
+          >
+            {right?.title ?? '—'}
+          </span>
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-border">
+          <DiffEditor
+            language="plaintext"
+            theme={themeName}
+            beforeMount={handleBeforeMount}
+            original={left?.content}
+            modified={right?.content}
+            options={diffOptions}
+            className="h-full"
+            loading={
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                加载编辑器…
+              </div>
+            }
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

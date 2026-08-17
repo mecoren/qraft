@@ -2,8 +2,11 @@
  * 左栏「打开的编辑器」列表 —— VSCode EXPLORER 分组
  *
  * 列表项交互:
- * - 点击文件项 → 切换激活 Tab
+ * - 点击文件项 → 切换激活 Tab(单击选中该文件)
+ * - Ctrl/Cmd+点击文件项 → 多选切换该文件的选中态,同时激活该 Tab
+ * - 右键文件项 → 若文件不在当前多选中则仅选中它(对齐 VSCode),再弹右键菜单
  * - hover 文件项 → 文件图标/dirty 圆点淡出,行尾关闭图标显示
+ * - 多选 ≥2 个文件时,右键菜单出现「比较所选内容」项,可并排对比差异
  *
  * 标题区交互(对齐 VSCode 资源管理器标题):
  * - 折叠/展开箭头(点击切换列表显示)
@@ -29,7 +32,13 @@ export interface EditorLeftSidebarProps {
   activeTabId: string | null;
   /** 未保存 Tab 数量,用于标题徽章展示 */
   dirtyCount: number;
+  /** 当前多选文件(除激活 Tab 外被 Ctrl+点击选中的 Tab id 集合) */
+  selectedTabIds?: readonly string[];
   onSelect: (id: string) => void;
+  /** 单击/Ctrl+点击选中处理:additive=true 表示追加切换(Ctrl/Cmd),否则单选 */
+  onSelectMany?: (id: string, additive: boolean) => void;
+  /** 比较所选内容(多选 ≥2 个文件时可用) */
+  onCompareSelected?: () => void;
   /** 关闭单个 Tab(需要未保存确认时由父组件决定是否弹框) */
   onClose?: (id: string) => void;
   /** 右键菜单:关闭其他(保留目标与全部固定 Tab) */
@@ -64,7 +73,10 @@ export function EditorLeftSidebar({
   tabs,
   activeTabId,
   dirtyCount,
+  selectedTabIds = [],
   onSelect,
+  onSelectMany,
+  onCompareSelected,
   onClose,
   onCloseOthers,
   onCloseRight,
@@ -205,10 +217,15 @@ export function EditorLeftSidebar({
             tabs.map((tab) => {
               const active = tab.id === activeTabId;
               const dirty = tab.content !== tab.savedContent;
+              // 是否在 Ctrl+多选中(不含激活 Tab 自身)
+              const multiSelected = selectedTabIds.includes(tab.id);
+              const selected = active || multiSelected;
               return (
                 <li key={tab.id}>
                   <TabContextMenu
                     tab={tab}
+                    onCompareSelected={onCompareSelected}
+                    selectedCount={selectedTabIds.length + (activeTabId ? 1 : 0)}
                     onClose={() => onClose?.(tab.id)}
                     onCloseOthers={() => onCloseOthers?.(tab.id)}
                     onCloseRight={() => onCloseRight?.(tab.id)}
@@ -223,7 +240,22 @@ export function EditorLeftSidebar({
                       type="button"
                       data-testid={`${dataTestId}-item-${tab.title}`}
                       aria-current={active ? 'true' : undefined}
-                      onClick={() => onSelect(tab.id)}
+                      aria-selected={multiSelected ? 'true' : undefined}
+                      onClick={(e) => {
+                        // Ctrl/Cmd+点击:追加/取消多选并激活;普通点击:单选并激活
+                        if (onSelectMany) {
+                          onSelectMany(tab.id, e.ctrlKey || e.metaKey);
+                        } else {
+                          onSelect(tab.id);
+                        }
+                      }}
+                      onContextMenu={() => {
+                        // 右键文件:若不在当前多选中则仅选中它(对齐 VSCode);
+                        // 已在多选中则保持整组选中,使「比较所选内容」可用
+                        if (!multiSelected && !active && onSelectMany) {
+                          onSelectMany(tab.id, false);
+                        }
+                      }}
                       title={tab.path ?? tab.title}
                     className={cn(
                       // VSCode 行高紧凑,relative 供关闭按钮绝对定位到圆点槽位
@@ -231,7 +263,9 @@ export function EditorLeftSidebar({
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       active
                         ? 'bg-sidebar-primary/15 font-medium text-sidebar-primary'
-                        : 'text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
+                        : selected
+                          ? 'bg-sidebar-primary/10 text-sidebar-primary'
+                          : 'text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
                     )}
                   >
                     {/*

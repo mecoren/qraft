@@ -170,4 +170,32 @@ describe('TabContextMenu', () => {
       'true',
     );
   });
+
+  it('多选 ≥2 个文件且提供 onCompareSelected 时显示「比较所选内容」', async () => {
+    const onCompareSelected = vi.fn();
+    setup({ onCompareSelected, selectedCount: 2 });
+    await openMenu();
+
+    const item = screen.getByTestId('ctx-compare-selected');
+    expect(item).toHaveTextContent('比较所选内容');
+    expect(item).toHaveTextContent('2 个文件');
+
+    await item.click();
+    expect(onCompareSelected).toHaveBeenCalledTimes(1);
+  });
+
+  it('未提供 onCompareSelected 时不显示「比较所选内容」', async () => {
+    setup({ selectedCount: 2 });
+    await openMenu();
+
+    expect(screen.queryByTestId('ctx-compare-selected')).not.toBeInTheDocument();
+  });
+
+  it('多选不足 2 个文件时不显示「比较所选内容」', async () => {
+    const onCompareSelected = vi.fn();
+    setup({ onCompareSelected, selectedCount: 1 });
+    await openMenu();
+
+    expect(screen.queryByTestId('ctx-compare-selected')).not.toBeInTheDocument();
+  });
 });
