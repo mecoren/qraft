@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 品牌 Logo 改为透明背景并新增暗色反色版本,全面应用到应用内 Logo、favicon、README 与应用图标
+  - `assets/logo.svg` 原地透明化:删除浅灰底瓦片 rect,图形元素/形状/比例不变(补充 `viewBox="0 0 614.4 614.4"`)
+  - 新增 `assets/logo-inverted.svg`(透明背景 + 浅灰 `#F5F5F5` 图形)与 `scripts/generate-logo.js`(sharp 生成 1024px 透明/反色 PNG 与 `public/favicon.png` 兜底)
+  - `src/components/Logo.tsx` 删除背景瓦片,图形统一 `var(--logo-fg)`;`globals.css` 删除 `--logo-bg`,仅保留 `--logo-fg`,暗色主题自动反色不变
+  - 新增主题感知 `public/favicon.svg`(`prefers-color-scheme` 自动切换亮/暗图形),`index.html` 接入 SVG favicon + PNG 兜底
+  - `README.md` 标题下新增亮/暗双图 banner(`<picture>` + `prefers-color-scheme`)
+  - 应用图标(`src-tauri/icons/`):`scripts/generate-app-icon.js` 输入源由浅灰瓦片版 `app-icon.svg` 改为透明深色版 `logo.svg`,Windows 任务栏/开始菜单等直接使用深色图形,不做反色;渲染时 `trim()` 裁掉透明留白并按 98% 画布放大,任务栏上图形更醒目;重新生成全套平台图标(ICO / ICNS / PNG / iOS / Android / Appx)
+
 - 应用图标全面改用最终设计稿:浅灰 `#F5F5F5` 圆角方形底色 + 近黑 `#1A1A1A` 的「圆角窗口外框 + 顶部标题栏(左侧标签 + 右侧三个窗口控制圆点)+ 内容区 `</>` 代码符号」,细节与原设计稿完全一致
   - `assets/app-icon.svg` 替换为设计稿原样内容(补充 `viewBox="0 0 614.4 614.4"`),继续作为图标单一来源
   - `src/components/Logo.tsx` 重写为完整细节版 SVG,颜色映射 `var(--logo-bg)` / `var(--logo-fg)` 主题变量

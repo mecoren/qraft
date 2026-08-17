@@ -102,7 +102,7 @@ export function SideNav(): JSX.Element {
     >
       {/* 品牌区:Logo + 名称 */}
       <div className="flex items-center gap-2.5 border-b border-sidebar-border px-4 py-3">
-        {/* Logo 自带底色瓦片,无需容器包裹 */}
+        {/* Logo 为透明背景,图形随 --logo-fg 主题变量自动反色 */}
         <Logo className="size-7 shrink-0" />
         <span className="text-sm font-semibold tracking-tight">Qraft</span>
       </div>

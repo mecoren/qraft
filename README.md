@@ -1,5 +1,17 @@
 # Qraft
 
+<picture>
+  <source
+    media="(prefers-color-scheme: dark)"
+    srcset="https://raw.githubusercontent.com/mecoren/qraft/main/assets/logo-inverted.png"
+  />
+  <img
+    alt="Qraft"
+    src="https://raw.githubusercontent.com/mecoren/qraft/main/assets/logo-transparent.png"
+    width="480"
+  />
+</picture>
+
 > A local-first developer toolbox built with Rust + Tauri + React.
 
 ## Prerequisites

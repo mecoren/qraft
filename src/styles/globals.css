@@ -94,8 +94,7 @@
   --bg-popover-layer: color-mix(in srgb, var(--popover) var(--layer-content), transparent);
   /* 标题栏与侧边栏同源同透明度,保证视觉一致 */
   --bg-titlebar: var(--bg-sidebar-layer);
-  /* 品牌 Logo 颜色(亮色原版):浅灰底 + 近黑图形,随 data-palette 自动反色 */
-  --logo-bg: #f5f5f5;
+  /* 品牌 Logo 图形颜色(亮色原版):近黑图形,透明背景,随 data-palette 自动反色 */
   --logo-fg: #1a1a1a;
 }
 
@@ -512,8 +511,7 @@
 [data-palette="emerald-night"],
 [data-palette="custom"] {
   color-scheme: dark;
-  /* 品牌 Logo 暗色反色:近黑底 + 浅灰图形,保证深色主题下可辨识 */
-  --logo-bg: #1a1a1a;
+  /* 品牌 Logo 暗色反色:浅灰图形,透明背景,保证深色主题下可辨识 */
   --logo-fg: #f5f5f5;
 }
 

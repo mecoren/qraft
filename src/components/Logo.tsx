@@ -5,15 +5,16 @@ interface LogoProps {
 }
 
 /**
- * 应用品牌 Logo —— IDE 窗口+代码符号(与 assets/app-icon.svg 同一来源)
+ * 应用品牌 Logo —— IDE 窗口+代码符号(与 assets/logo.svg / logo-inverted.svg 同一来源)
  *
- * 设计:浅灰圆角方形底色 + 近黑「圆角窗口外框 + 顶部标题栏(左侧标签 +
+ * 设计:透明背景 + 近黑「圆角窗口外框 + 顶部标题栏(左侧标签 +
  * 右侧三个窗口控制圆点)+ 内容区 `</>` 代码符号」,细节与原设计稿完全一致。
+ * 无背景瓦片,图形直接落在容器上。
  *
  * 颜色经 CSS 变量映射,随 `data-palette` 主题自动切换:
- * - 亮色(:root / daylight):`--logo-bg` = #F5F5F5、`--logo-fg` = #1A1A1A
+ * - 亮色(:root / daylight):`--logo-fg` = #1A1A1A(对应透明原版 logo.svg)
  * - 暗色(obsidian / deep-sea / twilight / emerald-night / custom):自动反色
- *   `--logo-bg` = #1A1A1A、`--logo-fg` = #F5F5F5
+ *   `--logo-fg` = #F5F5F5(对应反色版 logo-inverted.svg)
  */
 export function Logo({ className }: LogoProps): JSX.Element {
   return (
@@ -23,7 +24,6 @@ export function Logo({ className }: LogoProps): JSX.Element {
       aria-hidden
       className={className}
     >
-      <rect fill="var(--logo-bg)" width="614.4" height="614.4" />
       <rect
         fill="none"
         stroke="var(--logo-fg)"
