@@ -112,7 +112,7 @@ export function PasswordGenerator(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="password-generator">
-      <ConfigSection>
+      <ConfigSection title="">
         <ConfigRow icon={KeyRound} label="长度">
           <Input
             type="number"

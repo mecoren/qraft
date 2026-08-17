@@ -120,7 +120,7 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="image-converter">
-      <ConfigSection>
+      <ConfigSection title="">
         <ConfigRow icon={FileImage} label="目标格式">
           <Select value={format} onValueChange={(v) => setFormat(v as TargetFormat)}>
             <SelectTrigger data-testid="ic-format" className="w-28">

@@ -46,7 +46,7 @@ export function HtmlCodec(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="html-codec">
-      <ConfigSection>
+      <ConfigSection title="">
         <ConfigRow icon={ArrowLeftRight} label="转换" hint="选择要使用的转换模式">
           <span className="text-xs text-muted-foreground">{encodeMode ? '编码' : '解码'}</span>
           <Switch

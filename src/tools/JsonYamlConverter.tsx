@@ -45,7 +45,7 @@ export function JsonYamlConverter(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="json-yaml-converter">
-      <ConfigSection>
+      <ConfigSection title="">
         <ConfigRow icon={ArrowLeftRight} label="转换" hint="选择转换方向">
           <Select value={direction} onValueChange={(v) => setDirection(v as Direction)}>
             <SelectTrigger data-testid="jy-direction" className="w-40">

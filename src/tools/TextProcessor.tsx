@@ -293,7 +293,7 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="text-processor">
-      <ConfigSection>
+      <ConfigSection title="">
         <ConfigRow
           icon={Wand2}
           label="转换"

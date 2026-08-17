@@ -16,13 +16,14 @@ export function ConfigSection({
   children,
   className,
 }: {
+  /** 卡片标题;传入空字符串时不渲染标题文字(仅保留无障碍名称) */
   title?: string;
   children: ReactNode;
   className?: string;
 }): JSX.Element {
   return (
-    <section aria-label={title} className={className}>
-      <h2 className="mb-1.5 text-body-sm font-semibold">{title}</h2>
+    <section aria-label={title || '配置'} className={className}>
+      {title ? <h2 className="mb-1.5 text-body-sm font-semibold">{title}</h2> : null}
       <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-card">
         {children}
       </div>

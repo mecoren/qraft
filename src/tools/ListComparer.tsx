@@ -86,7 +86,7 @@ export function ListComparer(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="list-comparer">
-      <ConfigSection>
+      <ConfigSection title="">
         <ConfigRow icon={CaseSensitive} label="区分大小写">
           <Switch
             checked={caseSensitive}

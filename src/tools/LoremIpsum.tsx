@@ -83,7 +83,7 @@ export function LoremIpsum(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="lorem-ipsum">
-      <ConfigSection>
+      <ConfigSection title="">
         <ConfigRow icon={Pilcrow} label="类型" hint="生成粒度">
           <Select value={granularity} onValueChange={(v) => setGranularity(v as Granularity)}>
             <SelectTrigger data-testid="lorem-type" className="w-28">

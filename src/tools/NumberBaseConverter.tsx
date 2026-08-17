@@ -96,7 +96,7 @@ export function NumberBaseConverter(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="number-base-converter">
-      <ConfigSection>
+      <ConfigSection title="">
         <ConfigRow icon={LayoutList} label="格式化数字" hint="按进制惯例分组显示">
           <Switch
             checked={grouped}

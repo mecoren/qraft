@@ -554,7 +554,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="base64-codec">
-      <ConfigSection>
+      <ConfigSection title="">
         <ConfigRow icon={Binary} label="方向" hint="选择编码或解码方向">
           <Tabs value={direction} onValueChange={(v) => handleDirectionChange(v as Direction)}>
             {/* 固定宽度 w-36,与下方模式 SelectTrigger 视觉对齐 */}

@@ -124,7 +124,7 @@ export function XmlFormatter(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="xml-formatter">
-      <ConfigSection>
+      <ConfigSection title="">
         <ConfigRow icon={IndentIncrease} label="缩进">
           <Select value={mode} onValueChange={(v) => setMode(v as IndentMode)}>
             <SelectTrigger data-testid="xml-indent" className="w-32">

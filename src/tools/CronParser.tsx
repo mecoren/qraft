@@ -68,7 +68,7 @@ export function CronParser(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="cron-parser">
-      <ConfigSection>
+      <ConfigSection title="">
         <ConfigRow icon={Clock} label="包含秒" hint="6 段模式(秒 分 时 日 月 周)">
           <Switch
             checked={withSeconds}

@@ -89,7 +89,7 @@ export function GzipCodec(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="gzip-codec">
-      <ConfigSection>
+      <ConfigSection title="">
         <ConfigRow icon={ArrowLeftRight} label="GZip 转换" hint="选择压缩或解压缩">
           <span className="text-xs text-muted-foreground">
             {compressMode ? '压缩' : '解压缩'}

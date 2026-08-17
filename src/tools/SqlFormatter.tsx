@@ -52,7 +52,7 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="sql-formatter">
-      <ConfigSection>
+      <ConfigSection title="">
         <ConfigRow icon={Database} label="语言" hint="选择 SQL 方言">
           <Select value={dialect} onValueChange={(v) => setDialect(v as SqlLanguage)}>
             <SelectTrigger data-testid="sql-dialect" className="w-44">
