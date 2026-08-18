@@ -355,6 +355,9 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   /** 关闭文件后,从选中集合剔除已关闭的 Tab,避免残留失效 id */
   useEffect(() => {
     const valid = new Set(useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.id));
+    // 订阅 store.tabs 变化后清理本地选择缓存:store 即外部状态源,
+    // 此处同步是「订阅外部系统变更后修正本地缓存」的必要同步,非普通渲染副作用。
+    // eslint-disable-next-line react-hooks/set-state-in-effect, react-x/set-state-in-effect
     setSelectedTabIds((prev) => prev.filter((x) => valid.has(x)));
   }, [workspace.tabs]);
 
@@ -418,6 +421,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
 
   /** 对比项引用的 Tab 被关闭时,自动清理该对比项 */
   useEffect(() => {
+    // 同上文:订阅 store.tabs 变化后清理对比缓存(外部状态源同步),非普通渲染副作用。
+    // eslint-disable-next-line react-hooks/set-state-in-effect, react-x/set-state-in-effect
     setCompares((prev) => {
       const valid = new Set(useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.id));
       const next = prev.filter((cp) => valid.has(cp.leftTabId) && valid.has(cp.rightTabId));

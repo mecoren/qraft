@@ -197,6 +197,9 @@ jobs:
             cargo install cargo-audit --locked
           fi
           cd src-tauri
-          # quick-xml 的两条高危 advisory 来自 Tauri 传递依赖 plist,已在
-          # src-tauri/audit.toml 中豁免;GTK3 等 unmaintained 警告不阻断流水线。
-          cargo audit
+          # quick-xml 的两条高危 advisory 来自 Tauri 传递依赖 plist,项目无法
+          # 升级修复(plist 已被 Tauri 锁定且无可用更新),故显式忽略;GTK3 等
+          # unmaintained 警告不影响退出码。
+          cargo audit \
+            --ignore RUSTSEC-2026-0194 \
+            --ignore RUSTSEC-2026-0195
