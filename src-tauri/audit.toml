@@ -1,0 +1,17 @@
+# cargo-audit 配置:被 `cargo audit` 在 manifest 同目录(src-tauri)自动读取。
+#
+# 下列 advisory 均来自 Tauri v2 框架及其 Linux GTK3 后端的传递依赖,
+# 项目层无法通过升级自身依赖消除(需等待 Tauri 上游发布修复版本):
+#   - quick-xml 0.38.4 的两条高危 DoS 由 `plist` 引入,而 `plist` 已被
+#     Tauri 锁定在 1.8.0,且无可用更新(pass `--dry-run` 已验证),故只能豁免。
+#     该路径仅用于解析本地 plist 配置文件,攻击面受限。
+#
+# 其余 GTK3 绑定(atk/gdk/gtk 0.18.x)的 "unmaintained" 与 glib 的
+# "unsound" 属于 warning/informational 级,CI 不再使用 `--deny warnings`,
+# 因此不会阻断流水线,但仍会打印供参考。
+
+[advisories]
+ignore = [
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2026-0195",
+]

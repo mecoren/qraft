@@ -148,8 +148,8 @@ fn enumerate_fonts() -> windows::core::Result<Vec<FontInfo>> {
 // 版保持统一签名(调用处统一 `.map_err`);此处 `Ok` 恒为真,故抑制 lint。
 #[cfg(not(target_os = "windows"))]
 #[allow(clippy::unnecessary_wraps)]
-fn enumerate_fonts() -> Result<Vec<FontInfo>, String> {
-    Ok(vec![])
+const fn enumerate_fonts() -> Result<Vec<FontInfo>, String> {
+    Ok(Vec::new())
 }
 
 #[cfg(test)]

@@ -22,8 +22,11 @@ const meta: ToolMetadata = {
 
 beforeEach(() => {
   invokeMock.mockReset();
+  const byId = new Map<string, ToolMetadata>();
+  byId.set(meta.id, meta);
   useToolStateStore.setState({
     availableTools: [meta],
+    toolMetadataById: byId,
     currentToolId: null,
     running: false,
     streamingTasks: new Map(),

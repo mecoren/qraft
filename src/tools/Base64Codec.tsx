@@ -246,7 +246,7 @@ function PreviewBody({
   if (modeId === 'image') {
     return (
       <img
-        src={url}
+        src={url || undefined}
         alt="Base64 解码预览"
         data-testid="b64-preview"
         className="max-h-full max-w-full object-contain"
@@ -254,18 +254,18 @@ function PreviewBody({
     );
   }
   if (modeId === 'audio') {
-    return <audio controls src={url} data-testid="b64-preview" className="w-full" />;
+    return <audio controls src={url || undefined} data-testid="b64-preview" className="w-full" />;
   }
   if (modeId === 'video') {
     return (
-      <video controls src={url} data-testid="b64-preview" className="max-h-full max-w-full" />
+      <video controls src={url || undefined} data-testid="b64-preview" className="max-h-full max-w-full" />
     );
   }
   if (modeId === 'pdf') {
     return (
       <iframe
         title="PDF 预览"
-        src={url}
+        src={url || undefined}
         data-testid="b64-preview"
         className="h-full w-full rounded-md border border-input"
       />

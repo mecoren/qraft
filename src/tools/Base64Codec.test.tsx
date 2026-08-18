@@ -250,7 +250,8 @@ describe('Base64Codec 统一转换工具', () => {
       });
     });
     const img = await screen.findByTestId('b64-preview');
-    expect(img).toHaveAttribute('src', 'data:image/png;base64,iVBORw0KGgo=');
+    // 组件使用 Blob URL(而非 data: URL)做二进制预览,src 为 blob: 形式
+    expect(img.getAttribute('src')).toMatch(/^blob:/);
   });
 
   it('calls fs_save_bytes when clicking save in binary preview', async () => {
