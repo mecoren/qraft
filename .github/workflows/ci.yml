@@ -188,17 +188,13 @@ jobs:
       - name: cargo audit
         working-directory: ./src-tauri
         env:
-          CARGO_AUDIT_VERSION: "0.21.1"
+          # 必须 >=0.22:advisory-db 已含 CVSS 4.0 条目(RUSTSEC-2026-0038),
+          # 0.21.x 的 cvss 库无法解析会直接报错。0.22.2 为当前最新稳定版。
+          CARGO_AUDIT_VERSION: "0.22.2"
         run: |
           set -euo pipefail
-          # 固定版本安装,避免复用缓存中不可控的旧二进制导致 "Couldn't load Cargo.lock"。
+          # 固定版本安装,避免复用缓存中不可控的旧二进制导致行为不可复现。
           cargo install cargo-audit --version "${CARGO_AUDIT_VERSION}" --locked
-
-          # —— 调试:确认 lock 文件真实落地 ——
-          echo "PWD = $(pwd)"
-          ls -la Cargo.lock || echo "!!! Cargo.lock MISSING in src-tauri"
-          echo "--- repo root check ---"
-          ls -la ../Cargo.lock 2>/dev/null || echo "(no Cargo.lock at repo root — expected)"
 
           # cargo-audit 在解析 Cargo.lock 后,会向 target/ 目录写入缓存/SBOM。
           # CI fresh checkout 后 src-tauri/target 不存在(被 gitignore),

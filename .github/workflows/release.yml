@@ -44,18 +44,31 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache cargo-audit
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/cargo-audit
-          key: cargo-audit-bin
-
       - name: cargo audit
+        working-directory: ./src-tauri
+        env:
+          # 必须 >=0.22:advisory-db 已含 CVSS 4.0 条目(RUSTSEC-2026-0038),
+          # 0.21.x 的 cvss 库无法解析会直接报错。0.22.2 为当前最新稳定版。
+          CARGO_AUDIT_VERSION: "0.22.2"
         run: |
-          if ! command -v cargo-audit >/dev/null 2>&1; then
-            cargo install cargo-audit --locked
-          fi
-          cargo audit --deny warnings
+          set -euo pipefail
+          # 固定版本安装,避免复用缓存中不可控的旧二进制导致行为不可复现。
+          cargo install cargo-audit --version "${CARGO_AUDIT_VERSION}" --locked
+
+          # cargo-audit 在解析 Cargo.lock 后,会向 target/ 目录写入缓存/SBOM。
+          # CI fresh checkout 后 src-tauri/target 不存在(被 gitignore),
+          # 导致写入失败并以 "Couldn't load Cargo.lock" 误报。显式创建目录。
+          mkdir -p target
+
+          # quick-xml 的两条高危 advisory 来自 Tauri 传递依赖 plist,项目无法
+          # 升级修复(plist 已被 Tauri 锁定且无可用更新),故显式忽略;GTK3 等
+          # unmaintained 警告不影响退出码。
+          # 用绝对路径 --file 指向 src-tauri/Cargo.lock,避免任何目录解析歧义。
+          cargo audit \
+            --file "$(pwd)/Cargo.lock" \
+            --deny warnings \
+            --ignore RUSTSEC-2026-0194 \
+            --ignore RUSTSEC-2026-0195
 
   build:
     name: Build ${{ matrix.platform }} (${{ matrix.arch }})
