@@ -27,7 +27,11 @@ export default defineConfig({
   },
   envPrefix: ['VITE_', 'TAURI_ENV_'],
   build: {
-    target: ['es2021', 'chrome100', 'safari14'],
+    // Vite 8 使用 rolldown + esbuild 转译,esbuild 尚不支持把解构等现代语法
+    // 降级到过低的 target(会报 "Transforming destructuring ... is not supported yet")。
+    // 因此 target 不能低于 es2022:现代 WebView(Windows WebView2 / macOS WKWebView /
+    // Linux webkit2gtk-4.1)均支持 es2022,足以运行全部用到的语法(BigInt、可选链等)。
+    target: ['es2022', 'chrome120', 'safari16'],
     minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
     // 依赖分包:把体积大/变更频率低的第三方库单独成 chunk,
