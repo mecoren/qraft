@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 describe('globals.css 主题系统(Tailwind v4 + OKLCH + data-palette)', () => {
   it('使用 Tailwind v4 入口与 dark 自定义变体', () => {
     const css = readFileSync(resolve(__dirname, 'globals.css'), 'utf-8');
-    expect(css).toContain('@import "tailwindcss"');
+    expect(css).toContain("@import 'tailwindcss'");
     expect(css).toContain('@custom-variant dark (&:is(.dark *))');
   });
 
@@ -19,12 +19,12 @@ describe('globals.css 主题系统(Tailwind v4 + OKLCH + data-palette)', () => {
 
   it('定义 5 套预设主题 + 自定义主题的 data-palette 选择器', () => {
     const css = readFileSync(resolve(__dirname, 'globals.css'), 'utf-8');
-    expect(css).toContain('[data-palette="obsidian"]');
-    expect(css).toContain('[data-palette="deep-sea"]');
-    expect(css).toContain('[data-palette="twilight"]');
-    expect(css).toContain('[data-palette="emerald-night"]');
-    expect(css).toContain('[data-palette="daylight"]');
-    expect(css).toContain('[data-palette="custom"]');
+    expect(css).toContain("[data-palette='obsidian']");
+    expect(css).toContain("[data-palette='deep-sea']");
+    expect(css).toContain("[data-palette='twilight']");
+    expect(css).toContain("[data-palette='emerald-night']");
+    expect(css).toContain("[data-palette='daylight']");
+    expect(css).toContain("[data-palette='custom']");
   });
 
   it('使用 @theme inline 映射 CSS 变量到 Tailwind utility', () => {
