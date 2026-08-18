@@ -38,7 +38,7 @@ const ResizablePanel = ResizablePrimitive.Panel;
 function ResizableHandle({
   // react-resizable-panels v4 的 Separator 不再需要单独渲染拖拽手柄,
   // 该 prop 仅保留用于向后兼容 API 调用方,实际不渲染任何内容。
-  _withHandle,
+  withHandle: _withHandle,
   className,
   ...props
 }: React.ComponentProps<typeof ResizablePrimitive.Separator> & {
