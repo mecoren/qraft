@@ -8,9 +8,9 @@
  * - 多选 ≥2 个文件时,右键菜单出现「比较所选内容」并可分发回调
  * - 「对比差异」分组:创建对比后显示条目,点击激活,关闭移除
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   EditorLeftSidebar,
   type EditorLeftSidebarProps,
@@ -63,6 +63,7 @@ function setup(props: Partial<EditorLeftSidebarProps> = {}) {
     onSave: vi.fn(),
     onRevealInExplorer: vi.fn(),
     onCopyPath: vi.fn(),
+    onReorder: vi.fn(),
     onNewTab: vi.fn(),
     onSaveAll: vi.fn(),
     onCloseAll: vi.fn(),
@@ -247,5 +248,141 @@ describe('EditorLeftSidebar 对比差异分组', () => {
 
     await screen.getByTestId('ctx-compare-close-all').click();
     expect(handlers.onCloseAllCompares).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('EditorLeftSidebar 文件列表拖拽排序', () => {
+  afterEach(() => {
+    // 还原本 describe 内 spyOn 的 getBoundingClientRect
+    vi.restoreAllMocks();
+  });
+
+  /**
+   * 全局伪造 getBoundingClientRect:按 data-testid 返回垂直布局。
+   * 每项高度 40:a.ts y=0 / b.ts y=100 / c.ts y=200,供上下半区判定。
+   */
+  function mockRects() {
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      const testid = this.getAttribute('data-testid') ?? '';
+      const tops: Record<string, number> = {
+        'sidebar-item-a.ts': 0,
+        'sidebar-item-b.ts': 100,
+        'sidebar-item-c.ts': 200,
+      };
+      const top = tops[testid] ?? 0;
+      return {
+        left: 0,
+        top,
+        right: 200,
+        bottom: top + 40,
+        width: 200,
+        height: 40,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+  }
+
+  /**
+   * 手动分发 Pointer 事件。
+   * jsdom 的 Event 构造器不支持 button / clientX / clientY 选项,
+   * 需要以 defineProperty 写入事件对象,React 合成事件才能读到。
+   */
+  function dispatchPointer(
+    type: string,
+    el: HTMLElement,
+    opts: { clientX?: number; clientY?: number; button?: number } = {},
+  ) {
+    // act 包裹:dispatchEvent 触发的事件处理器可能引起 React 状态更新(如 dragId/dropBeforeId)
+    act(() => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'button', { value: opts.button ?? 0, configurable: true });
+      Object.defineProperty(event, 'clientX', { value: opts.clientX ?? 0, configurable: true });
+      Object.defineProperty(event, 'clientY', { value: opts.clientY ?? 0, configurable: true });
+      el.dispatchEvent(event);
+    });
+  }
+
+  /** 完整拖拽序列:按下(原点)→ 移动(越过阈值)→ 松手 */
+  function dragSequence(src: HTMLElement, y: number) {
+    dispatchPointer('pointerdown', src, { clientX: 0, clientY: 0 });
+    dispatchPointer('pointermove', src, { clientX: 0, clientY: y });
+    dispatchPointer('pointerup', src, { clientX: 0, clientY: y });
+  }
+
+  it('拖到目标文件项上半区:onReorder 以该文件为 beforeTabId', () => {
+    mockRects();
+    const handlers = setup();
+    const src = screen.getByTestId('sidebar-item-a.ts');
+
+    dragSequence(src, 110); // b.ts 上半(阈值 120)
+
+    expect(handlers.onReorder).toHaveBeenCalledWith('t1', 't2');
+  });
+
+  it('拖到目标文件项下半区且是最后一项:onReorder 以 null 表示末尾', () => {
+    mockRects();
+    const handlers = setup();
+    const src = screen.getByTestId('sidebar-item-a.ts');
+
+    dragSequence(src, 230); // c.ts 下半(阈值 220)
+
+    expect(handlers.onReorder).toHaveBeenCalledWith('t1', null);
+  });
+
+  it('拖拽中在目标文件项上方显示插入指示线', async () => {
+    mockRects();
+    setup();
+    const src = screen.getByTestId('sidebar-item-a.ts');
+
+    dispatchPointer('pointerdown', src, { clientX: 0, clientY: 0 });
+    dispatchPointer('pointermove', src, { clientX: 0, clientY: 110 });
+
+    // setDropBeforeId 异步生效,等待重渲染后检查指示线
+    await waitFor(() =>
+      expect(screen.getByTestId('sidebar-drop-before-b.ts')).toBeInTheDocument(),
+    );
+  });
+
+  it('被拖拽文件项添加半透明样式', async () => {
+    setup();
+    const src = screen.getByTestId('sidebar-item-a.ts');
+
+    dispatchPointer('pointerdown', src, { clientX: 0, clientY: 0 });
+    dispatchPointer('pointermove', src, { clientX: 0, clientY: 110 });
+
+    // setDragId 异步生效,等待重渲染后检查样式
+    await waitFor(() => expect(src.className).toContain('opacity-40'));
+  });
+
+  it('拖到容器空白区域(所有项下方):onReorder 以 null 表示末尾', () => {
+    mockRects();
+    const handlers = setup();
+    const src = screen.getByTestId('sidebar-item-a.ts');
+
+    dragSequence(src, 500);
+
+    expect(handlers.onReorder).toHaveBeenCalledWith('t1', null);
+  });
+
+  it('未传入 onReorder 时,拖拽序列不触发排序', () => {
+    const handlers = setup({ onReorder: undefined });
+    const src = screen.getByTestId('sidebar-item-a.ts');
+
+    dragSequence(src, 110);
+
+    expect(handlers.onReorder).not.toHaveBeenCalled();
+  });
+
+  it('普通点击(未越过阈值)不触发排序,仅选中文件', async () => {
+    const handlers = setup();
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('sidebar-item-a.ts'));
+
+    expect(handlers.onReorder).not.toHaveBeenCalled();
+    expect(handlers.onSelectMany).toHaveBeenCalled();
   });
 });

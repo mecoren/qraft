@@ -14,7 +14,7 @@
  *   - type="hover":平时隐藏,鼠标悬浮 Tab 栏时显现,拖拽中保持显示
  *   - 轨道 14px、滑块 10px(2px 内缩)、全圆角胶囊、--scrollbar-slider-* token
  */
-import { useEffect, useMemo, useRef, type JSX } from 'react';
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { GitCompareArrows, Pin, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -44,6 +44,8 @@ export interface EditorTabsBarProps {
   onCloseAll?: () => void;
   /** 切换固定状态 */
   onTogglePin?: (id: string) => void;
+  /** 拖拽排序:将 dragId 的 Tab 移到 beforeTabId 之前(null 表示移到末尾);固定 Tab 恒在最前 */
+  onReorder?: (dragId: string, beforeTabId: string | null) => void;
   /** 保存指定 Tab */
   onSave?: (id: string) => void;
   /** 在文件资源管理器中显示 */
@@ -68,6 +70,7 @@ export function EditorTabsBar({
   onCloseSaved,
   onCloseAll,
   onTogglePin,
+  onReorder,
   onSave,
   onRevealInExplorer,
   onCopyPath,
@@ -114,6 +117,161 @@ export function EditorTabsBar({
     return [...tabs].sort((a, b) => Number(b.pinned) - Number(a.pinned));
   }, [tabs]);
 
+  /**
+   * 拖拽排序 —— Pointer Events 自实现
+   *
+   * 为什么不用 HTML5 DnD:Tauri v2 在 Windows WebView2 上会拦截/破坏页面内部
+   * 元素的 HTML5 拖拽事件(dragstart/dragover/drop),即使 dragDropEnabled: false
+   * 也不可靠。Pointer Events(mousedown/mousemove/mouseup)是底层通用事件,
+   * 不受任何窗口级拖放拦截影响,是 Tauri 应用实现内部拖拽的标准做法。
+   *
+   * 机制:
+   * - Tab 的 onPointerDown 记录拖拽起点(仅左键、非关闭按钮)
+   * - 容器 onPointerMove 超过阈值(5px)后进入拖拽,实时计算插入位置
+   * - window 级 pointerup/pointercancel 兜底结束(鼠标拖出容器也能松手)
+   * - 拖拽结束后抑制紧随的 click,避免误切换 Tab
+   */
+
+  /** 拖拽中:被拖拽的 Tab id(用于半透明视觉反馈) */
+  const [dragId, setDragId] = useState<string | null>(null);
+  /**
+   * 插入位置指示:
+   * - undefined:未在拖拽(无指示)
+   * - null:拖到末尾(在最后一个 Tab 右侧画指示线)
+   * - string:在该 Tab id 左侧画指示线
+   */
+  const [dropBeforeId, setDropBeforeId] = useState<string | null | undefined>(undefined);
+
+  /** 拖拽起点(pointerdown 记录,pointermove/up 读取) */
+  const pointerStartRef = useRef<{ id: string; clientX: number; clientY: number } | null>(null);
+  /** 是否已越过阈值进入拖拽(同步标记,state 仅用于视觉) */
+  const draggingRef = useRef(false);
+  /** 被拖 Tab id(同步,供 move/up 读取) */
+  const dragIdRef = useRef<string | null>(null);
+  /** 当前插入位置(同步,供 up 读取) */
+  const dropBeforeIdRef = useRef<string | null | undefined>(undefined);
+  /** 拖拽结束后抑制紧随的 click,避免误切换 Tab */
+  const suppressClickRef = useRef(false);
+  /** 拖拽启动阈值(px):未超过视为普通点击 */
+  const DRAG_THRESHOLD = 5;
+
+  /** 进入拖拽:标记状态并显示半透明反馈 */
+  const beginDrag = (id: string): void => {
+    draggingRef.current = true;
+    dragIdRef.current = id;
+    setDragId(id);
+  };
+
+  /** 结束拖拽:清理全部拖拽状态 */
+  const endDrag = (): void => {
+    pointerStartRef.current = null;
+    draggingRef.current = false;
+    dragIdRef.current = null;
+    dropBeforeIdRef.current = undefined;
+    setDragId(null);
+    setDropBeforeId(undefined);
+  };
+
+  /** Tab 按下:仅左键、非关闭按钮时记录拖拽起点(普通点击不受影响) */
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, tab: EditorTab) => {
+    if (e.button !== 0) return;
+    // 从关闭按钮按下拖动不应触发 Tab 拖拽
+    if ((e.target as HTMLElement).closest('button')) return;
+    pointerStartRef.current = { id: tab.id, clientX: e.clientX, clientY: e.clientY };
+  };
+
+  /**
+   * 依据鼠标水平位置计算放置目标(与 store.reorderTabs 固定约束一致):
+   * - 鼠标落在某 Tab 左半 → 插到该 Tab 之前;右半 → 插到下一 Tab 之前
+   * - 落在所有 Tab 右侧/空白 → 末尾(null)
+   */
+  const computeDropBeforeId = (clientX: number, draggingId: string): string | null => {
+    const container = scrollRef.current;
+    if (!container) return null;
+    let hitIndex = -1;
+    let hitRect: DOMRect | null = null;
+    for (let i = 0; i < sortedTabs.length; i++) {
+      const el = container.querySelector<HTMLElement>(
+        `[data-tab-id="${CSS.escape(sortedTabs[i].id)}"]`,
+      );
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      if (clientX < rect.right) {
+        hitIndex = i;
+        hitRect = rect;
+        break;
+      }
+    }
+    let targetIndex: number;
+    if (hitIndex === -1) {
+      // 落在所有 Tab 右侧/空白:末尾
+      targetIndex = sortedTabs.length;
+    } else if (clientX < (hitRect as DOMRect).left + (hitRect as DOMRect).width / 2) {
+      // 左半 → 插到该 Tab 之前
+      targetIndex = hitIndex;
+    } else {
+      // 右半 → 插到下一 Tab 之前
+      targetIndex = hitIndex + 1;
+    }
+    const dragIndex = sortedTabs.findIndex((t) => t.id === draggingId);
+    const dragTab = dragIndex >= 0 ? sortedTabs[dragIndex] : undefined;
+    const pinnedCount = sortedTabs.filter((t) => t.pinned).length;
+    if (dragTab?.pinned) {
+      // 固定 Tab:只能在固定区(0..pinnedCount)内移动
+      targetIndex = Math.max(0, Math.min(targetIndex, pinnedCount));
+    } else if (dragTab) {
+      // 非固定 Tab:不能插入固定区
+      targetIndex = Math.max(pinnedCount, Math.min(targetIndex, sortedTabs.length));
+    }
+    // 目标在 drag 之后时,移除 drag 后的数组索引需 -1,再映射回 Tab id
+    if (dragIndex >= 0 && targetIndex > dragIndex) targetIndex -= 1;
+    const restTabs = sortedTabs.filter((t) => t.id !== draggingId);
+    const target = restTabs[targetIndex];
+    return target ? target.id : null;
+  };
+
+  /** 容器内移动:越过阈值进入拖拽,实时更新插入位置并自动横向滚动 */
+  const handleContainerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const start = pointerStartRef.current;
+    if (!start) return;
+    if (!draggingRef.current) {
+      const dx = e.clientX - start.clientX;
+      const dy = e.clientY - start.clientY;
+      if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
+      beginDrag(start.id);
+    }
+    e.preventDefault();
+    const beforeId = computeDropBeforeId(e.clientX, start.id);
+    dropBeforeIdRef.current = beforeId;
+    setDropBeforeId(beforeId);
+    // 拖到左/右边缘自动滚动,便于把 Tab 拖到可视区外
+    const container = scrollRef.current;
+    if (container) {
+      const cRect = container.getBoundingClientRect();
+      if (e.clientX < cRect.left + 32) container.scrollLeft -= 12;
+      else if (e.clientX > cRect.right - 32) container.scrollLeft += 12;
+    }
+  };
+
+  /** window 级松手/取消:执行排序并清理状态(鼠标拖出容器也能正常结束) */
+  useEffect(() => {
+    const handleWindowPointerUp = () => {
+      const start = pointerStartRef.current;
+      if (!start) return;
+      if (draggingRef.current) {
+        onReorder?.(start.id, dropBeforeIdRef.current ?? null);
+        suppressClickRef.current = true;
+      }
+      endDrag();
+    };
+    window.addEventListener('pointerup', handleWindowPointerUp);
+    window.addEventListener('pointercancel', handleWindowPointerUp);
+    return () => {
+      window.removeEventListener('pointerup', handleWindowPointerUp);
+      window.removeEventListener('pointercancel', handleWindowPointerUp);
+    };
+  }, [onReorder]);
+
   return (
     <div
       data-testid={dataTestId}
@@ -144,8 +302,9 @@ export function EditorTabsBar({
         className="h-full min-w-0 flex-1"
       >
         {/* 内层 flex 容器:Tab 横向排布且 min-w-max,触发 Viewport 横向滚动。
-           * 占满 Viewport 全高 36px,标签文字 items-center 垂直居中。 */}
-        <div className="flex h-full min-w-max items-stretch">
+           * 占满 Viewport 全高 36px,标签文字 items-center 垂直居中。
+           * 容器级 pointermove:拖拽中实时计算插入位置;空白区域视为末尾。 */}
+        <div className="flex h-full min-w-max items-stretch" onPointerMove={handleContainerPointerMove}>
           {tabs.length === 0 && compares.length === 0 ? (
             <div
               data-testid={`${dataTestId}-empty`}
@@ -155,7 +314,7 @@ export function EditorTabsBar({
             </div>
           ) : (
             <>
-              {sortedTabs.map((tab) => {
+              {sortedTabs.map((tab, index) => {
                 const active = tab.id === activeTabId;
                 const dirty = tab.content !== tab.savedContent;
                 return (
@@ -178,7 +337,16 @@ export function EditorTabsBar({
                       data-active={active ? 'true' : 'false'}
                       data-tab-id={tab.id}
                       data-testid={`${dataTestId}-tab-${tab.title}`}
-                      onClick={() => onSelect(tab.id)}
+                      // 拖拽排序:仅传入 onReorder 时启用(对比 Tab 不参与)
+                      onPointerDown={(e) => handlePointerDown(e, tab)}
+                      onClick={() => {
+                        // 拖拽结束后抑制紧随的 click,避免误切换 Tab
+                        if (suppressClickRef.current) {
+                          suppressClickRef.current = false;
+                          return;
+                        }
+                        onSelect(tab.id);
+                      }}
                       // 鼠标中键关闭(仿 VSCode / Chrome 标签页):在 Tab 任意位置
                       // 按下中键即可关闭该 Tab,无需精确点中右上角 × 按钮。
                       // - 使用 onMouseDown 而非 onAuxClick:auxclick 在部分 WebView2
@@ -203,8 +371,26 @@ export function EditorTabsBar({
                         active
                           ? 'border-t-2 border-t-primary bg-card text-foreground'
                           : 'border-t-2 border-t-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                        // 拖拽中的 Tab 半透明(仿 VSCode 拖起效果)
+                        dragId === tab.id && 'opacity-40',
                       )}
                     >
+                      {/* 插入位置指示线:拖拽时在该 Tab 左侧画主色竖线 */}
+                      {dropBeforeId === tab.id && (
+                        <span
+                          aria-hidden
+                          data-testid={`${dataTestId}-drop-before-${tab.title}`}
+                          className="absolute top-1.5 bottom-1.5 left-0 w-0.5 rounded-full bg-primary"
+                        />
+                      )}
+                      {/* 插入位置指示线:拖到末尾时在最后一个 Tab 右侧画竖线 */}
+                      {dropBeforeId === null && index === sortedTabs.length - 1 && (
+                        <span
+                          aria-hidden
+                          data-testid={`${dataTestId}-drop-end`}
+                          className="absolute top-1.5 bottom-1.5 right-0 w-0.5 rounded-full bg-primary"
+                        />
+                      )}
                       {tab.pinned && (
                         <Pin
                           aria-label="已固定"
@@ -227,6 +413,7 @@ export function EditorTabsBar({
                       </span>
                       <button
                         type="button"
+                        // 从关闭按钮按下拖动不应触发 Tab 拖拽(见 handlePointerDown 守卫)
                         aria-label={`关闭 ${tab.title}`}
                         data-testid={`${dataTestId}-close-${tab.title}`}
                         onClick={(e) => {

@@ -655,6 +655,10 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
             onSave={(id) => void saveTabById(id)}
             onRevealInExplorer={handleRevealInExplorer}
             onCopyPath={handleCopyPath}
+            // 文件列表拖拽排序:与 Tab 栏共用同一 store 动作,实现双向同步
+            onReorder={(dragId, beforeTabId) =>
+              useEditorWorkspaceStore.getState().reorderTabs(dragId, beforeTabId)
+            }
             onNewTab={handleNewTab}
             onSaveAll={() => void handleSaveAll()}
             onCloseAll={requestCloseAll}
@@ -687,6 +691,9 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
             onCloseSaved={requestCloseSaved}
             onCloseAll={requestCloseAll}
             onTogglePin={handleTogglePin}
+            onReorder={(dragId, beforeTabId) =>
+              useEditorWorkspaceStore.getState().reorderTabs(dragId, beforeTabId)
+            }
             onSave={(id) => void saveTabById(id)}
             onRevealInExplorer={handleRevealInExplorer}
             onCopyPath={handleCopyPath}

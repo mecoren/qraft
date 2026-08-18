@@ -22,7 +22,7 @@
  * - 鼠标悬浮在整个面板(标题区或列表区)时,徽章淡出,三个动作图标显示:
  *   新建(空白 Tab) / 全部保存 / 全部关闭
  */
-import { useState, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
 import { ChevronDown, FilePlus2, FileText, GitCompareArrows, Pin, Save, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -74,6 +74,8 @@ export interface EditorLeftSidebarProps {
   onRevealInExplorer?: (id: string) => void;
   /** 右键菜单:复制路径到剪贴板 */
   onCopyPath?: (id: string) => void;
+  /** 拖拽排序:将 dragId 的 Tab 移到 beforeTabId 之前(null 表示移到末尾);固定 Tab 恒在最前 */
+  onReorder?: (dragId: string, beforeTabId: string | null) => void;
   /** 标题区动作:新建空白 Tab */
   onNewTab?: () => void;
   /** 标题区动作:批量保存所有 dirty Tab */
@@ -115,6 +117,7 @@ export function EditorLeftSidebar({
   onSave,
   onRevealInExplorer,
   onCopyPath,
+  onReorder,
   onNewTab,
   onSaveAll,
   onCloseAll,
@@ -139,6 +142,154 @@ export function EditorLeftSidebar({
   const effectiveHovered = hovered || actionsForced;
   /** 空列表时没有内容可悬浮,动作按钮始终显示,方便用户新建文件 */
   const actionsVisible = effectiveHovered || tabs.length === 0;
+
+  /**
+   * 拖拽排序 —— Pointer Events 自实现
+   *
+   * 为什么不用 HTML5 DnD:同 EditorTabsBar —— Tauri v2 在 WebView2 上会拦截/破坏
+   * 页面内部元素的 HTML5 拖拽事件。Pointer Events 是底层通用事件,不受影响。
+   *
+   * 机制(与 Tab 栏一致):
+   * - 文件项 onPointerDown 记录拖拽起点(仅左键、非关闭按钮)
+   * - ul 容器 onPointerMove 超过阈值后进入拖拽,实时计算插入位置
+   * - window 级 pointerup/pointercancel 兜底结束并执行排序
+   */
+
+  /** 拖拽中:被拖拽的 Tab id(用于半透明视觉反馈) */
+  const [dragId, setDragId] = useState<string | null>(null);
+  /**
+   * 插入位置指示:
+   * - undefined:未在拖拽(无指示)
+   * - null:拖到末尾(在最后一个文件项下方画指示线)
+   * - string:在该 Tab id 上方画指示线
+   */
+  const [dropBeforeId, setDropBeforeId] = useState<string | null | undefined>(undefined);
+
+  /** 拖拽起点(pointerdown 记录,pointermove/up 读取) */
+  const pointerStartRef = useRef<{ id: string; clientX: number; clientY: number } | null>(null);
+  /** 是否已越过阈值进入拖拽(同步标记,state 仅用于视觉) */
+  const draggingRef = useRef(false);
+  /** 被拖 Tab id(同步,供 move/up 读取) */
+  const dragIdRef = useRef<string | null>(null);
+  /** 当前插入位置(同步,供 up 读取) */
+  const dropBeforeIdRef = useRef<string | null | undefined>(undefined);
+  /** 拖拽结束后抑制紧随的 click,避免误切换文件 */
+  const suppressClickRef = useRef(false);
+  /** 拖拽启动阈值(px):未超过视为普通点击 */
+  const DRAG_THRESHOLD = 5;
+
+  /** 进入拖拽:标记状态并显示半透明反馈 */
+  const beginDrag = (id: string): void => {
+    draggingRef.current = true;
+    dragIdRef.current = id;
+    setDragId(id);
+  };
+
+  /** 结束拖拽:清理全部拖拽状态 */
+  const endDrag = (): void => {
+    pointerStartRef.current = null;
+    draggingRef.current = false;
+    dragIdRef.current = null;
+    dropBeforeIdRef.current = undefined;
+    setDragId(null);
+    setDropBeforeId(undefined);
+  };
+
+  /** 文件项按下:仅左键、非关闭按钮时记录拖拽起点(普通点击不受影响) */
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>, tab: EditorTab) => {
+    if (e.button !== 0) return;
+    // 从关闭按钮按下拖动不应触发拖拽
+    if ((e.target as HTMLElement).closest('[data-sidebar-close]')) return;
+    pointerStartRef.current = { id: tab.id, clientX: e.clientX, clientY: e.clientY };
+  };
+
+  /**
+   * 依据鼠标垂直位置计算放置目标(与 store.reorderTabs / Tab 栏固定约束一致):
+   * - 鼠标落在某项上半 → 插到该项之前;下半 → 插到下一项之前
+   * - 落在所有项下方/空白 → 末尾(null)
+   */
+  const computeDropBeforeId = (clientY: number, draggingId: string): string | null => {
+    const container = ulRef.current;
+    if (!container) return null;
+    let hitIndex = -1;
+    let hitRect: DOMRect | null = null;
+    for (let i = 0; i < tabs.length; i++) {
+      const el = container.querySelector<HTMLElement>(
+        `[data-tab-id="${CSS.escape(tabs[i].id)}"]`,
+      );
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      if (clientY < rect.bottom) {
+        hitIndex = i;
+        hitRect = rect;
+        break;
+      }
+    }
+    let targetIndex: number;
+    if (hitIndex === -1) {
+      // 落在所有项下方/空白:末尾
+      targetIndex = tabs.length;
+    } else if (clientY < (hitRect as DOMRect).top + (hitRect as DOMRect).height / 2) {
+      // 上半 → 插到该项之前
+      targetIndex = hitIndex;
+    } else {
+      // 下半 → 插到下一项之前
+      targetIndex = hitIndex + 1;
+    }
+    const dragIndex = tabs.findIndex((t) => t.id === draggingId);
+    const dragTab = dragIndex >= 0 ? tabs[dragIndex] : undefined;
+    const pinnedCount = tabs.filter((t) => t.pinned).length;
+    if (dragTab?.pinned) {
+      // 固定 Tab:只能在固定区(0..pinnedCount)内移动
+      targetIndex = Math.max(0, Math.min(targetIndex, pinnedCount));
+    } else if (dragTab) {
+      // 非固定 Tab:不能插入固定区
+      targetIndex = Math.max(pinnedCount, Math.min(targetIndex, tabs.length));
+    }
+    // 目标在 drag 之后时,移除 drag 后的数组索引需 -1,再映射回 Tab id
+    if (dragIndex >= 0 && targetIndex > dragIndex) targetIndex -= 1;
+    const restTabs = tabs.filter((t) => t.id !== draggingId);
+    const target = restTabs[targetIndex];
+    return target ? target.id : null;
+  };
+
+  /** ul 容器引用:供 computeDropBeforeId 查询文件项位置 */
+  const ulRef = useRef<HTMLUListElement>(null);
+
+  /** 容器内移动:越过阈值进入拖拽,实时更新插入位置 */
+  const handleContainerPointerMove = (e: React.PointerEvent<HTMLUListElement>) => {
+    const start = pointerStartRef.current;
+    if (!start) return;
+    if (!draggingRef.current) {
+      const dx = e.clientX - start.clientX;
+      const dy = e.clientY - start.clientY;
+      if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
+      beginDrag(start.id);
+    }
+    e.preventDefault();
+    const beforeId = computeDropBeforeId(e.clientY, start.id);
+    dropBeforeIdRef.current = beforeId;
+    setDropBeforeId(beforeId);
+  };
+
+  /** window 级松手/取消:执行排序并清理状态(鼠标拖出容器也能正常结束) */
+  useEffect(() => {
+    const handleWindowPointerUp = () => {
+      const start = pointerStartRef.current;
+      if (!start) return;
+      if (draggingRef.current) {
+        onReorder?.(start.id, dropBeforeIdRef.current ?? null);
+        suppressClickRef.current = true;
+      }
+      endDrag();
+    };
+    window.addEventListener('pointerup', handleWindowPointerUp);
+    window.addEventListener('pointercancel', handleWindowPointerUp);
+    return () => {
+      window.removeEventListener('pointerup', handleWindowPointerUp);
+      window.removeEventListener('pointercancel', handleWindowPointerUp);
+    };
+  }, [onReorder]);
 
   return (
     <aside
@@ -245,7 +396,11 @@ export function EditorLeftSidebar({
       {!collapsed && (
         <ScrollArea className="min-h-0 flex-1">
           {/* 打开的编辑器 分组 */}
-          <ul className="p-1.5 pb-0">
+          <ul
+            ref={ulRef}
+            className="p-1.5 pb-0"
+            onPointerMove={handleContainerPointerMove}
+          >
             {tabs.length === 0 ? (
               <li
                 data-testid={`${dataTestId}-empty`}
@@ -254,7 +409,7 @@ export function EditorLeftSidebar({
                 暂无打开的文件
               </li>
             ) : (
-              tabs.map((tab) => {
+              tabs.map((tab, index) => {
                 const active = tab.id === activeTabId;
                 const dirty = tab.content !== tab.savedContent;
                 // 是否在 Ctrl+多选中(不含激活 Tab 自身)
@@ -285,9 +440,17 @@ export function EditorLeftSidebar({
                       <button
                         type="button"
                         data-testid={`${dataTestId}-item-${tab.title}`}
+                        data-tab-id={tab.id}
                         aria-current={active ? 'true' : undefined}
                         aria-selected={multiSelected ? 'true' : undefined}
+                        // 拖拽排序:仅传入 onReorder 时启用
+                        onPointerDown={(e) => handlePointerDown(e, tab)}
                         onClick={(e) => {
+                          // 拖拽结束后抑制紧随的 click,避免误切换文件
+                          if (suppressClickRef.current) {
+                            suppressClickRef.current = false;
+                            return;
+                          }
                           // Ctrl/Cmd+点击:追加/取消多选并激活;普通点击:单选并激活
                           if (onSelectMany) {
                             onSelectMany(tab.id, e.ctrlKey || e.metaKey);
@@ -312,8 +475,26 @@ export function EditorLeftSidebar({
                             : selected
                               ? 'bg-sidebar-primary/10 text-sidebar-primary'
                               : 'text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
+                          // 拖拽中的文件项半透明(仿 VSCode 拖起效果)
+                          dragId === tab.id && 'opacity-40',
                         )}
                       >
+                        {/* 插入位置指示线:拖拽时在该文件项上方画主色横线 */}
+                        {dropBeforeId === tab.id && (
+                          <span
+                            aria-hidden
+                            data-testid={`${dataTestId}-drop-before-${tab.title}`}
+                            className="absolute right-2 top-0 left-2 h-0.5 rounded-full bg-primary"
+                          />
+                        )}
+                        {/* 插入位置指示线:拖到末尾时在最后一个文件项下方画横线 */}
+                        {dropBeforeId === null && index === tabs.length - 1 && (
+                          <span
+                            aria-hidden
+                            data-testid={`${dataTestId}-drop-end`}
+                            className="absolute right-2 bottom-0 left-2 h-0.5 rounded-full bg-primary"
+                          />
+                        )}
                         {/*
                          * 圆点槽位(固定宽度):未悬浮时显示未保存圆点(有 dirty)或留空;
                          * hover 时圆点淡出,关闭按钮在同一位置出现。
@@ -329,23 +510,27 @@ export function EditorLeftSidebar({
                         </span>
                         {/* 文件图标:始终显示,不随 hover 消失 */}
                         <FileText aria-hidden className="size-3.5 shrink-0" />
-                        {/* 固定图标:固定 Tab 在标题前显示 Pin(与 Tab 栏一致) */}
+                        {/* 文件名:超出可用空间时显示 ... */}
+                        <span className="min-w-0 truncate">{tab.title}</span>
+                        {/* 固定图标:ml-auto 锚定在行最右侧(与 Tab 栏/标题区关闭图标一致),
+                            随侧边栏宽度变化而移动位置 */}
                         {tab.pinned && (
                           <Pin
                             aria-label="已固定"
                             data-testid={`${dataTestId}-pin-${tab.title}`}
                             className={cn(
-                              'size-3 shrink-0',
+                              'ml-auto size-3 shrink-0',
                               active ? 'text-primary' : 'text-muted-foreground/70',
                             )}
                           />
                         )}
-                        <span className="truncate">{tab.title}</span>
                         {/* 关闭按钮:hover 时在圆点位置出现,替代圆点(通过负 margin 定位到圆点槽位) */}
                         <X
                           aria-label="关闭"
                           role="button"
                           data-testid={`${dataTestId}-close-${tab.title}`}
+                          // 关闭按钮按下拖动不应触发列表项拖拽(配合 handleDragStart 守卫)
+                          data-sidebar-close
                           onClick={(e) => {
                             e.stopPropagation();
                             onClose?.(tab.id);
@@ -478,7 +663,7 @@ export function EditorLeftSidebar({
                                 isActive ? 'text-primary' : 'text-muted-foreground',
                               )}
                             />
-                            <span className="truncate">{label}</span>
+                            <span className="min-w-0 flex-1 truncate">{label}</span>
                             {/* 关闭按钮:hover 时显示在 (8, 22) 空槽位,替代对比图标(对齐「打开的编辑器」X ↔ dirty 圆点的覆盖关系) */}
                             <X
                               aria-label="关闭对比"

@@ -57,12 +57,16 @@ interface WorkspaceState {
   hydrate: () => Promise<void>;
   /** 打开本地文件:存在同路径 Tab 则激活,否则新建 */
   openLocalFile: (path: string, content: string) => void;
+  /** 打开拖入/粘贴的文本内容:以无路径 Tab 打开(标题为文件名,保存时另存为) */
+  openDroppedText: (title: string, content: string) => void;
   /** 新建 untitled Tab 并激活 */
   newBlankTab: () => void;
   /** 关闭 Tab,激活态自动跳到相邻 */
   closeTab: (id: string) => void;
   /** 切换 Tab 固定状态(固定 Tab 不被批量关闭) */
   togglePinTab: (id: string) => void;
+  /** 拖拽排序:将 dragId 的 Tab 移到 beforeTabId 之前(null 表示移到末尾);固定 Tab 恒在最前 */
+  reorderTabs: (dragId: string, beforeTabId: string | null) => void;
   /** 关闭除目标 Tab 以外的全部非固定 Tab */
   closeOtherTabs: (id: string) => void;
   /** 关闭目标 Tab 右侧的全部非固定 Tab(按打开顺序) */
@@ -140,6 +144,36 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
     });
   },
 
+  openDroppedText: (title, content) => {
+    const { workspace } = get();
+    // 同名且无路径的已打开 Tab:激活复用,避免反复拖入同文件堆积
+    const existing = workspace.tabs.find((t) => t.path === null && t.title === title);
+    if (existing) {
+      set({
+        workspace: { ...workspace, activeTabId: existing.id },
+        userTouched: true,
+      });
+      return;
+    }
+    const tab: EditorTab = {
+      id: createId(),
+      title,
+      path: null,
+      language: inferLanguageFromPath(title),
+      content,
+      savedContent: '',
+      pinned: false,
+    };
+    set({
+      workspace: {
+        ...workspace,
+        tabs: [...workspace.tabs, tab],
+        activeTabId: tab.id,
+      },
+      userTouched: true,
+    });
+  },
+
   newBlankTab: () => {
     const { workspace } = get();
     const tab: EditorTab = {
@@ -183,6 +217,30 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
   togglePinTab: (id) => {
     const { workspace } = get();
     const tabs = workspace.tabs.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t));
+    set({ workspace: { ...workspace, tabs }, userTouched: true });
+  },
+
+  reorderTabs: (dragId, beforeTabId) => {
+    const { workspace } = get();
+    const from = workspace.tabs.findIndex((t) => t.id === dragId);
+    if (from < 0) return;
+    const tab = workspace.tabs[from];
+    // 以「固定 Tab 恒在最前」的视觉顺序为基准,与 Tab 栏 sortedTabs / 左栏列表保持一致
+    const ordered = [...workspace.tabs].sort((a, b) => Number(b.pinned) - Number(a.pinned));
+    const rest = ordered.filter((t) => t.id !== dragId);
+    let to = beforeTabId ? rest.findIndex((t) => t.id === beforeTabId) : rest.length;
+    if (to < 0) to = rest.length;
+    // 固定约束:固定 Tab 只能在固定区(0..pinnedCount)内移动;非固定 Tab 不能插入固定区
+    const pinnedCount = rest.filter((t) => t.pinned).length;
+    if (tab.pinned) {
+      to = Math.max(0, Math.min(to, pinnedCount));
+    } else {
+      to = Math.max(pinnedCount, Math.min(to, rest.length));
+    }
+    const tabs = [...rest.slice(0, to), tab, ...rest.slice(to)];
+    // 顺序未变化时不触发持久化
+    const unchanged = tabs.length === workspace.tabs.length && tabs.every((t, i) => t.id === workspace.tabs[i]?.id);
+    if (unchanged) return;
     set({ workspace: { ...workspace, tabs }, userTouched: true });
   },
 

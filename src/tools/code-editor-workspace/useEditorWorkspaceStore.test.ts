@@ -140,6 +140,36 @@ describe('useEditorWorkspaceStore.openLocalFile', () => {
   });
 });
 
+describe('useEditorWorkspaceStore.openDroppedText', () => {
+  it('opens dropped content as an unbound tab with the file name', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.openDroppedText('notes.md', '# dropped');
+
+    const state = useEditorWorkspaceStore.getState();
+    expect(state.workspace.tabs).toHaveLength(1);
+    const tab = state.workspace.tabs[0];
+    expect(tab.title).toBe('notes.md');
+    expect(tab.path).toBeNull();
+    expect(tab.language).toBe('markdown');
+    expect(tab.content).toBe('# dropped');
+    // 无路径快照:视为未保存,提示用户另存为
+    expect(tab.savedContent).toBe('');
+    expect(state.workspace.activeTabId).toBe(tab.id);
+  });
+
+  it('reactivates the same-named unbound tab instead of duplicating', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.openDroppedText('a.txt', 'first');
+    const firstId = useEditorWorkspaceStore.getState().workspace.tabs[0].id;
+    // 再次拖入同名文件:激活已存在的 Tab
+    s.openDroppedText('a.txt', 'second');
+
+    const state = useEditorWorkspaceStore.getState();
+    expect(state.workspace.tabs).toHaveLength(1);
+    expect(state.workspace.activeTabId).toBe(firstId);
+  });
+});
+
 describe('useEditorWorkspaceStore.newBlankTab', () => {
   it('creates untitled tabs with increasing sequence', () => {
     const s = useEditorWorkspaceStore.getState();
@@ -373,6 +403,97 @@ describe('useEditorWorkspaceStore.pinned tabs', () => {
     const state = useEditorWorkspaceStore.getState();
     expect(state.workspace.tabs.map((t) => t.id)).toEqual([tabs[0].id]);
     expect(state.workspace.activeTabId).toBe(tabs[0].id);
+  });
+});
+
+describe('useEditorWorkspaceStore.reorderTabs', () => {
+  it('moves a tab before another tab', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.newBlankTab(); // t0
+    s.newBlankTab(); // t1
+    s.newBlankTab(); // t2
+    const [t0, t1, t2] = useEditorWorkspaceStore.getState().workspace.tabs;
+
+    useEditorWorkspaceStore.getState().reorderTabs(t2.id, t0.id);
+    expect(useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.id)).toEqual([
+      t2.id,
+      t0.id,
+      t1.id,
+    ]);
+  });
+
+  it('moves a tab to the end when beforeTabId is null', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.newBlankTab(); // t0
+    s.newBlankTab(); // t1
+    s.newBlankTab(); // t2
+    const [t0] = useEditorWorkspaceStore.getState().workspace.tabs;
+
+    useEditorWorkspaceStore.getState().reorderTabs(t0.id, null);
+    const ids = useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.id);
+    expect(ids[ids.length - 1]).toBe(t0.id);
+  });
+
+  it('keeps pinned tabs first: unpinned tab cannot be inserted before pinned ones', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.newBlankTab(); // t0
+    s.newBlankTab(); // t1
+    s.newBlankTab(); // t2
+    const [t0, t1, t2] = useEditorWorkspaceStore.getState().workspace.tabs;
+    useEditorWorkspaceStore.getState().togglePinTab(t0.id);
+
+    // 把非固定 t2 拖到固定 t0 之前 → 被钳制到固定区之后
+    useEditorWorkspaceStore.getState().reorderTabs(t2.id, t0.id);
+    expect(useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.id)).toEqual([
+      t0.id,
+      t2.id,
+      t1.id,
+    ]);
+  });
+
+  it('lets pinned tabs move within the pinned group', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.newBlankTab(); // t0
+    s.newBlankTab(); // t1
+    s.newBlankTab(); // t2
+    const [t0, t1, t2] = useEditorWorkspaceStore.getState().workspace.tabs;
+    useEditorWorkspaceStore.getState().togglePinTab(t0.id);
+    useEditorWorkspaceStore.getState().togglePinTab(t2.id);
+
+    // 固定 t2 拖到固定 t0 之前 → [t2, t0, t1](t1 非固定保持原位)
+    useEditorWorkspaceStore.getState().reorderTabs(t2.id, t0.id);
+    expect(useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.id)).toEqual([
+      t2.id,
+      t0.id,
+      t1.id,
+    ]);
+  });
+
+  it('ignores unknown drag id', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.newBlankTab();
+    s.newBlankTab();
+    const before = useEditorWorkspaceStore.getState().workspace.tabs;
+    useEditorWorkspaceStore.getState().reorderTabs('nope', null);
+    expect(useEditorWorkspaceStore.getState().workspace.tabs).toEqual(before);
+  });
+
+  it('does not mark userTouched when order is unchanged', () => {
+    useEditorWorkspaceStore.setState({ userTouched: false });
+    const s = useEditorWorkspaceStore.getState();
+    s.newBlankTab();
+    s.newBlankTab();
+    const [t0, t1] = useEditorWorkspaceStore.getState().workspace.tabs;
+
+    // newBlankTab 会置 userTouched=true,先还原为 false 再验证 reorderTabs 本身是 no-op
+    useEditorWorkspaceStore.setState({ userTouched: false });
+    // t0 本来就应排在 t1 前面,顺序未变化 → 不触发持久化标记
+    useEditorWorkspaceStore.getState().reorderTabs(t0.id, t1.id);
+    expect(useEditorWorkspaceStore.getState().userTouched).toBe(false);
+    expect(useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.id)).toEqual([
+      t0.id,
+      t1.id,
+    ]);
   });
 });
 
