@@ -28,8 +28,6 @@ jobs:
           workspaces: src-tauri
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -65,8 +63,6 @@ jobs:
           workspaces: src-tauri
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -105,8 +101,6 @@ jobs:
           workspaces: src-tauri
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -147,8 +141,6 @@ jobs:
           workspaces: src-tauri
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -187,8 +179,6 @@ jobs:
           workspaces: src-tauri
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -230,8 +220,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
