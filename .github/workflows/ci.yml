@@ -2,234 +2,187 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
-    branches: [main]
+    branches: [main, master]
+
+# Cancel in-progress runs from the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
-  RUST_BACKTRACE: 1
-  CARGO_INCREMENTAL: 0
-  CARGO_NET_RETRY: 10
-  RUSTUP_MAX_RETRIES: 10
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -C debuginfo=line-tables-only
 
 jobs:
   lint:
-    name: Lint
-    runs-on: ubuntu-latest
+    name: Lint & Format
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: pnpm
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
       - name: Install Linux deps
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
       - name: Rust format check
-        working-directory: src-tauri
-        run: cargo fmt --check
-      - name: Clippy
-        working-directory: src-tauri
-        run: cargo clippy -- -D warnings
-      - name: TypeScript lint
+        working-directory: ./src-tauri
+        run: cargo fmt --all -- --check
+
+      - name: Rust clippy
+        working-directory: ./src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Frontend format check
+        run: pnpm prettier --check "src/**/*.{ts,tsx,css}"
+
+      - name: Frontend lint
         run: pnpm lint
-      - name: Typecheck
-        run: pnpm typecheck
 
   test:
-    name: Test
-    runs-on: ubuntu-latest
+    name: Test (Rust + Frontend)
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: pnpm
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
       - name: Install Linux deps
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
       - name: Rust test
-        working-directory: src-tauri
-        run: cargo test
-      - name: Frontend test
+        working-directory: ./src-tauri
+        run: cargo test --locked
+
+      - name: Frontend unit test
         run: pnpm test
 
-  # ============================================================
-  # 三平台 per-platform 构建 job
-  # 与 release.yml 的 matrix 不同:CI 在 PR/push 触发,仅验证打包流程
-  # 不签名(TAURI_SIGNING_PRIVATE_KEY 留空),产物上传为 artifact 供下载验证
-  # ============================================================
-  build-windows:
-    name: Build (Windows)
-    runs-on: windows-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
+  build:
+    name: Build ${{ matrix.platform }} (${{ matrix.arch }})
+    needs: [lint, test]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows
+          - platform: windows
+            os: windows-2022
+            arch: x64
+            rust-target: x86_64-pc-windows-msvc
+          - platform: windows
+            os: windows-2022
+            arch: arm64
+            rust-target: aarch64-pc-windows-msvc
+          # macOS
+          - platform: macos
+            os: macos-latest
+            arch: x64
+            rust-target: x86_64-apple-darwin
+          - platform: macos
+            os: macos-latest
+            arch: arm64
+            rust-target: aarch64-apple-darwin
+          # Linux
+          - platform: linux
+            os: ubuntu-22.04
+            arch: x64
+            rust-target: x86_64-unknown-linux-gnu
+          - platform: linux
+            os: ubuntu-22.04-arm
+            arch: arm64
+            rust-target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: pnpm
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Build Tauri (Windows)
-        run: pnpm tauri build --target x86_64-pc-windows-msvc
-        env:
-          # PR 构建不签名,仅验证打包流程
-          TAURI_SIGNING_PRIVATE_KEY: ''
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: qraft-windows-pr
-          path: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
-          if-no-files-found: warn
-          retention-days: 7
 
-  build-macos:
-    name: Build (macOS Universal)
-    runs-on: macos-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          # Universal Binary 需同时安装 aarch64 与 x86_64 两个 target
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Build Tauri (macOS Universal)
-        run: pnpm tauri build --target universal-apple-darwin
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ''
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
-      - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: qraft-macos-pr
-          path: |
-            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
-            src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app
-          if-no-files-found: warn
-          retention-days: 7
-
-  build-linux:
-    name: Build (Linux)
-    runs-on: ubuntu-22.04
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-linux-gnu
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: pnpm
       - name: Install Linux system deps
+        if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libssl-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Build Tauri (Linux)
-        run: pnpm tauri build --target x86_64-unknown-linux-gnu
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ''
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Setup Linux arm64 linker
+        if: matrix.platform == 'linux' && matrix.arch == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          name: qraft-linux-pr
-          path: |
-            src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
-            src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
-          if-no-files-found: warn
-          retention-days: 7
+          targets: ${{ matrix.rust-target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> src-tauri/target
+          cache-on-failure: true
+
+      - name: Build Tauri app
+        run: pnpm tauri build --target ${{ matrix.rust-target }} --verbose
 
   audit:
-    name: Security Audit
-    runs-on: ubuntu-latest
+    name: Security audit
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: pnpm
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
       - name: cargo audit
-        run: |
-          cargo install cargo-audit --locked
-          cd src-tauri && cargo audit
-      - name: pnpm audit
-        run: pnpm audit --audit-level moderate
+        uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

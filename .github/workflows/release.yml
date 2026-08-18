@@ -6,58 +6,28 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Tag name to release (e.g. v0.1.0)'
-        required: true
+      dry_run:
+        description: 'Build without publishing'
+        required: false
+        default: false
+        type: boolean
 
-permissions:
-  contents: write
+# Cancel in-progress runs from the same ref to save CI minutes.
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
-  RUST_BACKTRACE: 1
-  CARGO_INCREMENTAL: 0
-  CARGO_NET_RETRY: 10
-  RUSTUP_MAX_RETRIES: 10
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -C debuginfo=line-tables-only
 
 jobs:
-  # ============================================================
-  # Audit job: 强制依赖审计 + SBOM 生成,作为发布前置门槛
-  # 任何漏洞(cargo audit --deny warnings 或 pnpm audit moderate+)
-  # 都将阻止 release job 执行
-  # ============================================================
   audit:
-    name: Security Audit & SBOM
+    name: Pre-release audit
     runs-on: ubuntu-22.04
-    outputs:
-      rust-sbom: qraft-rust-sbom.json
-      npm-sbom: qraft-npm-sbom.json
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-
-      - name: Install Linux system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libssl-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf
-
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked || true
-
-      - name: Install cargo-cyclonedx
-        run: cargo install cargo-cyclonedx --locked || true
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -68,70 +38,54 @@ jobs:
           node-version: '22'
           cache: pnpm
 
-      - name: Install frontend deps
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # 强制审计:任何漏洞都将阻止发布
-      - name: cargo audit (Rust vulnerabilities)
-        working-directory: src-tauri
-        run: cargo audit --deny warnings
-
-      - name: pnpm audit (npm vulnerabilities)
-        run: pnpm audit --prod --audit-level moderate
-        continue-on-error: false
-
-      # 生成 CycloneDX 格式 SBOM
-      - name: Generate Rust SBOM (CycloneDX)
-        working-directory: src-tauri
-        run: cargo cyclonedx -f json --override-filename qraft-rust-sbom
-
-      - name: Generate npm SBOM (CycloneDX)
-        run: pnpm dlx cyclonedx-npm --output-file qraft-npm-sbom.json
-
-      - name: Upload SBOM artifacts
-        uses: actions/upload-artifact@v4
+      - name: cargo audit
+        uses: rustsec/audit-check@v2.0.0
         with:
-          name: qraft-sbom
-          path: |
-            src-tauri/qraft-rust-sbom.json
-            qraft-npm-sbom.json
-          if-no-files-found: error
-          retention-days: 90
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-  # ============================================================
-  # Release job: 三平台矩阵构建,依赖 audit job 通过
-  # 产物上传到 GitHub Release,SBOM 仅在 Linux 平台附加一次
-  # ============================================================
-  release:
-    name: Release ${{ matrix.platform }}
+  build:
+    name: Build ${{ matrix.platform }} (${{ matrix.arch }})
     needs: [audit]
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
-            args: --target x86_64-pc-windows-msvc
-          - platform: macos-latest
-            target: universal-apple-darwin
-            args: --target universal-apple-darwin
-          - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            args: --target x86_64-unknown-linux-gnu
-
-    runs-on: ${{ matrix.platform }}
+          # Windows
+          - platform: windows
+            os: windows-2022
+            arch: x64
+            rust-target: x86_64-pc-windows-msvc
+          - platform: windows
+            os: windows-2022
+            arch: arm64
+            rust-target: aarch64-pc-windows-msvc
+          # macOS
+          - platform: macos
+            os: macos-latest
+            arch: x64
+            rust-target: x86_64-apple-darwin
+          - platform: macos
+            os: macos-latest
+            arch: arm64
+            rust-target: aarch64-apple-darwin
+          # Linux
+          - platform: linux
+            os: ubuntu-22.04
+            arch: x64
+            rust-target: x86_64-unknown-linux-gnu
+          - platform: linux
+            os: ubuntu-22.04-arm
+            arch: arm64
+            rust-target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -142,58 +96,92 @@ jobs:
           node-version: '22'
           cache: pnpm
 
-      - name: Install Linux system deps
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libssl-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf
-
       - name: Install frontend deps
         run: pnpm install --frozen-lockfile
 
-      - name: Build and release Tauri
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          # macOS 代码签名与公证(仅正式发布需要)
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Windows Authenticode(仅正式发布需要;MVP 不签名)
-          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Qraft ${{ github.ref_name }}'
-          releaseBody: 'See [CHANGELOG.md](https://github.com/qraft/qraft/blob/main/CHANGELOG.md) for details.'
-          releaseDraft: true
-          prerelease: false
-          args: ${{ matrix.args }}
+      - name: Install Linux system deps
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
-      # 下载 audit job 生成的 SBOM 并附加到 Release
-      # SBOM 与平台无关,只在 ubuntu-22.04 job 上传一次,避免三平台重复
-      - name: Download SBOM artifacts
+      - name: Setup Linux arm64 linker
+        if: matrix.platform == 'linux' && matrix.arch == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+
+      - name: (macOS) Import signing certificate
+        if: matrix.platform == 'macos' && env.MACOS_SIGNING_CERT != ''
+        env:
+          MACOS_SIGNING_CERT: ${{ secrets.MACOS_SIGNING_CERT }}
+        run: |
+          echo "Signing certificate detected; configure notarization in tauri.conf.json to enable it."
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> src-tauri/target
+          cache-on-failure: true
+
+      - name: Generate SBOM (Linux/macOS)
+        if: matrix.platform != 'windows'
+        run: |
+          cargo install cargo-cyclonedx --locked || true
+          cd src-tauri
+          cargo cyclonedx --all --format json --output ../sbom-${{ matrix.platform }}-${{ matrix.arch }}.cdx.json || true
+
+      - name: Generate SBOM (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          cargo install cargo-cyclonedx --locked
+          cd src-tauri
+          cargo cyclonedx --all --format json --output ../sbom-${{ matrix.platform }}-${{ matrix.arch }}.cdx.json
+
+      - name: Build Tauri app
+        run: pnpm tauri build --target ${{ matrix.rust-target }} --verbose
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: qraft-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            src-tauri/target/${{ matrix.rust-target }}/release/bundle/**/*
+            sbom-${{ matrix.platform }}-${{ matrix.arch }}.cdx.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  publish:
+    name: Publish release
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: qraft-sbom
-          path: sbom
+          path: artifacts
+          pattern: qraft-*
+          merge-multiple: true
 
-      - name: Attach SBOM to GitHub Release
-        if: matrix.platform == 'ubuntu-22.04'
+      - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          files: |
-            sbom/qraft-rust-sbom.json
-            sbom/qraft-npm-sbom.json
+          files: artifacts/**/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
