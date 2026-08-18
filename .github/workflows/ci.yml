@@ -192,14 +192,17 @@ jobs:
           key: cargo-audit-bin
 
       - name: cargo audit
+        working-directory: ./src-tauri
         run: |
           if ! command -v cargo-audit >/dev/null 2>&1; then
             cargo install cargo-audit --locked
           fi
-          cd src-tauri
           # quick-xml 的两条高危 advisory 来自 Tauri 传递依赖 plist,项目无法
           # 升级修复(plist 已被 Tauri 锁定且无可用更新),故显式忽略;GTK3 等
           # unmaintained 警告不影响退出码。
+          # 显式指定 --file 指向 src-tauri/Cargo.lock,避免 cargo-audit 沿目录
+          # 向上解析到仓库根(前端项目无 Cargo.lock)导致 "Couldn't load Cargo.lock"。
           cargo audit \
+            --file Cargo.lock \
             --ignore RUSTSEC-2026-0194 \
             --ignore RUSTSEC-2026-0195
