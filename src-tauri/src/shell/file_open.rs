@@ -144,8 +144,7 @@ pub fn open_dropped_file(
     let p = Path::new(path);
     let name = || {
         p.file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_else(|| path.to_string())
+            .map_or_else(|| path.to_string(), |n| n.to_string_lossy().into_owned())
     };
 
     if !p.exists() {
@@ -212,11 +211,7 @@ pub fn open_dropped_files(
 /// 直接传给 `std::fs` 通常也能工作,但清理后更干净且与对话框返回路径一致。
 #[must_use]
 pub fn sanitize_dropped_path(path: &str) -> &str {
-    if let Some(stripped) = path.strip_prefix(r"\\?\") {
-        stripped
-    } else {
-        path
-    }
+    path.strip_prefix(r"\\?\").map_or(path, |stripped| stripped)
 }
 
 /// 处理一个待打开的文件路径:授权 + 读取内容 + 入队 + 推送给前端

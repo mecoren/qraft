@@ -222,6 +222,7 @@ pub async fn fs_save_bytes(
 /// - 路径为空/不存在时返回 `AppError::Io`(`ERR_FILE_IO`)
 /// - 平台命令启动失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 pub fn fs_reveal_in_explorer(path: String) -> Result<CommandResponse<()>, AppError> {
     fs_reveal_in_explorer_inner(&path)
 }

@@ -46,6 +46,7 @@ pub struct WindowCloseGuardState {
 ///
 /// - 守卫互斥锁中毒时返回 `AppError::Internal`
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 pub fn window_close_ready(app: tauri::AppHandle) -> Result<CommandResponse<()>, AppError> {
     let guard = app.state::<WindowCloseGuard>();
     let mut g = guard
@@ -53,6 +54,7 @@ pub fn window_close_ready(app: tauri::AppHandle) -> Result<CommandResponse<()>, 
         .lock()
         .map_err(|e| AppError::Internal(anyhow::anyhow!("window close guard poisoned: {e}")))?;
     g.webview_ready = true;
+    drop(g);
     Ok(CommandResponse::ok(()))
 }
 
@@ -62,6 +64,7 @@ pub fn window_close_ready(app: tauri::AppHandle) -> Result<CommandResponse<()>, 
 ///
 /// - 守卫互斥锁中毒时返回 `AppError::Internal`
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 pub fn window_close_cancel(app: tauri::AppHandle) -> Result<CommandResponse<()>, AppError> {
     let guard = app.state::<WindowCloseGuard>();
     let mut g = guard
@@ -69,6 +72,7 @@ pub fn window_close_cancel(app: tauri::AppHandle) -> Result<CommandResponse<()>,
         .lock()
         .map_err(|e| AppError::Internal(anyhow::anyhow!("window close guard poisoned: {e}")))?;
     g.pending = false;
+    drop(g);
     Ok(CommandResponse::ok(()))
 }
 
@@ -185,6 +189,7 @@ pub async fn app_quit(app_handle: tauri::AppHandle) -> Result<CommandResponse<()
 ///
 /// - 队列互斥锁中毒时返回 `AppError::Internal`
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 pub fn app_pull_open_files(
     pending: tauri::State<'_, PendingOpenFiles>,
 ) -> Result<CommandResponse<Vec<OpenFilePayload>>, AppError> {

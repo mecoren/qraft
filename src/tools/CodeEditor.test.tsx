@@ -9,6 +9,7 @@ vi.mock('@/components/ui/code-editor', () => ({
     value,
     onChange,
     title,
+    header,
     statusBarRight,
     minimap,
     language,
@@ -18,6 +19,7 @@ vi.mock('@/components/ui/code-editor', () => ({
     value: string;
     onChange?: (v: string) => void;
     title?: string;
+    header?: React.ReactNode;
     statusBarRight?: React.ReactNode;
     minimap?: boolean;
     language?: string;
@@ -26,7 +28,11 @@ vi.mock('@/components/ui/code-editor', () => ({
   }) => (
     <div data-testid={testId}>
       <div>
-        {title && <span data-testid={testId ? `${testId}-title` : undefined}>{title}</span>}
+        {header ? (
+          <div data-testid={testId ? `${testId}-header` : undefined}>{header}</div>
+        ) : (
+          title && <span data-testid={testId ? `${testId}-title` : undefined}>{title}</span>
+        )}
       </div>
       <span data-testid={testId ? `${testId}-language` : undefined}>{language}</span>
       {fixedTheme && (
@@ -193,9 +199,9 @@ describe('CodeEditorTool workspace', () => {
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
 
-    // 本地文件:编辑器左上角标题展示完整路径
+    // 本地文件:编辑器左上角用面包屑(header)展示路径,末段为文件名
     await waitFor(() => {
-      expect(screen.getByTestId('editor-title').textContent).toBe('C:\\work\\app.json');
+      expect(screen.getByTestId('editor-header')).toHaveTextContent('app.json');
     });
     // 扩展名 .json → json 语言
     expect(screen.getByTestId('editor-language').textContent).toBe('json');
@@ -211,9 +217,9 @@ describe('CodeEditorTool workspace', () => {
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
-    // 标题为完整路径
+    // 标题为路径面包屑(末段文件名)
     await waitFor(() =>
-      expect(screen.getByTestId('editor-title').textContent).toBe('/x.json'),
+      expect(screen.getByTestId('editor-header')).toHaveTextContent('x.json'),
     );
     await clickToolbarItem('toolbar-open');
     await waitFor(() => expect(screen.getAllByTestId(/editor-tabs-tab-/)).toHaveLength(1));
@@ -228,7 +234,7 @@ describe('CodeEditorTool workspace', () => {
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
     await waitFor(() =>
-      expect(screen.getByTestId('editor-title').textContent).toBe('/a.txt'),
+      expect(screen.getByTestId('editor-header')).toHaveTextContent('a.txt'),
     );
 
     // 编辑 → dirty 圆点出现
@@ -358,7 +364,7 @@ describe('CodeEditorTool workspace', () => {
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
     await waitFor(() =>
-      expect(screen.getByTestId('editor-title').textContent).toBe('/a.txt'),
+      expect(screen.getByTestId('editor-header')).toHaveTextContent('a.txt'),
     );
 
     // 编辑 → dirty
@@ -382,7 +388,7 @@ describe('CodeEditorTool workspace', () => {
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
     await waitFor(() =>
-      expect(screen.getByTestId('editor-title').textContent).toBe('/s.txt'),
+      expect(screen.getByTestId('editor-header')).toHaveTextContent('s.txt'),
     );
 
     // 编辑 → dirty
@@ -465,7 +471,7 @@ describe('CodeEditorTool workspace', () => {
     renderTool();
 
     await waitFor(() =>
-      expect(screen.getByTestId('editor-title').textContent).toBe('/resume.md'),
+      expect(screen.getByTestId('editor-header')).toHaveTextContent('resume.md'),
     );
     expect(screen.getByTestId('editor-language').textContent).toBe('markdown');
     expect(screen.getByTestId('editor-tabs-tab-resume.md')).toBeInTheDocument();
@@ -490,7 +496,7 @@ describe('CodeEditorTool workspace', () => {
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
     await waitFor(() =>
-      expect(screen.getByTestId('editor-title').textContent).toBe('/b.txt'),
+      expect(screen.getByTestId('editor-header')).toHaveTextContent('b.txt'),
     );
 
     // 编辑 → dirty
@@ -518,7 +524,7 @@ describe('CodeEditorTool workspace', () => {
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
     await waitFor(() =>
-      expect(screen.getByTestId('editor-title').textContent).toBe('/b.txt'),
+      expect(screen.getByTestId('editor-header')).toHaveTextContent('b.txt'),
     );
 
     fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'hi!' } });
@@ -542,7 +548,7 @@ describe('CodeEditorTool workspace', () => {
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
     await waitFor(() =>
-      expect(screen.getByTestId('editor-title').textContent).toBe('/c.txt'),
+      expect(screen.getByTestId('editor-header')).toHaveTextContent('c.txt'),
     );
 
     fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'xx' } });
@@ -565,7 +571,7 @@ describe('CodeEditorTool workspace', () => {
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
     await waitFor(() =>
-      expect(screen.getByTestId('editor-title').textContent).toBe('/d.txt'),
+      expect(screen.getByTestId('editor-header')).toHaveTextContent('d.txt'),
     );
 
     fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'zz' } });
@@ -606,7 +612,7 @@ describe('CodeEditorTool workspace', () => {
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
     await waitFor(() =>
-      expect(screen.getByTestId('editor-title').textContent).toBe('/q.txt'),
+      expect(screen.getByTestId('editor-header')).toHaveTextContent('q.txt'),
     );
 
     fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'qq' } });
@@ -655,7 +661,7 @@ describe('CodeEditorTool workspace', () => {
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
     await waitFor(() =>
-      expect(screen.getByTestId('editor-title').textContent).toBe('/clean.txt'),
+      expect(screen.getByTestId('editor-header')).toHaveTextContent('clean.txt'),
     );
 
     // 触发窗口关闭 → 无未保存 → 直接退出,不弹确认

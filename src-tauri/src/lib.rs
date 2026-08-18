@@ -262,16 +262,18 @@ pub fn run() -> anyhow::Result<()> {
             }
             // 拖放文件到窗口:把文本文件交给编辑器工作区打开(参考 VS Code),
             // 二进制/不支持的文件通过 open_dropped_files 内部 emit 提示前端。
-            RunEvent::WindowEvent { event: window_event, .. } => {
-                if let WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) = window_event {
-                    let authorized = app_handle.state::<AuthorizedPaths>();
-                    let pending = app_handle.state::<PendingOpenFiles>();
-                    let cleaned: Vec<String> = paths
-                        .iter()
-                        .map(|p| sanitize_dropped_path(&p.to_string_lossy()).to_string())
-                        .collect();
-                    open_dropped_files(app_handle, &authorized, &pending, &cleaned);
-                }
+            RunEvent::WindowEvent {
+                event:
+                    WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }),
+                ..
+            } => {
+                let authorized = app_handle.state::<AuthorizedPaths>();
+                let pending = app_handle.state::<PendingOpenFiles>();
+                let cleaned: Vec<String> = paths
+                    .iter()
+                    .map(|p| sanitize_dropped_path(&p.to_string_lossy()).to_string())
+                    .collect();
+                open_dropped_files(app_handle, &authorized, &pending, &cleaned);
             }
             _ => {}
         });

@@ -68,9 +68,8 @@ impl JsonlHistoryStore {
             return;
         }
         // 读取全部有效行
-        let content = match std::fs::read_to_string(&self.path) {
-            Ok(c) => c,
-            Err(_) => return,
+        let Ok(content) = std::fs::read_to_string(&self.path) else {
+            return;
         };
         let lines: Vec<&str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
         if lines.len() <= max {
@@ -84,12 +83,9 @@ impl JsonlHistoryStore {
     }
 }
 
-/// 估算文件行数(用于初始化 line_count 计数)
+/// 估算文件行数(用于初始化 `line_count` 计数)
 fn estimate_line_count(path: &PathBuf) -> usize {
-    match std::fs::read_to_string(path) {
-        Ok(c) => c.lines().filter(|l| !l.trim().is_empty()).count(),
-        Err(_) => 0,
-    }
+    std::fs::read_to_string(path).map_or(0, |c| c.lines().filter(|l| !l.trim().is_empty()).count())
 }
 
 #[async_trait]
@@ -172,7 +168,7 @@ mod tests {
     use std::sync::Arc;
     use tempfile::TempDir;
 
-    /// 测试用 ConfigStore,:通过闭包注入 max_history
+    /// 测试用 ConfigStore,:通过闭包注入 `max_history`
     struct TestConfigStore {
         max_history: usize,
     }

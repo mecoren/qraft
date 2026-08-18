@@ -144,7 +144,10 @@ fn enumerate_fonts() -> windows::core::Result<Vec<FontInfo>> {
 // 非 Windows 平台:返回空列表
 // ──────────────────────────────────────────────
 
+// 非 Windows 平台的占位实现:恒返回空列表。返回 `Result` 以与 Windows
+// 版保持统一签名(调用处统一 `.map_err`);此处 `Ok` 恒为真,故抑制 lint。
 #[cfg(not(target_os = "windows"))]
+#[allow(clippy::unnecessary_wraps)]
 fn enumerate_fonts() -> Result<Vec<FontInfo>, String> {
     Ok(vec![])
 }

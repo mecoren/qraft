@@ -196,4 +196,5 @@ jobs:
           if ! command -v cargo-audit >/dev/null 2>&1; then
             cargo install cargo-audit --locked
           fi
+          cd src-tauri
           cargo audit --deny warnings

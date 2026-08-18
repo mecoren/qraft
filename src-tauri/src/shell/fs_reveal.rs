@@ -33,8 +33,7 @@ pub fn parent_dir_of(path: &str) -> String {
         .parent()
         .and_then(Path::to_str)
         .filter(|p| !p.is_empty())
-        .map(str::to_owned)
-        .unwrap_or_else(|| path.to_owned())
+        .map_or_else(|| path.to_owned(), str::to_owned)
 }
 
 /// 构造「在文件管理器中显示」的平台命令(macOS / Linux)
@@ -61,7 +60,7 @@ pub fn reveal_command_for_platform(path: &str) -> (String, Vec<String>) {
 /// Windows 平台实现:「在文件管理器中显示」
 ///
 /// 策略(按优先级):
-/// 1. 检测系统默认文件管理器。Windows 上「打开文件夹」由多个 ProgID 键接管,
+/// 1. 检测系统默认文件管理器。Windows 上「打开文件夹」由多个 `ProgID` 键接管,
 ///    第三方管理器(Files / One Commander / Directory Opus 等)设置默认时会改写
 ///    `Directory\shell\open\command`、`Directory\Background\shell\open\command`
 ///    或 `Folder\shell\open\command` 的默认命令值:
@@ -69,8 +68,8 @@ pub fn reveal_command_for_platform(path: &str) -> (String, Vec<String>) {
 ///    - 全部键缺失/为空/指向 explorer.exe(未自定义)→ 内置 Explorer
 /// 2. 按检测结果:
 ///    - 内置 Explorer → `explorer /select,path` 定位文件(既默认又能选中文件)
-///    - 第三方 → ShellExecuteW 打开父目录,交给默认管理器
-/// 3. ShellExecuteW 失败(第三方管理器不可用)→ 降级 `explorer /select,path`
+///    - 第三方 → `ShellExecuteW` 打开父目录,交给默认管理器
+/// 3. `ShellExecuteW` 失败(第三方管理器不可用)→ 降级 `explorer /select,path`
 ///    (内置 Explorer + 定位,保证功能始终可用)
 #[cfg(target_os = "windows")]
 mod windows {
@@ -94,7 +93,7 @@ mod windows {
     /// - `Directory\shell\open\command`:文件夹双击打开命令
     /// - `Directory\Background\shell\open\command`:文件夹空白处右键打开
     /// - `Folder\shell\open\command`:通用 Folder 类打开命令
-    ///   (Windows 默认:REG_EXPAND_SZ `%SystemRoot%\Explorer.exe` + DelegateExecute)
+    ///   (Windows 默认:`REG_EXPAND_SZ` `%SystemRoot%\Explorer.exe` + `DelegateExecute`)
     ///
     /// 第三方管理器(Files / One Commander / Directory Opus)设为默认时,
     /// 会把这些键的默认值改写为自身可执行文件;任一键指向第三方即视为接管。
@@ -106,9 +105,10 @@ mod windows {
 
     /// 读取 `HKCR` 下指定键的默认值(空值名)
     ///
-    /// 支持 REG_SZ 与 REG_EXPAND_SZ(如 `%SystemRoot%\Explorer.exe`)。
+    /// 支持 `REG_SZ` 与 `REG_EXPAND_SZ`(如 `%SystemRoot%\Explorer.exe`)。
     /// 键不存在 / 无默认值 / 类型不符 / 读取失败时返回 `None`。
     #[must_use]
+    #[allow(clippy::borrow_as_ptr)]
     fn query_open_command_default(subkey: &str) -> Option<String> {
         let wide_key: Vec<u16> = (String::from(subkey) + "\0").encode_utf16().collect();
         let mut key = HKEY(std::ptr::null_mut());
@@ -179,15 +179,13 @@ mod windows {
 
     /// 判断系统默认文件管理器是否为内置 Explorer
     ///
-    /// 遍历 `Directory` / `Directory\Background` / `Folder` 三个 ProgID 键,
+    /// 遍历 `Directory` / `Directory\Background` / `Folder` 三个 `ProgID` 键,
     /// 任一键的默认命令明确指向第三方程序(不含 `explorer.exe`)即判定为
     /// 第三方默认管理器;全部键缺失 / 为空 / 指向 explorer.exe 时判定为内置。
     #[must_use]
     fn default_manager_is_explorer() -> bool {
         OPEN_COMMAND_KEYS.iter().all(|subkey| {
-            query_open_command_default(subkey)
-                .map(|cmd| command_refers_to_explorer(&cmd))
-                .unwrap_or(true)
+            query_open_command_default(subkey).is_none_or(|cmd| command_refers_to_explorer(&cmd))
         })
     }
 
@@ -198,15 +196,14 @@ mod windows {
         cmd.arg(format!("/select,{path}"));
         // 不阻塞等待:explorer 为独立进程,立即返回
         let _child = cmd.spawn().map_err(|e| {
-            AppError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("failed to launch explorer: {e}"),
-            ))
+            AppError::Io(std::io::Error::other(format!(
+                "failed to launch explorer: {e}"
+            )))
         })?;
         Ok(())
     }
 
-    /// 用 ShellExecuteW 打开父目录,交给系统默认文件管理器
+    /// 用 `ShellExecuteW` 打开父目录,交给系统默认文件管理器
     fn shell_execute_open_parent(path: &str) -> Result<(), AppError> {
         let parent = Path::new(path)
             .parent()
@@ -233,10 +230,10 @@ mod windows {
         };
         // ShellExecuteW 返回 ≤ 32 的值表示错误(0=OOM, 2=文件未找到等)
         if result.0 as usize <= 32 {
-            return Err(AppError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("ShellExecuteW failed with code {}", result.0 as usize),
-            )));
+            return Err(AppError::Io(std::io::Error::other(format!(
+                "ShellExecuteW failed with code {}",
+                result.0 as usize
+            ))));
         }
         Ok(())
     }
@@ -291,7 +288,7 @@ mod windows {
 
 /// 在系统文件管理器中定位指定文件(不读写文件,仅揭示位置)
 ///
-/// 仅要求路径存在,不要求 AuthorizedPaths 授权。
+/// 仅要求路径存在,不要求 `AuthorizedPaths` 授权。
 ///
 /// # Errors
 ///
@@ -322,10 +319,9 @@ pub fn fs_reveal_in_explorer_inner(path: &str) -> Result<CommandResponse<()>, Ap
         cmd.args(&args);
         // 不阻塞等待:explorer/open/xdg-open 均为独立进程,立即返回
         let _child = cmd.spawn().map_err(|e| {
-            AppError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("failed to launch file manager: {e}"),
-            ))
+            AppError::Io(std::io::Error::other(format!(
+                "failed to launch file manager: {e}"
+            )))
         })?;
     }
 
@@ -402,8 +398,8 @@ mod tests {
         let result = fs_reveal_in_explorer_inner(existing.to_str().unwrap());
         // 存在路径时命令可启动;CI/无桌面环境下文件管理器可能不可用,
         // 仅当启动成功才返回 Ok;此处不强制成功,避免 CI 不稳定
-        if result.is_err() {
-            assert_eq!(result.unwrap_err().code(), "ERR_FILE_IO");
+        if let Err(e) = result {
+            assert_eq!(e.code(), "ERR_FILE_IO");
         }
         let _ = std::fs::remove_file(existing);
     }
