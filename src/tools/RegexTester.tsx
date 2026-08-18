@@ -105,9 +105,7 @@ export function RegexTester({ toolId }: ToolProps) {
           <div className="flex items-center justify-between">
             <Label>匹配结果</Label>
             {extra && (
-              <span className="text-xs text-muted-foreground">
-                {extra.match_count} 个匹配
-              </span>
+              <span className="text-xs text-muted-foreground">{extra.match_count} 个匹配</span>
             )}
           </div>
           {error ? (

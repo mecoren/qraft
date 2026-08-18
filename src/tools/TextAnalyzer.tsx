@@ -30,7 +30,9 @@ export function analyzeText(text: string): TextStats {
   const charsNoSpace = Array.from(text.replace(/\s/g, '')).length;
   // 中日韩字符逐字计数,拉丁词按空白分词
   const cjk = (text.match(/[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/g) ?? []).length;
-  const latinWords = (text.replace(/[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/g, ' ').match(/\S+/g) ?? []).length;
+  const latinWords = (
+    text.replace(/[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/g, ' ').match(/\S+/g) ?? []
+  ).length;
   const words = cjk + latinWords;
   const lines = text.split('\n').length;
   const bytes = new TextEncoder().encode(text).length;
@@ -39,14 +41,7 @@ export function analyzeText(text: string): TextStats {
   return { chars, charsNoSpace, words, lines, bytes, sentences, paragraphs };
 }
 
-type Transform =
-  | 'upper'
-  | 'lower'
-  | 'sentence'
-  | 'title'
-  | 'reverse'
-  | 'dedupeLines'
-  | 'sortLines';
+type Transform = 'upper' | 'lower' | 'sentence' | 'title' | 'reverse' | 'dedupeLines' | 'sortLines';
 
 export function transformText(text: string, kind: Transform): string {
   switch (kind) {
@@ -55,9 +50,7 @@ export function transformText(text: string, kind: Transform): string {
     case 'lower':
       return text.toLowerCase();
     case 'sentence':
-      return text
-        .toLowerCase()
-        .replace(/(^\s*[a-z])|([.!?。!?]\s*[a-z])/g, (m) => m.toUpperCase());
+      return text.toLowerCase().replace(/(^\s*[a-z])|([.!?。!?]\s*[a-z])/g, (m) => m.toUpperCase());
     case 'title':
       return text.replace(/\b[a-z]/g, (m) => m.toUpperCase());
     case 'reverse':
@@ -74,7 +67,10 @@ export function transformText(text: string, kind: Transform): string {
         .join('\n');
     }
     case 'sortLines':
-      return text.split('\n').sort((a, b) => a.localeCompare(b)).join('\n');
+      return text
+        .split('\n')
+        .sort((a, b) => a.localeCompare(b))
+        .join('\n');
   }
 }
 

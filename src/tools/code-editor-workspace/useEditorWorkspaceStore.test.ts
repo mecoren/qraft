@@ -344,10 +344,14 @@ describe('useEditorWorkspaceStore.pinned tabs', () => {
     const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
 
     useEditorWorkspaceStore.getState().togglePinTab(id);
-    expect(useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!.pinned).toBe(true);
+    expect(useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!.pinned).toBe(
+      true,
+    );
 
     useEditorWorkspaceStore.getState().togglePinTab(id);
-    expect(useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!.pinned).toBe(false);
+    expect(useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!.pinned).toBe(
+      false,
+    );
   });
 
   it('closeOtherTabs closes all unpinned tabs except the target', () => {

@@ -39,7 +39,10 @@ function collectDeclaredElements(xsd: Document): Set<string> {
   return names;
 }
 
-export function validateXmlAgainstXsd(xmlText: string, xsdText: string): {
+export function validateXmlAgainstXsd(
+  xmlText: string,
+  xsdText: string,
+): {
   ok: boolean;
   messages: string[];
 } {

@@ -67,9 +67,11 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const ready = useEditorWorkspaceStore((s) => s.ready);
   const hydrate = useEditorWorkspaceStore((s) => s.hydrate);
   /** 未保存对话框状态(null = 关闭);batchAction 记录批量关闭意图 */
-  const [unsaved, setUnsaved] = useState<
-    { mode: UnsavedMode; tabId?: string; batchAction?: BatchCloseAction } | null
-  >(null);
+  const [unsaved, setUnsaved] = useState<{
+    mode: UnsavedMode;
+    tabId?: string;
+    batchAction?: BatchCloseAction;
+  } | null>(null);
   /**
    * 左栏 Ctrl+多选选中的文件(id 集合,不含激活 Tab 自身)。
    * 存储层不落盘(纯会话内 UI 状态),关闭文件时同步剔除失效 id。
@@ -93,7 +95,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   }, [hydrate]);
 
   // 窗口关闭确认:通知后端前端已就绪,并监听「用户点击关闭窗口」事件。
-    // 仅在 Tauri 运行时生效(浏览器 dev / 测试环境跳过)。
+  // 仅在 Tauri 运行时生效(浏览器 dev / 测试环境跳过)。
   useEffect(() => {
     if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
     void windowCloseReady();
@@ -150,10 +152,10 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const activeCompare =
     (activeCompareId && compares.find((cp) => cp.id === activeCompareId)) ?? null;
   const compareLeft = activeCompare
-    ? workspace.tabs.find((t) => t.id === activeCompare.leftTabId) ?? null
+    ? (workspace.tabs.find((t) => t.id === activeCompare.leftTabId) ?? null)
     : null;
   const compareRight = activeCompare
-    ? workspace.tabs.find((t) => t.id === activeCompare.rightTabId) ?? null
+    ? (workspace.tabs.find((t) => t.id === activeCompare.rightTabId) ?? null)
     : null;
   const showCompare = Boolean(activeCompare && compareLeft && compareRight);
 
@@ -243,9 +245,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   /** 请求全部关闭:存在未保存的非固定 Tab 时先弹确认,干净则直接关闭 */
   const requestCloseAll = useCallback(() => {
     const state = useEditorWorkspaceStore.getState();
-    const hasDirty = state.workspace.tabs.some(
-      (t) => !t.pinned && t.content !== t.savedContent,
-    );
+    const hasDirty = state.workspace.tabs.some((t) => !t.pinned && t.content !== t.savedContent);
     if (hasDirty) {
       setUnsaved({ mode: 'close-all' });
     } else {
@@ -317,33 +317,34 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
    * 选中集合最多 2 个文件:
    * - 第 3 个时**直接报错**并拒绝加入,避免选中过多后对比时静默只取前两个
    */
-  const handleSelectMany = useCallback((id: string, additive: boolean) => {
-    const state = useEditorWorkspaceStore.getState();
-    const tab = state.workspace.tabs.find((t) => t.id === id);
-    if (!tab) return;
-    if (additive) {
-      // 基准选中集:当前激活 Tab 必须计入(去重),保证"原先高亮的"不丢失
-      const base = selectedTabIds.includes(workspace.activeTabId ?? '')
-        ? selectedTabIds
-        : [...selectedTabIds, ...(workspace.activeTabId ? [workspace.activeTabId] : [])];
-      // 点击的文件已在选中集 → 取消;否则加入
-      const next = base.includes(id)
-        ? base.filter((x) => x !== id)
-        : [...base, id];
-      if (new Set(next).size > 2) {
-        toast.error('一次最多选中两个文件进行对比');
+  const handleSelectMany = useCallback(
+    (id: string, additive: boolean) => {
+      const state = useEditorWorkspaceStore.getState();
+      const tab = state.workspace.tabs.find((t) => t.id === id);
+      if (!tab) return;
+      if (additive) {
+        // 基准选中集:当前激活 Tab 必须计入(去重),保证"原先高亮的"不丢失
+        const base = selectedTabIds.includes(workspace.activeTabId ?? '')
+          ? selectedTabIds
+          : [...selectedTabIds, ...(workspace.activeTabId ? [workspace.activeTabId] : [])];
+        // 点击的文件已在选中集 → 取消;否则加入
+        const next = base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
+        if (new Set(next).size > 2) {
+          toast.error('一次最多选中两个文件进行对比');
+          return;
+        }
+        state.switchTab(id);
+        setActiveCompareId(null);
+        setSelectedTabIds(next);
         return;
       }
+      // 普通点击:仅激活该文件,清空多选
       state.switchTab(id);
       setActiveCompareId(null);
-      setSelectedTabIds(next);
-      return;
-    }
-    // 普通点击:仅激活该文件,清空多选
-    state.switchTab(id);
-    setActiveCompareId(null);
-    setSelectedTabIds([]);
-  }, [selectedTabIds, workspace.activeTabId]);
+      setSelectedTabIds([]);
+    },
+    [selectedTabIds, workspace.activeTabId],
+  );
 
   /** 点击左栏普通文件:激活该 Tab 并退出对比视图 */
   const handleSelectTab = useCallback((id: string) => {
@@ -421,7 +422,9 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       const valid = new Set(useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.id));
       const next = prev.filter((cp) => valid.has(cp.leftTabId) && valid.has(cp.rightTabId));
       if (next.length !== prev.length) {
-        setActiveCompareId((active) => (active && next.some((cp) => cp.id === active) ? active : next[0]?.id ?? null));
+        setActiveCompareId((active) =>
+          active && next.some((cp) => cp.id === active) ? active : (next[0]?.id ?? null),
+        );
       }
       return next;
     });
@@ -585,10 +588,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const handleUnsavedDiscard = useCallback(() => {
     if (!unsaved) return;
     const state = useEditorWorkspaceStore.getState();
-    if (
-      (unsaved.mode === 'close-tab' || unsaved.mode === 'close-pinned') &&
-      unsaved.tabId
-    ) {
+    if ((unsaved.mode === 'close-tab' || unsaved.mode === 'close-pinned') && unsaved.tabId) {
       state.closeTab(unsaved.tabId);
     } else if (unsaved.mode === 'close-all') {
       state.closeAllTabs();
@@ -626,156 +626,162 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex h-full flex-col bg-background-layer" data-testid="editor-workbench">
-      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 gap-1 overflow-hidden" data-testid="editor-split">
-        {/* 左栏卡片:固定像素宽度,由 sidebarWidth(持久化)控制,收起时宽度 0。
+        <div
+          className="flex h-full min-h-0 w-full min-w-0 flex-1 gap-1 overflow-hidden"
+          data-testid="editor-split"
+        >
+          {/* 左栏卡片:固定像素宽度,由 sidebarWidth(持久化)控制,收起时宽度 0。
             @container/sidebar:注册命名容器,侧栏缩窄时内部标题栏可按容器宽度
             压缩间距(padding/gap),保证徽章与悬浮按钮组都能完整显示不被裁切。 */}
-        <div
-          className="h-full shrink-0 overflow-hidden rounded-lg border border-border bg-sidebar shadow-sm transition-shadow @container/sidebar"
-          style={{ width: workspace.leftSidebarVisible ? `${workspace.sidebarWidth}px` : 0 }}
-        >
-          <EditorLeftSidebar
-            tabs={workspace.tabs}
-            activeTabId={workspace.activeTabId}
-            dirtyCount={workspace.tabs.filter((t) => t.content !== t.savedContent).length}
-            selectedTabIds={selectedTabIds}
-            onSelect={handleSelectTab}
-            onSelectMany={handleSelectMany}
-            onCompareSelected={handleCompareSelected}
-            compares={compares}
-            activeCompareId={activeCompareId}
-            onSelectCompare={handleSelectCompare}
-            onCloseCompare={handleCloseCompare}
-            onCloseAllCompares={handleCloseAllCompares}
-            onClose={requestCloseTab}
-            onCloseOthers={(id) => requestCloseBatch('close-others', id)}
-            onCloseRight={(id) => requestCloseBatch('close-right', id)}
-            onCloseSaved={requestCloseSaved}
-            onTogglePin={handleTogglePin}
-            onSave={(id) => void saveTabById(id)}
-            onRevealInExplorer={handleRevealInExplorer}
-            onCopyPath={handleCopyPath}
-            // 文件列表拖拽排序:与 Tab 栏共用同一 store 动作,实现双向同步
-            onReorder={(dragId, beforeTabId) =>
-              useEditorWorkspaceStore.getState().reorderTabs(dragId, beforeTabId)
-            }
-            onNewTab={handleNewTab}
-            onSaveAll={() => void handleSaveAll()}
-            onCloseAll={requestCloseAll}
-            saveAllDisabled={workspace.tabs.length === 0}
-            closeAllDisabled={workspace.tabs.length === 0}
-            // 拖拽分隔条期间强制按钮/徽章保持显示(避免鼠标移出面板导致闪烁)
-            actionsForced={handleHovered || handleActive}
-            data-testid="editor-sidebar"
-          />
-        </div>
-        {/* 自定义拖拽分隔条:位于两卡片中间,hover/聚焦时高亮 */}
-        <SidebarResizeHandle
-          onHoverChange={setHandleHovered}
-          onActiveChange={setHandleActive}
-        />
-        {/* 右侧主页面卡片:含 Tab 栏与编辑器。
+          <div
+            className="h-full shrink-0 overflow-hidden rounded-lg border border-border bg-sidebar shadow-sm transition-shadow @container/sidebar"
+            style={{ width: workspace.leftSidebarVisible ? `${workspace.sidebarWidth}px` : 0 }}
+          >
+            <EditorLeftSidebar
+              tabs={workspace.tabs}
+              activeTabId={workspace.activeTabId}
+              dirtyCount={workspace.tabs.filter((t) => t.content !== t.savedContent).length}
+              selectedTabIds={selectedTabIds}
+              onSelect={handleSelectTab}
+              onSelectMany={handleSelectMany}
+              onCompareSelected={handleCompareSelected}
+              compares={compares}
+              activeCompareId={activeCompareId}
+              onSelectCompare={handleSelectCompare}
+              onCloseCompare={handleCloseCompare}
+              onCloseAllCompares={handleCloseAllCompares}
+              onClose={requestCloseTab}
+              onCloseOthers={(id) => requestCloseBatch('close-others', id)}
+              onCloseRight={(id) => requestCloseBatch('close-right', id)}
+              onCloseSaved={requestCloseSaved}
+              onTogglePin={handleTogglePin}
+              onSave={(id) => void saveTabById(id)}
+              onRevealInExplorer={handleRevealInExplorer}
+              onCopyPath={handleCopyPath}
+              // 文件列表拖拽排序:与 Tab 栏共用同一 store 动作,实现双向同步
+              onReorder={(dragId, beforeTabId) =>
+                useEditorWorkspaceStore.getState().reorderTabs(dragId, beforeTabId)
+              }
+              onNewTab={handleNewTab}
+              onSaveAll={() => void handleSaveAll()}
+              onCloseAll={requestCloseAll}
+              saveAllDisabled={workspace.tabs.length === 0}
+              closeAllDisabled={workspace.tabs.length === 0}
+              // 拖拽分隔条期间强制按钮/徽章保持显示(避免鼠标移出面板导致闪烁)
+              actionsForced={handleHovered || handleActive}
+              data-testid="editor-sidebar"
+            />
+          </div>
+          {/* 自定义拖拽分隔条:位于两卡片中间,hover/聚焦时高亮 */}
+          <SidebarResizeHandle onHoverChange={setHandleHovered} onActiveChange={setHandleActive} />
+          {/* 右侧主页面卡片:含 Tab 栏与编辑器。
           编辑器直接撑满整个卡片内容区(去掉内边距与上下间距),与设计图一致。 */}
-        <div className="flex h-full min-w-0 min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm">
-          <EditorTabsBar
-            tabs={workspace.tabs}
-            activeTabId={workspace.activeTabId}
-            onSelect={handleSelectTab}
-            onClose={requestCloseTab}
-            compares={compares}
-            activeCompareId={activeCompareId}
-            onSelectCompare={handleSelectCompare}
-            onCloseCompare={handleCloseCompare}
-            onCloseOthers={(id) => requestCloseBatch('close-others', id)}
-            onCloseRight={(id) => requestCloseBatch('close-right', id)}
-            onCloseSaved={requestCloseSaved}
-            onCloseAll={requestCloseAll}
-            onTogglePin={handleTogglePin}
-            onReorder={(dragId, beforeTabId) =>
-              useEditorWorkspaceStore.getState().reorderTabs(dragId, beforeTabId)
-            }
-            onSave={(id) => void saveTabById(id)}
-            onRevealInExplorer={handleRevealInExplorer}
-            onCopyPath={handleCopyPath}
-            data-testid="editor-tabs"
-          />
+          <div className="flex h-full min-w-0 min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+            <EditorTabsBar
+              tabs={workspace.tabs}
+              activeTabId={workspace.activeTabId}
+              onSelect={handleSelectTab}
+              onClose={requestCloseTab}
+              compares={compares}
+              activeCompareId={activeCompareId}
+              onSelectCompare={handleSelectCompare}
+              onCloseCompare={handleCloseCompare}
+              onCloseOthers={(id) => requestCloseBatch('close-others', id)}
+              onCloseRight={(id) => requestCloseBatch('close-right', id)}
+              onCloseSaved={requestCloseSaved}
+              onCloseAll={requestCloseAll}
+              onTogglePin={handleTogglePin}
+              onReorder={(dragId, beforeTabId) =>
+                useEditorWorkspaceStore.getState().reorderTabs(dragId, beforeTabId)
+              }
+              onSave={(id) => void saveTabById(id)}
+              onRevealInExplorer={handleRevealInExplorer}
+              onCopyPath={handleCopyPath}
+              data-testid="editor-tabs"
+            />
 
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {showCompare && compareLeft && compareRight ? (
-            /* 对比差异视图:直接在页面中显示,两侧均可直接编辑 */
-            <FileCompareView
-              key={activeCompareId ?? 'compare'}
-              left={compareLeft}
-              right={compareRight}
-              onChangeLeft={(v) =>
-                useEditorWorkspaceStore.getState().setTabContent(compareLeft.id, v)
-              }
-              onChangeRight={(v) =>
-                useEditorWorkspaceStore.getState().setTabContent(compareRight.id, v)
-              }
-              data-testid="compare-view"
-            />
-          ) : activeTab ? (
-            <CodeEditor
-              key={activeTab.id}
-              data-testid="editor"
-              // 本地文件:工具栏展示路径面包屑(分段,末段为当前页);
-              // untitled 文件:仍展示文件名(untitled-1)纯文本
-              {...(activeTab.path
-                ? {
-                    header: (
-                      <PathBreadcrumb
-                        path={activeTab.path}
-                        data-testid="editor-path"
-                      />
-                    ),
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              {showCompare && compareLeft && compareRight ? (
+                /* 对比差异视图:直接在页面中显示,两侧均可直接编辑 */
+                <FileCompareView
+                  key={activeCompareId ?? 'compare'}
+                  left={compareLeft}
+                  right={compareRight}
+                  onChangeLeft={(v) =>
+                    useEditorWorkspaceStore.getState().setTabContent(compareLeft.id, v)
                   }
-                : { title: activeTab.title })}
-              language={activeTab.language}
-              value={activeTab.content}
-              onChange={(v) => useEditorWorkspaceStore.getState().setTabContent(activeTab.id, v)}
-              minimap
-              // 嵌入模式:外层右侧主页面卡片已自带 rounded-lg + border,
-              // 此处关闭 CodeEditor 自身的圆角/边框,避免双层圆角嵌套与
-              // --border/--input 颜色不一致导致的"双线"视觉
-              embedded
-              className="h-full"
-            />
-          ) : (
-            <div
-              data-testid="editor-empty"
-              className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground"
-            >
-              <p>无打开的编辑器</p>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => void handleOpen()} data-testid="empty-open">
-                  <FolderOpen aria-hidden className="size-4" />
-                  打开文件
-                </Button>
-                <Button size="sm" variant="outline" onClick={handleNewTab} data-testid="empty-new">
-                  <FilePlus2 aria-hidden className="size-4" />
-                  新建
-                </Button>
-              </div>
+                  onChangeRight={(v) =>
+                    useEditorWorkspaceStore.getState().setTabContent(compareRight.id, v)
+                  }
+                  data-testid="compare-view"
+                />
+              ) : activeTab ? (
+                <CodeEditor
+                  key={activeTab.id}
+                  data-testid="editor"
+                  // 本地文件:工具栏展示路径面包屑(分段,末段为当前页);
+                  // untitled 文件:仍展示文件名(untitled-1)纯文本
+                  {...(activeTab.path
+                    ? {
+                        header: <PathBreadcrumb path={activeTab.path} data-testid="editor-path" />,
+                      }
+                    : { title: activeTab.title })}
+                  language={activeTab.language}
+                  value={activeTab.content}
+                  onChange={(v) =>
+                    useEditorWorkspaceStore.getState().setTabContent(activeTab.id, v)
+                  }
+                  minimap
+                  // 嵌入模式:外层右侧主页面卡片已自带 rounded-lg + border,
+                  // 此处关闭 CodeEditor 自身的圆角/边框,避免双层圆角嵌套与
+                  // --border/--input 颜色不一致导致的"双线"视觉
+                  embedded
+                  className="h-full"
+                />
+              ) : (
+                <div
+                  data-testid="editor-empty"
+                  className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground"
+                >
+                  <p>无打开的编辑器</p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void handleOpen()}
+                      data-testid="empty-open"
+                    >
+                      <FolderOpen aria-hidden className="size-4" />
+                      打开文件
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleNewTab}
+                      data-testid="empty-new"
+                    >
+                      <FilePlus2 aria-hidden className="size-4" />
+                      新建
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
           </div>
         </div>
-      </div>
 
-      {/* 未保存更改确认对话框(关闭 Tab / 全部关闭 / 退出应用) */}
-      <UnsavedDialog
-        open={unsaved !== null}
-        mode={unsaved?.mode ?? 'close-tab'}
-        tabTitle={unsavedTabTitle}
-        dirtyCount={dirtyCount}
-        canSave={unsaved?.mode === 'close-tab'}
-        onSave={handleUnsavedSave}
-        onDiscard={handleUnsavedDiscard}
-        onCancel={handleUnsavedCancel}
-        data-testid="unsaved-dialog"
-      />
-
+        {/* 未保存更改确认对话框(关闭 Tab / 全部关闭 / 退出应用) */}
+        <UnsavedDialog
+          open={unsaved !== null}
+          mode={unsaved?.mode ?? 'close-tab'}
+          tabTitle={unsavedTabTitle}
+          dirtyCount={dirtyCount}
+          canSave={unsaved?.mode === 'close-tab'}
+          onSave={handleUnsavedSave}
+          onDiscard={handleUnsavedDiscard}
+          onCancel={handleUnsavedCancel}
+          data-testid="unsaved-dialog"
+        />
       </div>
     </TooltipProvider>
   );
@@ -889,10 +895,7 @@ function FileCompareView({
   );
 
   return (
-    <div
-      data-testid={dataTestId}
-      className="flex h-full min-h-0 w-full min-w-0 flex-col"
-    >
+    <div data-testid={dataTestId} className="flex h-full min-h-0 w-full min-w-0 flex-col">
       {/* 对比双方文件名头 */}
       <div
         data-testid={`${dataTestId}-headers`}

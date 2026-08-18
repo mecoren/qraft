@@ -114,9 +114,7 @@ function normalizeFontSearchToken(value: string): string {
  * 用于 PascalCase / camelCase 字体名的展示标签。
  */
 function insertFontNameWordBreaks(value: string): string {
-  return value
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
-    .replace(/([a-z\d])([A-Z])/g, '$1 $2');
+  return value.replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').replace(/([a-z\d])([A-Z])/g, '$1 $2');
 }
 
 /**
@@ -308,11 +306,10 @@ export function buildFontFamilyOptions(
  * - 否则在 option.label / option.value / option.keywords 中查找包含关系
  * - 支持紧凑形式匹配(忽略空格/连字符/大小写)
  */
-export function matchFontFamilyOption(
-  input: string,
-  option?: FontFamilyOption,
-): boolean {
-  const normalizedInput = String(input || '').trim().toLowerCase();
+export function matchFontFamilyOption(input: string, option?: FontFamilyOption): boolean {
+  const normalizedInput = String(input || '')
+    .trim()
+    .toLowerCase();
   if (!normalizedInput) return true;
   if (!option) return false;
   const compactInput = normalizeFontSearchToken(normalizedInput);

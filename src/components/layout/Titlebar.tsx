@@ -26,12 +26,7 @@
 import { type JSX } from 'react';
 import { WindowControls } from '@/components/ui/window-controls';
 import { Logo } from '@/components/Logo';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getCatalogEntry } from '@/lib/tool-catalog';
 import { ICON_STROKE_WIDTH } from '@/lib/icon-constants';
 import { useUiStore } from '@/store/uiStore';
@@ -59,22 +54,21 @@ export function Titlebar(): JSX.Element {
       <header className="titlebar" data-testid="titlebar">
         {/* 左段:当前工具图标 + 名称,右侧(有菜单时)为工具菜单栏 */}
         <div className="titlebar-left">
-          {entry &&
-            ToolIcon && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button type="button" className="titlebar-tool" data-testid="titlebar-tool">
-                    <ToolIcon aria-hidden className="size-4" strokeWidth={ICON_STROKE_WIDTH} />
-                    <span className="titlebar-title" data-testid="titlebar-tool-name">
-                      {entry.name}
-                    </span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={6}>
-                  {entry.description}
-                </TooltipContent>
-              </Tooltip>
-            )}
+          {entry && ToolIcon && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className="titlebar-tool" data-testid="titlebar-tool">
+                  <ToolIcon aria-hidden className="size-4" strokeWidth={ICON_STROKE_WIDTH} />
+                  <span className="titlebar-title" data-testid="titlebar-tool-name">
+                    {entry.name}
+                  </span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={6}>
+                {entry.description}
+              </TooltipContent>
+            </Tooltip>
+          )}
           {hasMenus && <ToolMenuBar />}
         </div>
 

@@ -16,10 +16,7 @@ import { useUiStore } from '@/store/uiStore';
 import { useShortcut } from '@/hooks/useShortcut';
 import { listen } from '@/lib/ipc';
 import { cn } from '@/lib/utils';
-import {
-  pullPendingOpenFiles,
-  type PendingOpenFile,
-} from '@/tools/code-editor-workspace/fileOps';
+import { pullPendingOpenFiles, type PendingOpenFile } from '@/tools/code-editor-workspace/fileOps';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
 import { DEFAULT_TOOL_ID } from '@/lib/tool-catalog';
 
@@ -140,15 +137,19 @@ export function App(): JSX.Element {
   useShortcut('switch_tool', () => setPaletteOpen(true), []);
   useShortcut('open_history', () => setView('history'), [setView]);
   // Esc 关闭当前打开的面板:命令面板 > 设置弹窗 > 历史/扩展页 > 回到工具/欢迎页
-  useShortcut('close_panel', () => {
-    if (paletteOpen) {
-      setPaletteOpen(false);
-    } else if (view === 'settings') {
-      setView(currentToolId ? 'tool' : 'welcome');
-    } else if (view === 'history' || view === 'extensions') {
-      setView(currentToolId ? 'tool' : 'welcome');
-    }
-  }, [paletteOpen, view, currentToolId, setView]);
+  useShortcut(
+    'close_panel',
+    () => {
+      if (paletteOpen) {
+        setPaletteOpen(false);
+      } else if (view === 'settings') {
+        setView(currentToolId ? 'tool' : 'welcome');
+      } else if (view === 'history' || view === 'extensions') {
+        setView(currentToolId ? 'tool' : 'welcome');
+      }
+    },
+    [paletteOpen, view, currentToolId, setView],
+  );
 
   const handleSelectHistory = (entry: HistoryEntry) => {
     useUiStore.getState().openTool(entry.toolId);
@@ -168,7 +169,10 @@ export function App(): JSX.Element {
              * 因此切换页面再回来时,工具输入/输出数据与滚动位置均不丢失。
              * 欢迎页激活条件:view=welcome,或 tool 视图下尚未选中工具 */}
             <div
-              className={cn('h-full', !(view === 'welcome' || (view === 'tool' && !currentToolId)) && 'hidden')}
+              className={cn(
+                'h-full',
+                !(view === 'welcome' || (view === 'tool' && !currentToolId)) && 'hidden',
+              )}
             >
               <WelcomePage />
             </div>

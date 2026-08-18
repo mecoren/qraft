@@ -28,10 +28,7 @@ function renderSidebar(): HTMLElement {
 }
 
 /** 在按钮上右键,打开 Radix ContextMenu(菜单内容渲染在 portal 中) */
-async function openContextMenu(
-  user: UserEvent,
-  btn: HTMLElement,
-): Promise<void> {
+async function openContextMenu(user: UserEvent, btn: HTMLElement): Promise<void> {
   await user.pointer({ keys: '[MouseRight]', target: btn });
 }
 

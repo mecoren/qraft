@@ -57,8 +57,7 @@ vi.mock('@monaco-editor/react', () => ({
     return React.createElement('textarea', {
       value: props.value ?? '',
       readOnly: props.readOnly,
-      onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) =>
-        props.onChange?.(e.target.value),
+      onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => props.onChange?.(e.target.value),
     });
   },
   DiffEditor: function MockMonacoDiffEditor(props: {

@@ -49,38 +49,88 @@ export function clearRegistry(): void {
 }
 
 // —— 工具注册(懒加载:按需 import,避免首屏一次性加载全部工具)——
-registerTool('json_formatter', () => import('./JsonFormatter').then((m) => ({ default: m.JsonFormatter })));
+registerTool('json_formatter', () =>
+  import('./JsonFormatter').then((m) => ({ default: m.JsonFormatter })),
+);
 // 复用历史 toolId `json_minifier`,以兼容既有收藏夹与最近使用(localStorage)中已存储的引用
-registerTool('json_minifier', () => import('./TextProcessor').then((m) => ({ default: m.TextProcessor })));
-registerTool('base64_codec', () => import('./Base64Codec').then((m) => ({ default: m.Base64Codec })));
+registerTool('json_minifier', () =>
+  import('./TextProcessor').then((m) => ({ default: m.TextProcessor })),
+);
+registerTool('base64_codec', () =>
+  import('./Base64Codec').then((m) => ({ default: m.Base64Codec })),
+);
 registerTool('url_codec', () => import('./UrlCodec').then((m) => ({ default: m.UrlCodec })));
 registerTool('jwt_parser', () => import('./JwtParser').then((m) => ({ default: m.JwtParser })));
-registerTool('uuid_generator', () => import('./UuidGenerator').then((m) => ({ default: m.UuidGenerator })));
-registerTool('hash_calculator', () => import('./HashCalculator').then((m) => ({ default: m.HashCalculator })));
-registerTool('timestamp_converter', () => import('./TimestampConverter').then((m) => ({ default: m.TimestampConverter })));
-registerTool('color_converter', () => import('./ColorConverter').then((m) => ({ default: m.ColorConverter })));
-registerTool('regex_tester', () => import('./RegexTester').then((m) => ({ default: m.RegexTester })));
+registerTool('uuid_generator', () =>
+  import('./UuidGenerator').then((m) => ({ default: m.UuidGenerator })),
+);
+registerTool('hash_calculator', () =>
+  import('./HashCalculator').then((m) => ({ default: m.HashCalculator })),
+);
+registerTool('timestamp_converter', () =>
+  import('./TimestampConverter').then((m) => ({ default: m.TimestampConverter })),
+);
+registerTool('color_converter', () =>
+  import('./ColorConverter').then((m) => ({ default: m.ColorConverter })),
+);
+registerTool('regex_tester', () =>
+  import('./RegexTester').then((m) => ({ default: m.RegexTester })),
+);
 // —— 纯前端工具 ——
-registerTool('certificate_decoder', () => import('./CertificateDecoder').then((m) => ({ default: m.CertificateDecoder })));
+registerTool('certificate_decoder', () =>
+  import('./CertificateDecoder').then((m) => ({ default: m.CertificateDecoder })),
+);
 registerTool('gzip_codec', () => import('./GzipCodec').then((m) => ({ default: m.GzipCodec })));
 registerTool('html_codec', () => import('./HtmlCodec').then((m) => ({ default: m.HtmlCodec })));
 registerTool('text_escape', () => import('./TextEscape').then((m) => ({ default: m.TextEscape })));
-registerTool('jsonpath_tester', () => import('./JsonPathTester').then((m) => ({ default: m.JsonPathTester })));
-registerTool('xml_xsd_tester', () => import('./XmlXsdTester').then((m) => ({ default: m.XmlXsdTester })));
-registerTool('sql_formatter', () => import('./SqlFormatter').then((m) => ({ default: m.SqlFormatter })));
-registerTool('xml_formatter', () => import('./XmlFormatter').then((m) => ({ default: m.XmlFormatter })));
-registerTool('password_generator', () => import('./PasswordGenerator').then((m) => ({ default: m.PasswordGenerator })));
+registerTool('jsonpath_tester', () =>
+  import('./JsonPathTester').then((m) => ({ default: m.JsonPathTester })),
+);
+registerTool('xml_xsd_tester', () =>
+  import('./XmlXsdTester').then((m) => ({ default: m.XmlXsdTester })),
+);
+registerTool('sql_formatter', () =>
+  import('./SqlFormatter').then((m) => ({ default: m.SqlFormatter })),
+);
+registerTool('xml_formatter', () =>
+  import('./XmlFormatter').then((m) => ({ default: m.XmlFormatter })),
+);
+registerTool('password_generator', () =>
+  import('./PasswordGenerator').then((m) => ({ default: m.PasswordGenerator })),
+);
 registerTool('lorem_ipsum', () => import('./LoremIpsum').then((m) => ({ default: m.LoremIpsum })));
 registerTool('qrcode_tool', () => import('./QrcodeTool').then((m) => ({ default: m.QrcodeTool })));
-registerTool('number_base_converter', () => import('./NumberBaseConverter').then((m) => ({ default: m.NumberBaseConverter })));
+registerTool('number_base_converter', () =>
+  import('./NumberBaseConverter').then((m) => ({ default: m.NumberBaseConverter })),
+);
 registerTool('cron_parser', () => import('./CronParser').then((m) => ({ default: m.CronParser })));
-registerTool('json_yaml_converter', () => import('./JsonYamlConverter').then((m) => ({ default: m.JsonYamlConverter })));
-registerTool('json_array_table', () => import('./JsonArrayTable').then((m) => ({ default: m.JsonArrayTable })));
-registerTool('markdown_preview', () => import('./MarkdownPreview').then((m) => ({ default: m.MarkdownPreview })));
-registerTool('text_analyzer', () => import('./TextAnalyzer').then((m) => ({ default: m.TextAnalyzer })));
-registerTool('list_comparer', () => import('./ListComparer').then((m) => ({ default: m.ListComparer })));
-registerTool('color_blindness_simulator', () => import('./ColorBlindnessSimulator').then((m) => ({ default: m.ColorBlindnessSimulator })));
-registerTool('image_converter', () => import('./ImageConverter').then((m) => ({ default: m.ImageConverter })));
-registerTool('text_compare', () => import('./TextCompare').then((m) => ({ default: m.TextCompare })));
-registerTool('duplicate_detector', () => import('./DuplicateDetector').then((m) => ({ default: m.DuplicateDetector })));
-registerTool('text_editor', () => import('./CodeEditor').then((m) => ({ default: m.CodeEditorTool })));
+registerTool('json_yaml_converter', () =>
+  import('./JsonYamlConverter').then((m) => ({ default: m.JsonYamlConverter })),
+);
+registerTool('json_array_table', () =>
+  import('./JsonArrayTable').then((m) => ({ default: m.JsonArrayTable })),
+);
+registerTool('markdown_preview', () =>
+  import('./MarkdownPreview').then((m) => ({ default: m.MarkdownPreview })),
+);
+registerTool('text_analyzer', () =>
+  import('./TextAnalyzer').then((m) => ({ default: m.TextAnalyzer })),
+);
+registerTool('list_comparer', () =>
+  import('./ListComparer').then((m) => ({ default: m.ListComparer })),
+);
+registerTool('color_blindness_simulator', () =>
+  import('./ColorBlindnessSimulator').then((m) => ({ default: m.ColorBlindnessSimulator })),
+);
+registerTool('image_converter', () =>
+  import('./ImageConverter').then((m) => ({ default: m.ImageConverter })),
+);
+registerTool('text_compare', () =>
+  import('./TextCompare').then((m) => ({ default: m.TextCompare })),
+);
+registerTool('duplicate_detector', () =>
+  import('./DuplicateDetector').then((m) => ({ default: m.DuplicateDetector })),
+);
+registerTool('text_editor', () =>
+  import('./CodeEditor').then((m) => ({ default: m.CodeEditorTool })),
+);

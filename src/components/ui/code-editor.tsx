@@ -18,13 +18,7 @@
  *   因此切换主题无需重挂载编辑器。
  */
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import Editor, { type BeforeMount, type Monaco, type OnMount } from '@monaco-editor/react';
 import { ClipboardPaste, FolderOpen, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -461,9 +455,7 @@ export function CodeEditor({
             >
               行 {cursor.line}, 列 {cursor.column}
             </span>
-            {statusBarRight && (
-              <span className="ml-1 flex items-center">{statusBarRight}</span>
-            )}
+            {statusBarRight && <span className="ml-1 flex items-center">{statusBarRight}</span>}
           </span>
         </div>
       )}

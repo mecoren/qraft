@@ -122,8 +122,7 @@ export function WelcomePage(): JSX.Element {
   );
 
   const favoriteEntries = useMemo(
-    () =>
-      favorites.map((id) => getCatalogEntry(id)).filter((e): e is CatalogEntry => e !== null),
+    () => favorites.map((id) => getCatalogEntry(id)).filter((e): e is CatalogEntry => e !== null),
     [favorites],
   );
 
@@ -151,10 +150,7 @@ export function WelcomePage(): JSX.Element {
     <div className="flex h-full flex-col overflow-hidden bg-background-layer">
       <ScrollArea className="min-h-0 flex-1">
         {/* Hero 通栏(纯背景,沿用页面 bg-background-layer) */}
-        <div
-          data-testid="welcome-hero"
-          className="relative overflow-hidden px-5 py-6"
-        >
+        <div data-testid="welcome-hero" className="relative overflow-hidden px-5 py-6">
           <div className="flex items-center gap-3">
             <Logo className="size-10 shrink-0" />
             <h1 className="text-hero font-bold leading-tight tracking-tight text-hero-foreground">
@@ -231,10 +227,7 @@ export function WelcomePage(): JSX.Element {
                 return (
                   <div key={cat.id} data-testid={`section-cat-${cat.id}`}>
                     <h3 className="mb-2.5 flex items-center gap-1.5 text-body-sm font-semibold">
-                      <CatIcon
-                        aria-hidden
-                        className="size-4 text-primary"
-                      />
+                      <CatIcon aria-hidden className="size-4 text-primary" />
                       {cat.label}
                       <span className="ml-1 text-xs font-normal text-muted-foreground tabular-nums">
                         {list.length}
@@ -242,11 +235,7 @@ export function WelcomePage(): JSX.Element {
                     </h3>
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
                       {list.map((entry) => (
-                        <ToolCard
-                          key={entry.id}
-                          entry={entry}
-                          onOpen={() => openEntry(entry)}
-                        />
+                        <ToolCard key={entry.id} entry={entry} onOpen={() => openEntry(entry)} />
                       ))}
                     </div>
                   </div>

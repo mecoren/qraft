@@ -38,8 +38,7 @@ export function ToolCard({ entry, onOpen, className }: ToolCardProps): JSX.Eleme
         aria-hidden
         className="pointer-events-none absolute -inset-px rounded-xl opacity-0 transition-opacity duration-base ease-standard group-hover:opacity-100"
         style={{
-          background:
-            'radial-gradient(120px 80px at 10% 0%, var(--card-glow), transparent 70%)',
+          background: 'radial-gradient(120px 80px at 10% 0%, var(--card-glow), transparent 70%)',
         }}
       />
       <span

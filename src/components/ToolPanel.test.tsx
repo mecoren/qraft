@@ -49,9 +49,9 @@ describe('ToolPanel', () => {
   it('keeps tool input after switching away and back (keepalive)', async () => {
     const { rerender } = render(<ToolPanel toolId="base64_codec" />);
     // 等待 Base64Codec 懒加载完成,在其输入框输入内容
-    const editor = (await screen.findByTestId('input', {}, { timeout: LAZY_TIMEOUT })).querySelector(
-      'textarea',
-    )!;
+    const editor = (
+      await screen.findByTestId('input', {}, { timeout: LAZY_TIMEOUT })
+    ).querySelector('textarea')!;
     fireEvent.change(editor, { target: { value: 'keep me' } });
 
     // 切到 json_formatter:当前工作区切换为 JSON 格式化器,Base64 输入被隐藏

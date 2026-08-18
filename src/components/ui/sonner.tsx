@@ -1,25 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  AlertCircle,
-  CheckCircle2,
-  Info,
-  LoaderCircle,
-  TriangleAlert,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, Info, LoaderCircle, TriangleAlert } from 'lucide-react';
 import { Toaster as Sonner } from 'sonner';
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
 /** 深色主题集合,与 code-editor.tsx 的 DARK_PALETTES 保持一致 */
-const DARK_PALETTES = new Set([
-  'obsidian',
-  'deep-sea',
-  'twilight',
-  'emerald-night',
-  'custom',
-]);
+const DARK_PALETTES = new Set(['obsidian', 'deep-sea', 'twilight', 'emerald-night', 'custom']);
 
 /**
  * 读取当前主题模式(light/dark),根据 <html data-palette> 推断

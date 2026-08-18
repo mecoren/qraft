@@ -110,8 +110,7 @@ describe('TextProcessor utilities', () => {
   });
 
   it('chineseSymbolToEnglish replaces full-width punctuation', () => {
-    expect(chineseSymbolToEnglish('你好，世界！今天？'))
-      .toBe('你好,世界!今天?');
+    expect(chineseSymbolToEnglish('你好，世界！今天？')).toBe('你好,世界!今天?');
   });
 });
 
@@ -133,44 +132,26 @@ describe('TextProcessor component', () => {
     // 外层容器
     expect(screen.getByTestId('textproc-button-group')).toBeInTheDocument();
     // 4 个内层子组
-    expect(
-      screen.getByTestId('textproc-group-escape-stripWhitespace'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId('textproc-group-urlEncode-urlDecode'),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('textproc-group-escape-stripWhitespace')).toBeInTheDocument();
+    expect(screen.getByTestId('textproc-group-urlEncode-urlDecode')).toBeInTheDocument();
     expect(
       screen.getByTestId('textproc-group-unicodeToChinese-chineseToUnicode'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByTestId('textproc-group-chineseSymbolToEnglish'),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('textproc-group-chineseSymbolToEnglish')).toBeInTheDocument();
   });
 
   it('groups related transforms together (same group) and separates different ones', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
 
     // 转义 / 去空格 —— 同组(字符集整理),应共处
+    expect(withinGroup('textproc-group-escape-stripWhitespace', 'textproc-btn-escape')).toBe(true);
     expect(
-      withinGroup(
-        'textproc-group-escape-stripWhitespace',
-        'textproc-btn-escape',
-      ),
-    ).toBe(true);
-    expect(
-      withinGroup(
-        'textproc-group-escape-stripWhitespace',
-        'textproc-btn-stripWhitespace',
-      ),
+      withinGroup('textproc-group-escape-stripWhitespace', 'textproc-btn-stripWhitespace'),
     ).toBe(true);
 
     // URL 编 / 解码 —— 同组
-    expect(
-      withinGroup('textproc-group-urlEncode-urlDecode', 'textproc-btn-urlEncode'),
-    ).toBe(true);
-    expect(
-      withinGroup('textproc-group-urlEncode-urlDecode', 'textproc-btn-urlDecode'),
-    ).toBe(true);
+    expect(withinGroup('textproc-group-urlEncode-urlDecode', 'textproc-btn-urlEncode')).toBe(true);
+    expect(withinGroup('textproc-group-urlEncode-urlDecode', 'textproc-btn-urlDecode')).toBe(true);
 
     // Unicode <-> 中文 —— 同组
     expect(
@@ -188,22 +169,16 @@ describe('TextProcessor component', () => {
 
     // 中文符号转英文 —— 单独成组
     expect(
-      withinGroup(
-        'textproc-group-chineseSymbolToEnglish',
-        'textproc-btn-chineseSymbolToEnglish',
-      ),
+      withinGroup('textproc-group-chineseSymbolToEnglish', 'textproc-btn-chineseSymbolToEnglish'),
     ).toBe(true);
   });
 
   it('does not place unrelated transforms in the same inner group', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     // urlEncode 不应出现在 escape / stripWhitespace 组
-    expect(
-      withinGroup(
-        'textproc-group-escape-stripWhitespace',
-        'textproc-btn-urlEncode',
-      ),
-    ).toBe(false);
+    expect(withinGroup('textproc-group-escape-stripWhitespace', 'textproc-btn-urlEncode')).toBe(
+      false,
+    );
     // 中文符号转英文不应与 Unicode <-> 中文 同组
     expect(
       withinGroup(
@@ -224,9 +199,7 @@ describe('TextProcessor component', () => {
     fireEvent.change(getInput(), { target: { value: 'a\nb' } });
     fireEvent.click(screen.getByTestId('textproc-btn-escape'));
     expect(getInput().value).toBe('a\nb');
-    const output = screen
-      .getByTestId('output')
-      .querySelector('textarea')!.value;
+    const output = screen.getByTestId('output').querySelector('textarea')!.value;
     expect(output).toBe('a\\nb');
   });
 
@@ -235,9 +208,7 @@ describe('TextProcessor component', () => {
     fireEvent.change(getInput(), { target: { value: '  hello\n world\t!  ' } });
     fireEvent.click(screen.getByTestId('textproc-btn-stripWhitespace'));
     expect(getInput().value).toBe('  hello\n world\t!  ');
-    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(
-      'helloworld!',
-    );
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('helloworld!');
   });
 
   it('urlEncode then urlDecode each write their result to output (input unchanged)', () => {
@@ -246,17 +217,13 @@ describe('TextProcessor component', () => {
     fireEvent.change(getInput(), { target: { value: original } });
     fireEvent.click(screen.getByTestId('textproc-btn-urlEncode'));
     expect(getInput().value).toBe(original);
-    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(
-      urlEncode(original),
-    );
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(urlEncode(original));
     fireEvent.click(screen.getByTestId('textproc-btn-urlDecode'));
     expect(getInput().value).toBe(original);
     // urlDecode acts on the input; since the input is not percent-encoded, its
     // result equals the (unchanged) input, so the transform is a no-op and the
     // existing encoded output is left untouched.
-    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(
-      urlEncode(original),
-    );
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(urlEncode(original));
   });
 
   it('chineseSymbolToEnglish button replaces punctuation in place', () => {
@@ -289,9 +256,7 @@ describe('TextProcessor component', () => {
     fireEvent.change(getInput(), { target: { value: encoded } });
     fireEvent.click(screen.getByTestId('textproc-btn-urlDecode'));
     expect(getInput().value).toBe(encoded);
-    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(
-      urlDecode(encoded),
-    );
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(urlDecode(encoded));
   });
 
   it('shows 0-character counts in both status bars when empty', () => {

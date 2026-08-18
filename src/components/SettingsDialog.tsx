@@ -186,26 +186,32 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX
   ];
 
   // ── 拖拽移动 ──
-  const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(
-    null,
-  );
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
 
-  const onDragStart = useCallback((e: React.PointerEvent) => {
-    // 仅左键、且目标不是交互控件时才启动拖拽
-    if (e.button !== 0) return;
-    if ((e.target as HTMLElement).closest('[data-no-drag]')) return;
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      originX: rect.x,
-      originY: rect.y,
-    };
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {
-      // jsdom / 部分环境不支持指针捕获,忽略
-    }
-  }, [rect.x, rect.y]);
+  const onDragStart = useCallback(
+    (e: React.PointerEvent) => {
+      // 仅左键、且目标不是交互控件时才启动拖拽
+      if (e.button !== 0) return;
+      if ((e.target as HTMLElement).closest('[data-no-drag]')) return;
+      dragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        originX: rect.x,
+        originY: rect.y,
+      };
+      try {
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {
+        // jsdom / 部分环境不支持指针捕获,忽略
+      }
+    },
+    [rect.x, rect.y],
+  );
 
   const onDragMove = useCallback((e: React.PointerEvent) => {
     const drag = dragRef.current;
@@ -232,9 +238,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX
   }, []);
 
   // ── 缩放(仅四角)──
-  const resizeRef = useRef<{ dir: ResizeDir; startX: number; startY: number; origin: typeof rect } | null>(
-    null,
-  );
+  const resizeRef = useRef<{
+    dir: ResizeDir;
+    startX: number;
+    startY: number;
+    origin: typeof rect;
+  } | null>(null);
 
   const onResizeStart = useCallback(
     (e: React.PointerEvent) => {

@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -16,9 +16,9 @@
   /* 状态语义色(与 daylight 一致):success / warning / info
    * 供 Alert / Badge / ToolPanel / 文本 diff 等场景使用,
    * 通过 @theme 映射为 text-success / bg-success/10 等 utility */
-  --success: oklch(0.50 0.12 155);
+  --success: oklch(0.5 0.12 155);
   --warning: oklch(0.55 0.14 75);
-  --info: oklch(0.50 0.12 240);
+  --info: oklch(0.5 0.12 240);
   --background: oklch(0.99 0.005 264);
   --foreground: oklch(0.18 0.01 264);
   --card: oklch(1 0 0);
@@ -28,11 +28,11 @@
   --primary: oklch(0.54 0.18 256);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.96 0.01 264);
-  --secondary-foreground: oklch(0.20 0.01 264);
+  --secondary-foreground: oklch(0.2 0.01 264);
   --muted: oklch(0.96 0.01 264);
   --muted-foreground: oklch(0.52 0.01 264);
   --accent: oklch(0.95 0.03 256);
-  --accent-foreground: oklch(0.20 0.01 264);
+  --accent-foreground: oklch(0.2 0.01 264);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.92 0.005 264);
   --input: oklch(0.92 0.005 264);
@@ -47,7 +47,7 @@
   --sidebar-primary: oklch(0.54 0.18 256);
   --sidebar-primary-foreground: oklch(0.99 0 0);
   --sidebar-accent: oklch(0.93 0.04 256);
-  --sidebar-accent-foreground: oklch(0.20 0.01 264);
+  --sidebar-accent-foreground: oklch(0.2 0.01 264);
   --sidebar-border: oklch(0.92 0.005 264);
   --sidebar-ring: oklch(0.54 0.18 256);
   /* DevToys 视觉令牌:欢迎页 hero 渐变(紫 → 粉 → 白) */
@@ -101,10 +101,10 @@
 /* ============================================================
  * 主题:黑曜石(默认深色,VS Code Dark+ 风格,蓝调)
  * ============================================================ */
-[data-palette="obsidian"] {
+[data-palette='obsidian'] {
   --success: oklch(0.72 0.15 155);
-  --warning: oklch(0.80 0.13 75);
-  --info: oklch(0.70 0.12 240);
+  --warning: oklch(0.8 0.13 75);
+  --info: oklch(0.7 0.12 240);
   --background: oklch(0.16 0.01 264);
   --foreground: oklch(0.96 0.01 264);
   --card: oklch(0.21 0.01 264);
@@ -137,7 +137,7 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.62 0.19 250);
   --hero-from: oklch(0.42 0.13 295);
-  --hero-via: oklch(0.38 0.10 320);
+  --hero-via: oklch(0.38 0.1 320);
   --hero-to: oklch(0.24 0.05 300);
   --hero-foreground: oklch(0.97 0.01 264);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
@@ -148,8 +148,8 @@
   --diff-add-line: oklch(0.32 0.06 155 / 55%);
   --diff-add-emph: oklch(0.42 0.09 155 / 65%);
   --diff-remove-line: oklch(0.34 0.07 25 / 55%);
-  --diff-remove-emph: oklch(0.44 0.10 25 / 65%);
-  --editor-gutter-fg: oklch(0.60 0.02 264);
+  --diff-remove-emph: oklch(0.44 0.1 25 / 65%);
+  --editor-gutter-fg: oklch(0.6 0.02 264);
   --editor-gutter-bg: oklch(0.19 0.01 264);
   /* Monaco 编辑器主题色(深色:白底 alpha) */
   --editor-selection-bg: oklch(1 0 0 / 13%);
@@ -169,10 +169,10 @@
 /* ============================================================
  * 主题:深海(青蓝调)
  * ============================================================ */
-[data-palette="deep-sea"] {
+[data-palette='deep-sea'] {
   --success: oklch(0.72 0.15 155);
-  --warning: oklch(0.80 0.13 75);
-  --info: oklch(0.70 0.12 240);
+  --warning: oklch(0.8 0.13 75);
+  --info: oklch(0.7 0.12 240);
   --background: oklch(0.16 0.01 220);
   --foreground: oklch(0.96 0.01 220);
   --card: oklch(0.21 0.01 220);
@@ -205,7 +205,7 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.62 0.16 220);
   --hero-from: oklch(0.42 0.13 295);
-  --hero-via: oklch(0.38 0.10 320);
+  --hero-via: oklch(0.38 0.1 320);
   --hero-to: oklch(0.24 0.05 300);
   --hero-foreground: oklch(0.97 0.01 220);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
@@ -215,8 +215,8 @@
   --diff-add-line: oklch(0.32 0.06 155 / 55%);
   --diff-add-emph: oklch(0.42 0.09 155 / 65%);
   --diff-remove-line: oklch(0.34 0.07 25 / 55%);
-  --diff-remove-emph: oklch(0.44 0.10 25 / 65%);
-  --editor-gutter-fg: oklch(0.60 0.02 220);
+  --diff-remove-emph: oklch(0.44 0.1 25 / 65%);
+  --editor-gutter-fg: oklch(0.6 0.02 220);
   --editor-gutter-bg: oklch(0.19 0.01 220);
   /* Monaco 编辑器主题色(深色:白底 alpha) */
   --editor-selection-bg: oklch(1 0 0 / 13%);
@@ -236,17 +236,17 @@
 /* ============================================================
  * 主题:暮光(橙红暖调)
  * ============================================================ */
-[data-palette="twilight"] {
+[data-palette='twilight'] {
   --success: oklch(0.72 0.15 155);
-  --warning: oklch(0.80 0.13 75);
-  --info: oklch(0.70 0.12 240);
+  --warning: oklch(0.8 0.13 75);
+  --info: oklch(0.7 0.12 240);
   --background: oklch(0.16 0.01 25);
   --foreground: oklch(0.96 0.01 25);
   --card: oklch(0.21 0.01 25);
   --card-foreground: oklch(0.96 0.01 25);
   --popover: oklch(0.21 0.01 25);
   --popover-foreground: oklch(0.96 0.01 25);
-  --primary: oklch(0.62 0.20 25);
+  --primary: oklch(0.62 0.2 25);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.27 0.01 25);
   --secondary-foreground: oklch(0.96 0.01 25);
@@ -257,7 +257,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.62 0.20 25);
+  --ring: oklch(0.62 0.2 25);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -265,14 +265,14 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.18 0.01 25);
   --sidebar-foreground: oklch(0.96 0.01 25);
-  --sidebar-primary: oklch(0.62 0.20 25);
+  --sidebar-primary: oklch(0.62 0.2 25);
   --sidebar-primary-foreground: oklch(0.99 0 0);
   --sidebar-accent: oklch(0.24 0.02 25);
   --sidebar-accent-foreground: oklch(0.96 0.01 25);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.62 0.20 25);
+  --sidebar-ring: oklch(0.62 0.2 25);
   --hero-from: oklch(0.42 0.13 295);
-  --hero-via: oklch(0.38 0.10 320);
+  --hero-via: oklch(0.38 0.1 320);
   --hero-to: oklch(0.24 0.05 300);
   --hero-foreground: oklch(0.97 0.01 25);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
@@ -282,8 +282,8 @@
   --diff-add-line: oklch(0.32 0.06 155 / 55%);
   --diff-add-emph: oklch(0.42 0.09 155 / 65%);
   --diff-remove-line: oklch(0.34 0.07 25 / 55%);
-  --diff-remove-emph: oklch(0.44 0.10 25 / 65%);
-  --editor-gutter-fg: oklch(0.60 0.02 25);
+  --diff-remove-emph: oklch(0.44 0.1 25 / 65%);
+  --editor-gutter-fg: oklch(0.6 0.02 25);
   --editor-gutter-bg: oklch(0.19 0.01 25);
   /* Monaco 编辑器主题色(深色:白底 alpha) */
   --editor-selection-bg: oklch(1 0 0 / 13%);
@@ -303,10 +303,10 @@
 /* ============================================================
  * 主题:翡翠夜(翠绿护眼)
  * ============================================================ */
-[data-palette="emerald-night"] {
+[data-palette='emerald-night'] {
   --success: oklch(0.72 0.15 155);
-  --warning: oklch(0.80 0.13 75);
-  --info: oklch(0.70 0.12 240);
+  --warning: oklch(0.8 0.13 75);
+  --info: oklch(0.7 0.12 240);
   --background: oklch(0.16 0.01 162);
   --foreground: oklch(0.96 0.01 162);
   --card: oklch(0.21 0.01 162);
@@ -339,7 +339,7 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.62 0.16 162);
   --hero-from: oklch(0.42 0.13 295);
-  --hero-via: oklch(0.38 0.10 320);
+  --hero-via: oklch(0.38 0.1 320);
   --hero-to: oklch(0.24 0.05 300);
   --hero-foreground: oklch(0.97 0.01 162);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
@@ -349,8 +349,8 @@
   --diff-add-line: oklch(0.32 0.06 155 / 55%);
   --diff-add-emph: oklch(0.42 0.09 155 / 65%);
   --diff-remove-line: oklch(0.34 0.07 25 / 55%);
-  --diff-remove-emph: oklch(0.44 0.10 25 / 65%);
-  --editor-gutter-fg: oklch(0.60 0.02 162);
+  --diff-remove-emph: oklch(0.44 0.1 25 / 65%);
+  --editor-gutter-fg: oklch(0.6 0.02 162);
   --editor-gutter-bg: oklch(0.19 0.01 162);
   /* Monaco 编辑器主题色(深色:白底 alpha) */
   --editor-selection-bg: oklch(1 0 0 / 13%);
@@ -370,10 +370,10 @@
 /* ============================================================
  * 主题:日光(亮色模式默认,应用启动默认主题)
  * ============================================================ */
-[data-palette="daylight"] {
-  --success: oklch(0.50 0.12 155);
+[data-palette='daylight'] {
+  --success: oklch(0.5 0.12 155);
   --warning: oklch(0.55 0.14 75);
-  --info: oklch(0.50 0.12 240);
+  --info: oklch(0.5 0.12 240);
   --background: oklch(0.99 0.005 264);
   --foreground: oklch(0.18 0.01 264);
   --card: oklch(1 0 0);
@@ -383,11 +383,11 @@
   --primary: oklch(0.54 0.18 256);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.96 0.01 264);
-  --secondary-foreground: oklch(0.20 0.01 264);
+  --secondary-foreground: oklch(0.2 0.01 264);
   --muted: oklch(0.96 0.01 264);
   --muted-foreground: oklch(0.52 0.01 264);
   --accent: oklch(0.95 0.03 256);
-  --accent-foreground: oklch(0.20 0.01 264);
+  --accent-foreground: oklch(0.2 0.01 264);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.92 0.005 264);
   --input: oklch(0.92 0.005 264);
@@ -402,7 +402,7 @@
   --sidebar-primary: oklch(0.54 0.18 256);
   --sidebar-primary-foreground: oklch(0.99 0 0);
   --sidebar-accent: oklch(0.93 0.04 256);
-  --sidebar-accent-foreground: oklch(0.20 0.01 264);
+  --sidebar-accent-foreground: oklch(0.2 0.01 264);
   --sidebar-border: oklch(0.92 0.005 264);
   --sidebar-ring: oklch(0.54 0.18 256);
   --hero-from: oklch(0.74 0.15 295);
@@ -440,10 +440,10 @@
  * 此块仅提供基础深色基底,--primary / --ring / --sidebar-primary 等
  * 关键交互色由 color-theme.ts 的 applyPalette() 通过 inline style 注入。
  * ============================================================ */
-[data-palette="custom"] {
+[data-palette='custom'] {
   --success: oklch(0.72 0.15 155);
-  --warning: oklch(0.80 0.13 75);
-  --info: oklch(0.70 0.12 240);
+  --warning: oklch(0.8 0.13 75);
+  --info: oklch(0.7 0.12 240);
   --background: oklch(0.16 0 0);
   --foreground: oklch(0.96 0 0);
   --card: oklch(0.21 0 0);
@@ -476,7 +476,7 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.62 0.19 250);
   --hero-from: oklch(0.42 0.13 295);
-  --hero-via: oklch(0.38 0.10 320);
+  --hero-via: oklch(0.38 0.1 320);
   --hero-to: oklch(0.24 0.05 300);
   --hero-foreground: oklch(0.97 0 0);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
@@ -486,8 +486,8 @@
   --diff-add-line: oklch(0.32 0.06 155 / 55%);
   --diff-add-emph: oklch(0.42 0.09 155 / 65%);
   --diff-remove-line: oklch(0.34 0.07 25 / 55%);
-  --diff-remove-emph: oklch(0.44 0.10 25 / 65%);
-  --editor-gutter-fg: oklch(0.60 0 0);
+  --diff-remove-emph: oklch(0.44 0.1 25 / 65%);
+  --editor-gutter-fg: oklch(0.6 0 0);
   --editor-gutter-bg: oklch(0.19 0 0);
   /* Monaco 编辑器主题色(深色:白底 alpha) */
   --editor-selection-bg: oklch(1 0 0 / 13%);
@@ -505,17 +505,17 @@
 }
 
 /* 深色主题统一启用 color-scheme: dark,让原生控件(滚动条等)也跟随 */
-[data-palette="obsidian"],
-[data-palette="deep-sea"],
-[data-palette="twilight"],
-[data-palette="emerald-night"],
-[data-palette="custom"] {
+[data-palette='obsidian'],
+[data-palette='deep-sea'],
+[data-palette='twilight'],
+[data-palette='emerald-night'],
+[data-palette='custom'] {
   color-scheme: dark;
   /* 品牌 Logo 暗色反色:浅灰图形,透明背景,保证深色主题下可辨识 */
   --logo-fg: #f5f5f5;
 }
 
-[data-palette="daylight"] {
+[data-palette='daylight'] {
   color-scheme: light;
 }
 
@@ -598,7 +598,8 @@
   /* Dashboard 改版新增 token → Tailwind utility */
   --color-card-glow: var(--card-glow);
   --color-kpi-accent: var(--kpi-accent);
-  --animate-accordion-down: accordion-down var(--duration-base, 200ms) var(--ease-standard, ease-out);
+  --animate-accordion-down: accordion-down var(--duration-base, 200ms)
+    var(--ease-standard, ease-out);
   --animate-accordion-up: accordion-up var(--duration-base, 200ms) var(--ease-standard, ease-out);
   /* 字号 token(双变量格式:Tailwind v4 自动生成 text-* utility 并设置 size + line-height) */
   --text-body-sm: 0.8125rem;
@@ -671,7 +672,18 @@
   code,
   pre,
   .font-mono {
-    font-family: var(--app-mono-font-family, 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, ui-monospace, SFMono-Regular, Menlo, 'DejaVu Sans Mono', monospace);
+    font-family: var(
+      --app-mono-font-family,
+      'JetBrains Mono',
+      'Fira Code',
+      'Cascadia Code',
+      Consolas,
+      ui-monospace,
+      SFMono-Regular,
+      Menlo,
+      'DejaVu Sans Mono',
+      monospace
+    );
   }
 }
 
@@ -689,8 +701,7 @@
  * - 编辑器 Tab 栏横条:删除旧局部覆盖,直接继承本样式
  * ============================================================ */
 * {
-  scrollbar-color: var(--scrollbar-slider-bg)
-    color-mix(in oklch, var(--foreground) 5%, transparent);
+  scrollbar-color: var(--scrollbar-slider-bg) color-mix(in oklch, var(--foreground) 5%, transparent);
 }
 ::-webkit-scrollbar {
   width: 10px;
@@ -737,11 +748,11 @@
 
 /* 滚动区原生滚动条占位隐藏,避免分组图标相对顶部/底部图标左移;
  * 同时作用于 Tab 栏 ScrollArea(横向)与左侧「打开的编辑器」面板(纵向) */
-[data-slot="scroll-area-viewport"] {
+[data-slot='scroll-area-viewport'] {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-[data-slot="scroll-area-viewport"]::-webkit-scrollbar {
+[data-slot='scroll-area-viewport']::-webkit-scrollbar {
   display: none;
 }
 
@@ -935,7 +946,8 @@
   font-size: var(--text-body-sm);
   line-height: 1.4;
   font-weight: 500;
-  transition: color var(--duration-fast, 150ms) var(--ease-standard, ease-out),
+  transition:
+    color var(--duration-fast, 150ms) var(--ease-standard, ease-out),
     background-color var(--duration-fast, 150ms) var(--ease-standard, ease-out);
 }
 .menubar-trigger:hover,
@@ -1054,9 +1066,3 @@
   backdrop-filter: blur(20px) saturate(125%);
   -webkit-backdrop-filter: blur(20px) saturate(125%);
 }
-
-
-
-
-
-

@@ -39,7 +39,9 @@ describe('CommandPalette', () => {
     // 仅 cron 相关工具保留
     expect(screen.getByRole('option', { name: new RegExp(cron.name, 'i') })).toBeInTheDocument();
     // 不相关工具被过滤
-    expect(screen.queryByRole('option', { name: new RegExp(jf.name, 'i') })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: new RegExp(jf.name, 'i') }),
+    ).not.toBeInTheDocument();
   });
 
   it('selecting a tool selects the tool and closes the palette', async () => {

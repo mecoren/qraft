@@ -126,16 +126,36 @@ export function PasswordGenerator(_props: ToolProps): JSX.Element {
           />
         </ConfigRow>
         <ConfigRow icon={TypeIcon} label="小写字母" hint="a-z">
-          <Switch checked={lower} onCheckedChange={setLower} aria-label="小写字母" data-testid="pw-lower" />
+          <Switch
+            checked={lower}
+            onCheckedChange={setLower}
+            aria-label="小写字母"
+            data-testid="pw-lower"
+          />
         </ConfigRow>
         <ConfigRow icon={TypeIcon} label="大写字母" hint="A-Z">
-          <Switch checked={upper} onCheckedChange={setUpper} aria-label="大写字母" data-testid="pw-upper" />
+          <Switch
+            checked={upper}
+            onCheckedChange={setUpper}
+            aria-label="大写字母"
+            data-testid="pw-upper"
+          />
         </ConfigRow>
         <ConfigRow icon={Hash} label="数字" hint="0-9">
-          <Switch checked={digits} onCheckedChange={setDigits} aria-label="数字" data-testid="pw-digits" />
+          <Switch
+            checked={digits}
+            onCheckedChange={setDigits}
+            aria-label="数字"
+            data-testid="pw-digits"
+          />
         </ConfigRow>
         <ConfigRow icon={Hash} label="特殊字符" hint={SYMBOLS}>
-          <Switch checked={symbols} onCheckedChange={setSymbols} aria-label="特殊字符" data-testid="pw-symbols" />
+          <Switch
+            checked={symbols}
+            onCheckedChange={setSymbols}
+            aria-label="特殊字符"
+            data-testid="pw-symbols"
+          />
         </ConfigRow>
         <ConfigRow icon={TypeIcon} label="排除易混淆字符" hint="I l 1 O 0 o | `">
           <Switch

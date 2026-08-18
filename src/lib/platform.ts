@@ -28,11 +28,7 @@ export const useCustomWindowControls = isWindows || isLinux;
 export const hasNativeMica = isWindows || isMac;
 
 /** 平台 CSS 类名后缀,用于在 <html> 上添加 .platform-{win|mac|linux} */
-export const platformClass = isMac
-  ? 'platform-mac'
-  : isWindows
-    ? 'platform-win'
-    : 'platform-linux';
+export const platformClass = isMac ? 'platform-mac' : isWindows ? 'platform-win' : 'platform-linux';
 
 /**
  * 在 <html> 根元素添加平台 CSS 类

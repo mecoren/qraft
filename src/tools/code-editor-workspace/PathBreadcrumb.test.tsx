@@ -26,10 +26,7 @@ describe('PathBreadcrumb', () => {
 
   it('Windows 路径按 / 与 \\ 拆分', () => {
     const { container } = render(
-      <PathBreadcrumb
-        path={'C:\\Users\\wait\\Downloads\\PTS轨道.md'}
-        data-testid="bc"
-      />,
+      <PathBreadcrumb path={'C:\\Users\\wait\\Downloads\\PTS轨道.md'} data-testid="bc" />,
     );
 
     expect(screen.getByText('C:')).toBeInTheDocument();
@@ -56,9 +53,7 @@ describe('PathBreadcrumb', () => {
   });
 
   it('连续分隔符折叠为单个', () => {
-    const { container } = render(
-      <PathBreadcrumb path="/home//user///foo.md" data-testid="bc" />,
-    );
+    const { container } = render(<PathBreadcrumb path="/home//user///foo.md" data-testid="bc" />);
     expect(screen.getByText('home')).toBeInTheDocument();
     expect(screen.getByText('user')).toBeInTheDocument();
     expect(screen.getByText('foo.md')).toBeInTheDocument();
@@ -67,9 +62,7 @@ describe('PathBreadcrumb', () => {
   });
 
   it('中段与末段之间出现 BreadcrumbSeparator(默认 ChevronRight)', () => {
-    const { container } = render(
-      <PathBreadcrumb path="/home/user/foo.md" data-testid="bc" />,
-    );
+    const { container } = render(<PathBreadcrumb path="/home/user/foo.md" data-testid="bc" />);
     // shadcn BreadcrumbSeparator 用 lucide ChevronRight SVG
     const separators = container.querySelectorAll('li[role="presentation"]');
     expect(separators.length).toBe(2); // home<->user, user<->foo.md

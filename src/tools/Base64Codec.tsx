@@ -40,11 +40,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from '@/components/ui/resizable';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { invokeCommand, CommandError } from '@/lib/ipc';
 import { formatBytes, readFileAsDataUrl, stripDataUrlPrefix } from '@/lib/file-utils';
 import {
@@ -60,7 +56,8 @@ import {
 /** 将 base64 字符串解码为二进制字节数组(用于构造 Blob 预览) */
 function base64ToUint8Array(b64: string): Uint8Array {
   const clean = b64.replace(/\s+/g, '');
-  const bin = typeof atob === 'function' ? atob(clean) : Buffer.from(clean, 'base64').toString('binary');
+  const bin =
+    typeof atob === 'function' ? atob(clean) : Buffer.from(clean, 'base64').toString('binary');
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return bytes;
@@ -258,7 +255,12 @@ function PreviewBody({
   }
   if (modeId === 'video') {
     return (
-      <video controls src={url || undefined} data-testid="b64-preview" className="max-h-full max-w-full" />
+      <video
+        controls
+        src={url || undefined}
+        data-testid="b64-preview"
+        className="max-h-full max-w-full"
+      />
     );
   }
   if (modeId === 'pdf') {

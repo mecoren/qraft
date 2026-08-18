@@ -17,22 +17,35 @@ const ScrollArea = React.forwardRef<
     /** 滚动条额外样式(通过 tailwind-merge 覆盖默认轨道/滑块尺寸),用于细悬浮条等特例 */
     scrollbarClassName?: string;
   }
->(({ className, children, viewportRef, viewportClassName, orientation = 'vertical', scrollbarClassName, ...props }, ref) => (
-  <ScrollAreaPrimitive.Root
-    ref={ref}
-    className={cn('relative overflow-hidden', className)}
-    {...props}
-  >
-    <ScrollAreaPrimitive.Viewport
-      ref={viewportRef}
-      className={cn('h-full w-full rounded-[inherit]', viewportClassName)}
+>(
+  (
+    {
+      className,
+      children,
+      viewportRef,
+      viewportClassName,
+      orientation = 'vertical',
+      scrollbarClassName,
+      ...props
+    },
+    ref,
+  ) => (
+    <ScrollAreaPrimitive.Root
+      ref={ref}
+      className={cn('relative overflow-hidden', className)}
+      {...props}
     >
-      {children}
-    </ScrollAreaPrimitive.Viewport>
-    <ScrollBar orientation={orientation} className={scrollbarClassName} />
-    <ScrollAreaPrimitive.Corner />
-  </ScrollAreaPrimitive.Root>
-));
+      <ScrollAreaPrimitive.Viewport
+        ref={viewportRef}
+        className={cn('h-full w-full rounded-[inherit]', viewportClassName)}
+      >
+        {children}
+      </ScrollAreaPrimitive.Viewport>
+      <ScrollBar orientation={orientation} className={scrollbarClassName} />
+      <ScrollAreaPrimitive.Corner />
+    </ScrollAreaPrimitive.Root>
+  ),
+);
 ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName;
 
 const ScrollBar = React.forwardRef<

@@ -28,9 +28,7 @@ describe('SettingsDialog', () => {
     expect(screen.getByRole('button', { name: /快捷键/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /更新/ })).toBeInTheDocument();
     // 默认展示主题内容(ThemeSection 的说明文案)
-    expect(
-      screen.getByText(/选择预设主题或自定义 accent 色/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/选择预设主题或自定义 accent 色/)).toBeInTheDocument();
   });
 
   it('switches content when clicking a menu item', async () => {

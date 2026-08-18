@@ -58,7 +58,8 @@ export function CommandPalette({
                   value={`${entry.name} ${entry.keywords.join(' ')}`}
                   onSelect={() => {
                     if (entry.special === 'settings') onOpenSettings?.();
-                    else if (entry.special === 'extensions') useUiStore.getState().setView('extensions');
+                    else if (entry.special === 'extensions')
+                      useUiStore.getState().setView('extensions');
                     else openTool(entry.id);
                     onOpenChange(false);
                   }}

@@ -11,10 +11,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  EditorLeftSidebar,
-  type EditorLeftSidebarProps,
-} from './EditorLeftSidebar';
+import { EditorLeftSidebar, type EditorLeftSidebarProps } from './EditorLeftSidebar';
 import type { EditorTab } from './schema';
 
 const tabs: EditorTab[] = [
@@ -342,9 +339,7 @@ describe('EditorLeftSidebar 文件列表拖拽排序', () => {
     dispatchPointer('pointermove', src, { clientX: 0, clientY: 110 });
 
     // setDropBeforeId 异步生效,等待重渲染后检查指示线
-    await waitFor(() =>
-      expect(screen.getByTestId('sidebar-drop-before-b.ts')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('sidebar-drop-before-b.ts')).toBeInTheDocument());
   });
 
   it('被拖拽文件项添加半透明样式', async () => {

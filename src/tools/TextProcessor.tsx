@@ -17,26 +17,13 @@
  *   与 SQL 格式化器保持一致。
  */
 import { useCallback, useState, type JSX } from 'react';
-import {
-  Binary,
-  Eraser,
-  Link2,
-  Link2Off,
-  Languages,
-  Quote,
-  Replace,
-  Wand2,
-} from 'lucide-react';
+import { Binary, Eraser, Link2, Link2Off, Languages, Quote, Replace, Wand2 } from 'lucide-react';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from '@/components/ui/resizable';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { toast } from 'sonner';
 import type { ToolProps } from './registry';
 
@@ -144,8 +131,9 @@ const CN_SYMBOL_MAP: Record<string, string> = {
 };
 
 export function chineseSymbolToEnglish(input: string): string {
-  return input.replace(/[，。、；：！？（）【】「」『』《》〈〉“”‘’…—·～\u3000]/g, (ch) =>
-    CN_SYMBOL_MAP[ch] ?? ch,
+  return input.replace(
+    /[，。、；：！？（）【】「」『』《》〈〉“”‘’…—·～\u3000]/g,
+    (ch) => CN_SYMBOL_MAP[ch] ?? ch,
   );
 }
 
@@ -177,7 +165,12 @@ const TRANSFORMS: readonly TransformDef[] = [
   { id: 'urlDecode', label: 'URL 解码', Icon: Link2Off, apply: urlDecode },
   { id: 'unicodeToChinese', label: 'Unicode 转中文', Icon: Languages, apply: unicodeToChinese },
   { id: 'chineseToUnicode', label: '中文转 Unicode', Icon: Binary, apply: chineseToUnicode },
-  { id: 'chineseSymbolToEnglish', label: '中文符号转英文', Icon: Replace, apply: chineseSymbolToEnglish },
+  {
+    id: 'chineseSymbolToEnglish',
+    label: '中文符号转英文',
+    Icon: Replace,
+    apply: chineseSymbolToEnglish,
+  },
 ];
 
 /**
@@ -252,9 +245,7 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
         }
         setOutput(next);
       } catch (e) {
-        toast.error(
-          `${def.label}失败:${e instanceof Error ? e.message : String(e)}`,
-        );
+        toast.error(`${def.label}失败:${e instanceof Error ? e.message : String(e)}`);
       }
     },
     [input],
@@ -311,10 +302,7 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
 
-      <ResizablePanelGroup
-        orientation="horizontal"
-        className="min-h-0 flex-1"
-      >
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
             title="输入"

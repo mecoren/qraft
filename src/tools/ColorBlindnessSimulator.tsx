@@ -125,7 +125,12 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
     <div className="flex h-full flex-col gap-3" data-testid="color-blindness-simulator">
       <div className="flex items-center justify-between">
         <h2 className="text-body-sm font-semibold">源图片</h2>
-        <Button variant="ghost" size="sm" data-testid="cb-open" onClick={() => fileRef.current?.click()}>
+        <Button
+          variant="ghost"
+          size="sm"
+          data-testid="cb-open"
+          onClick={() => fileRef.current?.click()}
+        >
           <FolderOpen aria-hidden className="size-3.5" /> 选择图片
         </Button>
       </div>

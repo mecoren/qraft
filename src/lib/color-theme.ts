@@ -21,13 +21,7 @@
 import { getPaletteById, type ColorPalette } from './design-tokens';
 
 export type PaletteId =
-  | 'obsidian'
-  | 'deep-sea'
-  | 'twilight'
-  | 'emerald-night'
-  | 'daylight'
-  | 'custom'
-  | 'system';
+  'obsidian' | 'deep-sea' | 'twilight' | 'emerald-night' | 'daylight' | 'custom' | 'system';
 
 export const PALETTE_STORAGE_KEY = 'color_palette';
 export const CUSTOM_ACCENT_STORAGE_KEY = 'custom_palette_accent';
@@ -96,15 +90,10 @@ function resolveSystemPalette(): ColorPalette {
  * 立即应用新的 CSS 变量值,Tailwind utility class 通过 var() 引用,
  * 整页颜色瞬时切换,无 React 重渲染。
  */
-export function applyPalette(
-  paletteId: PaletteId,
-  customAccent?: string | null,
-): void {
+export function applyPalette(paletteId: PaletteId, customAccent?: string | null): void {
   const root = document.documentElement;
   const palette =
-    paletteId === 'system'
-      ? resolveSystemPalette()
-      : getPaletteById(paletteId, customAccent);
+    paletteId === 'system' ? resolveSystemPalette() : getPaletteById(paletteId, customAccent);
 
   root.setAttribute('data-palette', palette.id);
   root.classList.toggle('dark', palette.mode === 'dark');

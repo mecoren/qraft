@@ -102,7 +102,8 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
               data-testid="jat-csv"
               disabled={!result.table || result.table.columns.length === 0}
               onClick={() =>
-                result.table && downloadText('table.csv', tableToDelimited(result.table, ','), 'text/csv')
+                result.table &&
+                downloadText('table.csv', tableToDelimited(result.table, ','), 'text/csv')
               }
             >
               <Download aria-hidden className="size-3.5" /> CSV
@@ -114,7 +115,11 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
               disabled={!result.table || result.table.columns.length === 0}
               onClick={() =>
                 result.table &&
-                downloadText('table.tsv', tableToDelimited(result.table, '\t'), 'text/tab-separated-values')
+                downloadText(
+                  'table.tsv',
+                  tableToDelimited(result.table, '\t'),
+                  'text/tab-separated-values',
+                )
               }
             >
               <Download aria-hidden className="size-3.5" /> TSV

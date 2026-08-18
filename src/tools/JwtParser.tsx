@@ -60,51 +60,51 @@ export function JwtParser({ toolId }: ToolProps) {
 
       <ScrollArea className="min-h-0 rounded-md border border-border">
         <div className="flex flex-col gap-2 p-3">
-        {error ? (
-          <div
-            role="alert"
-            className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
-          >
-            {error}
-          </div>
-        ) : extra ? (
-          <>
-            <div className="flex flex-col gap-1">
-              <Label>头部(Header)</Label>
-              <CodeEditor
-                readOnly
-                value={JSON.stringify(extra.header, null, 2)}
-                language="json"
-                data-testid="header"
-              />
+          {error ? (
+            <div
+              role="alert"
+              className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              {error}
             </div>
-            <div className="flex flex-col gap-1">
-              <Label>载荷(Payload)</Label>
-              <CodeEditor
-                readOnly
-                value={JSON.stringify(extra.payload, null, 2)}
-                language="json"
-                data-testid="payload"
-              />
+          ) : extra ? (
+            <>
+              <div className="flex flex-col gap-1">
+                <Label>头部(Header)</Label>
+                <CodeEditor
+                  readOnly
+                  value={JSON.stringify(extra.header, null, 2)}
+                  language="json"
+                  data-testid="header"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label>载荷(Payload)</Label>
+                <CodeEditor
+                  readOnly
+                  value={JSON.stringify(extra.payload, null, 2)}
+                  language="json"
+                  data-testid="payload"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label>签名(Signature)</Label>
+                <CodeEditor
+                  readOnly
+                  value={extra.signature}
+                  language="plaintext"
+                  data-testid="signature"
+                />
+              </div>
+              {extra.expires_at && (
+                <div className="text-xs text-muted-foreground">过期时间: {extra.expires_at}</div>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+              解析 JWT 后将展示各部分内容
             </div>
-            <div className="flex flex-col gap-1">
-              <Label>签名(Signature)</Label>
-              <CodeEditor
-                readOnly
-                value={extra.signature}
-                language="plaintext"
-                data-testid="signature"
-              />
-            </div>
-            {extra.expires_at && (
-              <div className="text-xs text-muted-foreground">过期时间: {extra.expires_at}</div>
-            )}
-          </>
-        ) : (
-          <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-            解析 JWT 后将展示各部分内容
-          </div>
-        )}
+          )}
         </div>
       </ScrollArea>
     </div>

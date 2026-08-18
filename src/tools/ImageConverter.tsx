@@ -156,7 +156,12 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
       <div className="flex items-center justify-between">
         <h2 className="text-body-sm font-semibold">图片</h2>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" data-testid="ic-open" onClick={() => fileRef.current?.click()}>
+          <Button
+            variant="ghost"
+            size="sm"
+            data-testid="ic-open"
+            onClick={() => fileRef.current?.click()}
+          >
             <FolderOpen aria-hidden className="size-3.5" /> 选择图片
           </Button>
           <Button
@@ -168,7 +173,12 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
           >
             <X aria-hidden className="size-3.5" /> 清除
           </Button>
-          <Button size="sm" data-testid="ic-convert" disabled={!image} onClick={() => void convert()}>
+          <Button
+            size="sm"
+            data-testid="ic-convert"
+            disabled={!image}
+            onClick={() => void convert()}
+          >
             <Download aria-hidden className="size-3.5" /> 转换并导出
           </Button>
         </div>

@@ -498,7 +498,10 @@ export function DuplicatesTable({
       </div>
 
       {/* 表格头(值 + 数量两列) */}
-      <div className="grid shrink-0 border-b border-input bg-muted/40 text-xs font-medium text-muted-foreground" style={{ gridTemplateColumns: '1fr 72px' }}>
+      <div
+        className="grid shrink-0 border-b border-input bg-muted/40 text-xs font-medium text-muted-foreground"
+        style={{ gridTemplateColumns: '1fr 72px' }}
+      >
         <div className="px-3 py-1.5">值</div>
         <div className="border-l border-input px-3 py-1.5 text-right tabular-nums">数量</div>
       </div>
@@ -531,12 +534,12 @@ export function DuplicatesTable({
                     gridTemplateColumns: '1fr 72px',
                   }}
                 >
-                  <div
-                    className="truncate px-3 py-1.5"
-                    title={r.value}
-                    data-testid="dd-row-value"
-                  >
-                    {r.value === '' ? <span className="text-muted-foreground">(空行)</span> : r.value}
+                  <div className="truncate px-3 py-1.5" title={r.value} data-testid="dd-row-value">
+                    {r.value === '' ? (
+                      <span className="text-muted-foreground">(空行)</span>
+                    ) : (
+                      r.value
+                    )}
                   </div>
                   <div
                     className="border-l border-input px-3 py-1.5 text-right tabular-nums text-foreground"

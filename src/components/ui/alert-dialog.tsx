@@ -43,8 +43,9 @@ const AlertDialogOverlay = React.forwardRef<
 ));
 AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 
-interface AlertDialogContentProps
-  extends React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content> {
+interface AlertDialogContentProps extends React.ComponentPropsWithoutRef<
+  typeof AlertDialogPrimitive.Content
+> {
   /** 紧凑尺寸(默认 default → max-w-lg,sm → max-w-sm) */
   size?: 'default' | 'sm';
 }

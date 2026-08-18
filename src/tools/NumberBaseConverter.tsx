@@ -106,10 +106,7 @@ export function NumberBaseConverter(_props: ToolProps): JSX.Element {
           />
         </ConfigRow>
         <ConfigRow icon={Hash} label="输入进制">
-          <Select
-            value={String(inputBase)}
-            onValueChange={(v) => setInputBase(Number(v) as Base)}
-          >
+          <Select value={String(inputBase)} onValueChange={(v) => setInputBase(Number(v) as Base)}>
             <SelectTrigger data-testid="nb-input-base" className="w-28">
               <SelectValue />
             </SelectTrigger>
@@ -150,9 +147,7 @@ export function NumberBaseConverter(_props: ToolProps): JSX.Element {
               key={b}
               className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5 shadow-card"
             >
-              <span className="w-16 shrink-0 text-xs text-muted-foreground">
-                {BASE_LABEL[b]}
-              </span>
+              <span className="w-16 shrink-0 text-xs text-muted-foreground">{BASE_LABEL[b]}</span>
               <code
                 data-testid={`nb-result-${b}`}
                 className="min-w-0 flex-1 truncate font-mono text-body-sm"

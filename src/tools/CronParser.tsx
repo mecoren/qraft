@@ -25,10 +25,7 @@ function fmt(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-type ParsedResult =
-  | null
-  | { error: string }
-  | { description: string; next: string[] };
+type ParsedResult = null | { error: string } | { description: string; next: string[] };
 
 export function CronParser(_props: ToolProps): JSX.Element {
   const [expr, setExpr] = useState('0 0 * * *');
@@ -49,7 +46,9 @@ export function CronParser(_props: ToolProps): JSX.Element {
     try {
       description = cronstrue.toString(text, { locale: 'zh_CN', use24HourTimeFormat: true });
     } catch (e) {
-      return { error: `表达式无效: ${typeof e === 'string' ? e : e instanceof Error ? e.message : String(e)}` };
+      return {
+        error: `表达式无效: ${typeof e === 'string' ? e : e instanceof Error ? e.message : String(e)}`,
+      };
     }
     try {
       const interval = CronExpressionParser.parse(text, { currentDate: new Date() });
@@ -129,7 +128,11 @@ export function CronParser(_props: ToolProps): JSX.Element {
           {parsed && 'next' in parsed ? (
             <ul className="divide-y divide-border">
               {parsed.next.map((t) => (
-                <li key={t} className="px-4 py-2 font-mono text-body-sm" data-testid="cron-next-item">
+                <li
+                  key={t}
+                  className="px-4 py-2 font-mono text-body-sm"
+                  data-testid="cron-next-item"
+                >
                   {t}
                 </li>
               ))}

@@ -239,7 +239,8 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }
     const tabs = [...rest.slice(0, to), tab, ...rest.slice(to)];
     // 顺序未变化时不触发持久化
-    const unchanged = tabs.length === workspace.tabs.length && tabs.every((t, i) => t.id === workspace.tabs[i]?.id);
+    const unchanged =
+      tabs.length === workspace.tabs.length && tabs.every((t, i) => t.id === workspace.tabs[i]?.id);
     if (unchanged) return;
     set({ workspace: { ...workspace, tabs }, userTouched: true });
   },
@@ -248,9 +249,10 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const { workspace } = get();
     // 保留全部固定 Tab 与目标 Tab;其余关闭
     const tabs = workspace.tabs.filter((t) => t.pinned || t.id === id);
-    const activeTabId = workspace.activeTabId && tabs.some((t) => t.id === workspace.activeTabId)
-      ? workspace.activeTabId
-      : tabs[0]?.id ?? null;
+    const activeTabId =
+      workspace.activeTabId && tabs.some((t) => t.id === workspace.activeTabId)
+        ? workspace.activeTabId
+        : (tabs[0]?.id ?? null);
     set({ workspace: { ...workspace, tabs, activeTabId }, userTouched: true });
   },
 
@@ -258,21 +260,21 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const { workspace } = get();
     const index = workspace.tabs.findIndex((t) => t.id === id);
     if (index < 0) return;
-    const tabs = workspace.tabs.filter(
-      (t) => t.pinned || workspace.tabs.indexOf(t) <= index,
-    );
-    const activeTabId = workspace.activeTabId && tabs.some((t) => t.id === workspace.activeTabId)
-      ? workspace.activeTabId
-      : tabs[0]?.id ?? null;
+    const tabs = workspace.tabs.filter((t) => t.pinned || workspace.tabs.indexOf(t) <= index);
+    const activeTabId =
+      workspace.activeTabId && tabs.some((t) => t.id === workspace.activeTabId)
+        ? workspace.activeTabId
+        : (tabs[0]?.id ?? null);
     set({ workspace: { ...workspace, tabs, activeTabId }, userTouched: true });
   },
 
   closeSavedTabs: () => {
     const { workspace } = get();
     const tabs = workspace.tabs.filter((t) => t.pinned || t.content !== t.savedContent);
-    const activeTabId = workspace.activeTabId && tabs.some((t) => t.id === workspace.activeTabId)
-      ? workspace.activeTabId
-      : tabs[0]?.id ?? null;
+    const activeTabId =
+      workspace.activeTabId && tabs.some((t) => t.id === workspace.activeTabId)
+        ? workspace.activeTabId
+        : (tabs[0]?.id ?? null);
     set({ workspace: { ...workspace, tabs, activeTabId }, userTouched: true });
   },
 

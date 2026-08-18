@@ -57,10 +57,7 @@ export async function pullPendingOpenFiles(): Promise<PendingOpenFile[]> {
 }
 
 /** 弹「另存为」对话框并写入;用户取消返回 null,成功返回保存路径 */
-export async function saveWithDialog(
-  fileName: string,
-  content: string,
-): Promise<string | null> {
+export async function saveWithDialog(fileName: string, content: string): Promise<string | null> {
   const base64 = encodeTextToBase64(content);
   const path = await invokeCommand<string | null>('fs_save_bytes', {
     fileName,

@@ -86,30 +86,34 @@ export function CertificateDecoder(_props: ToolProps): JSX.Element {
   }, [input]);
 
   return (
-      <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1" data-testid="certificate-decoder">
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
-          <CodeEditor
-            title="输入证书(PEM / Base64 DER)"
-            language="plaintext"
-            value={input}
-            onChange={setInput}
-            placeholder={'-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'}
-            data-testid="cert-input"
-            className="h-full"
-          />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
-          <CodeEditor
-            title="解码结果"
-            language="plaintext"
-            value={output}
-            readOnly
-            data-testid="cert-output"
-            className="h-full"
-            actions={<CopyAction text={output} testId="cert-copy" />}
-          />
-        </ResizablePanel>
-      </ResizablePanelGroup>
+    <ResizablePanelGroup
+      orientation="vertical"
+      className="min-h-0 flex-1"
+      data-testid="certificate-decoder"
+    >
+      <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
+        <CodeEditor
+          title="输入证书(PEM / Base64 DER)"
+          language="plaintext"
+          value={input}
+          onChange={setInput}
+          placeholder={'-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'}
+          data-testid="cert-input"
+          className="h-full"
+        />
+      </ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
+        <CodeEditor
+          title="解码结果"
+          language="plaintext"
+          value={output}
+          readOnly
+          data-testid="cert-output"
+          className="h-full"
+          actions={<CopyAction text={output} testId="cert-copy" />}
+        />
+      </ResizablePanel>
+    </ResizablePanelGroup>
   );
 }

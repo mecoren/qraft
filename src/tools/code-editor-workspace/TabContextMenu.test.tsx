@@ -165,10 +165,7 @@ describe('TabContextMenu', () => {
 
     expect(screen.getByTestId('ctx-copy-path')).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByTestId('ctx-reveal')).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByTestId('ctx-copy-relative-path')).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
+    expect(screen.getByTestId('ctx-copy-relative-path')).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('多选 ≥2 个文件且提供 onCompareSelected 时显示「比较所选内容」', async () => {

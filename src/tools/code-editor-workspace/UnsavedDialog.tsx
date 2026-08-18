@@ -23,12 +23,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-export type UnsavedMode =
-  | 'close-tab'
-  | 'close-pinned'
-  | 'close-all'
-  | 'close-batch'
-  | 'quit-app';
+export type UnsavedMode = 'close-tab' | 'close-pinned' | 'close-all' | 'close-batch' | 'quit-app';
 
 export interface UnsavedDialogProps {
   open: boolean;
@@ -95,7 +90,13 @@ export function UnsavedDialog({
             data-testid={`${dataTestId}-discard`}
             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
           >
-            {isSingle ? '不保存' : isPinned ? '关闭' : mode === 'quit-app' ? '放弃并退出' : '全部不保存'}
+            {isSingle
+              ? '不保存'
+              : isPinned
+                ? '关闭'
+                : mode === 'quit-app'
+                  ? '放弃并退出'
+                  : '全部不保存'}
           </AlertDialogAction>
           <AlertDialogCancel onClick={onCancel} data-testid={`${dataTestId}-cancel`}>
             取消

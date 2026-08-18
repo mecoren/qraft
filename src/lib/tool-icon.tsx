@@ -18,10 +18,7 @@ import { icons, type LucideIcon, type LucideProps } from 'lucide-react';
 
 const ICON_REGISTRY = icons as unknown as Record<string, LucideIcon>;
 
-export function resolveToolIcon(
-  name: string | undefined | null,
-  fallback: LucideIcon,
-): LucideIcon {
+export function resolveToolIcon(name: string | undefined | null, fallback: LucideIcon): LucideIcon {
   if (name && typeof ICON_REGISTRY[name] === 'function') {
     return ICON_REGISTRY[name];
   }

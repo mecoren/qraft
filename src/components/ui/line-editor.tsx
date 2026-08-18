@@ -133,7 +133,11 @@ export function LineEditor({
           </span>
           <span className="flex shrink-0 items-center">
             {!readOnly && showPaste && (
-              <ToolbarButton label="粘贴" testId={testId ? `${testId}-paste` : undefined} onClick={() => void handlePaste()}>
+              <ToolbarButton
+                label="粘贴"
+                testId={testId ? `${testId}-paste` : undefined}
+                onClick={() => void handlePaste()}
+              >
                 <ClipboardPaste aria-hidden className="size-3.5" />
                 粘贴
               </ToolbarButton>

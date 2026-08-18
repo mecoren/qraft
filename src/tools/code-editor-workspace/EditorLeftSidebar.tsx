@@ -214,9 +214,7 @@ export function EditorLeftSidebar({
     let hitIndex = -1;
     let hitRect: DOMRect | null = null;
     for (let i = 0; i < tabs.length; i++) {
-      const el = container.querySelector<HTMLElement>(
-        `[data-tab-id="${CSS.escape(tabs[i].id)}"]`,
-      );
+      const el = container.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(tabs[i].id)}"]`);
       if (!el) continue;
       const rect = el.getBoundingClientRect();
       if (clientY < rect.bottom) {
@@ -396,11 +394,7 @@ export function EditorLeftSidebar({
       {!collapsed && (
         <ScrollArea className="min-h-0 flex-1">
           {/* 打开的编辑器 分组 */}
-          <ul
-            ref={ulRef}
-            className="p-1.5 pb-0"
-            onPointerMove={handleContainerPointerMove}
-          >
+          <ul ref={ulRef} className="p-1.5 pb-0" onPointerMove={handleContainerPointerMove}>
             {tabs.length === 0 ? (
               <li
                 data-testid={`${dataTestId}-empty`}

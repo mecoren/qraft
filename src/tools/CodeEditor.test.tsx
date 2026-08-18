@@ -218,9 +218,7 @@ describe('CodeEditorTool workspace', () => {
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
     // 标题为路径面包屑(末段文件名)
-    await waitFor(() =>
-      expect(screen.getByTestId('editor-header')).toHaveTextContent('x.json'),
-    );
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('x.json'));
     await clickToolbarItem('toolbar-open');
     await waitFor(() => expect(screen.getAllByTestId(/editor-tabs-tab-/)).toHaveLength(1));
   });
@@ -233,17 +231,13 @@ describe('CodeEditorTool workspace', () => {
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
-    await waitFor(() =>
-      expect(screen.getByTestId('editor-header')).toHaveTextContent('a.txt'),
-    );
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('a.txt'));
 
     // 编辑 → dirty 圆点出现
     fireEvent.change(screen.getByTestId('editor-textarea'), {
       target: { value: 'hello world' },
     });
-    await waitFor(() =>
-      expect(screen.getByTestId('editor-tabs-dirty-a.txt')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('editor-tabs-dirty-a.txt')).toBeInTheDocument());
 
     // 保存 → dirty 消失
     (saveToPath as unknown as Mock).mockResolvedValueOnce(true);
@@ -320,7 +314,9 @@ describe('CodeEditorTool workspace', () => {
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-new');
-    await waitFor(() => expect(screen.getByTestId('editor-tabs-tab-untitled-1')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByTestId('editor-tabs-tab-untitled-1')).toBeInTheDocument(),
+    );
 
     // 左栏 hover 图标切换为关闭按钮,点击直接关闭(无未保存)
     fireEvent.click(screen.getByTestId('editor-sidebar-close-untitled-1'));
@@ -332,7 +328,9 @@ describe('CodeEditorTool workspace', () => {
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-new');
-    await waitFor(() => expect(screen.getByTestId('editor-tabs-tab-untitled-1')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByTestId('editor-tabs-tab-untitled-1')).toBeInTheDocument(),
+    );
 
     // 点击标题区 → 折叠(列表隐藏)
     fireEvent.click(screen.getByTestId('editor-sidebar-header'));
@@ -340,7 +338,9 @@ describe('CodeEditorTool workspace', () => {
 
     // 再次点击标题区 → 展开(列表恢复)
     fireEvent.click(screen.getByTestId('editor-sidebar-header'));
-    await waitFor(() => expect(screen.getByTestId('editor-sidebar-item-untitled-1')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByTestId('editor-sidebar-item-untitled-1')).toBeInTheDocument(),
+    );
   });
 
   it('creates a new tab via the sidebar header action button', async () => {
@@ -352,7 +352,9 @@ describe('CodeEditorTool workspace', () => {
     await waitFor(() => expect(newBtn).toBeInTheDocument());
     fireEvent.click(newBtn);
 
-    await waitFor(() => expect(screen.getByTestId('editor-tabs-tab-untitled-1')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByTestId('editor-tabs-tab-untitled-1')).toBeInTheDocument(),
+    );
   });
 
   it('saves all dirty tabs via the sidebar header action button', async () => {
@@ -363,9 +365,7 @@ describe('CodeEditorTool workspace', () => {
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
-    await waitFor(() =>
-      expect(screen.getByTestId('editor-header')).toHaveTextContent('a.txt'),
-    );
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('a.txt'));
 
     // 编辑 → dirty
     fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'a!' } });
@@ -387,13 +387,13 @@ describe('CodeEditorTool workspace', () => {
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
-    await waitFor(() =>
-      expect(screen.getByTestId('editor-header')).toHaveTextContent('s.txt'),
-    );
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('s.txt'));
 
     // 编辑 → dirty
     fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'hello!' } });
-    await waitFor(() => expect(screen.getByTestId('editor-sidebar-dirty-s.txt')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByTestId('editor-sidebar-dirty-s.txt')).toBeInTheDocument(),
+    );
 
     // 左栏关闭 → 弹未保存确认 → 取消 → Tab 保留
     fireEvent.click(screen.getByTestId('editor-sidebar-close-s.txt'));
@@ -470,9 +470,7 @@ describe('CodeEditorTool workspace', () => {
     });
     renderTool();
 
-    await waitFor(() =>
-      expect(screen.getByTestId('editor-header')).toHaveTextContent('resume.md'),
-    );
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('resume.md'));
     expect(screen.getByTestId('editor-language').textContent).toBe('markdown');
     expect(screen.getByTestId('editor-tabs-tab-resume.md')).toBeInTheDocument();
   });
@@ -495,9 +493,7 @@ describe('CodeEditorTool workspace', () => {
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
-    await waitFor(() =>
-      expect(screen.getByTestId('editor-header')).toHaveTextContent('b.txt'),
-    );
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('b.txt'));
 
     // 编辑 → dirty
     fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'hi!' } });
@@ -523,9 +519,7 @@ describe('CodeEditorTool workspace', () => {
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
-    await waitFor(() =>
-      expect(screen.getByTestId('editor-header')).toHaveTextContent('b.txt'),
-    );
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('b.txt'));
 
     fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'hi!' } });
     await waitFor(() => expect(screen.getByTestId('editor-tabs-dirty-b.txt')).toBeInTheDocument());
@@ -547,9 +541,7 @@ describe('CodeEditorTool workspace', () => {
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
-    await waitFor(() =>
-      expect(screen.getByTestId('editor-header')).toHaveTextContent('c.txt'),
-    );
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('c.txt'));
 
     fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'xx' } });
     await waitFor(() => expect(screen.getByTestId('editor-tabs-dirty-c.txt')).toBeInTheDocument());
@@ -570,9 +562,7 @@ describe('CodeEditorTool workspace', () => {
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
-    await waitFor(() =>
-      expect(screen.getByTestId('editor-header')).toHaveTextContent('d.txt'),
-    );
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('d.txt'));
 
     fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'zz' } });
     await waitFor(() => expect(screen.getByTestId('editor-tabs-dirty-d.txt')).toBeInTheDocument());
@@ -611,9 +601,7 @@ describe('CodeEditorTool workspace', () => {
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
-    await waitFor(() =>
-      expect(screen.getByTestId('editor-header')).toHaveTextContent('q.txt'),
-    );
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('q.txt'));
 
     fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'qq' } });
     await waitFor(() => expect(screen.getByTestId('editor-tabs-dirty-q.txt')).toBeInTheDocument());
@@ -660,9 +648,7 @@ describe('CodeEditorTool workspace', () => {
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
-    await waitFor(() =>
-      expect(screen.getByTestId('editor-header')).toHaveTextContent('clean.txt'),
-    );
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('clean.txt'));
 
     // 触发窗口关闭 → 无未保存 → 直接退出,不弹确认
     await act(async () => {

@@ -16,13 +16,7 @@ import { useEffect, useState } from 'react';
 import type { Monaco } from '@monaco-editor/react';
 
 /** 深色调色板集合,其余视为亮色 */
-const DARK_PALETTES = new Set([
-  'obsidian',
-  'deep-sea',
-  'twilight',
-  'emerald-night',
-  'custom',
-]);
+const DARK_PALETTES = new Set(['obsidian', 'deep-sea', 'twilight', 'emerald-night', 'custom']);
 
 /**
  * 颜色解析缓存(按 CSS 变量名)。同一调色板下变量值不变,
@@ -115,7 +109,10 @@ export function defineThemeFor(monaco: Monaco, name: string): void {
     colors: {
       'editor.background': resolveColor('--card', isDark ? '#1b1b1f' : '#ffffff'),
       'editor.foreground': resolveColor('--card-foreground', isDark ? '#e8e8ea' : '#1a1a1e'),
-      'editorLineNumber.foreground': resolveColor('--editor-gutter-fg', isDark ? '#888888' : '#888888'),
+      'editorLineNumber.foreground': resolveColor(
+        '--editor-gutter-fg',
+        isDark ? '#888888' : '#888888',
+      ),
       'editorLineNumber.activeForeground': resolveColor(
         '--card-foreground',
         isDark ? '#ffffff' : '#1a1a1e',
@@ -137,7 +134,10 @@ export function defineThemeFor(monaco: Monaco, name: string): void {
       'editor.lineHighlightBorder': '#00000000',
       'editorCursor.foreground': resolveColor('--primary', isDark ? '#4f7cff' : '#4f7cff'),
       'editorIndentGuide.background': resolveColor('--border', isDark ? '#333333' : '#e5e5e5'),
-      'editorIndentGuide.activeBackground': resolveColor('--primary', isDark ? '#4f7cff' : '#4f7cff'),
+      'editorIndentGuide.activeBackground': resolveColor(
+        '--primary',
+        isDark ? '#4f7cff' : '#4f7cff',
+      ),
       'editorWidget.background': resolveColor('--card', isDark ? '#1b1b1f' : '#ffffff'),
       'editorWidget.border': resolveColor('--border', isDark ? '#333333' : '#e5e5e5'),
       'editorSuggestWidget.background': resolveColor('--popover', isDark ? '#222222' : '#ffffff'),
@@ -145,9 +145,18 @@ export function defineThemeFor(monaco: Monaco, name: string): void {
       'editorHoverWidget.background': resolveColor('--popover', isDark ? '#222222' : '#ffffff'),
       'editorBracketMatch.background': resolveColor('--editor-bracket-match-bg', '#4f7cff22'),
       'editorBracketMatch.border': 'transparent',
-      'scrollbarSlider.background': resolveColor('--scrollbar-slider-bg', isDark ? '#ffffff1f' : '#0000001f'),
-      'scrollbarSlider.hoverBackground': resolveColor('--scrollbar-slider-hover-bg', isDark ? '#ffffff33' : '#00000033'),
-      'scrollbarSlider.activeBackground': resolveColor('--scrollbar-slider-active-bg', isDark ? '#ffffff44' : '#00000044'),
+      'scrollbarSlider.background': resolveColor(
+        '--scrollbar-slider-bg',
+        isDark ? '#ffffff1f' : '#0000001f',
+      ),
+      'scrollbarSlider.hoverBackground': resolveColor(
+        '--scrollbar-slider-hover-bg',
+        isDark ? '#ffffff33' : '#00000033',
+      ),
+      'scrollbarSlider.activeBackground': resolveColor(
+        '--scrollbar-slider-active-bg',
+        isDark ? '#ffffff44' : '#00000044',
+      ),
       'editorError.foreground': resolveColor('--destructive', isDark ? '#ff6b6b' : '#d11'),
       'editorWarning.foreground': resolveColor('--chart-1', isDark ? '#ffa64d' : '#b9770e'),
       // diff 编辑器差异底色:读取 --diff-add-line / --diff-remove-line(oklch 带 alpha,

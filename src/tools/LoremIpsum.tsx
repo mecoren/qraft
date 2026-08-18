@@ -67,7 +67,10 @@ export function generateLorem(
   }
   if (startWithLorem && !result.toLowerCase().startsWith('lorem ipsum')) {
     const prefix = 'Lorem ipsum dolor sit amet';
-    result = granularity === 'words' ? `${prefix} ${result}` : `${prefix}, ${result.charAt(0).toLowerCase()}${result.slice(1)}`;
+    result =
+      granularity === 'words'
+        ? `${prefix} ${result}`
+        : `${prefix}, ${result.charAt(0).toLowerCase()}${result.slice(1)}`;
   }
   return result;
 }

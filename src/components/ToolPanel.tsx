@@ -1,11 +1,4 @@
-import {
-  createElement,
-  Suspense,
-  useEffect,
-  useState,
-  type ComponentType,
-  type JSX,
-} from 'react';
+import { createElement, Suspense, useEffect, useState, type ComponentType, type JSX } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';

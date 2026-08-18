@@ -59,15 +59,10 @@ const buttonGroupVariants = cva(
 );
 
 interface ButtonGroupProps
-  extends ComponentProps<'div'>,
-    VariantProps<typeof buttonGroupVariants> {}
+  extends ComponentProps<'div'>, VariantProps<typeof buttonGroupVariants> {}
 
 /** 按钮组容器;自动应用 ARIA role 与方向 data 属性 */
-function ButtonGroup({
-  className,
-  orientation,
-  ...props
-}: ButtonGroupProps): JSX.Element {
+function ButtonGroup({ className, orientation, ...props }: ButtonGroupProps): JSX.Element {
   return (
     <div
       role="group"

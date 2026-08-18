@@ -166,7 +166,12 @@ export function SideNav(): JSX.Element {
                                 : 'text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
                             )}
                           >
-                            <ToolIcon name={t.icon} fallback={Icon} aria-hidden className="size-4 shrink-0" />
+                            <ToolIcon
+                              name={t.icon}
+                              fallback={Icon}
+                              aria-hidden
+                              className="size-4 shrink-0"
+                            />
                             <span className="truncate">{t.name}</span>
                           </button>
                         </li>

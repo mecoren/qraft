@@ -329,10 +329,7 @@ export function deriveCustomPalette(accent: string): ColorPalette {
  * - id 为预设之一:返回对应预设
  * - 找不到:回退到默认 daylight
  */
-export function getPaletteById(
-  id: string,
-  customAccent?: string | null,
-): ColorPalette {
+export function getPaletteById(id: string, customAccent?: string | null): ColorPalette {
   if (id === 'custom' && customAccent) {
     return deriveCustomPalette(customAccent);
   }

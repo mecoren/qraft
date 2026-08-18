@@ -129,6 +129,8 @@ describe('App', () => {
     });
     const sidebar = screen.getByRole('navigation');
     // 「最近使用」区域已从侧边栏移除,Base64 转换器不应出现在侧边栏
-    expect(within(sidebar).queryByRole('button', { name: /Base64 转换器/i })).not.toBeInTheDocument();
+    expect(
+      within(sidebar).queryByRole('button', { name: /Base64 转换器/i }),
+    ).not.toBeInTheDocument();
   });
 });

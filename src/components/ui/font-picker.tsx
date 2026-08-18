@@ -23,10 +23,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  matchFontFamilyOption,
-  type FontFamilyOption,
-} from '@/lib/fontFamilies';
+import { matchFontFamilyOption, type FontFamilyOption } from '@/lib/fontFamilies';
 
 export interface FontPickerProps {
   /** 当前选中值(字体族 CSS value)；null 表示未选(默认) */
@@ -51,9 +48,7 @@ export interface FontPickerProps {
 function FontOptionLabel({ option }: { option: FontFamilyOption }): JSX.Element {
   // 选项 value 可能是单字体族名(已安装字体)，也可能是完整 fallback 栈(默认项)
   // 对单字体族名加引号渲染；完整栈直接使用
-  const previewFamily = option.value.includes(',')
-    ? option.value
-    : `'${option.value}', sans-serif`;
+  const previewFamily = option.value.includes(',') ? option.value : `'${option.value}', sans-serif`;
   return (
     <div className="flex flex-col gap-0.5 leading-tight">
       <span style={{ fontFamily: previewFamily }}>{option.label}</span>
@@ -75,9 +70,9 @@ export function FontPicker({
 
   // 当前选中项的 label，用于 trigger 显示；未选则显示 placeholder
   const selectedOption = value
-    ? options.find((opt) => opt.value === value) ??
+    ? (options.find((opt) => opt.value === value) ??
       // 自定义值(选项列表里没有)：把 value 原样显示
-      ({ value, label: value, keywords: [] } satisfies FontFamilyOption)
+      ({ value, label: value, keywords: [] } satisfies FontFamilyOption))
     : null;
 
   // 按 query 过滤选项(自定义匹配，禁用 cmdk 默认 shouldFilter)
@@ -116,7 +111,9 @@ export function FontPicker({
           )}
         >
           <span className="flex min-w-0 flex-1 items-center gap-2 truncate">
-            {loading && <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />}
+            {loading && (
+              <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+            )}
             <span
               className="truncate"
               style={
@@ -155,13 +152,12 @@ export function FontPicker({
           </span>
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[280px] p-0" align="start">
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] min-w-[280px] p-0"
+        align="start"
+      >
         <Command shouldFilter={false} loop>
-          <CommandInput
-            placeholder="搜索字体族…"
-            value={query}
-            onValueChange={setQuery}
-          />
+          <CommandInput placeholder="搜索字体族…" value={query} onValueChange={setQuery} />
           <CommandList>
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">

@@ -302,9 +302,12 @@ export function EditorTabsBar({
         className="h-full min-w-0 flex-1"
       >
         {/* 内层 flex 容器:Tab 横向排布且 min-w-max,触发 Viewport 横向滚动。
-           * 占满 Viewport 全高 36px,标签文字 items-center 垂直居中。
-           * 容器级 pointermove:拖拽中实时计算插入位置;空白区域视为末尾。 */}
-        <div className="flex h-full min-w-max items-stretch" onPointerMove={handleContainerPointerMove}>
+         * 占满 Viewport 全高 36px,标签文字 items-center 垂直居中。
+         * 容器级 pointermove:拖拽中实时计算插入位置;空白区域视为末尾。 */}
+        <div
+          className="flex h-full min-w-max items-stretch"
+          onPointerMove={handleContainerPointerMove}
+        >
           {tabs.length === 0 && compares.length === 0 ? (
             <div
               data-testid={`${dataTestId}-empty`}

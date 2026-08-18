@@ -28,9 +28,7 @@ const inputValueOf = (testId: string): string =>
   (screen.getByTestId(testId).querySelector('textarea') as HTMLTextAreaElement).value;
 
 const setTextarea = (testId: string, value: string): void => {
-  const ta = screen
-    .getByTestId(testId)
-    .querySelector('textarea') as HTMLTextAreaElement;
+  const ta = screen.getByTestId(testId).querySelector('textarea') as HTMLTextAreaElement;
   fireEvent.change(ta, { target: { value } });
 };
 
@@ -224,21 +222,18 @@ describe('DuplicateDetector component', () => {
   it('CRLF 输入:相同的行不会被拆开,统计正确', () => {
     render(<DuplicateDetector toolId="duplicate_detector" metadata={null as never} />);
     // 模拟 Windows 粘贴的 CRLF 文本(每个 \n 前都有 \r)
-    setTextarea(
-      'dd-input',
-      '12321\r\n12312\r\n12321312\r\n2131231213\r\n12312\r\n12312\r\n12312',
-    );
+    setTextarea('dd-input', '12321\r\n12312\r\n12321312\r\n2131231213\r\n12312\r\n12312\r\n12312');
     // 汇总:总计 7,不重复 3,重复 4
     expect(screen.getByTestId('dd-stat-total')).toHaveTextContent('总计 7');
     expect(screen.getByTestId('dd-stat-unique')).toHaveTextContent('不重复 3');
     expect(screen.getByTestId('dd-stat-dup')).toHaveTextContent('重复 4');
     // 表格:'12312' 只有一行(合并),count=4
     const rows = screen.getByTestId('dd-rows');
-    const values = [...rows.querySelectorAll('[data-testid="dd-row-value"]')].map((el) =>
-      el.textContent,
+    const values = [...rows.querySelectorAll('[data-testid="dd-row-value"]')].map(
+      (el) => el.textContent,
     );
-    const counts = [...rows.querySelectorAll('[data-testid="dd-row-count"]')].map((el) =>
-      el.textContent,
+    const counts = [...rows.querySelectorAll('[data-testid="dd-row-count"]')].map(
+      (el) => el.textContent,
     );
     expect(values.filter((v) => v === '12312')).toHaveLength(1);
     expect(counts[values.indexOf('12312')]).toBe('4');

@@ -71,10 +71,7 @@ export function TabContextMenu({
       <ContextMenuContent className="w-56" data-testid="tab-context-menu">
         {canCompare && (
           <>
-            <ContextMenuItem
-              onSelect={onCompareSelected}
-              data-testid="ctx-compare-selected"
-            >
+            <ContextMenuItem onSelect={onCompareSelected} data-testid="ctx-compare-selected">
               比较所选内容
               <ContextMenuShortcut>{selectedCount} 个文件</ContextMenuShortcut>
             </ContextMenuItem>
@@ -97,10 +94,7 @@ export function TabContextMenu({
           全部关闭
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem
-          onSelect={onTogglePin}
-          data-testid="ctx-toggle-pin"
-        >
+        <ContextMenuItem onSelect={onTogglePin} data-testid="ctx-toggle-pin">
           固定
           {tab.pinned && (
             <Check
@@ -111,18 +105,10 @@ export function TabContextMenu({
           )}
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem
-          onSelect={onRevealInExplorer}
-          disabled={!hasPath}
-          data-testid="ctx-reveal"
-        >
+        <ContextMenuItem onSelect={onRevealInExplorer} disabled={!hasPath} data-testid="ctx-reveal">
           在文件资源管理器中显示
         </ContextMenuItem>
-        <ContextMenuItem
-          onSelect={onCopyPath}
-          disabled={!hasPath}
-          data-testid="ctx-copy-path"
-        >
+        <ContextMenuItem onSelect={onCopyPath} disabled={!hasPath} data-testid="ctx-copy-path">
           复制路径
         </ContextMenuItem>
         <ContextMenuItem disabled data-testid="ctx-copy-relative-path">

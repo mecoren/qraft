@@ -54,13 +54,7 @@ import {
 // ============================================================
 
 export type CatalogCategoryId =
-  | 'encoder'
-  | 'tester'
-  | 'formatter'
-  | 'generator'
-  | 'graphic'
-  | 'text'
-  | 'converter';
+  'encoder' | 'tester' | 'formatter' | 'generator' | 'graphic' | 'text' | 'converter';
 
 export interface CatalogCategory {
   id: CatalogCategoryId;
@@ -457,9 +451,7 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
 ] as const;
 
 /** 仅工具条目(排除设置/扩展等特殊页面) */
-export const TOOL_ONLY_CATALOG: readonly CatalogEntry[] = TOOL_CATALOG.filter(
-  (e) => !e.special,
-);
+export const TOOL_ONLY_CATALOG: readonly CatalogEntry[] = TOOL_CATALOG.filter((e) => !e.special);
 
 const catalogById = new Map<string, CatalogEntry>(TOOL_CATALOG.map((e) => [e.id, e]));
 
@@ -503,10 +495,7 @@ export function groupCatalogByCategory(
  * 侧栏等每次渲染都需要分类列表的场景直接复用此稳定引用,
  * 无需在 render 期重复 filter/groupBy。
  */
-export const CATALOG_BY_CATEGORY: ReadonlyMap<
-  CatalogCategoryId,
-  readonly CatalogEntry[]
-> = (() => {
+export const CATALOG_BY_CATEGORY: ReadonlyMap<CatalogCategoryId, readonly CatalogEntry[]> = (() => {
   const map = new Map<CatalogCategoryId, CatalogEntry[]>();
   for (const c of CATALOG_CATEGORIES) map.set(c.id, []);
   for (const e of TOOL_CATALOG) {

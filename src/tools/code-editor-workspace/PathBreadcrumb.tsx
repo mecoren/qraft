@@ -63,10 +63,7 @@ export function PathBreadcrumb({
             <Fragment key={`${index}-${segment}`}>
               <BreadcrumbItem>
                 {isLast ? (
-                  <BreadcrumbPage
-                    title={segment}
-                    className="truncate font-medium text-foreground"
-                  >
+                  <BreadcrumbPage title={segment} className="truncate font-medium text-foreground">
                     {segment}
                   </BreadcrumbPage>
                 ) : (

@@ -155,7 +155,14 @@ interface NavGroupProps {
   testId?: string;
 }
 
-function NavGroup({ icon, label, expanded, onToggle, children, testId }: NavGroupProps): JSX.Element {
+function NavGroup({
+  icon,
+  label,
+  expanded,
+  onToggle,
+  children,
+  testId,
+}: NavGroupProps): JSX.Element {
   return (
     <div>
       <button
@@ -176,7 +183,10 @@ function NavGroup({ icon, label, expanded, onToggle, children, testId }: NavGrou
         <span className="flex-1 truncate text-left">{label}</span>
         <ChevronRight
           aria-hidden
-          className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-90')}
+          className={cn(
+            'size-3.5 shrink-0 text-muted-foreground transition-transform',
+            expanded && 'rotate-90',
+          )}
         />
       </button>
       {expanded && <div className="mt-0.5 flex flex-col gap-0.5">{children}</div>}
@@ -257,10 +267,7 @@ export function Sidebar(): JSX.Element {
 
   /** 收藏夹条目 */
   const favoriteEntries = useMemo(
-    () =>
-      favorites
-        .map((id) => getCatalogEntry(id))
-        .filter((e): e is CatalogEntry => e !== null),
+    () => favorites.map((id) => getCatalogEntry(id)).filter((e): e is CatalogEntry => e !== null),
     [favorites],
   );
 
@@ -281,7 +288,13 @@ export function Sidebar(): JSX.Element {
         className="flex h-full w-14 shrink-0 flex-col items-center gap-1 border-r border-sidebar-border bg-sidebar-layer py-2 text-sidebar-foreground"
       >
         <RailButton icon={Menu} label="展开侧栏" onClick={toggleSidebar} testId="rail-expand" />
-        <RailButton icon={Home} label="所有工具" active={view === 'welcome'} onClick={goWelcome} testId="rail-home" />
+        <RailButton
+          icon={Home}
+          label="所有工具"
+          active={view === 'welcome'}
+          onClick={goWelcome}
+          testId="rail-home"
+        />
         {defaultEditorEntry && (
           <RailButton
             icon={defaultEditorEntry.icon}

@@ -29,22 +29,14 @@ function indentUnit(mode: IndentMode): string {
 }
 
 function escapeAttr(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/"/g, '&quot;');
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 }
 
 function escapeTextContent(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function serializeNode(
-  node: Node,
-  unit: string,
-  depth: number,
-  attrsOnNewLine: boolean,
-): string {
+function serializeNode(node: Node, unit: string, depth: number, attrsOnNewLine: boolean): string {
   const pad = unit ? unit.repeat(depth) : '';
   const nl = unit ? '\n' : '';
 
@@ -66,17 +58,14 @@ function serializeNode(
   if (attrs.length > 0) {
     if (attrsOnNewLine && unit && attrs.length > 1) {
       const attrPad = unit.repeat(depth + 1);
-      attrText = `\n${attrs
-        .map((a) => `${attrPad}${a.name}="${escapeAttr(a.value)}"`)
-        .join('\n')}`;
+      attrText = `\n${attrs.map((a) => `${attrPad}${a.name}="${escapeAttr(a.value)}"`).join('\n')}`;
     } else {
       attrText = ` ${attrs.map((a) => `${a.name}="${escapeAttr(a.value)}"`).join(' ')}`;
     }
   }
 
   const children = Array.from(el.childNodes).filter(
-    (c) =>
-      c.nodeType !== Node.TEXT_NODE || (c.textContent ?? '').trim().length > 0,
+    (c) => c.nodeType !== Node.TEXT_NODE || (c.textContent ?? '').trim().length > 0,
   );
 
   if (children.length === 0) {
@@ -89,9 +78,7 @@ function serializeNode(
     return `${pad}<${el.tagName}${attrText}>${text}</${el.tagName}>${nl}`;
   }
 
-  const inner = children
-    .map((c) => serializeNode(c, unit, depth + 1, attrsOnNewLine))
-    .join('');
+  const inner = children.map((c) => serializeNode(c, unit, depth + 1, attrsOnNewLine)).join('');
   return `${pad}<${el.tagName}${attrText}>${nl}${inner}${pad}</${el.tagName}>${nl}`;
 }
 

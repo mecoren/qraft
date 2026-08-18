@@ -29,12 +29,7 @@ import type { editor } from 'monaco-editor';
 import { ClipboardPaste, Columns2, FolderOpen, Maximize2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { defineThemeFor, getThemeName, useMonacoTheme } from '@/components/ui/monaco-theme';
 import { readClipboardText } from '@/lib/clipboard';
 import { readFileAsText } from '@/lib/file-utils';
@@ -57,13 +52,9 @@ function summarizeLineChanges(changes: readonly editor.ILineChange[]): DiffStats
   let modified = 0;
   for (const c of changes) {
     const origCount =
-      c.originalStartLineNumber > 0
-        ? c.originalEndLineNumber - c.originalStartLineNumber + 1
-        : 0;
+      c.originalStartLineNumber > 0 ? c.originalEndLineNumber - c.originalStartLineNumber + 1 : 0;
     const modCount =
-      c.modifiedStartLineNumber > 0
-        ? c.modifiedEndLineNumber - c.modifiedStartLineNumber + 1
-        : 0;
+      c.modifiedStartLineNumber > 0 ? c.modifiedEndLineNumber - c.modifiedStartLineNumber + 1 : 0;
     const paired = Math.min(origCount, modCount);
     modified += paired;
     added += modCount - paired;
@@ -330,11 +321,7 @@ export function TextCompare(_props: ToolProps): JSX.Element {
               {renderActionGroup('原始', 'original')}
               {renderActionGroup('修改后', 'modified')}
               <div className="h-4 w-px bg-border" aria-hidden />
-              <ToolbarButton
-                label="全屏查看差异"
-                testId="diff-fullscreen"
-                onClick={openFullscreen}
-              >
+              <ToolbarButton label="全屏查看差异" testId="diff-fullscreen" onClick={openFullscreen}>
                 <Maximize2 aria-hidden className="size-3.5" />
               </ToolbarButton>
             </div>

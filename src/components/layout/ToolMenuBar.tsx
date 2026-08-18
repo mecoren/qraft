@@ -39,10 +39,7 @@ function renderItem(item: ToolMenuItem): JSX.Element {
   // 分隔线优先(item 模式下 type 字段为 'separator' 时即按分隔线渲染)
   if (item.type === 'separator') {
     return (
-      <MenubarSeparator
-        key={`sep-${item.id}`}
-        data-testid={item.testId ?? SEPARATOR_TESTID}
-      />
+      <MenubarSeparator key={`sep-${item.id}`} data-testid={item.testId ?? SEPARATOR_TESTID} />
     );
   }
 

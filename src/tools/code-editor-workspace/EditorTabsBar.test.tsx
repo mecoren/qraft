@@ -90,10 +90,7 @@ describe('EditorTabsBar 对比差异 Tab', () => {
   it('激活的对比 Tab 标记 aria-selected', () => {
     setup({ activeCompareId: 'c1' });
 
-    expect(screen.getByTestId('tabs-compare-tab-c1')).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    expect(screen.getByTestId('tabs-compare-tab-c1')).toHaveAttribute('aria-selected', 'true');
   });
 
   it('点击关闭按钮分发 onCloseCompare,且不触发切换', async () => {
@@ -216,9 +213,7 @@ describe('EditorTabsBar Tab 拖拽排序', () => {
     dispatchPointer('pointermove', src, { clientX: 130, clientY: 0 });
 
     // setDropBeforeId 异步生效,等待重渲染后检查指示线
-    await waitFor(() =>
-      expect(screen.getByTestId('tabs-drop-before-b.ts')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('tabs-drop-before-b.ts')).toBeInTheDocument());
   });
 
   it('被拖拽 Tab 添加半透明样式', async () => {

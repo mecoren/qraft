@@ -11,13 +11,7 @@ import { Label } from '@/components/ui/label';
 import { FontPicker } from '@/components/ui/font-picker';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useConfigStore } from '@/store/configStore';
 import type { ShortcutBinding } from '@/types/config';
 import {
@@ -44,10 +38,7 @@ import {
   getStoredFontWeightLevel,
 } from '@/lib/theme';
 import { listSystemFonts, type FontInfo } from '@/lib/fonts';
-import {
-  buildFontFamilyOptions,
-  type FontFamilyOption,
-} from '@/lib/fontFamilies';
+import { buildFontFamilyOptions, type FontFamilyOption } from '@/lib/fontFamilies';
 import { cn } from '@/lib/utils';
 
 const SHORTCUT_KEYS: Array<{ key: keyof ShortcutBinding; label: string }> = [
@@ -189,9 +180,7 @@ function ThemeCard({ label, preview, selected, onSelect }: ThemeCardProps) {
       aria-pressed={selected}
       className={cn(
         'flex flex-col gap-2 rounded-md border p-3 text-left transition-colors',
-        selected
-          ? 'border-primary ring-2 ring-primary/20'
-          : 'border-input hover:bg-accent/50',
+        selected ? 'border-primary ring-2 ring-primary/20' : 'border-input hover:bg-accent/50',
       )}
     >
       <div className="flex h-12 gap-1 overflow-hidden rounded">
@@ -392,7 +381,8 @@ export function FontSection() {
           字体
         </CardTitle>
         <CardDescription>
-          选择界面字体与代码字体，设置自动缓存。代码字体作用于 SQL 编辑器、AI 代码块、日志、DDL 与数据表等宽内容。
+          选择界面字体与代码字体，设置自动缓存。代码字体作用于 SQL 编辑器、AI 代码块、日志、DDL
+          与数据表等宽内容。
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -485,9 +475,7 @@ export function FontSection() {
           <div style={previewStyle} className="flex flex-col gap-1">
             <p className="text-lg">The quick brown fox jumps over the lazy dog</p>
             <p className="text-lg">敏捷的棕色狐狸跳过了懒狗的背</p>
-            <p className="text-sm text-muted-foreground">
-              0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ
-            </p>
+            <p className="text-sm text-muted-foreground">0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ</p>
           </div>
         </div>
 
@@ -533,8 +521,7 @@ export function GeneralSection(): JSX.Element {
       maxHistory: config.general.maxHistory,
       // jsonIndent 来自 toolPrefs.json_formatter.values.indent,缺省 2
       // 用可选链保护 toolPrefs 本身,防止旧配置缺少该字段时崩溃
-      jsonIndent:
-        (config.toolPrefs?.['json_formatter']?.values?.indent as number | undefined) ?? 2,
+      jsonIndent: (config.toolPrefs?.['json_formatter']?.values?.indent as number | undefined) ?? 2,
       confirmOnClear: config.general.confirmOnClear,
     });
   }, [config, form]);
@@ -582,11 +569,7 @@ export function GeneralSection(): JSX.Element {
           </div>
 
           <div className="flex items-center gap-2">
-            <input
-              id="confirmOnClear"
-              type="checkbox"
-              {...form.register('confirmOnClear')}
-            />
+            <input id="confirmOnClear" type="checkbox" {...form.register('confirmOnClear')} />
             <Label htmlFor="confirmOnClear">清空前确认</Label>
           </div>
         </CardContent>

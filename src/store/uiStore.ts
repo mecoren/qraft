@@ -119,5 +119,4 @@ export const useUiStore = create<UiState>()(
 );
 
 /** 选择器:判断工具是否已收藏(供组件订阅) */
-export const selectIsFavorite = (toolId: string) => (s: UiState) =>
-  s.favorites.includes(toolId);
+export const selectIsFavorite = (toolId: string) => (s: UiState) => s.favorites.includes(toolId);
