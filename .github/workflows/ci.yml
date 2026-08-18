@@ -201,11 +201,7 @@ jobs:
           # 导致写入失败并以 "Couldn't load Cargo.lock" 误报。显式创建目录。
           mkdir -p target
 
-          # quick-xml 的两条高危 advisory 来自 Tauri 传递依赖 plist,项目无法
-          # 升级修复(plist 已被 Tauri 锁定且无可用更新),故显式忽略;GTK3 等
-          # unmaintained 警告不影响退出码。
+          # quick-xml 的两条高危 advisory 已在 src-tauri/audit.toml 中豁免;
+          # GTK3 等 unmaintained 警告不阻断(不使用 --deny warnings)。
           # 用绝对路径 --file 指向 src-tauri/Cargo.lock,避免任何目录解析歧义。
-          cargo audit \
-            --file "$(pwd)/Cargo.lock" \
-            --ignore RUSTSEC-2026-0194 \
-            --ignore RUSTSEC-2026-0195
+          cargo audit --file "$(pwd)/Cargo.lock"
