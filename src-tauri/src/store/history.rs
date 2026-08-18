@@ -72,10 +72,7 @@ impl JsonlHistoryStore {
             Ok(c) => c,
             Err(_) => return,
         };
-        let lines: Vec<&str> = content
-            .lines()
-            .filter(|l| !l.trim().is_empty())
-            .collect();
+        let lines: Vec<&str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
         if lines.len() <= max {
             *self.line_count.write() = lines.len();
             return;
@@ -278,7 +275,8 @@ mod tests {
     async fn test_persistence_across_instances() {
         let (_tmp, path) = temp_history_path();
         {
-            let store = JsonlHistoryStore::new(path.clone(), Arc::new(TestConfigStore { max_history: 0 }));
+            let store =
+                JsonlHistoryStore::new(path.clone(), Arc::new(TestConfigStore { max_history: 0 }));
             store.add(sample_entry("persisted", 999)).await.unwrap();
         }
         let store2 = JsonlHistoryStore::new(path, Arc::new(TestConfigStore { max_history: 0 }));
@@ -297,7 +295,10 @@ mod tests {
         }
         let list = store.list(200).await.unwrap();
         // 文件行数被裁剪收敛, 远小于写入的 1000 条
-        assert!(list.len() <= 50 * TRIM_FACTOR, "file trimmed to <= max*TRIM_FACTOR");
+        assert!(
+            list.len() <= 50 * TRIM_FACTOR,
+            "file trimmed to <= max*TRIM_FACTOR"
+        );
         assert!(list.len() >= 50, "keep at least the most recent 50");
         assert_eq!(list[0].timestamp, 999, "most recent first");
         // 保留的是最近一批条目(时间戳接近 999)

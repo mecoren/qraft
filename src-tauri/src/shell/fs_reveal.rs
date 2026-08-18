@@ -47,7 +47,10 @@ pub fn parent_dir_of(path: &str) -> String {
 pub fn reveal_command_for_platform(path: &str) -> (String, Vec<String>) {
     if cfg!(target_os = "macos") {
         // macOS:open -R 在 Finder 中定位并选中文件
-        (String::from("open"), vec![String::from("-R"), path.to_string()])
+        (
+            String::from("open"),
+            vec![String::from("-R"), path.to_string()],
+        )
     } else {
         // Linux: 打开父目录;xdg-open 不保证定位选中文件,能打开目录即可
         let parent = parent_dir_of(path);
@@ -76,13 +79,13 @@ mod windows {
     use std::path::Path;
     use std::process::Command;
 
-    use windows::core::PCWSTR;
     use windows::Win32::System::Registry::{
         HKEY, HKEY_CLASSES_ROOT, KEY_READ, REG_EXPAND_SZ, REG_SZ, REG_VALUE_TYPE, RegCloseKey,
         RegOpenKeyExW, RegQueryValueExW,
     };
     use windows::Win32::UI::Shell::ShellExecuteW;
     use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    use windows::core::PCWSTR;
 
     use crate::shell::AppError;
 
@@ -107,9 +110,7 @@ mod windows {
     /// 键不存在 / 无默认值 / 类型不符 / 读取失败时返回 `None`。
     #[must_use]
     fn query_open_command_default(subkey: &str) -> Option<String> {
-        let wide_key: Vec<u16> = (String::from(subkey) + "\0")
-            .encode_utf16()
-            .collect();
+        let wide_key: Vec<u16> = (String::from(subkey) + "\0").encode_utf16().collect();
         let mut key = HKEY(std::ptr::null_mut());
         // SAFETY:
         // - wide_key 为 NUL 结尾的 UTF-16 字符串,满足 RegOpenKeyExW 的契约;
@@ -130,16 +131,8 @@ mod windows {
 
         // 第一次调用查询默认值大小(字节数,含结尾 NUL)
         let mut size: u32 = 0;
-        let err = unsafe {
-            RegQueryValueExW(
-                key,
-                PCWSTR::null(),
-                None,
-                None,
-                None,
-                Some(&mut size),
-            )
-        };
+        let err =
+            unsafe { RegQueryValueExW(key, PCWSTR::null(), None, None, None, Some(&mut size)) };
         if err.0 != 0 || size == 0 {
             // SAFETY: key 已由上面 RegOpenKeyExW 成功打开,此处必须关闭。
             let _ = unsafe { RegCloseKey(key) };
@@ -273,7 +266,9 @@ mod windows {
             assert!(command_refers_to_explorer("  "));
             assert!(command_refers_to_explorer("%SystemRoot%\\Explorer.exe"));
             assert!(command_refers_to_explorer(r"C:\Windows\explorer.exe"));
-            assert!(command_refers_to_explorer(r#""C:\Windows\explorer.exe" "%1""#));
+            assert!(command_refers_to_explorer(
+                r#""C:\Windows\explorer.exe" "%1""#
+            ));
             // 大小写不敏感
             assert!(command_refers_to_explorer(r"C:\WINDOWS\EXPLORER.EXE"));
         }

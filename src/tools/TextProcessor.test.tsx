@@ -219,49 +219,79 @@ describe('TextProcessor component', () => {
     expect(screen.getByTestId('textproc-btn-urlEncode')).toBeDisabled();
   });
 
-  it('escape button replaces input text with escaped result and mirrors output', () => {
+  it('escape button writes escaped result to output and keeps input intact', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     fireEvent.change(getInput(), { target: { value: 'a\nb' } });
     fireEvent.click(screen.getByTestId('textproc-btn-escape'));
-    expect(getInput().value).toBe('a\\nb');
+    expect(getInput().value).toBe('a\nb');
     const output = screen
       .getByTestId('output')
       .querySelector('textarea')!.value;
     expect(output).toBe('a\\nb');
   });
 
-  it('stripWhitespace button removes all whitespace from input', () => {
+  it('stripWhitespace button writes stripped result to output and keeps input intact', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     fireEvent.change(getInput(), { target: { value: '  hello\n world\t!  ' } });
     fireEvent.click(screen.getByTestId('textproc-btn-stripWhitespace'));
-    expect(getInput().value).toBe('helloworld!');
+    expect(getInput().value).toBe('  hello\n world\t!  ');
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(
+      'helloworld!',
+    );
   });
 
-  it('urlEncode then urlDecode roundtrips input', () => {
+  it('urlEncode then urlDecode each write their result to output (input unchanged)', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     const original = 'hi 你';
     fireEvent.change(getInput(), { target: { value: original } });
     fireEvent.click(screen.getByTestId('textproc-btn-urlEncode'));
-    expect(getInput().value).toBe(urlEncode(original));
+    expect(getInput().value).toBe(original);
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(
+      urlEncode(original),
+    );
     fireEvent.click(screen.getByTestId('textproc-btn-urlDecode'));
     expect(getInput().value).toBe(original);
+    // urlDecode acts on the input; since the input is not percent-encoded, its
+    // result equals the (unchanged) input, so the transform is a no-op and the
+    // existing encoded output is left untouched.
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(
+      urlEncode(original),
+    );
   });
 
   it('chineseSymbolToEnglish button replaces punctuation in place', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     fireEvent.change(getInput(), { target: { value: '你好，世界。' } });
     fireEvent.click(screen.getByTestId('textproc-btn-chineseSymbolToEnglish'));
-    expect(getInput().value).toBe(chineseSymbolToEnglish('你好，世界。'));
+    expect(getInput().value).toBe('你好，世界。');
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(
+      chineseSymbolToEnglish('你好，世界。'),
+    );
   });
 
-  it('chineseToUnicode then unicodeToChinese roundtrips input', () => {
+  it('chineseToUnicode writes \\uXXXX to output and keeps input intact', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     const original = '你好';
     fireEvent.change(getInput(), { target: { value: original } });
     fireEvent.click(screen.getByTestId('textproc-btn-chineseToUnicode'));
-    expect(getInput().value).toBe(chineseToUnicode(original));
-    fireEvent.click(screen.getByTestId('textproc-btn-unicodeToChinese'));
     expect(getInput().value).toBe(original);
+    const output = screen.getByTestId('output').querySelector('textarea')!;
+    expect(output.value).toBe(chineseToUnicode(original));
+    // unicodeToChinese acts on the input; since its result equals the (unchanged)
+    // input, the transform is a no-op and the existing output is left untouched.
+    fireEvent.click(screen.getByTestId('textproc-btn-unicodeToChinese'));
+    expect(output.value).toBe(chineseToUnicode(original));
+  });
+
+  it('urlDecode decodes a percent-encoded input into the output', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    const encoded = 'hi%20%E4%BD%A0';
+    fireEvent.change(getInput(), { target: { value: encoded } });
+    fireEvent.click(screen.getByTestId('textproc-btn-urlDecode'));
+    expect(getInput().value).toBe(encoded);
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(
+      urlDecode(encoded),
+    );
   });
 
   it('shows 0-character counts in both status bars when empty', () => {

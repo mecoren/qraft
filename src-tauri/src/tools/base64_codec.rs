@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use base64::Engine;
-use base64::engine::general_purpose::{STANDARD, URL_SAFE};
 use base64::engine::general_purpose::GeneralPurpose;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE};
 use std::time::Instant;
 
 use crate::core::context::ToolContext;
@@ -103,8 +103,8 @@ fn encode(text: &str, mode: &str, engine: &GeneralPurpose) -> Result<String, Too
         "text" => Ok(engine.encode(text.as_bytes())),
         "hex" => {
             let cleaned = text.split_whitespace().collect::<String>();
-            let bytes =
-                hex::decode(&cleaned).map_err(|e| ToolError::ParseFailed(format!("invalid hex: {e}")))?;
+            let bytes = hex::decode(&cleaned)
+                .map_err(|e| ToolError::ParseFailed(format!("invalid hex: {e}")))?;
             Ok(engine.encode(bytes))
         }
         other => Err(ToolError::InvalidInput(format!(
@@ -145,9 +145,7 @@ fn decode(
             let cleaned = strip_basic_prefix(text);
             let bytes = decode_base64(engine, cleaned)?;
             let decoded = String::from_utf8(bytes).map_err(|e| {
-                ToolError::ParseFailed(format!(
-                    "decoded basic auth credentials are not utf8: {e}"
-                ))
+                ToolError::ParseFailed(format!("decoded basic auth credentials are not utf8: {e}"))
             })?;
             Ok((decoded, None))
         }
@@ -198,14 +196,15 @@ impl Tool for Base64Codec {
             }
         };
 
-        let output_bytes = extra
-            .as_ref()
-            .and_then(|e| e["bytes"].as_u64())
-            .map_or(out_text.len(), |bytes| {
-                #[allow(clippy::cast_possible_truncation)]
-                let size = bytes as usize;
-                size
-            });
+        let output_bytes =
+            extra
+                .as_ref()
+                .and_then(|e| e["bytes"].as_u64())
+                .map_or(out_text.len(), |bytes| {
+                    #[allow(clippy::cast_possible_truncation)]
+                    let size = bytes as usize;
+                    size
+                });
 
         Ok(ToolOutput {
             text: out_text,
@@ -419,7 +418,8 @@ mod tests {
     async fn test_decode_hex_upper() {
         let tool = Base64Codec::new();
         let ctx = mock_context();
-        let input = make_input_with_mode("SGVsbG8=", "decode", "hex", &[("hex_case", json!("upper"))]);
+        let input =
+            make_input_with_mode("SGVsbG8=", "decode", "hex", &[("hex_case", json!("upper"))]);
 
         let output = tool.execute(input, &ctx).await.unwrap();
 
@@ -492,8 +492,12 @@ mod tests {
     async fn test_decode_binary_strips_data_url_prefix() {
         let tool = Base64Codec::new();
         let ctx = mock_context();
-        let input =
-            make_input_with_mode("data:image/png;base64,iVBORw0KGgo=", "decode", "binary", &[]);
+        let input = make_input_with_mode(
+            "data:image/png;base64,iVBORw0KGgo=",
+            "decode",
+            "binary",
+            &[],
+        );
 
         let output = tool.execute(input, &ctx).await.unwrap();
 

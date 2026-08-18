@@ -35,7 +35,8 @@ pub struct FontInfo {
 /// - 非 Windows 平台:恒返回空列表,不会报错
 #[tauri::command]
 pub fn list_system_fonts() -> Result<Vec<FontInfo>, AppError> {
-    enumerate_fonts().map_err(|e| AppError::Internal(anyhow::anyhow!("enumerate fonts failed: {e}")))
+    enumerate_fonts()
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("enumerate fonts failed: {e}")))
 }
 
 // ============ 平台实现 ============
@@ -45,8 +46,8 @@ mod win {
     use std::collections::HashSet;
 
     use windows::Win32::Graphics::DirectWrite::{
-        DWriteCreateFactory, IDWriteFactory, IDWriteFontCollection, IDWriteFontFamily,
-        IDWriteLocalizedStrings, DWRITE_FACTORY_TYPE_SHARED,
+        DWRITE_FACTORY_TYPE_SHARED, DWriteCreateFactory, IDWriteFactory, IDWriteFontCollection,
+        IDWriteFontFamily, IDWriteLocalizedStrings,
     };
 
     /// 枚举系统字体(Windows DirectWrite 实现)

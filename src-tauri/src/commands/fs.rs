@@ -113,9 +113,7 @@ pub async fn fs_write_file_inner(
 ///
 /// - 文件写入失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 pub async fn save_bytes_to_path(path: &str, bytes: &[u8]) -> Result<(), AppError> {
-    tokio::fs::write(path, bytes)
-        .await
-        .map_err(AppError::from)
+    tokio::fs::write(path, bytes).await.map_err(AppError::from)
 }
 
 /// 校验文件扩展名与 MIME 的映射关系,返回规范扩展名(未匹配时返回 `bin`)
@@ -384,7 +382,10 @@ mod tests {
     #[test]
     fn test_extension_for_mime_with_params_and_unknown() {
         // 带 charset 参数的 MIME
-        assert_eq!(extension_for_mime("image/svg+xml;charset=utf-8", "bin"), "svg");
+        assert_eq!(
+            extension_for_mime("image/svg+xml;charset=utf-8", "bin"),
+            "svg"
+        );
         // 未知 MIME 使用回退扩展名
         assert_eq!(extension_for_mime("application/octet-stream", "dat"), "dat");
     }

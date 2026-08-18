@@ -368,6 +368,9 @@ mod tests {
     fn sanitize_strips_windows_long_path_prefix() {
         assert_eq!(sanitize_dropped_path(r"\\?\C:\a\b.txt"), r"C:\a\b.txt");
         assert_eq!(sanitize_dropped_path(r"C:\a\b.txt"), r"C:\a\b.txt");
-        assert_eq!(sanitize_dropped_path("/home/user/a.txt"), "/home/user/a.txt");
+        assert_eq!(
+            sanitize_dropped_path("/home/user/a.txt"),
+            "/home/user/a.txt"
+        );
     }
 }
