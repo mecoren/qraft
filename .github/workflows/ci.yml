@@ -185,18 +185,13 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache cargo-audit
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/cargo-audit
-          key: cargo-audit-bin
-
       - name: cargo audit
         working-directory: ./src-tauri
+        env:
+          CARGO_AUDIT_VERSION: "0.21.1"
         run: |
-          if ! command -v cargo-audit >/dev/null 2>&1; then
-            cargo install cargo-audit --locked
-          fi
+          # 固定版本安装,避免复用缓存中不可控的旧二进制导致 "Couldn't load Cargo.lock"。
+          cargo install cargo-audit --version "${CARGO_AUDIT_VERSION}" --locked
           # quick-xml 的两条高危 advisory 来自 Tauri 传递依赖 plist,项目无法
           # 升级修复(plist 已被 Tauri 锁定且无可用更新),故显式忽略;GTK3 等
           # unmaintained 警告不影响退出码。
