@@ -190,14 +190,26 @@ jobs:
         env:
           CARGO_AUDIT_VERSION: "0.21.1"
         run: |
+          set -euo pipefail
           # 固定版本安装,避免复用缓存中不可控的旧二进制导致 "Couldn't load Cargo.lock"。
           cargo install cargo-audit --version "${CARGO_AUDIT_VERSION}" --locked
+
+          # —— 调试:确认 lock 文件真实落地 ——
+          echo "PWD = $(pwd)"
+          ls -la Cargo.lock || echo "!!! Cargo.lock MISSING in src-tauri"
+          echo "--- repo root check ---"
+          ls -la ../Cargo.lock 2>/dev/null || echo "(no Cargo.lock at repo root — expected)"
+
+          # cargo-audit 在解析 Cargo.lock 后,会向 target/ 目录写入缓存/SBOM。
+          # CI fresh checkout 后 src-tauri/target 不存在(被 gitignore),
+          # 导致写入失败并以 "Couldn't load Cargo.lock" 误报。显式创建目录。
+          mkdir -p target
+
           # quick-xml 的两条高危 advisory 来自 Tauri 传递依赖 plist,项目无法
           # 升级修复(plist 已被 Tauri 锁定且无可用更新),故显式忽略;GTK3 等
           # unmaintained 警告不影响退出码。
-          # 显式指定 --file 指向 src-tauri/Cargo.lock,避免 cargo-audit 沿目录
-          # 向上解析到仓库根(前端项目无 Cargo.lock)导致 "Couldn't load Cargo.lock"。
+          # 用绝对路径 --file 指向 src-tauri/Cargo.lock,避免任何目录解析歧义。
           cargo audit \
-            --file Cargo.lock \
+            --file "$(pwd)/Cargo.lock" \
             --ignore RUSTSEC-2026-0194 \
             --ignore RUSTSEC-2026-0195
