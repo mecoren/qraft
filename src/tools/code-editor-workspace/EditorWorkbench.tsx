@@ -627,9 +627,11 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     <TooltipProvider delayDuration={200}>
       <div className="flex h-full flex-col bg-background-layer" data-testid="editor-workbench">
       <div className="flex h-full min-h-0 w-full min-w-0 flex-1 gap-1 overflow-hidden" data-testid="editor-split">
-        {/* 左栏卡片:固定像素宽度,由 sidebarWidth(持久化)控制,收起时宽度 0 */}
+        {/* 左栏卡片:固定像素宽度,由 sidebarWidth(持久化)控制,收起时宽度 0。
+            @container/sidebar:注册命名容器,侧栏缩窄时内部标题栏可按容器宽度
+            压缩间距(padding/gap),保证徽章与悬浮按钮组都能完整显示不被裁切。 */}
         <div
-          className="h-full shrink-0 overflow-hidden rounded-lg border border-border bg-sidebar shadow-sm transition-shadow"
+          className="h-full shrink-0 overflow-hidden rounded-lg border border-border bg-sidebar shadow-sm transition-shadow @container/sidebar"
           style={{ width: workspace.leftSidebarVisible ? `${workspace.sidebarWidth}px` : 0 }}
         >
           <EditorLeftSidebar
