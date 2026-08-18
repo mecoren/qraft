@@ -1055,39 +1055,7 @@
   -webkit-backdrop-filter: blur(20px) saturate(125%);
 }
 
-/* ============================================================
- * Sonner toast 容器 —— 固定在页面右上方
- *
- * 目标:把全局 toast 提示固定在页面 **右上方**(与 shadcn
- * Radix Alert 在工具栏右上角展示的语义一致),覆盖 sonner
- * 默认的 bottom-right,避免 HMR / 多次挂载遗留定位偏差。
- *
- * 选择器策略:
- * - sonner 用 `[data-sonner-toaster][data-y-position=...][data-x-position=...]`
- *   配合 CSS 变量 `top/bottom/left/right: var(--offset-...)` 来定位;
- * - 我们用相同 specificity 但靠后的规则,强制外层 ol 永远贴在
- *   右上角,同时把 bottom/left 清零。
- * ============================================================ */
-[data-sonner-toaster][data-y-position][data-x-position] {
-  bottom: auto !important;
-  left: auto !important;
-  /* 自定义标题栏 32px + 12px 呼吸空间 = 44px,符合右上角视觉 */
-  top: 44px !important;
-  right: var(--offset-right) !important;
-  margin: 0 !important;
-}
 
-/* —— 强制 top 语义的堆叠方向:新 toast 在上、hover 后向下展开 —— */
-[data-sonner-toast] {
-  /* sonner 依据 DOM 上的 data-y-position 决定 --lift(top=1 向下 / bottom=-1 向上);
-   * 若容器因 HMR 残留 data-y-position="bottom",hover 展开方向会反(向上长),
-   * 这里用 !important 统一强制为向下,与右上角定位逻辑一致。
-   * 注意:不要覆盖 --y —— mounted / expanded / removed 的位移由 sonner
-   * 内部状态机控制,否则 hover 展开偏移会失效。 */
-  --lift: 1 !important;
-  top: 0 !important;
-  bottom: auto !important;
-}
 
 
 
