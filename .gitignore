@@ -6,6 +6,10 @@ dist/
 dist-ssr/
 *.local
 
+# Monaco editor assets — 由 scripts/copy-monaco.mjs 在 dev/build 前
+# 从 node_modules/monaco-editor 重新生成,不纳入版本控制。
+public/monaco/
+
 # Rust / Tauri
 src-tauri/target/
 src-tauri/gen/

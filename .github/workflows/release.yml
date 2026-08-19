@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Build without publishing'
+        description: 'Build without publishing (only produces artifacts)'
         required: false
         default: false
         type: boolean
@@ -170,29 +170,168 @@ jobs:
       - name: Build Tauri app
         run: pnpm tauri build --target ${{ matrix.rust-target }} --verbose
 
+      # ──────────────────────────────────────────────────────────────────────
+      # 打包并按 {AppName}-{Version}-{OS}-{Arch}[-{Variant}].{ext} 重命名产物。
+      # 所有最终发布的文件集中到仓库根的 dist/ 目录后再上传;bundle/ 内的
+      # AppDir/解包文件不再打包(避免成千上万中间文件触发 secondary rate limit)。
+      # Updater 签名基于文件内容:重命名/重新封装均不改字节,签名仍可校验。
+      # ──────────────────────────────────────────────────────────────────────
+      - name: Package and rename artifacts (Linux/macOS)
+        if: matrix.platform != 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # 1) 取版本号: tag 推送时直接来自 GITHUB_REF_NAME(去掉 v 前缀);
+          #    workflow_dispatch 时回退到 Cargo.toml。
+          VER="${GITHUB_REF_NAME#v}"
+          if [ -z "$VER" ]; then
+            VER=$(awk -F'"' '/^version/{print $2; exit}' src-tauri/Cargo.toml)
+          fi
+
+          APP="Qraft"
+          RUST_TARGET="${{ matrix.rust-target }}"
+          PLAT="${{ matrix.platform }}"
+          ARCH_RAW="${{ matrix.arch }}"
+
+          # 2) 平台/架构命名映射:matrix 给出的是小写,文件名采用
+          #    大写首字母 + 规范后的 Amd64/Arm64。
+          case "$PLAT" in
+            linux) OS="Linux" ;;
+            macos) OS="MacOS" ;;
+            *)     OS="$(tr '[:lower:]' '[:upper:]' <<< "${PLAT:0:1}")${PLAT:1}" ;;
+          esac
+          case "$ARCH_RAW" in
+            x64)   ARCH="Amd64" ;;
+            arm64) ARCH="Arm64" ;;
+            *)     ARCH="$ARCH_RAW" ;;
+          esac
+
+          BASE="${APP}-${VER}-${OS}-${ARCH}"
+          DIST="dist"
+          BUNDLE="src-tauri/target/${RUST_TARGET}/release/bundle"
+
+          rm -rf "$DIST"
+          mkdir -p "$DIST"
+
+          case "$PLAT" in
+            linux)
+              # Linux 主分发:AppImage -> 重命名 -> 重新打成 tar.gz。
+              APPIMAGE_FILE=$(find "$BUNDLE/appimage" -maxdepth 1 -type f -name '*.AppImage' | head -1 || true)
+              if [ -n "$APPIMAGE_FILE" ]; then
+                cp "$APPIMAGE_FILE" "$DIST/${BASE}.AppImage"
+                chmod +x "$DIST/${BASE}.AppImage"
+
+                # 主产物:包含 AppImage 的 tar.gz,供手动下载分发
+                (cd "$DIST" && tar -czf "${BASE}.tar.gz" "${BASE}.AppImage")
+
+                # WebKit41 变体:项目依赖锁定为 libwebkit2gtk-4.1-0,
+                # 此处用同名内容 + 后缀标记,方便用户按文件名挑拣。
+                cp "$DIST/${BASE}.tar.gz" "$DIST/${BASE}-WebKit41.tar.gz"
+              else
+                echo "::warning::No AppImage found under $BUNDLE/appimage; Linux artifacts will be empty."
+              fi
+              ;;
+            macos)
+              # macOS 主分发:Apple 磁盘映像 dmg。
+              DMG_FILE=$(find "$BUNDLE/dmg" -maxdepth 1 -type f -name '*.dmg' | head -1 || true)
+              if [ -n "$DMG_FILE" ]; then
+                cp "$DMG_FILE" "$DIST/${BASE}.dmg"
+              else
+                echo "::warning::No DMG found under $BUNDLE/dmg; macOS artifact will be empty."
+              fi
+              ;;
+          esac
+
+          # 3) Updater 签名(.sig 基于文件内容,重命名后仍可验证);
+          #    保留 Tauri 默认命名以便与 updater manifest 端约定对齐。
+          find "$BUNDLE" -type f -name '*.sig' | while read -r f; do
+            cp "$f" "$DIST/"
+          done
+
+          # 4) SBOM 一并入包
+          if [ -f "sbom-${{ matrix.platform }}-${{ matrix.arch }}.cdx.json" ]; then
+            cp "sbom-${{ matrix.platform }}-${{ matrix.arch }}.cdx.json" "$DIST/${BASE}.sbom.cdx.json"
+          fi
+
+          echo "──── dist/ contents ────"
+          ls -lah "$DIST" || true
+
+      - name: Package and rename artifacts (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # 1) 取版本号
+          $ver = $env:GITHUB_REF_NAME -replace '^v',''
+          if (-not $ver) {
+            $ver = (Get-Content src-tauri/Cargo.toml |
+                    Select-String -Pattern '^version' |
+                    Select-Object -First 1).ToString().Split('"')[1]
+          }
+
+          $app        = 'Qraft'
+          $osLabel    = 'Windows'
+          $archRaw    = '${{ matrix.arch }}'
+          $archLabel  = if ($archRaw -eq 'x64') { 'Amd64' } else { 'Arm64' }
+          $rustTarget = '${{ matrix.rust-target }}'
+          $base       = "$app-$ver-$osLabel-$archLabel"
+          $dist       = 'dist'
+          $bundleDir  = "src-tauri/target/$rustTarget/release/bundle"
+          $releaseDir = "src-tauri/target/$rustTarget/release"
+
+          if (Test-Path $dist) { Remove-Item -Recurse -Force $dist }
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+
+          # 2) MSI 安装包(来自 WiX 打包器)
+          $msi = Get-ChildItem "$bundleDir/msi" -Filter '*.msi' -ErrorAction SilentlyContinue |
+                 Select-Object -First 1
+          if ($msi) {
+            Copy-Item $msi.FullName "$dist/$base-Installer.msi"
+          } else {
+            Write-Warning "No MSI found under $bundleDir/msi"
+          }
+
+          # 3) Portable:直接复用 target/<triple>/release/qraft.exe(无 NSIS 安装器介入)
+          $exe = "$releaseDir/$app.exe"
+          if (Test-Path $exe) {
+            Copy-Item $exe "$dist/$base-Portable.exe"
+            # Portable.zip:压一个 exe 即可独立运行;不加目录壳避免 zip-slip 风险
+            Compress-Archive -Path $exe -DestinationPath "$dist/$base-Portable.zip" -Force
+          } else {
+            Write-Warning "No raw exe found at $exe"
+          }
+
+          # 4) Updater 签名(基于文件内容,重命名后仍可校验)
+          Get-ChildItem "$bundleDir" -Recurse -Filter '*.sig' -ErrorAction SilentlyContinue |
+            ForEach-Object {
+              Copy-Item $_.FullName "$dist/$($_.Name)"
+            }
+
+          # 5) SBOM
+          $sbom = "sbom-${{ matrix.platform }}-${{ matrix.arch }}.cdx.json"
+          if (Test-Path $sbom) {
+            Copy-Item $sbom "$dist/$base.sbom.cdx.json"
+          }
+
+          Write-Host "──── dist/ contents ────"
+          Get-ChildItem $dist | Select-Object Name, Length | Format-Table -AutoSize
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: qraft-${{ matrix.platform }}-${{ matrix.arch }}
-          # 只上传最终安装包与签名文件。bundle/ 目录还包含 AppImage 解包目录
-          # (Qraft.AppDir)与 deb/rpm 的解包文件,若用 **/* 会把数千个中间文件
-          # 一并带到 GitHub Release,触发 secondary rate limit。
-          path: |
-            src-tauri/target/${{ matrix.rust-target }}/release/bundle/**/*.AppImage
-            src-tauri/target/${{ matrix.rust-target }}/release/bundle/**/*.deb
-            src-tauri/target/${{ matrix.rust-target }}/release/bundle/**/*.rpm
-            src-tauri/target/${{ matrix.rust-target }}/release/bundle/**/*.dmg
-            src-tauri/target/${{ matrix.rust-target }}/release/bundle/**/*.exe
-            src-tauri/target/${{ matrix.rust-target }}/release/bundle/**/*.msi
-            src-tauri/target/${{ matrix.rust-target }}/release/bundle/**/*.sig
-            sbom-${{ matrix.platform }}-${{ matrix.arch }}.cdx.json
-          if-no-files-found: warn
+          # 只上传经过 dist/ 中转后的最终产物。
+          # bundle/ 下还有 AppDir/解包中间文件,避免触发 secondary rate limit。
+          path: dist/**
+          if-no-files-found: error
           retention-days: 7
 
   publish:
     name: Publish release
     needs: [build]
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != 'true'
     runs-on: ubuntu-22.04
     permissions:
       contents: write

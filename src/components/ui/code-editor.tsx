@@ -12,7 +12,9 @@
  *   细滚动条、平滑滚动、光标平滑动画等。
  *
  * 设计说明:
- * - Monaco 通过 CDN 加载,避免 vite 打包体积膨胀。
+ * - Monaco 走本地 `public/monaco/vs`(由 scripts/copy-monaco.mjs 在 dev/build 前同步)。
+ *   这样既符合 local-first 语义,又不会被生产 CSP script-src 'self' 拦掉跨域 CDN。
+ *   loader.config() 在 main.tsx 启动阶段调用,这里无需关心加载路径。
  * - automaticLayout 自适应父容器尺寸变化(配合 ResizablePanel 拖拽)。
  * - 主题在 beforeMount 时定义,并在 data-palette 变化时重新定义并切换,
  *   因此切换主题无需重挂载编辑器。

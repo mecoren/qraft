@@ -26,8 +26,8 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data:; media-src 'self' data: blob:; frame-src 'self' data: blob:; style-src 'self'; script-src 'self'",
-      "devCsp": "default-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data:; media-src 'self' data: blob:; frame-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval'; connect-src 'self' ws://localhost:1420 http://localhost:1420"
+      "csp": "default-src 'self'; img-src 'self' data:; media-src 'self' data: blob:; frame-src 'self' data: blob:; style-src 'self'; script-src 'self'; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost",
+      "devCsp": "default-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data:; media-src 'self' data: blob:; frame-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; worker-src 'self' blob:; connect-src 'self' ws://localhost:1420 http://localhost:1420 ipc: http://ipc.localhost"
     }
   },
   "bundle": {
@@ -86,7 +86,7 @@
         "role": "Editor"
       },
       {
-        "ext": ["js", "ts", "jsx", "tsx", "css", "html", "htm", "py", "rs", "go", "java", "c", "h", "cpp", "hpp", "sh", "bash", "sql", "vue", "svelte"],
+        "ext": ["js", "ts", "jsx", "tsx", "py", "rs", "go", "java", "c", "h", "cpp", "hpp", "sh", "bash", "sql", "vue", "svelte"],
         "name": "Source Code File",
         "description": "Source code files",
         "mimeType": "text/plain",
