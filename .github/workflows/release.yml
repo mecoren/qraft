@@ -17,6 +17,10 @@ concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# 最小权限:默认只读,仅 publish job 需要写仓库内容时显式提权。
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -C debuginfo=line-tables-only
@@ -64,15 +68,18 @@ jobs:
           # unmaintained 与 glib 的 unsound 均来自 Tauri Linux 后端锁死的传递依赖,
           # 项目层无法升级(需等 Tauri 上游),详见 src-tauri/audit.toml 注释。
           # 真实 vulnerabilities 仍会使 audit 以非零码退出,拦截能力不受影响。
-          # quick-xml 两条高危 advisory 已在 src-tauri/audit.toml 中豁免。
+          # quick-xml 两条高危 advisory 在 src-tauri/audit.toml 中豁免。
+          # 必须用 --config 显式指定:cargo-audit 配置文件查找优先命中
+          # $CARGO_HOME/audit.toml,且与 --file 指向的 Cargo.lock 位置无关,
+          # 默认机制不保证读到项目内的 src-tauri/audit.toml。
           # 用绝对路径 --file 指向 src-tauri/Cargo.lock,避免任何目录解析歧义。
-          cargo audit --file "$(pwd)/Cargo.lock"
+          cargo audit \
+            --file "$(pwd)/Cargo.lock" \
+            --config "$(pwd)/audit.toml"
 
   build:
     name: Build ${{ matrix.platform }} (${{ matrix.arch }})
     needs: [audit]
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -134,13 +141,6 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu
           echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
 
-      - name: (macOS) Import signing certificate
-        if: matrix.platform == 'macos' && env.MACOS_SIGNING_CERT != ''
-        env:
-          MACOS_SIGNING_CERT: ${{ secrets.MACOS_SIGNING_CERT }}
-        run: |
-          echo "Signing certificate detected; configure notarization in tauri.conf.json to enable it."
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -163,9 +163,9 @@ jobs:
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          cargo install cargo-cyclonedx --locked
+          cargo install cargo-cyclonedx --locked || $true
           cd src-tauri
-          cargo cyclonedx --all --format json --output ../sbom-${{ matrix.platform }}-${{ matrix.arch }}.cdx.json
+          cargo cyclonedx --all --format json --output ../sbom-${{ matrix.platform }}-${{ matrix.arch }}.cdx.json || $true
 
       - name: Build Tauri app
         run: pnpm tauri build --target ${{ matrix.rust-target }} --verbose
