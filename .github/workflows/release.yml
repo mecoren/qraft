@@ -157,7 +157,7 @@ jobs:
         run: |
           cargo install cargo-cyclonedx --locked || true
           cd src-tauri
-          cargo cyclonedx --all --format json --output ../sbom-${{ matrix.platform }}-${{ matrix.arch }}.cdx.json || true
+          cargo cyclonedx --all --format json --override-filename ../sbom-${{ matrix.platform }}-${{ matrix.arch }}.cdx.json || true
 
       - name: Generate SBOM (Windows)
         if: matrix.platform == 'windows'
@@ -165,7 +165,7 @@ jobs:
         run: |
           cargo install cargo-cyclonedx --locked || $true
           cd src-tauri
-          cargo cyclonedx --all --format json --output ../sbom-${{ matrix.platform }}-${{ matrix.arch }}.cdx.json || $true
+          cargo cyclonedx --all --format json --override-filename ../sbom-${{ matrix.platform }}-${{ matrix.arch }}.cdx.json || $true
 
       - name: Build Tauri app
         run: pnpm tauri build --target ${{ matrix.rust-target }} --verbose
