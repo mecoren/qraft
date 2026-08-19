@@ -82,7 +82,6 @@ registerTool('certificate_decoder', () =>
 );
 registerTool('gzip_codec', () => import('./GzipCodec').then((m) => ({ default: m.GzipCodec })));
 registerTool('html_codec', () => import('./HtmlCodec').then((m) => ({ default: m.HtmlCodec })));
-registerTool('text_escape', () => import('./TextEscape').then((m) => ({ default: m.TextEscape })));
 registerTool('jsonpath_tester', () =>
   import('./JsonPathTester').then((m) => ({ default: m.JsonPathTester })),
 );
@@ -112,9 +111,6 @@ registerTool('json_array_table', () =>
 );
 registerTool('markdown_preview', () =>
   import('./MarkdownPreview').then((m) => ({ default: m.MarkdownPreview })),
-);
-registerTool('text_analyzer', () =>
-  import('./TextAnalyzer').then((m) => ({ default: m.TextAnalyzer })),
 );
 registerTool('list_comparer', () =>
   import('./ListComparer').then((m) => ({ default: m.ListComparer })),

@@ -1,5 +1,5 @@
 import { useEffect, useState, type JSX } from 'react';
-import { Toaster, toast } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Titlebar } from '@/components/layout/Titlebar';
@@ -206,7 +206,7 @@ export function App(): JSX.Element {
         }}
       />
 
-      <Toaster richColors position="bottom-right" />
+      <Toaster position="bottom-right" />
     </ErrorBoundary>
   );
 }

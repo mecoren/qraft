@@ -54,7 +54,7 @@ import {
 // ============================================================
 
 export type CatalogCategoryId =
-  'encoder' | 'tester' | 'formatter' | 'generator' | 'graphic' | 'text' | 'converter';
+  'encoder' | 'tester' | 'formatter' | 'generator' | 'graphic' | 'editor' | 'text' | 'converter';
 
 export interface CatalogCategory {
   id: CatalogCategoryId;
@@ -69,6 +69,7 @@ export const CATALOG_CATEGORIES: readonly CatalogCategory[] = [
   { id: 'formatter', label: '格式化工具', icon: Paintbrush },
   { id: 'generator', label: '生成器', icon: Wand2 },
   { id: 'graphic', label: '图像处理', icon: Image },
+  { id: 'editor', label: '文本编辑器', icon: FileCode2 },
   { id: 'text', label: '文本处理', icon: Type },
   { id: 'converter', label: '转换器', icon: ArrowLeftRight },
 ] as const;
@@ -222,10 +223,25 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
   {
     id: 'json_minifier',
     name: '文本处理工具',
-    description: '常用文本转换:转义、去空格、URL 编码/解码、Unicode 与中文互转、中文标点转英文',
+    description:
+      '常用文本处理:转义、去空格、URL 编码/解码、Unicode 与中文互转、中文标点转英文、大小写转换、行反转/去重/排序,并提供字符/单词/行/字节/句子/段落统计',
     category: 'text',
     icon: Type,
-    keywords: ['text', '文本', '转换', 'escape', 'url encode', 'unicode', '中文'],
+    keywords: [
+      'text',
+      '文本',
+      '转换',
+      'escape',
+      'url encode',
+      'unicode',
+      '中文',
+      '分析',
+      '统计',
+      '字数',
+      '大小写',
+      '去重',
+      '排序',
+    ],
   },
   {
     id: 'sql_formatter',
@@ -316,28 +332,12 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
     keywords: ['diff', 'compare', '比较', '对比', '差异'],
   },
   {
-    id: 'text_escape',
-    name: '文本转义 / 反转义',
-    description: '转义或反转义一个字符串,以消除可能会阻碍解析的字符。',
-    category: 'text',
-    icon: Type,
-    keywords: ['escape', 'unescape', '转义'],
-  },
-  {
     id: 'markdown_preview',
     name: 'Markdown 预览',
     description: '使用类似 GitHub 的渲染器预览 Markdown 文档',
     category: 'text',
     icon: FileText,
     keywords: ['markdown', 'md', '预览'],
-  },
-  {
-    id: 'text_analyzer',
-    name: '文本分析和实用工具',
-    description: '进行文本分析并提供一些基础实用工具',
-    category: 'text',
-    icon: Type,
-    keywords: ['text', '分析', '统计', '字数'],
   },
   {
     id: 'list_comparer',
@@ -360,7 +360,7 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
     name: '文本编辑器',
     description:
       'VSCode 风格工作区:打开的编辑器列表 + 多 Tab 文本编辑 + 打开/保存本地文件 + 跨重启持久化',
-    category: 'text',
+    category: 'editor',
     icon: FileCode2,
     keywords: [
       'editor',

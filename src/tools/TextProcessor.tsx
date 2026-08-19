@@ -2,8 +2,9 @@
  * 文本处理工具
  *
  * 整体布局参考 SQL 格式化器:`配置` 区域(ConfigSection)上方一行,
- * 输入/输出区(CodeEditor × 2) 占据下方主体。本工具把 7 个常用文本转换
- * 集中在一个 ButtonGroup 中,样式与 SQL 选择控件一致(描边按钮 +
+ * 输入/输出区(CodeEditor × 2) 占据下方主体。本工具把常用文本转换与
+ * 「文本分析和实用工具」的统计 / 大小写 / 行重组功能合并,集中在一个
+ * ButtonGroup 中,样式与 SQL 选择控件一致(描边按钮 +
  * 共用边框 + 首尾圆角 + 中间无缝拼接)。
  *
  * 设计说明:
@@ -17,7 +18,23 @@
  *   与 SQL 格式化器保持一致。
  */
 import { useCallback, useState, type JSX } from 'react';
-import { Binary, Eraser, Link2, Link2Off, Languages, Quote, Replace, Wand2 } from 'lucide-react';
+import {
+  ArrowDownNarrowWide,
+  Binary,
+  CaseLower,
+  CaseUpper,
+  CopyX,
+  Eraser,
+  Link2,
+  Link2Off,
+  Languages,
+  Quote,
+  Replace,
+  TextQuote,
+  Type,
+  Undo2,
+  Wand2,
+} from 'lucide-react';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
@@ -137,6 +154,132 @@ export function chineseSymbolToEnglish(input: string): string {
   );
 }
 
+/** 全部转为大写 */
+export function toUpperCase(input: string): string {
+  return input.toUpperCase();
+}
+
+/** 全部转为小写 */
+export function toLowerCase(input: string): string {
+  return input.toLowerCase();
+}
+
+/** 句首大写:每段每句首字母大写,其余小写 */
+export function capitalizeSentences(input: string): string {
+  return input.replace(
+    /(^|[.!?。！？\n]\s*)([a-z\u00DF-\u00FF])/g,
+    (_m, pre: string, ch: string) => pre + ch.toUpperCase(),
+  );
+}
+
+/** 词首大写:每个单词首字母大写,其余小写 */
+export function capitalizeWords(input: string): string {
+  return input.replace(/\b([a-z\u00DF-\u00FF]+)\b/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
+}
+
+/** 反转文本(按 Unicode 码点,支持 emoji / 代理对) */
+export function reverseText(input: string): string {
+  return Array.from(input).reverse().join('');
+}
+
+/** 去除重复行(保留出现顺序,空行一并去重) */
+export function uniqueLines(input: string): string {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const line of input.split('\n')) {
+    const key = line.trim();
+    if (key === '') {
+      out.push(line);
+      continue;
+    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
+/** 按字典序排序所有行(保留原有换行结尾) */
+export function sortLines(input: string): string {
+  const lines = input.split('\n');
+  const endsWithNewline = lines.length > 0 && lines[lines.length - 1] === '';
+  if (endsWithNewline) lines.pop();
+  lines.sort((a, b) => a.localeCompare(b));
+  return endsWithNewline ? lines.join('\n') + '\n' : lines.join('\n');
+}
+
+// ============================================================
+// 编辑器底部统计(独立模块,供 EditorStats 与将来的单元测试复用)
+// ============================================================
+/**
+ * 紧凑统计口径(沿用「文本分析和实用工具」):
+ * 字符(Unicode 码点)、单词(非空白连续片段)、行(以 \n 分隔)、字节(UTF-8 编码长度)、
+ * 句子(以 .!?。！？ 结尾的片段)、段落(连续空行分隔的非空块)。
+ *
+ * 返回有序元组,供 EditorStats 用中点分隔紧凑渲染,
+ * 同时避免在 JSX 内做重复计算。
+ */
+export interface TextStats {
+  chars: number;
+  words: number;
+  lines: number;
+  bytes: number;
+  sentences: number;
+  paragraphs: number;
+}
+
+export const EMPTY_STATS: TextStats = {
+  chars: 0,
+  words: 0,
+  lines: 0,
+  bytes: 0,
+  sentences: 0,
+  paragraphs: 0,
+};
+
+export function computeStats(input: string): TextStats {
+  if (!input) return EMPTY_STATS;
+  return {
+    chars: Array.from(input).length,
+    words: (input.match(/[^\s]+/g) ?? []).length,
+    lines: input.split('\n').length,
+    bytes: new TextEncoder().encode(input).length,
+    sentences: (input.match(/[^.!?。！？]+[.!?。！？]+/g) ?? []).length,
+    paragraphs: input
+      .split(/\n{2,}/)
+      .filter((p) => p.trim().length > 0).length,
+  };
+}
+
+/**
+ * 编辑器底部状态栏右侧用的紧凑统计:
+ * - 中点「·」分隔各项,沿用 Editor 内置 statusBar 的 text-xs / tabular-nums,
+ *   与编辑器自带「字符数 / 行号列号」视觉权重一致,不会喧宾夺主。
+ * - 该组件作为 CodeEditor.statusBarRight 渲染,自动位于状态栏右侧,与 VS Code 风格一致。
+ */
+function EditorStats({ text }: { text: string }): JSX.Element {
+  const s = computeStats(text);
+  return (
+    <span
+      className="whitespace-nowrap tabular-nums text-muted-foreground"
+      data-testid="textproc-editor-stats"
+      title={`字符 ${s.chars} · 单词 ${s.words} · 行 ${s.lines} · 字节 ${s.bytes} · 句子 ${s.sentences} · 段落 ${s.paragraphs}`}
+    >
+      <span data-testid="textproc-stat-chars">{s.chars}</span> 字符
+      <span aria-hidden> · </span>
+      <span data-testid="textproc-stat-words">{s.words}</span> 单词
+      <span aria-hidden> · </span>
+      <span data-testid="textproc-stat-lines">{s.lines}</span> 行
+      <span aria-hidden> · </span>
+      <span data-testid="textproc-stat-bytes">{s.bytes}</span> 字节
+      <span aria-hidden> · </span>
+      <span data-testid="textproc-stat-sentences">{s.sentences}</span> 句子
+      <span aria-hidden> · </span>
+      <span data-testid="textproc-stat-paragraphs">{s.paragraphs}</span> 段落
+    </span>
+  );
+}
+
 // ============================================================
 // UI 组件
 // ============================================================
@@ -148,7 +291,14 @@ type TransformId =
   | 'urlDecode'
   | 'unicodeToChinese'
   | 'chineseToUnicode'
-  | 'chineseSymbolToEnglish';
+  | 'chineseSymbolToEnglish'
+  | 'toUpperCase'
+  | 'toLowerCase'
+  | 'capitalizeSentences'
+  | 'capitalizeWords'
+  | 'reverseText'
+  | 'uniqueLines'
+  | 'sortLines';
 
 /** 单个转换的配置 */
 interface TransformDef {
@@ -171,10 +321,17 @@ const TRANSFORMS: readonly TransformDef[] = [
     Icon: Replace,
     apply: chineseSymbolToEnglish,
   },
+  { id: 'toUpperCase', label: '大写', Icon: CaseUpper, apply: toUpperCase },
+  { id: 'toLowerCase', label: '小写', Icon: CaseLower, apply: toLowerCase },
+  { id: 'capitalizeSentences', label: '句首大写', Icon: TextQuote, apply: capitalizeSentences },
+  { id: 'capitalizeWords', label: '词首大写', Icon: Type, apply: capitalizeWords },
+  { id: 'reverseText', label: '反转', Icon: Undo2, apply: reverseText },
+  { id: 'uniqueLines', label: '去重行', Icon: CopyX, apply: uniqueLines },
+  { id: 'sortLines', label: '排序行', Icon: ArrowDownNarrowWide, apply: sortLines },
 ];
 
 /**
- * 把 7 个转换按操作关系拆成若干「功能组」,每组放进同一内层 ButtonGroup
+ * 把转换按操作关系拆成若干「功能组」,每组放进同一内层 ButtonGroup
  * 内(紧密拼接、相邻 border 重叠);不同组之间通过外层 ButtonGroup 的
  * flex `gap-2` 留白。
  *
@@ -182,17 +339,32 @@ const TRANSFORMS: readonly TransformDef[] = [
  * - 转义 / 去空格——同属"调整字符集",互为正交操作,合并为一组;
  * - URL 编码 / URL 解码——互为反操作,合并为一组;
  * - Unicode 转中文 / 中文转 Unicode——互为反操作,合并为一组;
- * - 中文符号转英文——独立的符号转换,单独成一组。
+ * - 中文符号转英文——独立的符号转换,单独成一组;
+ * - 大写 / 小写 / 句首大写 / 词首大写——同属"大小写调整",合并为一组;
+ * - 反转 / 去重行 / 排序行——同属"行与文本重组",合并为一组。
  *
  * 注意:虽然「转义」与「去空格」技术上可独立,但它们共享「修整文本字符」
  * 这一操作意图,合并为一组能更清晰表达工具属性分类;不同操作意图之间
  * 留出间隙,视觉上更接近 shadcn 文档的多组并列示例。
  */
-const TRANSFORM_GROUPS: ReadonlyArray<ReadonlyArray<TransformId>> = [
+/**
+ * 第一排按钮组(转换 / 符号类):转义 / 去空格 / URL 编解码 / Unicode 互转 /
+ * 中文符号转英文。放在「转换」ConfigRow,与转换意图一致。
+ */
+const FIRST_ROW_GROUPS: ReadonlyArray<ReadonlyArray<TransformId>> = [
   ['escape', 'stripWhitespace'],
   ['urlEncode', 'urlDecode'],
   ['unicodeToChinese', 'chineseToUnicode'],
   ['chineseSymbolToEnglish'],
+];
+
+/**
+ * 第二排按钮组(大小写 / 行重组):大写 / 小写 / 句首大写 / 词首大写 / 反转 /
+ * 去重行 / 排序行。单独成「调整」ConfigRow,与上行意图区分、视觉上独立成排。
+ */
+const SECOND_ROW_GROUPS: ReadonlyArray<ReadonlyArray<TransformId>> = [
+  ['toUpperCase', 'toLowerCase', 'capitalizeSentences', 'capitalizeWords'],
+  ['reverseText', 'uniqueLines', 'sortLines'],
 ];
 
 const TRANSFORMS_BY_ID: ReadonlyMap<TransformId, TransformDef> = new Map(
@@ -219,12 +391,16 @@ function GroupFragment({
 /**
  * 文本处理工具主组件
  *
- * - 上方"配置"区域(与 SQL 格式化器一致)以嵌套 ButtonGroup 放置
- *   4 组共 7 个文本转换按钮:组内紧密拼边、组间留出 gap-2。
+ * - 上方"配置"区域(与 SQL 格式化器一致)以嵌套 ButtonGroup 放置文本转换
+ *   按钮(含原「文本分析和实用工具」的大小写 / 行重组功能),组内紧密拼边、
+ *   组间留出 gap-2;按钮组在宽度不足时自动换行(共 ~14 个按钮),设计上
+ *   期望其占满两排。
  * - 下方为左右两栏的输入/输出编辑器:输入框可编辑,转换按钮只
  *   把结果写入 **输出框**,输入保持原值不动。
- * - 输入/输出编辑器底部状态栏(CodeEditor 内置)右侧显示字符数,
- *   随内容实时更新。
+ * - 统计指标移到输入/输出编辑器各自的底部状态栏(CodeEditor 内置)右侧,
+ *   通过 statusBarRight 自定义节点注入;关闭编辑器默认字符数
+ *   (`showCharCount={false}`),改由统一的 EditorStats 紧凑展示
+ *   「字符 · 单词 · 行 · 字节 · 句子 · 段落」,字号与编辑器状态栏一致。
  */
 export function TextProcessor(_props: ToolProps): JSX.Element {
   const [input, setInput] = useState('');
@@ -293,9 +469,32 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
           {/* 外层 ButtonGroup 起容器作用 —— 仅作为 flex 父节点,
               配合 `has-[>[data-slot=button-group]]:gap-2` 自动在子组之间
               生成间距,而无需由使用者手动添加 className。
-              整体可访问性名称在按钮组集合层面给出。 */}
-          <ButtonGroup aria-label="全部文本转换" data-testid="textproc-button-group">
-            {TRANSFORM_GROUPS.map((ids) => (
+              整体可访问性名称在按钮组集合层面给出。
+              使用 `flex-wrap + w-full` 覆盖默认的 `w-fit`,让子组(每个内层
+              ButtonGroup)在横向放不下时自动换行到第二排;`gap-y-2` 为换行后
+              的垂直间距,与组内 `gap-2` 视觉一致。 */}
+          <ButtonGroup
+            aria-label="符号与编码转换"
+            data-testid="textproc-button-group-row1"
+            className="w-full flex-wrap gap-y-2"
+          >
+            {FIRST_ROW_GROUPS.map((ids) => (
+              <GroupFragment key={ids.join('-')} ids={ids} renderGroup={renderGroup} />
+            ))}
+          </ButtonGroup>
+        </ConfigRow>
+
+        <ConfigRow
+          icon={CaseUpper}
+          label="调整"
+          hint="大小写与行级重排:点击写入输出框,输入不变;横向放不下时自动换行"
+        >
+          <ButtonGroup
+            aria-label="大小写与行重排"
+            data-testid="textproc-button-group-row2"
+            className="w-full flex-wrap gap-y-2"
+          >
+            {SECOND_ROW_GROUPS.map((ids) => (
               <GroupFragment key={ids.join('-')} ids={ids} renderGroup={renderGroup} />
             ))}
           </ButtonGroup>
@@ -309,7 +508,6 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
             language="plaintext"
             value={input}
             onChange={setInput}
-            placeholder="在此粘贴或输入文本..."
             className="h-full"
             data-testid="input"
             // 文本工具需要粘贴 / 打开文件 / 清除辅助按钮;编辑器工作区不使用 CodeEditor,
@@ -317,6 +515,10 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
             showPaste
             showOpenFile
             showClear
+            // 关闭编辑器自带的「X 字符」展示,改由右侧 EditorStats 统一以中点分隔
+            // 紧凑呈现 6 项统计,与"VSCode 状态栏右侧"风格一致。
+            showCharCount={false}
+            statusBarRight={<EditorStats text={input} />}
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
@@ -329,6 +531,8 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
             className="h-full"
             data-testid="output"
             actions={<CopyAction text={output} testId="output-copy" />}
+            showCharCount={false}
+            statusBarRight={<EditorStats text={output} />}
           />
         </ResizablePanel>
       </ResizablePanelGroup>

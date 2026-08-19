@@ -637,7 +637,6 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
               language="plaintext"
               value={text}
               onChange={setText}
-              placeholder={mode.hint}
               className="h-full"
               data-testid="input"
               actions={

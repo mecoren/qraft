@@ -50,20 +50,34 @@ const Toaster = ({ ...props }: ToasterProps) => {
         loading: <LoaderCircle className="size-4 animate-spin" />,
       }}
       toastOptions={{
-        // 双行结构:左侧图标 + 右侧标题/描述,与 shadcn Alert 风格一致
-        // 通过 gap-x / 标题字号提升层次感;description 用 muted-foreground
+        // 双行结构:左侧图标 + 右侧标题/描述,与 shadcn Alert 风格一致。
+        // 每种类型通过 [&[data-type=...]] 选择器上各自的强调色,层次更清晰。
         classNames: {
           toast:
-            'group toast group-[.toaster]:bg-popover-layer group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg group-[.toaster]:grid group-[.toaster]:grid-cols-[auto_1fr] group-[.toaster]:items-start group-[.toaster]:gap-x-3 group-[.toaster]:gap-y-1',
-          // 让默认图标(图标已被 icons 渲染成 sonner 自带的 <svg> 节点)靠左对齐
-          icon: 'group-[.toast]:col-start-1 group-[.toast]:row-span-2 group-[.toast]:mt-0.5',
-          // 标题列(sonner 在 description 存在时把主消息包到 .title;此处简单把主消息也拉成标题样式)
+            'group toast group-[.toaster]:bg-popover-layer group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg group-[.toaster]:rounded-xl group-[.toaster]:p-4 group-[.toaster]:grid group-[.toaster]:grid-cols-[auto_1fr] group-[.toaster]:items-start group-[.toaster]:gap-x-3.5 group-[.toaster]:gap-y-1 group-[.toaster]:border-l-4 group-[.toaster]:border-l-border',
+          // 各类型左侧强调色条
+          'group-[.toaster]:[&[data-type=success]]':
+            'group-[.toaster]:border-l-emerald-500',
+          'group-[.toaster]:[&[data-type=error]]': 'group-[.toaster]:border-l-red-500',
+          'group-[.toaster]:[&[data-type=warning]]':
+            'group-[.toaster]:border-l-amber-500',
+          'group-[.toaster]:[&[data-type=info]]': 'group-[.toaster]:border-l-blue-500',
+          // 图标靠左对齐,与标题行顶部齐平
+          icon: 'group-[.toast]:col-start-1 group-[.toast]:row-span-2 group-[.toast]:mt-0.5 group-[.toast]:size-5',
+          // 各类型图标着色
+          'group-[.toast]:[&[data-type=success]_svg]': 'group-[.toast]:text-emerald-500',
+          'group-[.toast]:[&[data-type=error]_svg]': 'group-[.toast]:text-red-500',
+          'group-[.toast]:[&[data-type=warning]_svg]': 'group-[.toast]:text-amber-500',
+          'group-[.toast]:[&[data-type=info]_svg]': 'group-[.toast]:text-blue-500',
+          // 标题
           title:
-            'group-[.toast]:col-start-2 group-[.toast]:row-start-1 group-[.toast]:font-medium group-[.toast]:text-sm group-[.toast]:text-foreground group-[.toast]:leading-none group-[.toast]:tracking-tight',
+            'group-[.toast]:col-start-2 group-[.toast]:row-start-1 group-[.toast]:font-semibold group-[.toast]:text-sm group-[.toast]:text-foreground group-[.toast]:leading-none group-[.toast]:tracking-tight',
           description:
-            'group-[.toast]:col-start-2 group-[.toast]:row-start-2 group-[.toast]:text-sm group-[.toast]:text-muted-foreground',
-          actionButton: 'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
-          cancelButton: 'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
+            'group-[.toast]:col-start-2 group-[.toast]:row-start-2 group-[.toast]:text-sm group-[.toast]:text-muted-foreground group-[.toast]:leading-snug',
+          actionButton:
+            'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground group-[.toast]:rounded-md group-[.toast]:font-medium',
+          cancelButton:
+            'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground group-[.toast]:rounded-md',
         },
       }}
       {...props}
