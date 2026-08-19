@@ -250,8 +250,12 @@ describe('Base64Codec 统一转换工具', () => {
       });
     });
     const img = await screen.findByTestId('b64-preview');
-    // 组件使用 Blob URL(而非 data: URL)做二进制预览,src 为 blob: 形式
-    expect(img.getAttribute('src')).toMatch(/^blob:/);
+    // 组件使用 Blob URL(而非 data: URL)做二进制预览,src 为 blob: 形式。
+    // Blob URL 在 useEffect 内通过 setTimeout(0) 异步写入,findByTestId 只保证
+    // 元素出现、不保证 src 已就绪,故需 waitFor 等待属性到位(避免 null 竞态)。
+    await waitFor(() => {
+      expect(img.getAttribute('src')).toMatch(/^blob:/);
+    });
   });
 
   it('calls fs_save_bytes when clicking save in binary preview', async () => {
