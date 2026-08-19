@@ -1,26 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-/* ============================================================
- * Tailwind v4 source 扫描范围:让 Tailwind 扫描到 src/** 下所有 .ts/.tsx/.html
- *
- * 背景:Tailwind v4 默认从当前 globals.css 所在目录推断 content sources,
- * 在 `src/styles/globals.css` 这个位置,Tailwind 自动推断的范围未必覆盖
- * `src/components/**` 与 `src/tools/**`(层级上跳),导致以下现象:
- * - dev 模式 vite dev server 启动时会按需扫描,扫到了;
- * - prod 模式 vite build 走静态预扫描,只跑 Tailwind 内置 default glob,
- *   一旦默认 glob 不全,产物就漏掉一批 class(典型:小数 utility 与
- *   bracket 任意值,如 `h-1.5`、`min-h-[200px]`、`p-[2px]` 等)。
- * 显式声明一组 @source 把扫描范围钉死,dev/prod 行为对齐,避免 CI/CD
- * 复现「样式丢失」。Tailwind v4 不接受 brace expansion(`{ts,tsx}`)在
- * `@source` glob,只能写多个独立 @source。
- * ============================================================ */
-@source "../**/*.ts";
-@source "../**/*.tsx";
-@source "../**/*.html";
-@source "../**/*.js";
-@source "../**/*.mdx";
-
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================
@@ -777,46 +757,70 @@
 }
 
 /* ============================================================
- * ScrollArea Thumb 兜底样式 —— 不依赖任意值 utility
+ * ScrollArea 兜底样式 —— 完全脱离 Tailwind utility,只用普通 CSS 选择器
  *
- * 背景:
- * - Tailwind v4 在 `vite build` 阶段(预扫描产线模式)偶尔会丢失
- *   类似 `bg-[var(--scrollbar-slider-bg)]` 这种把 CSS 变量塞进
- *   任意值语法的 utility class —— `dist/assets/index-*.css` 中
- *   完全找不到这些规则。后果是 ScrollBar 滑块颜色消失,
- *   dev 模式下 vite dev server 的按需注入掩盖了这一点,
- *   只有 CI/CD 打包后才复现。
+ * 背景(再确认一次):
+ * - Tailwind v4 vite prod scan 偶发漏扫 `src/components/**`、`src/tools/**`,
+ *   导致一批小数 utility(`h-1.5`、`w-1.5`、`p-[2px]` 等)与 bracket 任意值
+ *   utility(`bg-[var(--scrollbar-slider-bg)]`、`min-h-[200px]` 等)在产物
+ *   CSS 中缺失。dev 模式 vite dev server 按需注入掩盖,只有 CI/CD 打包后才
+ *   复现。
+ * - 前一轮曾尝试 `@source`、`@source inline`、`@utility`、属性选择器
+ *   `[class*=...]` 等多种兜底,在当前 Tailwind v4.3.3 (vite plugin) 下均
+ *   无效 —— vite 生成产物 CSS 仍不含目标规则。
  *
- * 解决:
- * - 此处用 [data-slot='scroll-area-thumb'] 直接命中 Radix
- *   暴露的 thumb 元素,绕开 Tailwind utility 解析。
- * - 颜色与 hover 行为与 globals.css 顶部 `*::-webkit-scrollbar-thumb`
- *   保持一致(--scrollbar-slider-* token),深浅主题自动适配。
+ * 决策:
+ * - 完全用普通 CSS 选择器写到 globals.css 顶层,不进任何 Tailwind `@layer`,
+ *   不依赖任何 utility className,绕开 Tailwind v4 vite plugin 全链路。
+ * - tailwind v4 在 prod 阶段只裁剪 utility / 其依赖的 rule,不做任意规则
+ *   丢弃;写在外层 root 级 CSS 选择器一定会留在产物中(已经过验证)。
+ *
+ * 选择器策略:
+ * - `[data-slot="scroll-area-thumb"]`:来自 `src/components/ui/scroll-area.tsx`
+ *   新注入,绝对精确命中 Radix ScrollAreaThumb 节点。
+ * - `[data-orientation="horizontal"] [data-slot="..."]`:命中「横向滚动条」
+ *   父级,提供父级 hover 高亮。
+ *
+ * 数值与 Tailwind 默认 spacing scale 完全一致,不会带来视觉变化。
+ * 后续 Tailwind 升级 + src/components/** 扫描修复后,可逐项 fallback 还原
+ * 为 Tailwind utility class。但保留此兜底作为 safety net 永不为错。
  * ============================================================ */
-@layer components {
-  [data-slot='scroll-area-thumb'] {
-    background-color: var(--scrollbar-slider-bg);
-    border-radius: 9999px;
-    transition: background-color 0.3s ease;
-  }
-  [data-slot='scroll-area-scrollbar']:hover [data-slot='scroll-area-thumb'],
-  [data-slot='scroll-area-thumb']:hover {
-    background-color: var(--scrollbar-slider-hover-bg);
-  }
+[data-slot='scroll-area-thumb'] {
+  background-color: var(--scrollbar-slider-bg);
+  border-radius: 9999px;
+  transition: background-color 0.3s ease;
+}
+[data-orientation]:hover [data-slot='scroll-area-thumb'],
+[data-slot='scroll-area-thumb']:hover {
+  background-color: var(--scrollbar-slider-hover-bg);
 }
 
-/* ============================================================
- * Tailwind 任意值 utility 兜底 —— `@source inline(...)` directive:
- * Tailwind v4 vite build 偶发遗漏一批小数与任意值 utility,导致
- * ScrollArea / ToolbarButton / Tab 高亮指示线等组件的 padding / 尺寸计算
- * 错位。dev 模式下 vite dev server 按需注入掩盖,只有 CI/CD 打包才复现。
- *
- * `@source inline` 是 Tailwind v4 官方推荐的「class 不可被源码扫描」兜底
- * 入口(`@utility` lexer 拒绝带 `.`、`[`、`]`、`(` 的 utility 名,故弃之)。
- * 数值与 Tailwind 默认 spacing scale 完全一致,不会带来视觉变化。
- * 后续 Tailwind 升级修复源扫描后可移除。
- * ============================================================ */
-@source inline("h-0\.5 h-1\.5 w-0\.5 w-1\.5 w-2\.5 w-3\.5 h-3\.5 size-1\.5 size-2\.5 bottom-1\.5 top-1\.5 right-1\.5 left-1\.5 bg-scrollbar min-h-\[200px\] min-h-\[80px\] min-w-\[120px\] min-w-\[8rem\] min-w-\[12rem\] max-w-\[calc\(100\%-2rem\)\] p-\[2px\]");
+/* ===== Tailwind 任意值 utility 兜底 —— 同样写顶层 CSS ===== */
+/* 小数 spacing(scale 0.5) */
+.h-0\.5 { height: 0.125rem; }
+.h-1\.5 { height: 0.375rem; }
+.h-3\.5 { height: 0.875rem; }
+.w-0\.5 { width: 0.125rem; }
+.w-1\.5 { width: 0.375rem; }
+.w-2\.5 { width: 0.625rem; }
+.w-3\.5 { width: 0.875rem; }
+.size-1\.5 { width: 0.375rem; height: 0.375rem; }
+.size-2\.5 { width: 0.625rem; height: 0.625rem; }
+.top-1\.5 { top: 0.375rem; }
+.bottom-1\.5 { bottom: 0.375rem; }
+.right-1\.5 { right: 0.375rem; }
+.left-1\.5 { left: 0.375rem; }
+/* bracket 任意值 utility 兜底 —— 与 Tailwind spacing scale 等价 */
+.min-h-\[200px\] { min-height: 200px; }
+.min-h-\[80px\]  { min-height: 80px; }
+.min-w-\[120px\] { min-width: 120px; }
+.min-w-\[8rem\]  { min-width: 8rem; }
+.min-w-\[12rem\] { min-width: 12rem; }
+.max-w-\[calc\(100\%-2rem\)\] { max-width: calc(100% - 2rem); }
+.p-\[2px\] { padding: 2px; }
+/* Tailwind utility 颜色变量 bridge,源代码使用 className 时 Tailwind 不出也能用 */
+.bg-scrollbar { background-color: var(--scrollbar-slider-bg); }
+
 
 /* ============================================================
  * Markdown 预览排版(GitHub 风格,跟随主题变量)

@@ -72,7 +72,15 @@ const ScrollBar = React.forwardRef<
     )}
     {...props}
   >
-    <ScrollAreaPrimitive.ScrollAreaThumb className="pointer-events-auto relative flex-1 rounded-full bg-[var(--scrollbar-slider-bg)] transition-colors duration-300 group-hover:bg-[var(--scrollbar-slider-hover-bg)]" />
+    <ScrollAreaPrimitive.ScrollAreaThumb
+      /**
+       * data-slot:兜底 Tailwind v4 vite prod scan 漏掉任意值 utility 时,
+       * globals.css 中 [data-slot='scroll-area-thumb'] 直接命中,避免滑块无色。
+       * dev 模式不影响(prod 才能复现)。
+       */
+      data-slot="scroll-area-thumb"
+      className="qraft-scroll-area-thumb pointer-events-auto relative flex-1 rounded-full bg-[var(--scrollbar-slider-bg)] transition-colors duration-300 group-hover:bg-[var(--scrollbar-slider-hover-bg)]"
+    />
   </ScrollAreaPrimitive.ScrollAreaScrollbar>
 ));
 ScrollBar.displayName = ScrollAreaPrimitive.ScrollAreaScrollbar.displayName;
