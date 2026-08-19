@@ -68,14 +68,14 @@ jobs:
           # unmaintained 与 glib 的 unsound 均来自 Tauri Linux 后端锁死的传递依赖,
           # 项目层无法升级(需等 Tauri 上游),详见 src-tauri/audit.toml 注释。
           # 真实 vulnerabilities 仍会使 audit 以非零码退出,拦截能力不受影响。
-          # quick-xml 两条高危 advisory 在 src-tauri/audit.toml 中豁免。
-          # 必须用 --config 显式指定:cargo-audit 配置文件查找优先命中
-          # $CARGO_HOME/audit.toml,且与 --file 指向的 Cargo.lock 位置无关,
-          # 默认机制不保证读到项目内的 src-tauri/audit.toml。
+          # quick-xml 的两条高危 advisory 在此行内豁免(0.22.2 不支持 --config,
+          # 且默认配置查找可能被 $CARGO_HOME/audit.toml 抢占,故不用 audit.toml)。
+          # src-tauri/audit.toml 中的同名豁免保留,待未来版本支持 --config 时启用。
           # 用绝对路径 --file 指向 src-tauri/Cargo.lock,避免任何目录解析歧义。
           cargo audit \
             --file "$(pwd)/Cargo.lock" \
-            --config "$(pwd)/audit.toml"
+            --ignore RUSTSEC-2026-0194 \
+            --ignore RUSTSEC-2026-0195
 
   build:
     name: Build ${{ matrix.platform }} (${{ matrix.arch }})
