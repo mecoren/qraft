@@ -1,5 +1,5 @@
 import { useEffect, useState, type JSX } from 'react';
-import { Toaster } from '@/components/ui/sonner';
+import { toast, Toaster } from 'sonner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Titlebar } from '@/components/layout/Titlebar';

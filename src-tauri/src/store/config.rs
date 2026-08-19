@@ -32,6 +32,24 @@ pub struct UserConfig {
     pub shortcuts: ShortcutBinding,
     #[serde(default)]
     pub tool_prefs: HashMap<String, Value>,
+    #[serde(default)]
+    pub editor: EditorConfig,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorConfig {
+    #[serde(default)]
+    pub naming_convention: NamingConventionConfig,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NamingConventionConfig {
+    #[serde(default)]
+    pub enabled: Vec<String>,
+    #[serde(default)]
+    pub order: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -85,6 +103,8 @@ pub struct ShortcutBinding {
     pub search: String,
     #[serde(default)]
     pub close_panel: String,
+    #[serde(default)]
+    pub cycle_naming_case: String,
 }
 
 /// JSON 文件实现的 `ConfigStore`

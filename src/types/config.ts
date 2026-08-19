@@ -1,3 +1,5 @@
+import type { NamingConventionId } from '@/lib/naming-convention';
+
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 export interface ThemeConfig {
@@ -10,6 +12,15 @@ export interface GeneralConfig {
   fontSize: number;
   maxHistory: number;
   confirmOnClear: boolean;
+}
+
+export interface NamingConventionConfig {
+  enabled: NamingConventionId[];
+  order: NamingConventionId[];
+}
+
+export interface EditorConfig {
+  namingConvention: NamingConventionConfig;
 }
 
 /** 快捷键绑定,与 15-ui-design-system.md §3.6 一一对应 */
@@ -26,6 +37,8 @@ export interface ShortcutBinding {
   close_panel: string;
   /** 保存当前编辑器(文本编辑器 Ctrl+S) */
   save_file: string;
+  /** 文本编辑器：循环切换选中字符命名风格 */
+  cycle_naming_case: string;
 }
 
 export interface ToolPref {
@@ -46,6 +59,7 @@ export interface UserConfig {
   shortcuts: ShortcutBinding;
   toolPrefs: Record<string, ToolPref>;
   favorites: Favorite[];
+  editor: EditorConfig;
 }
 
 /** 快捷键默认值 */
@@ -61,6 +75,22 @@ export const DEFAULT_SHORTCUTS: ShortcutBinding = {
   search: 'Ctrl+F',
   close_panel: 'Esc',
   save_file: 'Ctrl+S',
+  cycle_naming_case: 'Shift+Alt+C',
+};
+
+export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
+  namingConvention: {
+    enabled: ['SNAKE_CASE', 'CamelCase', 'camelCase', 'snake_case'],
+    order: [
+      'snake_case',
+      'camelCase',
+      'SNAKE_CASE',
+      'CamelCase',
+      'kebab-case',
+      'space case',
+      'Camel Case',
+    ],
+  },
 };
 
 export const DEFAULT_USER_CONFIG: UserConfig = {
@@ -78,4 +108,5 @@ export const DEFAULT_USER_CONFIG: UserConfig = {
   shortcuts: DEFAULT_SHORTCUTS,
   toolPrefs: {},
   favorites: [],
+  editor: DEFAULT_EDITOR_CONFIG,
 };

@@ -24,6 +24,7 @@ const CATEGORY_MAP: Record<CatalogEntry['category'], ToolCategory> = {
   formatter: 'formatter',
   generator: 'generator',
   graphic: 'converter',
+  editor: 'converter',
   text: 'comparator',
   converter: 'converter',
 };

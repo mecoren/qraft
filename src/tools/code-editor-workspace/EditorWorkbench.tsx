@@ -25,6 +25,8 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { Button } from '@/components/ui/button';
+import { useConfigStore } from '@/store/configStore';
+import { registerNamingCaseCommand } from './namingCaseCommand';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { defineThemeFor, getThemeName, useMonacoTheme } from '@/components/ui/monaco-theme';
 import { useShortcut } from '@/hooks/useShortcut';
@@ -148,6 +150,44 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   }, []);
 
   const activeTab = workspace.tabs.find((t) => t.id === workspace.activeTabId) ?? null;
+  const activeEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const namingCommandRef = useRef<{ dispose: () => void } | null>(null);
+  const cycleNamingCaseShortcut = useConfigStore(
+    (s) => s.config?.shortcuts?.cycle_naming_case ?? 'Shift+Alt+C',
+  );
+
+  const handleEditorMount = useCallback(
+    (editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) => {
+      activeEditorRef.current = editorInstance;
+      namingCommandRef.current?.dispose();
+      namingCommandRef.current = registerNamingCaseCommand(
+        editorInstance,
+        monaco,
+        cycleNamingCaseShortcut,
+      );
+    },
+    [cycleNamingCaseShortcut],
+  );
+
+  useEffect(() => {
+    const editorInstance = activeEditorRef.current;
+    if (!editorInstance) return;
+    // 快捷键变更时重新注册;依赖无法拿到 monaco 实例,
+    // 但在 handleEditorMount 里 monaco 已注入 editor,可直接复用全局 monaco
+    const monaco = (window as unknown as { monaco?: Monaco }).monaco;
+    if (!monaco) return;
+    namingCommandRef.current?.dispose();
+    namingCommandRef.current = registerNamingCaseCommand(
+      editorInstance,
+      monaco,
+      cycleNamingCaseShortcut,
+    );
+    return () => {
+      namingCommandRef.current?.dispose();
+      namingCommandRef.current = null;
+    };
+  }, [cycleNamingCaseShortcut]);
+
   /** 当前激活的对比项及左右文件(引用失效时回退 null) */
   const activeCompare =
     (activeCompareId && compares.find((cp) => cp.id === activeCompareId)) ?? null;
@@ -737,6 +777,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                     useEditorWorkspaceStore.getState().setTabContent(activeTab.id, v)
                   }
                   minimap
+                  onMount={handleEditorMount}
                   // 嵌入模式:外层右侧主页面卡片已自带 rounded-lg + border,
                   // 此处关闭 CodeEditor 自身的圆角/边框,避免双层圆角嵌套与
                   // --border/--input 颜色不一致导致的"双线"视觉

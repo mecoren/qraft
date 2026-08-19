@@ -4,10 +4,11 @@ import { z } from 'zod';
 import { useEffect, useMemo, useState, type CSSProperties, type JSX } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
-import { Palette, Type, Check } from 'lucide-react';
+import { Palette, Type, Check, ArrowUp, ArrowDown, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { FontPicker } from '@/components/ui/font-picker';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -40,6 +41,11 @@ import {
 import { listSystemFonts, type FontInfo } from '@/lib/fonts';
 import { buildFontFamilyOptions, type FontFamilyOption } from '@/lib/fontFamilies';
 import { cn } from '@/lib/utils';
+import {
+  NAMING_CONVENTIONS,
+  type NamingConventionId,
+} from '@/lib/naming-convention';
+import { DEFAULT_EDITOR_CONFIG } from '@/types/config';
 
 const SHORTCUT_KEYS: Array<{ key: keyof ShortcutBinding; label: string }> = [
   { key: 'open_command_palette', label: '打开命令面板' },
@@ -53,6 +59,7 @@ const SHORTCUT_KEYS: Array<{ key: keyof ShortcutBinding; label: string }> = [
   { key: 'search', label: '搜索' },
   { key: 'close_panel', label: '关闭面板' },
   { key: 'save_file', label: '保存编辑器' },
+  { key: 'cycle_naming_case', label: '切换字符命名风格' },
 ];
 
 const generalSchema = z.object({
@@ -608,6 +615,8 @@ export function ShortcutSection(): JSX.Element {
         open_history: 'Ctrl+H',
         search: 'Ctrl+F',
         close_panel: 'Esc',
+        save_file: 'Ctrl+S',
+        cycle_naming_case: 'Shift+Alt+C',
       },
     },
   });
@@ -657,6 +666,140 @@ export function ShortcutSection(): JSX.Element {
   );
 }
 
+/**
+ * 文本编辑器区块：字符命名转换的启用项与循环顺序。
+ */
+export function EditorSection(): JSX.Element {
+  const config = useConfigStore((s) => s.config);
+  const setConfig = useConfigStore((s) => s.setConfig);
+  const naming = config?.editor?.namingConvention;
+  const enabled = new Set(
+    naming?.enabled?.length
+      ? naming.enabled
+      : DEFAULT_EDITOR_CONFIG.namingConvention.enabled,
+  );
+  const order = naming?.order?.length
+    ? naming.order
+    : DEFAULT_EDITOR_CONFIG.namingConvention.order;
+
+  const toggleConvention = async (id: NamingConventionId) => {
+    const nextEnabled = new Set(enabled);
+    if (nextEnabled.has(id)) {
+      nextEnabled.delete(id);
+    } else {
+      nextEnabled.add(id);
+    }
+    await setConfig(
+      'editor.namingConvention.enabled',
+      Array.from(nextEnabled),
+    );
+  };
+
+  const move = async (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= order.length) return;
+    const next = [...order];
+    [next[index], next[target]] = [next[target], next[index]];
+    await setConfig('editor.namingConvention.order', next);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <FileText className="size-4" />
+          文本编辑器
+        </CardTitle>
+        <CardDescription>字符命名转换的启用项与循环顺序</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
+          <Label className="text-sm font-medium">启用风格</Label>
+          <div className="grid grid-cols-2 gap-3">
+            {NAMING_CONVENTIONS.map((convention: { id: NamingConventionId; label: string }) => (
+              <div key={convention.id} className="flex items-center gap-2">
+                <Checkbox
+                  id={`naming-${convention.id}`}
+                  checked={enabled.has(convention.id)}
+                  onChange={() => toggleConvention(convention.id)}
+                  label={convention.label}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <Label className="text-sm font-medium">循环顺序</Label>
+          <div className="flex gap-4">
+            <div className="flex-1 divide-y divide-border rounded-md border border-border bg-background">
+              {order.map((id, index) => {
+                const convention = NAMING_CONVENTIONS.find((c) => c.id === id);
+                if (!convention) return null;
+                return (
+                  <div
+                    key={id}
+                    className="flex items-center justify-between px-3 py-2"
+                  >
+                    <span className="text-sm">{convention.label}</span>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-7"
+                        disabled={index === 0}
+                        onClick={() => move(index, -1)}
+                        aria-label={`上移 ${convention.label}`}
+                      >
+                        <ArrowUp className="size-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-7"
+                        disabled={index === order.length - 1}
+                        onClick={() => move(index, 1)}
+                        aria-label={`下移 ${convention.label}`}
+                      >
+                        <ArrowDown className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="hidden w-24 flex-col justify-center gap-2 md:flex">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => move(0, -1)}
+                disabled
+              >
+                UP
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => move(0, 1)}
+                disabled
+              >
+                DOWN
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            在文本编辑器中选中字符后按「切换字符命名风格」快捷键，将按此顺序循环切换。
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function SettingsPanel(): JSX.Element {
   return (
     <div className="h-full bg-background-layer">
@@ -672,6 +815,9 @@ export function SettingsPanel(): JSX.Element {
 
           {/* 通用设置表单:最大历史数 / JSON 缩进 / 确认清空 */}
           <GeneralSection />
+
+          {/* 文本编辑器设置 */}
+          <EditorSection />
 
           {/* 快捷键表单 */}
           <ShortcutSection />

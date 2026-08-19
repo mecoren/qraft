@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
-import { DEFAULT_USER_CONFIG, type UserConfig } from '@/types/config';
+import {
+  DEFAULT_EDITOR_CONFIG,
+  DEFAULT_USER_CONFIG,
+  type UserConfig,
+} from '@/types/config';
 import type { ConfigChangedPayload, ErrorInfo } from '@/types/ipc';
 
 /**
@@ -20,6 +24,22 @@ function normalizeConfig(raw: UserConfig): UserConfig {
     shortcuts: { ...DEFAULT_USER_CONFIG.shortcuts, ...raw.shortcuts },
     toolPrefs: { ...DEFAULT_USER_CONFIG.toolPrefs, ...(raw.toolPrefs ?? {}) },
     favorites: raw.favorites ?? DEFAULT_USER_CONFIG.favorites,
+    editor: {
+      ...DEFAULT_EDITOR_CONFIG,
+      ...(raw.editor ?? {}),
+      namingConvention: {
+        ...DEFAULT_EDITOR_CONFIG.namingConvention,
+        ...(raw.editor?.namingConvention ?? {}),
+        enabled:
+          raw.editor?.namingConvention?.enabled?.length
+            ? raw.editor.namingConvention.enabled
+            : DEFAULT_EDITOR_CONFIG.namingConvention.enabled,
+        order:
+          raw.editor?.namingConvention?.order?.length
+            ? raw.editor.namingConvention.order
+            : DEFAULT_EDITOR_CONFIG.namingConvention.order,
+      },
+    },
   };
 }
 
@@ -79,6 +99,10 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         shortcuts: { ...current.shortcuts },
         toolPrefs: { ...(current.toolPrefs ?? {}) },
         favorites: [...(current.favorites ?? [])],
+        editor: {
+          ...current.editor,
+          namingConvention: { ...current.editor?.namingConvention },
+        },
       };
       setByPath(next as unknown as Record<string, unknown>, key, value);
       set({ config: next });
@@ -106,6 +130,10 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       shortcuts: { ...current.shortcuts },
       toolPrefs: { ...(current.toolPrefs ?? {}) },
       favorites: [...(current.favorites ?? [])],
+      editor: {
+        ...current.editor,
+        namingConvention: { ...current.editor?.namingConvention },
+      },
     };
     setByPath(next as unknown as Record<string, unknown>, payload.key, payload.newValue);
     set({ config: next });

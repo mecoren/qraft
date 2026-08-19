@@ -61,10 +61,12 @@ const AlertDialogContent = React.forwardRef<
       data-slot="alert-dialog-content"
       data-size={size}
       className={cn(
-        'fixed left-[50%] top-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-0 overflow-hidden rounded-xl border bg-background shadow-lg duration-200',
+        'fixed left-[50%] top-[50%] z-50 grid w-full translate-x-[-50%] translate-y-[-50%] gap-0 overflow-hidden rounded-xl border bg-background shadow-lg duration-200',
         'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
-        size === 'sm' ? 'sm:max-w-sm' : 'sm:max-w-lg',
+        size === 'sm'
+          ? 'max-w-[min(calc(100%-2rem),24rem)]'
+          : 'max-w-[min(calc(100%-2rem),32rem)]',
         className,
       )}
       {...props}
@@ -76,7 +78,7 @@ AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName;
 const AlertDialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     data-slot="alert-dialog-header"
-    className={cn('flex flex-col gap-2 px-6 pt-6 pb-4 text-center sm:text-left', className)}
+    className={cn('flex flex-col gap-2 px-5 pt-5 pb-3 text-left', className)}
     {...props}
   />
 );
@@ -86,7 +88,7 @@ const AlertDialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDiv
   <div
     data-slot="alert-dialog-footer"
     className={cn(
-      'flex flex-col-reverse gap-2 border-t border-border bg-muted/30 px-6 py-3 sm:flex-row sm:justify-end sm:gap-2',
+      'flex flex-row justify-end gap-2 border-t border-border bg-muted/30 px-5 py-3',
       className,
     )}
     {...props}

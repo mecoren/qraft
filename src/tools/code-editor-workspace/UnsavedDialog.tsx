@@ -67,7 +67,7 @@ export function UnsavedDialog({
     : isPinned
       ? '固定 Tab 不会被批量关闭操作影响,确认后仍会关闭。'
       : mode === 'quit-app'
-        ? '有未保存的更改,确定要退出 Qraft 吗?如果不保存,你的更改将丢失。'
+        ? '退出后未保存的更改将丢失。'
         : '如果不保存,你的更改将丢失。';
 
   return (

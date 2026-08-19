@@ -78,7 +78,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
             'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground group-[.toast]:rounded-md group-[.toast]:font-medium',
           cancelButton:
             'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground group-[.toast]:rounded-md',
-        },
+        } as unknown as NonNullable<ToasterProps['toastOptions']>['classNames'],
       }}
       {...props}
     />

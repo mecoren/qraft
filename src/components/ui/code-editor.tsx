@@ -22,6 +22,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import Editor, { type BeforeMount, type Monaco, type OnMount } from '@monaco-editor/react';
+import type { editor } from 'monaco-editor';
 import { ClipboardPaste, FolderOpen, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -85,6 +86,8 @@ export interface CodeEditorProps {
   showCharCount?: boolean;
   /** 测试用 data-testid */
   'data-testid'?: string;
+  /** Monaco 编辑器挂载回调 */
+  onMount?: (editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) => void;
   /**
    * 固定 Monaco 主题名(如 monaco-theme 的 VSCODE_THEME_NAME)。
    * 提供时编辑器使用该固定主题,不随 data-palette 变化;缺省时保持
@@ -156,6 +159,7 @@ export function CodeEditor({
   'data-testid': dataTestId,
   fixedTheme,
   embedded = false,
+  onMount,
 }: CodeEditorProps): ReactNode {
   const monacoRef = useRef<Monaco | null>(null);
   const editorRef = useRef<MonacoEditor | null>(null);
@@ -209,6 +213,9 @@ export function CodeEditor({
       setCtxOpen(true);
     });
     updateStatus();
+    if (monacoRef.current) {
+      onMount?.(editor, monacoRef.current);
+    }
   };
 
   // 主题名变化时,重新定义并切换 Monaco 主题(无需重挂载编辑器);
