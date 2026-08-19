@@ -7,6 +7,18 @@
     <meta name="theme-color" content="#0a0a0c" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <!--
+     * Monaco 编辑器内置样式 (~350KB):Tauri AMD loader (`public/monaco/loader.js`)
+     * 只动态注入 `<script>` 标签,从不创建 `<style>` / `<link rel=stylesheet>`,
+     * Monaco 自身的 `editor.main.js` 也未引用 `.css`,因此需要此处静态 link。
+     *
+     * - dev 模式下,vite dev server 仍按需注入,与 Monaco mount 后内部隐式 link
+     *   在时序上恰好覆盖;prod 模式必须这里显式 link,否则编辑器完全无样式。
+     * - SPA route base 通过 vite `BASE` 变量决定 dev 子路径;此处写 root 即可,
+     *   Tauri 用 `tauri://localhost`/`tauri://` 静态根,`/monaco/...` 直接命中
+     *   dist/monaco/... 复制产物。
+     -->
+    <link rel="stylesheet" href="/monaco/vs/editor/editor.main.css" />
   </head>
   <body>
     <div id="root"></div>

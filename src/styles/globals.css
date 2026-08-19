@@ -1,6 +1,26 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* ============================================================
+ * Tailwind v4 source 扫描范围:让 Tailwind 扫描到 src/** 下所有 .ts/.tsx/.html
+ *
+ * 背景:Tailwind v4 默认从当前 globals.css 所在目录推断 content sources,
+ * 在 `src/styles/globals.css` 这个位置,Tailwind 自动推断的范围未必覆盖
+ * `src/components/**` 与 `src/tools/**`(层级上跳),导致以下现象:
+ * - dev 模式 vite dev server 启动时会按需扫描,扫到了;
+ * - prod 模式 vite build 走静态预扫描,只跑 Tailwind 内置 default glob,
+ *   一旦默认 glob 不全,产物就漏掉一批 class(典型:小数 utility 与
+ *   bracket 任意值,如 `h-1.5`、`min-h-[200px]`、`p-[2px]` 等)。
+ * 显式声明一组 @source 把扫描范围钉死,dev/prod 行为对齐,避免 CI/CD
+ * 复现「样式丢失」。Tailwind v4 不接受 brace expansion(`{ts,tsx}`)在
+ * `@source` glob,只能写多个独立 @source。
+ * ============================================================ */
+@source "../**/*.ts";
+@source "../**/*.tsx";
+@source "../**/*.html";
+@source "../**/*.js";
+@source "../**/*.mdx";
+
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================
@@ -755,6 +775,48 @@
 [data-slot='scroll-area-viewport']::-webkit-scrollbar {
   display: none;
 }
+
+/* ============================================================
+ * ScrollArea Thumb 兜底样式 —— 不依赖任意值 utility
+ *
+ * 背景:
+ * - Tailwind v4 在 `vite build` 阶段(预扫描产线模式)偶尔会丢失
+ *   类似 `bg-[var(--scrollbar-slider-bg)]` 这种把 CSS 变量塞进
+ *   任意值语法的 utility class —— `dist/assets/index-*.css` 中
+ *   完全找不到这些规则。后果是 ScrollBar 滑块颜色消失,
+ *   dev 模式下 vite dev server 的按需注入掩盖了这一点,
+ *   只有 CI/CD 打包后才复现。
+ *
+ * 解决:
+ * - 此处用 [data-slot='scroll-area-thumb'] 直接命中 Radix
+ *   暴露的 thumb 元素,绕开 Tailwind utility 解析。
+ * - 颜色与 hover 行为与 globals.css 顶部 `*::-webkit-scrollbar-thumb`
+ *   保持一致(--scrollbar-slider-* token),深浅主题自动适配。
+ * ============================================================ */
+@layer components {
+  [data-slot='scroll-area-thumb'] {
+    background-color: var(--scrollbar-slider-bg);
+    border-radius: 9999px;
+    transition: background-color 0.3s ease;
+  }
+  [data-slot='scroll-area-scrollbar']:hover [data-slot='scroll-area-thumb'],
+  [data-slot='scroll-area-thumb']:hover {
+    background-color: var(--scrollbar-slider-hover-bg);
+  }
+}
+
+/* ============================================================
+ * Tailwind 任意值 utility 兜底 —— `@source inline(...)` directive:
+ * Tailwind v4 vite build 偶发遗漏一批小数与任意值 utility,导致
+ * ScrollArea / ToolbarButton / Tab 高亮指示线等组件的 padding / 尺寸计算
+ * 错位。dev 模式下 vite dev server 按需注入掩盖,只有 CI/CD 打包才复现。
+ *
+ * `@source inline` 是 Tailwind v4 官方推荐的「class 不可被源码扫描」兜底
+ * 入口(`@utility` lexer 拒绝带 `.`、`[`、`]`、`(` 的 utility 名,故弃之)。
+ * 数值与 Tailwind 默认 spacing scale 完全一致,不会带来视觉变化。
+ * 后续 Tailwind 升级修复源扫描后可移除。
+ * ============================================================ */
+@source inline("h-0\.5 h-1\.5 w-0\.5 w-1\.5 w-2\.5 w-3\.5 h-3\.5 size-1\.5 size-2\.5 bottom-1\.5 top-1\.5 right-1\.5 left-1\.5 bg-scrollbar min-h-\[200px\] min-h-\[80px\] min-w-\[120px\] min-w-\[8rem\] min-w-\[12rem\] max-w-\[calc\(100\%-2rem\)\] p-\[2px\]");
 
 /* ============================================================
  * Markdown 预览排版(GitHub 风格,跟随主题变量)
