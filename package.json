@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.5.7",
+    "@monaco-editor/loader": "^1.5.0",
     "@monaco-editor/react": "^4.7.0",
     "@peculiar/x509": "^2.0.0",
     "@radix-ui/react-context-menu": "^2.3.7",
