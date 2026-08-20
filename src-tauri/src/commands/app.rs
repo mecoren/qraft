@@ -4,14 +4,20 @@
 
 use std::sync::Mutex;
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_updater::UpdaterExt;
 
 use crate::shell::AppError;
 use crate::shell::file_open::{OpenFilePayload, PendingOpenFiles};
 use crate::shell::response::CommandResponse;
-use crate::shell::updater::{AvailableUpdate, CheckUpdateResponse, build_check_update_response};
+use crate::shell::updater::{
+    AvailableUpdate, CheckUpdateResponse, InstallMode, build_check_update_response,
+    resolve_install_mode, resolve_package_type,
+};
+
+/// Qraft GitHub Releases 页面(更新下载兜底入口)
+const RELEASES_PAGE: &str = "https://github.com/mecoren/qraft/releases";
 
 // ============ 窗口关闭守卫 ============
 
@@ -200,8 +206,12 @@ pub fn app_pull_open_files(
 
 /// IPC Command:检查是否有新版本
 ///
-/// 通过 `tauri-plugin-updater` 拉取 `tauri.conf.json` 中 `endpoints` 配置的 URL,
+/// 通过 `tauri-plugin-updater` 拉取 `tauri.conf.json` 中 `endpoints` 配置的 URL
+/// (GitHub Releases: `https://github.com/mecoren/qraft/releases/latest/download/latest.json`),
 /// 返回 `CheckUpdateResponse`,前端据此显示更新对话框。
+///
+/// 参考 GoNavi 的设计,响应中携带 `packageType` / `installMode`,明确当前平台
+/// 对应的安装包类型与安装方式(不同版本使用不同的安装流程)。
 ///
 /// # Errors
 ///
@@ -218,6 +228,20 @@ pub async fn app_check_update(app: tauri::AppHandle) -> Result<CheckUpdateRespon
     // command 一致),避免 None 分支无法获取版本号。
     let current_version = env!("CARGO_PKG_VERSION").to_string();
 
+    // 参考 GoNavi:探测当前 Windows 安装方式(MSI 安装版 vs 便携版),
+    // 以决定更新目标包类型。非 Windows 平台恒为 false,由 resolve_package_type
+    // 按平台分支返回对应类型。
+    #[cfg(target_os = "windows")]
+    let current_is_msi = crate::shell::updater::is_msi_install(
+        std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(std::path::Path::to_path_buf))
+            .as_deref()
+            .unwrap_or_else(|| std::path::Path::new("")),
+    );
+    #[cfg(not(target_os = "windows"))]
+    let current_is_msi = false;
+
     let update_result = updater
         .check()
         .await
@@ -233,21 +257,36 @@ pub async fn app_check_update(app: tauri::AppHandle) -> Result<CheckUpdateRespon
         date: u.date.map(|d| d.to_string()),
     });
 
-    Ok(build_check_update_response(current_version, update))
+    Ok(build_check_update_response(current_version, update, current_is_msi))
 }
 
 /// IPC Command:下载并安装更新,然后重启应用
 ///
-/// 用户在 UI 确认后调用此命令。安装完成后调用 `app.restart()` 自动重启,
-/// 因此正常路径下不会返回(返回类型 `Result<(), AppError>` 仅为错误路径使用)。
+/// 用户在 UI 确认后调用此命令。参考 GoNavi 的「不同版本不同安装方式」,
+/// 按安装模式分流:
+/// - `in-place`(portable / AppImage / archive 等就地覆盖类):由 `tauri-plugin-updater`
+///   下载 patch 包并就地覆盖,完成后自动重启。下载进度通过 `update-download-progress`
+///   事件广播到前端。
+/// - `windows-msi` / `macos-dmg` / `linux-deb` 等系统安装版:patch 模式无法可靠升级
+///   系统安装包,返回 `AppError::Unknown("MANUAL_INSTALL_REQUIRED")` 信号,前端据此
+///   自动跳转 GitHub Releases 供用户手动下载整包重装(见 `app_open_release_page`)。
+///
+/// # Arguments
+///
+/// * `install_mode` - 可选。前端从上一次 `app_check_update` 响应中带回的安装方式;
+///   若为 `None` 则按当前平台默认解析。
 ///
 /// # Errors
 ///
 /// - Updater 插件初始化或检查失败返回 `AppError::Unknown`
 /// - 无可用更新时返回 `AppError::Unknown("no update available")`
+/// - 系统安装版返回 `AppError::Unknown("MANUAL_INSTALL_REQUIRED")`(前端识别此信号跳转下载页)
 /// - 下载或安装失败返回 `AppError::Unknown`
 #[tauri::command]
-pub async fn app_install_update(app: tauri::AppHandle) -> Result<(), AppError> {
+pub async fn app_install_update(
+    app: tauri::AppHandle,
+    install_mode: Option<InstallMode>,
+) -> Result<(), AppError> {
     let updater = app
         .updater()
         .map_err(|e| AppError::Unknown(format!("updater init failed: {e}")))?;
@@ -258,15 +297,65 @@ pub async fn app_install_update(app: tauri::AppHandle) -> Result<(), AppError> {
         .map_err(|e| AppError::Unknown(format!("updater check failed: {e}")))?
         .ok_or_else(|| AppError::Unknown("no update available".into()))?;
 
-    // 进度回调:MVP 不展示进度,可在 v1.0 扩展为事件广播到前端。
-    // download_and_install 签名要求 2 个回调:on_chunk(进度) + on_download_finish(下载完成)。
+    // 解析安装方式(优先使用前端带回的模式,否则按当前平台默认解析)
+    #[cfg(target_os = "windows")]
+    let current_is_msi = crate::shell::updater::is_msi_install(
+        std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(std::path::Path::to_path_buf))
+            .as_deref()
+            .unwrap_or_else(|| std::path::Path::new("")),
+    );
+    #[cfg(not(target_os = "windows"))]
+    let current_is_msi = false;
+    let pkg = resolve_package_type(current_is_msi);
+    let mode = install_mode.unwrap_or_else(|| resolve_install_mode(pkg));
+    tracing::info!("installing update via install mode: {mode:?} (package: {pkg:?})");
+
+    // 系统安装版:Tauri updater 的 patch 模式无法可靠升级 msi/dmg/deb,
+    // 返回专用信号,由前端跳转 GitHub Releases 手动下载整包(不同安装方式的核心分流)。
+    if mode != InstallMode::InPlace {
+        return Err(AppError::Unknown("MANUAL_INSTALL_REQUIRED".into()));
+    }
+
+    // 就地覆盖类:下载 patch 包并安装,完成后自动重启。
+    // chunk 回调广播下载进度到前端(参考 GoNavi 的进度反馈体验)。
     update
-        .download_and_install(|_, _| {}, || {})
+        .download_and_install(
+            |chunk_len, content_len| {
+                if let Some(total) = content_len {
+                    let percent = if total > 0 {
+                        ((chunk_len as f64 / total as f64) * 100.0) as u8
+                    } else {
+                        0
+                    };
+                    let _ = app.emit("update-download-progress", percent);
+                }
+            },
+            || {
+                let _ = app.emit("update-download-finished", ());
+            },
+        )
         .await
         .map_err(|e| AppError::Unknown(format!("updater install failed: {e}")))?;
 
     // 安装完成后重启应用;restart() 返回 ! 类型,后续代码不可达
     app.restart();
+}
+
+/// IPC Command:打开 GitHub Releases 页面
+///
+/// 用于「不同版本不同安装方式」的兜底入口:当自动更新不可用(如系统安装版需
+/// 重新运行安装器、或网络受限)时,引导用户前往 GitHub Releases 手动下载对应
+/// 平台/包类型的整包。
+///
+/// # Errors
+///
+/// - `tauri-plugin-shell` 调用失败时返回 `AppError::Internal`
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+pub fn app_open_release_page(app: tauri::AppHandle) -> Result<CommandResponse<()>, AppError> {
+    app_open_external_inner(RELEASES_PAGE, &app)
 }
 
 #[cfg(test)]

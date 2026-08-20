@@ -61,7 +61,8 @@ pub fn run() -> anyhow::Result<()> {
 
     use crate::commands::app::{
         WindowCloseGuard, app_check_update, app_install_update, app_open_external,
-        app_pull_open_files, app_quit, app_version, window_close_cancel, window_close_ready,
+        app_open_release_page, app_pull_open_files, app_quit, app_version, window_close_cancel,
+        window_close_ready,
     };
     use crate::commands::clipboard::{clipboard_read_text, clipboard_write_text};
     use crate::commands::config::{config_get, config_get_all, config_reset, config_set};
@@ -233,6 +234,7 @@ pub fn run() -> anyhow::Result<()> {
             app_pull_open_files,
             app_check_update,
             app_install_update,
+            app_open_release_page,
             list_system_fonts,
         ])
         // 捕获 RunEvent::Opened 以处理 macOS 通过文件关联打开文件的事件;

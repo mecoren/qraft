@@ -213,9 +213,9 @@ export function CodeEditor({
       setCtxOpen(true);
     });
     updateStatus();
-    if (monacoRef.current) {
-      onMount?.(editor, monacoRef.current);
-    }
+    // monaco 实例在 beforeMount 时注入;极端加载顺序下可能为 null,
+    // 此时仍要触发 onMount(调用方可能依赖 editor 实例做全局注册)。
+    onMount?.(editor, monacoRef.current ?? (window as unknown as { monaco?: Monaco }).monaco);
   };
 
   // 主题名变化时,重新定义并切换 Monaco 主题(无需重挂载编辑器);

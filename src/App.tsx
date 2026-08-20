@@ -18,6 +18,7 @@ import { listen } from '@/lib/ipc';
 import { cn } from '@/lib/utils';
 import { pullPendingOpenFiles, type PendingOpenFile } from '@/tools/code-editor-workspace/fileOps';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
+import { cycleNamingCaseShortcutHandler } from '@/tools/code-editor-workspace/namingCaseCommand';
 import { DEFAULT_TOOL_ID } from '@/lib/tool-catalog';
 
 import type {
@@ -131,6 +132,8 @@ export function App(): JSX.Element {
   // —— 全局快捷键(导航类) ——
   // 工具操作类快捷键(execute_tool/clear_input/copy_output/search)需工具组件
   // 契约改造,标注 TODO(v1.1) 延后实现。
+  // 切换字符命名风格:作用于当前激活的编辑器实例(编辑器工具打开时生效)。
+  useShortcut('cycle_naming_case', () => cycleNamingCaseShortcutHandler(), []);
   useShortcut('open_command_palette', () => setPaletteOpen((v) => !v), []);
   useShortcut('toggle_sidebar', () => useUiStore.getState().toggleSidebar(), []);
   useShortcut('toggle_settings', () => setView('settings'), [setView]);

@@ -129,7 +129,7 @@
   "plugins": {
     "updater": {
       "active": true,
-      "endpoints": ["https://releases.qraft.dev/{{target}}/{{arch}}/{{current_version}}"],
+      "endpoints": ["https://github.com/mecoren/qraft/releases/latest/download/latest.json"],
       "dialog": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJGRDdCMzU2QUY3NDk4RDcKUldUWG1IU3ZWclBYdjJGOW4rS05mVlVlOEd5M2J5RzRwVWE2S0ZIMnRCUSt6cHYzUlVYV3lXQTMK"
     }

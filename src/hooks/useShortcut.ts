@@ -117,11 +117,15 @@ export function useShortcut(key: ShortcutKey, handler: () => void, deps: readonl
     const onKey = (e: KeyboardEvent) => {
       if (matchesShortcut(e, parsed)) {
         e.preventDefault();
+        e.stopPropagation();
         handler();
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // 使用捕获阶段监听:保证在事件到达 Monaco 等深层 DOM 元素之前触发。
+    // 冒泡阶段监听可能被编辑器(如 Monaco)在内部 stopPropagation 拦截,
+    // 导致快捷键在编辑器聚焦时失效。
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [combo, ...deps]);
 }

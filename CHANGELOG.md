@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 更新源由自建服务器改为接入 GitHub Releases(`https://github.com/mecoren/qraft/releases`)
+  - `src-tauri/tauri.conf.json` 的 `plugins.updater.endpoints` 改为 `https://github.com/mecoren/qraft/releases/latest/download/latest.json`(`tauri-plugin-updater` 官方 GitHub 通道,保留签名校验)
+  - 参考 GoNavi 的设计,新增「不同版本不同安装方式」:`src-tauri/src/shell/updater.rs` 引入 `PackageType`(msi/nsis/portable/dmg/app-archive/appimage/deb/archive)与 `InstallMode`(windows-msi/windows-nsis/in-place/macos-dmg/linux-deb)枚举及解析函数,`CheckUpdateResponse` 携带 `packageType` / `installMode` / `installModeLabel` 字段,前端据此展示安装方式
+  - `app_check_update` 在 Windows 上按可执行文件路径(`Program Files` 等系统目录)探测当前为 MSI 安装版还是便携版,决定目标更新包类型
+  - 新增 `app_open_release_page` 命令(打开 GitHub Releases),作为 msi/dmg/deb 等系统安装版的手动整包下载兜底入口;`SettingsPanel.tsx` 新增「前往 GitHub Releases 下载」按钮
+
+- 更新流程按安装方式真正分流(优化)
+  - `app_install_update` 对系统安装版(msi/dmg/deb)返回 `MANUAL_INSTALL_REQUIRED` 信号,前端自动跳转 GitHub Releases 下载整包;对就地覆盖类(portable/AppImage/zip)走 `download_and_install` 自动更新
+  - in-place 自动更新通过 `update-download-progress` / `update-download-finished` 事件广播下载进度,前端 `UpdateSection` 显示 `Progress` 进度条与百分比
+
+### Security
+
 - 品牌 Logo 改为透明背景并新增暗色反色版本,全面应用到应用内 Logo、favicon、README 与应用图标
   - `assets/logo.svg` 原地透明化:删除浅灰底瓦片 rect,图形元素/形状/比例不变(补充 `viewBox="0 0 614.4 614.4"`)
   - 新增 `assets/logo-inverted.svg`(透明背景 + 浅灰 `#F5F5F5` 图形)与 `scripts/generate-logo.js`(sharp 生成 1024px 透明/反色 PNG 与 `public/favicon.png` 兜底)

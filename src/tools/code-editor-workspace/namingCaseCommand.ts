@@ -1,5 +1,5 @@
 import type { editor } from 'monaco-editor';
-import type { Monaco } from '@monaco-editor/react';
+import { toast } from 'sonner';
 import { useConfigStore } from '@/store/configStore';
 import { DEFAULT_EDITOR_CONFIG } from '@/types/config';
 import {
@@ -8,43 +8,26 @@ import {
 } from '@/lib/naming-convention';
 
 /**
- * 将 "Ctrl+Shift+C" / "Shift+Alt+N" 等快捷键字符串解析为 Monaco keybinding。
+ * 全局「当前激活的编辑器实例」注册表。
  *
- * 支持修饰符：Ctrl/CtrlCmd、Shift、Alt、Meta；支持字母键（A-Z）。
- * 解析失败返回 null。
+ * 由 EditorWorkbench 在编辑器挂载时注册、卸载时注销。
+ * 用途:切换字符命名风格改用全局 useShortcut 监听,不再依赖 Monaco
+ * 自身的 keybinding——Monaco keybinding 只在编辑器聚焦时生效、且在
+ * WebView 中部分组合键(如 Alt+Shift,可能被输入法/系统占用)不可靠,
+ * 并且快捷键变更后依赖 `window.monaco` 的重新注册逻辑会静默失败
+ * (该全局变量从未被赋值)。改为 window 级监听后,无论焦点在编辑器内
+ * 还是外部,快捷键都能稳定触发。
  */
-export function parseShortcutToMonacoKeybinding(
-  combo: string,
-  monaco: Monaco,
-): number | null {
-  const parts = combo.split('+').map((p) => p.trim().toLowerCase());
-  let mod = 0;
-  let keyCode: number | null = null;
+let activeEditor: editor.IStandaloneCodeEditor | null = null;
 
-  for (const part of parts) {
-    if (!part) continue;
-    if (part === 'ctrl' || part === 'ctrlcmd') {
-      mod |= monaco.KeyMod.CtrlCmd;
-    } else if (part === 'shift') {
-      mod |= monaco.KeyMod.Shift;
-    } else if (part === 'alt') {
-      mod |= monaco.KeyMod.Alt;
-    } else if (part === 'meta') {
-      mod |= monaco.KeyMod.WinCtrl;
-    } else if (part.startsWith('key') && part.length === 4) {
-      const code = monaco.KeyCode[part.toUpperCase() as keyof typeof monaco.KeyCode];
-      if (typeof code === 'number') keyCode = code;
-    } else if (part.length === 1) {
-      const upper = part.toUpperCase();
-      if (upper >= 'a' && upper <= 'z') {
-        const code = monaco.KeyCode[`Key${upper.toUpperCase()}` as keyof typeof monaco.KeyCode];
-        if (typeof code === 'number') keyCode = code;
-      }
-    }
-  }
+/** EditorWorkbench 编辑器挂载时注册为全局激活实例 */
+export function registerActiveEditor(ed: editor.IStandaloneCodeEditor): void {
+  activeEditor = ed;
+}
 
-  if (keyCode === null) return null;
-  return mod | keyCode;
+/** EditorWorkbench 卸载 / 编辑器销毁时注销(仅当仍是该实例时) */
+export function unregisterActiveEditor(ed: editor.IStandaloneCodeEditor): void {
+  if (activeEditor === ed) activeEditor = null;
 }
 
 function getNamingConfig() {
@@ -65,13 +48,28 @@ function getNamingConfig() {
 
 /** 执行一次命名风格循环切换。 */
 function executeCycleNamingCase(editorInstance: editor.IStandaloneCodeEditor): void {
-  const selection = editorInstance.getSelection();
-  if (!selection || selection.isEmpty()) return;
+  // 防御:编辑器可能已销毁(如切换到对比视图/工具后未注销),此时 getModel 会抛错
+  if (editorInstance.isDisposed()) return;
   const model = editorInstance.getModel();
   if (!model) return;
 
-  const selectedText = model.getValueInRange(selection);
+  const selection = editorInstance.getSelection();
   const { enabled, order } = getNamingConfig();
+
+  // 无选区时,作用于光标所在的「单词」范围,让快捷键在任意光标位置都可用
+  if (!selection || selection.isEmpty()) {
+    const word = model.getWordAtPosition(
+      selection?.getPosition() ?? editorInstance.getPosition(),
+    );
+    if (!word) return;
+    const range = word.toRange();
+    const text = model.getValueInRange(range);
+    const nextText = cycleNamingCase(text, enabled, order);
+    editorInstance.executeEdits('cycle-naming-case', [{ range, text: nextText }]);
+    return;
+  }
+
+  const selectedText = model.getValueInRange(selection);
   const nextText = cycleNamingCase(selectedText, enabled, order);
 
   editorInstance.executeEdits('cycle-naming-case', [
@@ -83,30 +81,14 @@ function executeCycleNamingCase(editorInstance: editor.IStandaloneCodeEditor): v
 }
 
 /**
- * 为 Monaco 编辑器注册「循环切换命名风格」命令。
- *
- * @returns 一个 disposable，调用 dispose() 可撤销命令与快捷键。
+ * 全局快捷键回调:对当前激活的编辑器执行命名风格切换。
+ * 无激活编辑器(编辑器工具未打开/未打开文件)时提示用户。
  */
-export function registerNamingCaseCommand(
-  editorInstance: editor.IStandaloneCodeEditor,
-  monaco: Monaco,
-  shortcut: string,
-): { dispose: () => void } {
-  const keybinding = parseShortcutToMonacoKeybinding(shortcut, monaco);
-  if (keybinding === null) {
-    return { dispose: () => {} };
+export function cycleNamingCaseShortcutHandler(): void {
+  if (!activeEditor) {
+    toast.info('请在文本编辑器中选中文字后使用该快捷键');
+    return;
   }
-
-  const action = editorInstance.addAction({
-    id: 'qraft.editor.cycleNamingCase',
-    label: 'Cycle Naming Case',
-    keybindings: [keybinding],
-    run: () => executeCycleNamingCase(editorInstance),
-  });
-
-  return {
-    dispose: () => {
-      action.dispose();
-    },
-  };
+  executeCycleNamingCase(activeEditor);
+  activeEditor.focus();
 }

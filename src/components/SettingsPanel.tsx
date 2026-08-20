@@ -1,16 +1,18 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useEffect, useMemo, useState, type CSSProperties, type JSX } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type JSX } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@/lib/ipc';
 import { toast } from 'sonner';
-import { Palette, Type, Check, ArrowUp, ArrowDown, FileText } from 'lucide-react';
+import { Palette, Type, Check, ArrowUp, ArrowDown, FileText, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FontPicker } from '@/components/ui/font-picker';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useConfigStore } from '@/store/configStore';
@@ -47,16 +49,21 @@ import {
 } from '@/lib/naming-convention';
 import { DEFAULT_EDITOR_CONFIG } from '@/types/config';
 
-const SHORTCUT_KEYS: Array<{ key: keyof ShortcutBinding; label: string }> = [
+const SHORTCUT_KEYS: Array<{
+  key: keyof ShortcutBinding;
+  label: string;
+  /** 标记为暂未生效(该功能尚未实现对应快捷键处理) */
+  pending?: boolean;
+}> = [
   { key: 'open_command_palette', label: '打开命令面板' },
   { key: 'toggle_sidebar', label: '切换侧栏' },
-  { key: 'execute_tool', label: '执行工具' },
-  { key: 'clear_input', label: '清空输入' },
-  { key: 'copy_output', label: '复制输出' },
+  { key: 'execute_tool', label: '执行工具', pending: true },
+  { key: 'clear_input', label: '清空输入', pending: true },
+  { key: 'copy_output', label: '复制输出', pending: true },
   { key: 'toggle_settings', label: '切换设置' },
   { key: 'switch_tool', label: '切换工具' },
   { key: 'open_history', label: '打开历史' },
-  { key: 'search', label: '搜索' },
+  { key: 'search', label: '搜索', pending: true },
   { key: 'close_panel', label: '关闭面板' },
   { key: 'save_file', label: '保存编辑器' },
   { key: 'cycle_naming_case', label: '切换字符命名风格' },
@@ -71,7 +78,8 @@ const generalSchema = z.object({
 const shortcutSchema = z.object({
   shortcuts: z.object(
     SHORTCUT_KEYS.reduce(
-      (acc, s) => ({ ...acc, [s.key]: z.string().min(1) }),
+      // 允许空字符串,表示「禁用该快捷键」(运行时 parseShortcut 对空串返回 null 不注册)
+      (acc, s) => ({ ...acc, [s.key]: z.string() }),
       {} as Record<keyof ShortcutBinding, z.ZodString>,
     ),
   ),
@@ -87,27 +95,54 @@ interface CheckUpdateResponse {
   currentVersion: string;
   notes: string | null;
   date: string | null;
+  // 参考 GoNavi:不同平台/安装方式对应不同的安装包类型与安装流程
+  packageType: 'msi' | 'nsis' | 'portable' | 'dmg' | 'app-archive' | 'appimage' | 'deb' | 'archive' | null;
+  installMode: 'windows-msi' | 'windows-nsis' | 'in-place' | 'macos-dmg' | 'linux-deb' | null;
+  installModeLabel: string | null;
 }
 
 /**
  * 「检查更新」区块
  *
  * 自动更新是 Qraft 唯一允许的联网功能(见 PRD 13-security.md §3.1)。
- * 用户点击「检查更新」按钮调用 app_check_update IPC,
- * 有新版本时显示版本号与 release notes,确认后调用 app_install_update。
+ * 更新源接入 GitHub Releases(https://github.com/mecoren/qraft/releases)。
+ * 参考 GoNavi 设计:不同平台/安装方式对应不同的安装包类型与安装流程:
+ * - 就地覆盖类(portable / AppImage / zip):自动下载 patch 包并覆盖,带进度反馈
+ * - 系统安装版(msi / dmg / deb):Tauri patch 模式无法可靠升级,自动跳转 GitHub
+ *   Releases 供用户手动下载整包(「不同版本不同安装方式」的核心分流)
  */
 export function UpdateSection(): JSX.Element {
   const [checking, setChecking] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
   const [updateInfo, setUpdateInfo] = useState<CheckUpdateResponse | null>(null);
+  const manualRef = useRef(false);
+
+  // 监听 Rust 端广播的下载进度事件(仅 in-place 自动更新使用)
+  useEffect(() => {
+    let unlistenProgress: (() => void) | undefined;
+    let unlistenFinished: (() => void) | undefined;
+    void (async () => {
+      unlistenProgress = await listen<number>('update-download-progress', (p) => setProgress(p));
+      unlistenFinished = await listen('update-download-finished', () => setProgress(100));
+    })();
+    return () => {
+      unlistenProgress?.();
+      unlistenFinished?.();
+    };
+  }, []);
 
   async function handleCheckUpdate() {
     setChecking(true);
     try {
       const resp = await invoke<CheckUpdateResponse>('app_check_update');
       setUpdateInfo(resp);
+      manualRef.current = resp.installMode != null && resp.installMode !== 'in-place';
       if (!resp.available) {
         toast.success(`已是最新版本 (v${resp.currentVersion})`);
+      } else if (manualRef.current) {
+        // 系统安装版:提示需前往 Releases 手动下载整包(不同安装方式)
+        toast.info(`当前为「${resp.installModeLabel}」,需前往 GitHub Releases 下载整包更新`);
       }
     } catch (err) {
       toast.error(`检查更新失败: ${String(err)}`);
@@ -117,14 +152,32 @@ export function UpdateSection(): JSX.Element {
   }
 
   async function handleInstallUpdate() {
+    // 系统安装版:直接跳转 GitHub Releases 手动下载整包(不走自动 patch)
+    if (manualRef.current) {
+      void invoke('app_open_release_page');
+      return;
+    }
     setInstalling(true);
+    setProgress(0);
     try {
-      await invoke('app_install_update');
+      // in-place 类:把安装方式回传 Rust 走 download_and_install,完成后自动重启
+      await invoke('app_install_update', { installMode: updateInfo?.installMode ?? null });
       // 安装后会自动重启,代码不会执行到这里
     } catch (err) {
-      toast.error(`安装更新失败: ${String(err)}`);
+      const msg = String(err);
+      if (msg.includes('MANUAL_INSTALL_REQUIRED')) {
+        // 兜底:Rust 端判定为系统安装版,跳转下载页
+        void invoke('app_open_release_page');
+      } else {
+        toast.error(`安装更新失败: ${msg}`);
+      }
       setInstalling(false);
+      setProgress(null);
     }
+  }
+
+  function handleOpenReleasePage() {
+    void invoke('app_open_release_page');
   }
 
   return (
@@ -132,7 +185,7 @@ export function UpdateSection(): JSX.Element {
       <div>
         <h3 className="text-sm font-semibold">检查更新</h3>
         <p className="text-xs text-muted-foreground">
-          自动更新是 Qraft 唯一允许的联网功能,可在下方手动检查。
+          自动更新接入 GitHub Releases,可在下方手动检查。
         </p>
       </div>
 
@@ -148,16 +201,31 @@ export function UpdateSection(): JSX.Element {
             <p className="font-medium">发现新版本 v{updateInfo.version}</p>
             <p className="text-xs text-muted-foreground">当前版本 v{updateInfo.currentVersion}</p>
           </div>
+          {updateInfo.installModeLabel && (
+            <p className="text-xs text-muted-foreground">
+              安装方式：<span className="font-medium text-foreground">{updateInfo.installModeLabel}</span>
+            </p>
+          )}
           {updateInfo.notes && (
             <ScrollArea className="max-h-40 rounded-md border border-border">
               <pre className="p-2 text-xs whitespace-pre-wrap">{updateInfo.notes}</pre>
             </ScrollArea>
           )}
-          <div className="flex gap-2">
+          {progress !== null && !manualRef.current && (
+            <Progress value={progress} className="w-full" />
+          )}
+          <div className="flex flex-wrap gap-2">
             <Button onClick={handleInstallUpdate} disabled={installing}>
-              {installing ? '下载并安装中...' : '立即更新'}
+              {manualRef.current
+                ? '前往 GitHub 下载整包'
+                : installing
+                  ? `下载并安装中${progress !== null ? ` ${progress}%` : '...'}`
+                  : '立即更新'}
             </Button>
-            <Button variant="outline" onClick={() => setUpdateInfo(null)} disabled={installing}>
+            <Button variant="outline" onClick={handleOpenReleasePage} disabled={installing}>
+              前往 GitHub Releases
+            </Button>
+            <Button variant="ghost" onClick={() => setUpdateInfo(null)} disabled={installing}>
               稍后再说
             </Button>
           </div>
@@ -593,6 +661,109 @@ export function GeneralSection(): JSX.Element {
 }
 
 /**
+ * 快捷键捕获输入框。
+ * 点击后进入「监听模式」,捕获用户下一次按键组合并自动写入 value;
+ * 监听模式下单独按下 Esc 取消监听,Backspace/Delete 清空绑定。
+ * 再次点击或点击外部区域可退出监听模式。
+ */
+function ShortcutInput({
+  id,
+  value,
+  onChange,
+  'aria-label': ariaLabel,
+}: {
+  id?: string;
+  value: string;
+  onChange: (next: string) => void;
+  'aria-label'?: string;
+}): JSX.Element {
+  const [capturing, setCapturing] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // 监听键盘:在捕获阶段拦截,先于全局快捷键生效,避免触发现有绑定
+  useEffect(() => {
+    if (!capturing) return;
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const key = e.key;
+      // 仅按下修饰键时不捕获,等待主键
+      if (key === 'Control' || key === 'Shift' || key === 'Alt' || key === 'Meta') return;
+      if (key === 'Escape') {
+        setCapturing(false);
+        return;
+      }
+      if (key === 'Backspace' || key === 'Delete') {
+        onChange('');
+        setCapturing(false);
+        return;
+      }
+      const parts: string[] = [];
+      if (e.ctrlKey) parts.push('Ctrl');
+      if (e.shiftKey) parts.push('Shift');
+      if (e.altKey) parts.push('Alt');
+      if (e.metaKey) parts.push('Meta');
+      const main = key.length === 1 ? key.toUpperCase() : key;
+      parts.push(main);
+      onChange(parts.join('+'));
+      setCapturing(false);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [capturing, onChange]);
+
+  // 监听外部点击:点击组件外部区域取消监听
+  useEffect(() => {
+    if (!capturing) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setCapturing(false);
+      }
+    };
+    window.addEventListener('mousedown', onDown, true);
+    return () => window.removeEventListener('mousedown', onDown, true);
+  }, [capturing]);
+
+  return (
+    <div ref={ref} className="relative flex items-center">
+      <button
+        id={id}
+        type="button"
+        aria-label={ariaLabel}
+        onClick={() => setCapturing((c) => !c)}
+        className={cn(
+          'h-9 w-full rounded-md border border-input bg-background px-3 text-left text-sm',
+          'transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          capturing ? 'border-primary ring-2 ring-ring' : '',
+        )}
+      >
+        {capturing ? (
+          <span className="text-muted-foreground">请按下按键…</span>
+        ) : value ? (
+          <span className="font-mono">{value}</span>
+        ) : (
+          <span className="text-muted-foreground">未绑定</span>
+        )}
+      </button>
+      {value && !capturing && (
+        <button
+          type="button"
+          aria-label="清空快捷键"
+          title="清空"
+          onClick={() => onChange('')}
+          className={cn(
+            'absolute right-1 flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground',
+            'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          )}
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
  * 快捷键区块:自定义各功能的快捷键绑定。
  * 独立组件供设置面板与设置弹窗复用。
  */
@@ -627,9 +798,19 @@ export function ShortcutSection(): JSX.Element {
   }, [config, form]);
 
   const onSubmit = async (values: { shortcuts: ShortcutBinding }) => {
-    for (const k of Object.keys(values.shortcuts) as Array<keyof ShortcutBinding>) {
+    // 仅持久化有改动的字段,避免整批覆盖,也更稳健
+    const dirty = form.formState.dirtyFields.shortcuts ?? {};
+    const changedKeys = (Object.keys(dirty) as Array<keyof ShortcutBinding>).filter(
+      (k) => dirty[k],
+    );
+    if (changedKeys.length === 0) {
+      toast.info('没有需要保存的更改');
+      return;
+    }
+    for (const k of changedKeys) {
       await setConfig(`shortcuts.${k}`, values.shortcuts[k]);
     }
+    form.reset(values);
     toast.success('快捷键已保存');
   };
 
@@ -648,8 +829,28 @@ export function ShortcutSection(): JSX.Element {
           <div className="grid grid-cols-2 gap-4">
             {SHORTCUT_KEYS.map((s) => (
               <div key={s.key} className="flex flex-col gap-1">
-                <Label htmlFor={`sc-${s.key}`}>{s.label}</Label>
-                <Input id={`sc-${s.key}`} {...form.register(`shortcuts.${s.key}`)} />
+                <div className="flex items-center gap-1">
+                  <Label htmlFor={`sc-${s.key}`}>{s.label}</Label>
+                  {s.pending && (
+                    <span
+                      className="rounded bg-muted px-1 py-0.5 text-[10px] leading-none text-muted-foreground"
+                      title="该功能的快捷键暂未生效"
+                    >
+                      暂未生效
+                    </span>
+                  )}
+                </div>
+                <ShortcutInput
+                  id={`sc-${s.key}`}
+                  aria-label={s.label}
+                  value={form.watch(`shortcuts.${s.key}`)}
+                  onChange={(next) =>
+                    form.setValue(`shortcuts.${s.key}`, next, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    })
+                  }
+                />
               </div>
             ))}
           </div>
