@@ -210,9 +210,7 @@ interface FoldingContribution {
 }
 
 /** 通过编辑器私有 contribution API 获取 folding 贡献;Monaco 没有公开 API */
-function getFoldingContribution(
-  editor: editor.IStandaloneCodeEditor,
-): FoldingContribution | null {
+function getFoldingContribution(editor: editor.IStandaloneCodeEditor): FoldingContribution | null {
   return (
     editor as unknown as {
       getContribution(id: string): FoldingContribution | null;
@@ -231,9 +229,7 @@ export interface FoldSummaryHandle {
  * 仅适用于 JSON 语言(其他语言的对象/数组/函数体语法边界不可靠,
  * 误标摘要会形成误导);调用方按语言启用。
  */
-export function attachFoldSummary(
-  editor: editor.IStandaloneCodeEditor,
-): FoldSummaryHandle {
+export function attachFoldSummary(editor: editor.IStandaloneCodeEditor): FoldSummaryHandle {
   const collection = editor.createDecorationsCollection();
 
   // 折叠状态变化的防抖触发:多个来源事件(onDidChangeModelContent /
@@ -331,10 +327,7 @@ export function attachFoldSummary(
 
   // 初次应用:Monaco 内部 folding 计算是 debounce 200ms,
   // setTimeout 0 排队到下一事件循环,250ms 二次保险
-  const initTimers = [
-    setTimeout(scheduleRefresh, 0),
-    setTimeout(scheduleRefresh, 250),
-  ];
+  const initTimers = [setTimeout(scheduleRefresh, 0), setTimeout(scheduleRefresh, 250)];
 
   return {
     dispose(): void {

@@ -18,7 +18,10 @@ import { listen } from '@/lib/ipc';
 import { cn } from '@/lib/utils';
 import { pullPendingOpenFiles, type PendingOpenFile } from '@/tools/code-editor-workspace/fileOps';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
-import { cycleNamingCaseShortcutHandler, toggleCaseShortcutHandler } from '@/tools/code-editor-workspace/namingCaseCommand';
+import {
+  cycleNamingCaseShortcutHandler,
+  toggleCaseShortcutHandler,
+} from '@/tools/code-editor-workspace/namingCaseCommand';
 import { DEFAULT_TOOL_ID } from '@/lib/tool-catalog';
 
 import type {
