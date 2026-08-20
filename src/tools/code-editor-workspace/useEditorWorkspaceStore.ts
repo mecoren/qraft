@@ -81,7 +81,11 @@ interface WorkspaceState {
   setTabContent: (id: string, content: string) => void;
   /** 更新 Tab 语言(语言选择器调用) */
   setTabLanguage: (id: string, language: EditorLanguage) => void;
-  /** 保存成功后绑定路径并固化内容快照(清 dirty) */
+  /**
+   * 保存成功后绑定路径并固化内容快照(清 dirty)。
+   * 路径变化(首次另存为/另存为到新扩展名)时按新路径重新推断语言,
+   * 让 Monaco 高亮与文件类型保持同步;覆盖保存保留当前语言。
+   */
   markSaved: (id: string, path: string) => void;
   /** 切换左栏显隐 */
   toggleLeftSidebar: () => void;
@@ -301,9 +305,14 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   markSaved: (id, path) => {
     const { workspace } = get();
-    const tabs = workspace.tabs.map((t) =>
-      t.id === id ? { ...t, path, savedContent: t.content, title: fileNameFromPath(path) } : t,
-    );
+    const tabs = workspace.tabs.map((t) => {
+      if (t.id !== id) return t;
+      // 路径变化(首次另存为/另存为到新扩展名)时,按新路径重新推断语言,
+      // 让高亮与文件类型保持同步;路径不变(覆盖保存)保留当前语言,
+      // 避免覆盖用户手动选择。
+      const language = t.path === path ? t.language : inferLanguageFromPath(path);
+      return { ...t, path, savedContent: t.content, title: fileNameFromPath(path), language };
+    });
     set({ workspace: { ...workspace, tabs }, userTouched: true });
   },
 

@@ -282,6 +282,30 @@ describe('useEditorWorkspaceStore content & dirty', () => {
     expect(tab.title).toBe('untitled-1.txt');
   });
 
+  it('markSaved re-infers language when path changes (save as .py)', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.newBlankTab();
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+    s.setTabContent(id, 'print(1)');
+    s.markSaved(id, '/saved/app.py');
+
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
+    expect(tab.path).toBe('/saved/app.py');
+    expect(tab.language).toBe('python');
+  });
+
+  it('markSaved keeps language when re-saving to the same path', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.openLocalFile('/app.ts', 'const x = 1');
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+    // 用户手动改语言后覆盖保存:语言应保留用户选择
+    s.setTabLanguage(id, 'javascript');
+    s.markSaved(id, '/app.ts');
+
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
+    expect(tab.language).toBe('javascript');
+  });
+
   it('setTabLanguage updates the language', () => {
     const s = useEditorWorkspaceStore.getState();
     s.newBlankTab();

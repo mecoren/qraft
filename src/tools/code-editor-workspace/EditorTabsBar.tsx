@@ -311,7 +311,13 @@ export function EditorTabsBar({
           {tabs.length === 0 && compares.length === 0 ? (
             <div
               data-testid={`${dataTestId}-empty`}
-              className="flex items-center px-3 text-xs text-muted-foreground"
+              // 用「固定行高 + 固定高度」保证垂直居中,不依赖父级高度链:
+              // - Tab 栏容器是 h-9(36px),但它在 ScrollArea 的 Viewport(横向
+              //   滚动容器)内部,Viewport 子元素 h-full 不一定拿到 36px
+              //   (overflow-x:auto 的滚动容器对子元素高度计算有特殊性)
+              // - 直接给空态 div h-9 + leading-none + items-center,任何
+              //   情况下文字都精确垂直居中于 36px 内
+              className="flex h-9 shrink-0 items-center px-3 text-xs leading-none text-muted-foreground"
             >
               无打开的编辑器
             </div>

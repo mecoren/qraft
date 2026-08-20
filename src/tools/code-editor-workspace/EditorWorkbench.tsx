@@ -38,6 +38,8 @@ import { EditorTabsBar } from './EditorTabsBar';
 import { EditorLeftSidebar } from './EditorLeftSidebar';
 import { PathBreadcrumb } from './PathBreadcrumb';
 import { UnsavedDialog, type UnsavedMode } from './UnsavedDialog';
+import { EditorLanguagePicker } from './EditorLanguagePicker';
+import { LANGUAGE_LABELS } from './languageMap';
 import {
   openTextFileDialog,
   revealInExplorer,
@@ -83,6 +85,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const [compares, setCompares] = useState<ComparePair[]>([]);
   /** 当前激活的对比项 id(主区域显示其 diff) */
   const [activeCompareId, setActiveCompareId] = useState<string | null>(null);
+  /** 语言模式选择对话框(右下角语言徽章触发) */
+  const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
   /**
    * 分隔条 hover / 拖拽中状态:
    * 拖拽分隔条时鼠标会移出侧栏面板,导致侧栏悬浮态丢失、按钮/徽章闪烁;
@@ -757,6 +761,19 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                   }
                   minimap
                   onMount={handleEditorMount}
+                  // 右下角语言徽章(仿 VSCode):点击弹出「选择语言模式」对话框,
+                  // 切换该 Tab 的语言即 Monaco 高亮;展示当前语言的中文名
+                  statusBarRight={
+                    <button
+                      type="button"
+                      onClick={() => setLanguagePickerOpen(true)}
+                      title="选择语言模式"
+                      data-testid="editor-language-badge"
+                      className="whitespace-nowrap rounded-sm px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                    >
+                      {LANGUAGE_LABELS[activeTab.language] ?? '纯文本'}
+                    </button>
+                  }
                   // 嵌入模式:外层右侧主页面卡片已自带 rounded-lg + border,
                   // 此处关闭 CodeEditor 自身的圆角/边框,避免双层圆角嵌套与
                   // --border/--input 颜色不一致导致的"双线"视觉
@@ -766,8 +783,11 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               ) : (
                 <div
                   data-testid="editor-empty"
-                  className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground"
+                  // 最小高度避免主容器高度不足时「居中」退化为「贴顶」;
+                  // py-16 给标题/按钮上下均匀留白,视觉上「靠下」而非紧贴 Tab 栏
+                  className="flex h-full min-h-[280px] flex-col items-center justify-center gap-3 py-16 text-sm text-muted-foreground"
                 >
+                  <FilePlus2 aria-hidden className="size-10 opacity-40" />
                   <p>无打开的编辑器</p>
                   <div className="flex gap-2">
                     <Button
@@ -807,6 +827,20 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
           onCancel={handleUnsavedCancel}
           data-testid="unsaved-dialog"
         />
+
+        {/* 语言模式选择对话框(右下角语言徽章触发):切换当前 Tab 的 Monaco 高亮语言 */}
+        {activeTab && (
+          <EditorLanguagePicker
+            open={languagePickerOpen}
+            onOpenChange={setLanguagePickerOpen}
+            currentLanguage={activeTab.language}
+            onSelect={(language) => {
+              useEditorWorkspaceStore.getState().setTabLanguage(activeTab.id, language);
+              setLanguagePickerOpen(false);
+            }}
+            data-testid="editor-language-picker"
+          />
+        )}
       </div>
     </TooltipProvider>
   );
