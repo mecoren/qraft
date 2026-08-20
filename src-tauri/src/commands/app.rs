@@ -210,7 +210,7 @@ pub fn app_pull_open_files(
 /// (GitHub Releases: `https://github.com/mecoren/qraft/releases/latest/download/latest.json`),
 /// 返回 `CheckUpdateResponse`,前端据此显示更新对话框。
 ///
-/// 参考 GoNavi 的设计,响应中携带 `packageType` / `installMode`,明确当前平台
+/// 参考 `GoNavi` 的设计,响应中携带 `packageType` / `installMode`,明确当前平台
 /// 对应的安装包类型与安装方式(不同版本使用不同的安装流程)。
 ///
 /// # Errors
@@ -266,9 +266,9 @@ pub async fn app_check_update(app: tauri::AppHandle) -> Result<CheckUpdateRespon
 
 /// IPC Command:下载并安装更新,然后重启应用
 ///
-/// 用户在 UI 确认后调用此命令。参考 GoNavi 的「不同版本不同安装方式」,
+/// 用户在 UI 确认后调用此命令。参考 `GoNavi` 的「不同版本不同安装方式」,
 /// 按安装模式分流:
-/// - `in-place`(portable / AppImage / archive 等就地覆盖类):由 `tauri-plugin-updater`
+/// - `in-place`(portable / `AppImage` / archive 等就地覆盖类):由 `tauri-plugin-updater`
 ///   下载 patch 包并就地覆盖,完成后自动重启。下载进度通过 `update-download-progress`
 ///   事件广播到前端。
 /// - `windows-msi` / `macos-dmg` / `linux-deb` 等系统安装版:patch 模式无法可靠升级
@@ -328,11 +328,13 @@ pub async fn app_install_update(
         .download_and_install(
             |chunk_len, content_len| {
                 if let Some(total) = content_len {
-                    let percent = if total > 0 {
-                        ((chunk_len as f64 / total as f64) * 100.0) as u8
-                    } else {
-                        0
-                    };
+                    // 整数运算计算百分比,避免 f64 cast 的精度/截断告警;
+                    // chunk_len 为 usize、total 为 u64,统一按 u64 运算,商在 0..=100 内。
+                    // 用 checked_div 处理 total==0,避免 manual_checked_ops 告警。
+                    let percent: u8 = (chunk_len as u64)
+                        .checked_mul(100)
+                        .and_then(|v| total.checked_div(v))
+                        .map_or(0, |p| u8::try_from(p).unwrap_or(100));
                     let _ = app.emit("update-download-progress", percent);
                 }
             },

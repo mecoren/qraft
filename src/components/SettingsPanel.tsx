@@ -116,7 +116,9 @@ export function UpdateSection(): JSX.Element {
   const [installing, setInstalling] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [updateInfo, setUpdateInfo] = useState<CheckUpdateResponse | null>(null);
-  const manualRef = useRef(false);
+  // 系统安装版(msi / dmg / deb)需要手动下载整包;render 阶段需要读取该标记,
+  // 故用 state 而非 ref(React 规则不允许在渲染期访问 ref)。
+  const [manualInstall, setManualInstall] = useState(false);
 
   // 监听 Rust 端广播的下载进度事件(仅 in-place 自动更新使用)
   useEffect(() => {
@@ -137,10 +139,11 @@ export function UpdateSection(): JSX.Element {
     try {
       const resp = await invoke<CheckUpdateResponse>('app_check_update');
       setUpdateInfo(resp);
-      manualRef.current = resp.installMode != null && resp.installMode !== 'in-place';
+      const isManual = resp.installMode != null && resp.installMode !== 'in-place';
+      setManualInstall(isManual);
       if (!resp.available) {
         toast.success(`已是最新版本 (v${resp.currentVersion})`);
-      } else if (manualRef.current) {
+      } else if (isManual) {
         // 系统安装版:提示需前往 Releases 手动下载整包(不同安装方式)
         toast.info(`当前为「${resp.installModeLabel}」,需前往 GitHub Releases 下载整包更新`);
       }
@@ -153,7 +156,7 @@ export function UpdateSection(): JSX.Element {
 
   async function handleInstallUpdate() {
     // 系统安装版:直接跳转 GitHub Releases 手动下载整包(不走自动 patch)
-    if (manualRef.current) {
+    if (manualInstall) {
       void invoke('app_open_release_page');
       return;
     }
@@ -211,12 +214,12 @@ export function UpdateSection(): JSX.Element {
               <pre className="p-2 text-xs whitespace-pre-wrap">{updateInfo.notes}</pre>
             </ScrollArea>
           )}
-          {progress !== null && !manualRef.current && (
+          {progress !== null && !manualInstall && (
             <Progress value={progress} className="w-full" />
           )}
           <div className="flex flex-wrap gap-2">
             <Button onClick={handleInstallUpdate} disabled={installing}>
-              {manualRef.current
+              {manualInstall
                 ? '前往 GitHub 下载整包'
                 : installing
                   ? `下载并安装中${progress !== null ? ` ${progress}%` : '...'}`

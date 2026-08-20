@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 /// 安装包类型
 ///
-/// 对应 GoNavi 的 `updatePackageType`:不同平台打包产物使用不同的安装包格式,
+/// 对应 `GoNavi` 的 `updatePackageType`:不同平台打包产物使用不同的安装包格式,
 /// 更新时需要匹配"当前安装方式"才能正确安装(端口版可就地覆盖,安装版需调用
 /// 系统安装器)。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -36,7 +36,7 @@ pub enum PackageType {
 
 /// 安装方式(平台相关的安装动作)
 ///
-/// 对应 GoNavi 的 `updateInstallMode`(installMode):同一份更新在不同平台上
+/// 对应 `GoNavi` 的 `updateInstallMode`(installMode):同一份更新在不同平台上
 /// 触发不同的安装流程。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -55,11 +55,11 @@ pub enum InstallMode {
 
 /// 根据平台 + 当前安装模式解析"目标更新包类型"
 ///
-/// 参考 GoNavi `resolveUpdatePackageType`:
+/// 参考 `GoNavi` `resolveUpdatePackageType`:
 /// - Windows 通过 marker 文件(见 `is_msi_install`)区分 MSI 安装版与便携版
 /// - macOS / Linux 按各自打包产物返回对应类型
 #[must_use]
-pub fn resolve_package_type(current_is_msi: bool) -> PackageType {
+pub const fn resolve_package_type(current_is_msi: bool) -> PackageType {
     #[cfg(target_os = "windows")]
     {
         if current_is_msi {
@@ -84,9 +84,9 @@ pub fn resolve_package_type(current_is_msi: bool) -> PackageType {
 
 /// 根据包类型解析对应的安装方式
 ///
-/// 参考 GoNavi `validateUpdatePackageForCurrentInstallMode` 的安装分支映射。
+/// 参考 `GoNavi` `validateUpdatePackageForCurrentInstallMode` 的安装分支映射。
 #[must_use]
-pub fn resolve_install_mode(pkg: PackageType) -> InstallMode {
+pub const fn resolve_install_mode(pkg: PackageType) -> InstallMode {
     match pkg {
         PackageType::Msi => InstallMode::WindowsMsi,
         PackageType::Nsis => InstallMode::WindowsNsis,
@@ -101,7 +101,7 @@ pub fn resolve_install_mode(pkg: PackageType) -> InstallMode {
 
 /// 安装方式的人类可读描述(展示在前端)
 #[must_use]
-pub fn install_mode_label(mode: InstallMode) -> &'static str {
+pub const fn install_mode_label(mode: InstallMode) -> &'static str {
     match mode {
         InstallMode::WindowsMsi => "MSI 安装(系统级)",
         InstallMode::WindowsNsis => "NSIS 安装器",
@@ -113,8 +113,8 @@ pub fn install_mode_label(mode: InstallMode) -> &'static str {
 
 /// 探测当前 Windows 安装是否为 MSI 安装版
 ///
-/// 参考 GoNavi 的 `windowsMSIInstallMarker`:区分「系统安装版(MSI)」与「便携版」。
-/// GoNavi 通过同级 marker 文件标识;此处采用等价的零配置判据 —— MSI 默认安装到
+/// 参考 `GoNavi` 的 `windowsMSIInstallMarker`:区分「系统安装版(MSI)」与「便携版」。
+/// `GoNavi` 通过同级 marker 文件标识;此处采用等价的零配置判据 —— MSI 默认安装到
 /// `C:\Program Files\...`(系统级、需管理员权限升级),而 NSIS(`currentUser`)与
 /// 便携版位于 `%LOCALAPPDATA%` 或任意目录,属就地覆盖类。据此决定更新包类型与
 /// 安装方式提示。
@@ -136,9 +136,9 @@ pub struct CheckUpdateResponse {
     pub current_version: String,
     pub notes: Option<String>,
     pub date: Option<String>,
-    /// 当前平台对应的目标安装包类型(参考 GoNavi `updatePackageType`)
+    /// 当前平台对应的目标安装包类型(参考 `GoNavi` `updatePackageType`)
     pub package_type: Option<PackageType>,
-    /// 当前平台/安装方式对应的安装动作(参考 GoNavi `updateInstallMode`)
+    /// 当前平台/安装方式对应的安装动作(参考 `GoNavi` `updateInstallMode`)
     pub install_mode: Option<InstallMode>,
     /// 安装方式的人类可读描述,前端直接展示
     pub install_mode_label: Option<String>,
