@@ -27,6 +27,7 @@ describe('SettingsDialog', () => {
     expect(screen.getByRole('button', { name: /通用/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /快捷键/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /更新/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /关于/ })).toBeInTheDocument();
     // 默认展示主题内容(ThemeSection 的说明文案)
     expect(screen.getByText(/选择预设主题或自定义 accent 色/)).toBeInTheDocument();
   });
@@ -40,6 +41,10 @@ describe('SettingsDialog', () => {
     // 点击「快捷键」菜单
     await user.click(screen.getByRole('button', { name: /快捷键/ }));
     expect(screen.getByLabelText(/打开命令面板/)).toBeInTheDocument();
+    // 点击「关于」菜单
+    await user.click(screen.getByRole('button', { name: /关于/ }));
+    expect(screen.getByText(/本地优先的开发者工具箱/)).toBeInTheDocument();
+    expect(screen.getByText(/开源许可/)).toBeInTheDocument();
   });
 
   it('calls onOpenChange(false) when clicking close button', async () => {

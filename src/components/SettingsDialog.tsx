@@ -2,7 +2,7 @@
  * SettingsDialog —— 设置弹窗
  *
  * 以可拖拽、可缩放的形式承载设置项:
- * - 左侧为设置菜单(主题 / 字体 / 通用 / 文本编辑器 / 快捷键 / 更新),右侧为对应内容页
+ * - 左侧为设置菜单(主题 / 字体 / 通用 / 文本编辑器 / 快捷键 / 更新 / 关于),右侧为对应内容页
  * - 标题栏支持拖拽移动弹窗
  * - 仅四角支持放大缩小(避免边缩放导致的不适配)
  * - 初始位置视口居中,拖拽/缩放始终限制在视口内(大屏居中、小屏不溢出)
@@ -28,6 +28,7 @@ import {
   X,
   Check,
   FileText,
+  Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -37,6 +38,7 @@ import {
   ShortcutSection,
   UpdateSection,
   EditorSection,
+  AboutSection,
 } from '@/components/SettingsPanel';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -49,7 +51,7 @@ const MIN_HEIGHT = 400;
 /** 边缘留白(px),防止弹窗贴边 */
 const MARGIN = 16;
 
-type MenuId = 'theme' | 'font' | 'general' | 'editor' | 'shortcuts' | 'update';
+type MenuId = 'theme' | 'font' | 'general' | 'editor' | 'shortcuts' | 'update' | 'about';
 
 interface MenuItem {
   id: MenuId;
@@ -190,6 +192,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX
       label: '更新',
       icon: <CloudDownload className="size-4" />,
       content: <UpdateSection />,
+    },
+    {
+      id: 'about',
+      label: '关于',
+      icon: <Info className="size-4" />,
+      content: <AboutSection />,
     },
   ];
 
