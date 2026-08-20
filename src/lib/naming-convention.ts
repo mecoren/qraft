@@ -50,10 +50,7 @@ export const NAMING_CONVENTIONS: NamingConvention[] = [
     id: 'camelCase',
     label: 'camelCase',
     detect: (text) => /^[a-z][a-z0-9]*([A-Z][a-zA-Z0-9]*)+$/.test(text),
-    convert: (words) =>
-      words
-        .map((w, i) => (i === 0 ? w.toLowerCase() : capitalize(w)))
-        .join(''),
+    convert: (words) => words.map((w, i) => (i === 0 ? w.toLowerCase() : capitalize(w))).join(''),
   },
   {
     id: 'snake_case',
@@ -153,7 +150,7 @@ export function cycleNamingCase(
 }
 
 /** 对整段文本切换大小写。 */
-function toggleCase(text: string): string {
+export function toggleCase(text: string): string {
   if (text === text.toUpperCase()) {
     return text.toLowerCase();
   }

@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 更新源由自建服务器改为接入 GitHub Releases(`https://github.com/mecoren/qraft/releases`)
   - `src-tauri/tauri.conf.json` 的 `plugins.updater.endpoints` 改为 `https://github.com/mecoren/qraft/releases/latest/download/latest.json`(`tauri-plugin-updater` 官方 GitHub 通道,保留签名校验)
-  - 参考 GoNavi 的设计,新增「不同版本不同安装方式」:`src-tauri/src/shell/updater.rs` 引入 `PackageType`(msi/nsis/portable/dmg/app-archive/appimage/deb/archive)与 `InstallMode`(windows-msi/windows-nsis/in-place/macos-dmg/linux-deb)枚举及解析函数,`CheckUpdateResponse` 携带 `packageType` / `installMode` / `installModeLabel` 字段,前端据此展示安装方式
+  - 新增「不同版本不同安装方式」:`src-tauri/src/shell/updater.rs` 引入 `PackageType`(msi/nsis/portable/dmg/app-archive/appimage/deb/archive)与 `InstallMode`(windows-msi/windows-nsis/in-place/macos-dmg/linux-deb)枚举及解析函数,`CheckUpdateResponse` 携带 `packageType` / `installMode` / `installModeLabel` 字段,前端据此展示安装方式
   - `app_check_update` 在 Windows 上按可执行文件路径(`Program Files` 等系统目录)探测当前为 MSI 安装版还是便携版,决定目标更新包类型
   - 新增 `app_open_release_page` 命令(打开 GitHub Releases),作为 msi/dmg/deb 等系统安装版的手动整包下载兜底入口;`SettingsPanel.tsx` 新增「前往 GitHub Releases 下载」按钮
 

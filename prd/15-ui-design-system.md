@@ -422,8 +422,11 @@ interface ToolPref {
 | `Ctrl+H` | 打开历史 | 是 |
 | `Ctrl+F` | 工具内搜索 | 是 |
 | `Esc` | 关闭对话框/面板 | 是 |
+| `Ctrl+S` | 保存编辑器 | 是 |
+| `Ctrl+Shift+U` | 切换字符命名风格 | 是 |
+| `Ctrl+Shift+L` | 切换大小写 | 是 |
 
-> 全部 10 个快捷键均持久化到 `UserConfig.shortcuts`（`ShortcutBinding`），与 [08-data-model.md](./08-data-model.md) §3.2 的定义一一对应，可在设置中自定义。
+> 全部 13 个快捷键均持久化到 `UserConfig.shortcuts`（`ShortcutBinding`），与 [08-data-model.md](./08-data-model.md) §3.2 的定义一一对应，可在设置中自定义。
 
 #### 工具内快捷键
 
@@ -445,6 +448,9 @@ interface ShortcutBinding {
   open_history: string;           // "Ctrl+H"
   search: string;                // "Ctrl+F"
   close_panel: string;           // "Esc"
+  save_file: string;             // "Ctrl+S"
+  cycle_naming_case: string;     // "Ctrl+Shift+U"
+  toggle_case: string;           // "Ctrl+Shift+L"
 }
 ```
 

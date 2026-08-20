@@ -2,8 +2,7 @@ import type { JSX } from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export interface CheckboxProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
+export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
   label?: React.ReactNode;
 }
 
@@ -14,25 +13,13 @@ function indicatorSize(box: number): number {
   return Math.round(box * 0.75);
 }
 
-export function Checkbox({
-  className,
-  label,
-  id,
-  checked,
-  ...props
-}: CheckboxProps): JSX.Element {
+export function Checkbox({ className, label, id, checked, ...props }: CheckboxProps): JSX.Element {
   const inputId = id ?? props.name;
   const box = 16;
   const isChecked = props.defaultChecked ?? checked ?? false;
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <input
-        id={inputId}
-        type="checkbox"
-        className="peer sr-only"
-        checked={checked}
-        {...props}
-      />
+      <input id={inputId} type="checkbox" className="peer sr-only" checked={checked} {...props} />
       <label
         htmlFor={inputId}
         style={{ width: box, height: box }}
@@ -42,17 +29,13 @@ export function Checkbox({
           'peer-disabled:cursor-not-allowed peer-disabled:opacity-50',
           'peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground',
           // 直接基于 props 渲染选中态,避免 peer 依赖失效导致样式不更新
-          isChecked &&
-            'border-primary bg-primary text-primary-foreground',
+          isChecked && 'border-primary bg-primary text-primary-foreground',
         )}
         aria-hidden="true"
       >
         <Check
           style={{ width: indicatorSize(box), height: indicatorSize(box) }}
-          className={cn(
-            'transition-opacity',
-            isChecked ? 'opacity-100' : 'opacity-0',
-          )}
+          className={cn('transition-opacity', isChecked ? 'opacity-100' : 'opacity-0')}
           strokeWidth={3}
         />
       </label>

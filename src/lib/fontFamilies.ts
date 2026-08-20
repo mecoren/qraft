@@ -1,13 +1,11 @@
 /**
  * 字体族工具：UI 字体与代码字体(Mono)的选项构造、排序、搜索匹配。
  *
- * 参考 GoNavi 的实现思路：
  * - 优先展示系统已安装字体；UI 字体按字母序排列
  * - 代码字体(Mono)按"名称是否包含 Mono/Code/Console 等关键字"打分，
  *   分数高者靠前；分数相同再按字母序
  * - 提供 sanitize(清理)、dedupe(去重)、buildOptions(构造)、matchOption(搜索匹配) 等纯函数
  *
- * 与 GoNavi 的差异：
  * - 不区分平台静态预设(Windows/macOS/Linux)，qraft 只展示"系统已安装 + 默认项"
  * - 选项 value 直接是"字体族名(不带 fallback 栈)"，由 theme.ts 在应用时拼接 fallback
  */
@@ -30,7 +28,6 @@ const MAX_FONT_FAMILY_LENGTH = 512;
 /**
  * Mono 字体优先关键字：包含这些字样的字体族在"代码字体"下拉中靠前展示。
  *
- * 来源：GoNavi fontFamilies.ts 的 MONO_FONT_PRIORITY_HINTS
  */
 const MONO_FONT_PRIORITY_HINTS = [
   'mono',

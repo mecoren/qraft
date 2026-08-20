@@ -140,9 +140,14 @@ describe('TextProcessor component', () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId('textproc-group-chineseSymbolToEnglish')).toBeInTheDocument();
     // 第二排子组(大小写 / 行重组)
-    expect(screen.getByTestId('textproc-group-toUpperCase-toLowerCase-capitalizeSentences-capitalizeWords'))
-      .toBeInTheDocument();
-    expect(screen.getByTestId('textproc-group-reverseText-uniqueLines-sortLines')).toBeInTheDocument();
+    expect(
+      screen.getByTestId(
+        'textproc-group-toUpperCase-toLowerCase-capitalizeSentences-capitalizeWords',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('textproc-group-reverseText-uniqueLines-sortLines'),
+    ).toBeInTheDocument();
   });
 
   it('groups related transforms together (same group) and separates different ones', () => {
@@ -279,12 +284,8 @@ describe('TextProcessor component', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     const inputStatus = screen.getByTestId('input-status');
     const outputStatus = screen.getByTestId('output-status');
-    expect(
-      within(inputStatus).getByTestId('textproc-stat-chars'),
-    ).toBeInTheDocument();
-    expect(
-      within(outputStatus).getByTestId('textproc-stat-chars'),
-    ).toBeInTheDocument();
+    expect(within(inputStatus).getByTestId('textproc-stat-chars')).toBeInTheDocument();
+    expect(within(outputStatus).getByTestId('textproc-stat-chars')).toBeInTheDocument();
   });
 
   it('updates the input char count as the user types', () => {

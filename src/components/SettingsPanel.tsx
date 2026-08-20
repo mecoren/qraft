@@ -43,11 +43,8 @@ import {
 import { listSystemFonts, type FontInfo } from '@/lib/fonts';
 import { buildFontFamilyOptions, type FontFamilyOption } from '@/lib/fontFamilies';
 import { cn } from '@/lib/utils';
-import {
-  NAMING_CONVENTIONS,
-  type NamingConventionId,
-} from '@/lib/naming-convention';
-import { DEFAULT_EDITOR_CONFIG } from '@/types/config';
+import { NAMING_CONVENTIONS, type NamingConventionId } from '@/lib/naming-convention';
+import { DEFAULT_EDITOR_CONFIG, DEFAULT_USER_CONFIG } from '@/types/config';
 
 const SHORTCUT_KEYS: Array<{
   key: keyof ShortcutBinding;
@@ -67,6 +64,7 @@ const SHORTCUT_KEYS: Array<{
   { key: 'close_panel', label: '关闭面板' },
   { key: 'save_file', label: '保存编辑器' },
   { key: 'cycle_naming_case', label: '切换字符命名风格' },
+  { key: 'toggle_case', label: '切换大小写' },
 ];
 
 const generalSchema = z.object({
@@ -95,8 +93,9 @@ interface CheckUpdateResponse {
   currentVersion: string;
   notes: string | null;
   date: string | null;
-  // 参考 GoNavi:不同平台/安装方式对应不同的安装包类型与安装流程
-  packageType: 'msi' | 'nsis' | 'portable' | 'dmg' | 'app-archive' | 'appimage' | 'deb' | 'archive' | null;
+  // 不同平台/安装方式对应不同的安装包类型与安装流程
+  packageType:
+    'msi' | 'nsis' | 'portable' | 'dmg' | 'app-archive' | 'appimage' | 'deb' | 'archive' | null;
   installMode: 'windows-msi' | 'windows-nsis' | 'in-place' | 'macos-dmg' | 'linux-deb' | null;
   installModeLabel: string | null;
 }
@@ -106,7 +105,7 @@ interface CheckUpdateResponse {
  *
  * 自动更新是 Qraft 唯一允许的联网功能(见 PRD 13-security.md §3.1)。
  * 更新源接入 GitHub Releases(https://github.com/mecoren/qraft/releases)。
- * 参考 GoNavi 设计:不同平台/安装方式对应不同的安装包类型与安装流程:
+ * 不同平台/安装方式对应不同的安装包类型与安装流程:
  * - 就地覆盖类(portable / AppImage / zip):自动下载 patch 包并覆盖,带进度反馈
  * - 系统安装版(msi / dmg / deb):Tauri patch 模式无法可靠升级,自动跳转 GitHub
  *   Releases 供用户手动下载整包(「不同版本不同安装方式」的核心分流)
@@ -206,7 +205,8 @@ export function UpdateSection(): JSX.Element {
           </div>
           {updateInfo.installModeLabel && (
             <p className="text-xs text-muted-foreground">
-              安装方式：<span className="font-medium text-foreground">{updateInfo.installModeLabel}</span>
+              安装方式：
+              <span className="font-medium text-foreground">{updateInfo.installModeLabel}</span>
             </p>
           )}
           {updateInfo.notes && (
@@ -214,9 +214,7 @@ export function UpdateSection(): JSX.Element {
               <pre className="p-2 text-xs whitespace-pre-wrap">{updateInfo.notes}</pre>
             </ScrollArea>
           )}
-          {progress !== null && !manualInstall && (
-            <Progress value={progress} className="w-full" />
-          )}
+          {progress !== null && !manualInstall && <Progress value={progress} className="w-full" />}
           <div className="flex flex-wrap gap-2">
             <Button onClick={handleInstallUpdate} disabled={installing}>
               {manualInstall
@@ -773,6 +771,8 @@ function ShortcutInput({
 export function ShortcutSection(): JSX.Element {
   const config = useConfigStore((s) => s.config);
   const setConfig = useConfigStore((s) => s.setConfig);
+  const resetConfig = useConfigStore((s) => s.resetConfig);
+  const [resetting, setResetting] = useState(false);
 
   const form = useForm<{ shortcuts: ShortcutBinding }>({
     resolver: zodResolver(shortcutSchema),
@@ -790,14 +790,17 @@ export function ShortcutSection(): JSX.Element {
         search: 'Ctrl+F',
         close_panel: 'Esc',
         save_file: 'Ctrl+S',
-        cycle_naming_case: 'Shift+Alt+C',
+        cycle_naming_case: 'Ctrl+Shift+U',
+        toggle_case: 'Ctrl+Shift+L',
       },
     },
   });
 
   useEffect(() => {
     if (!config) return;
-    form.reset({ shortcuts: { ...config.shortcuts } });
+    form.reset({
+      shortcuts: { ...(config.shortcuts ?? DEFAULT_USER_CONFIG.shortcuts) },
+    });
   }, [config, form]);
 
   const onSubmit = async (values: { shortcuts: ShortcutBinding }) => {
@@ -862,8 +865,29 @@ export function ShortcutSection(): JSX.Element {
 
       <div className="flex gap-2">
         <Button type="submit">保存快捷键</Button>
-        <Button type="button" variant="outline" onClick={() => form.reset()}>
-          重置
+        <Button
+          type="button"
+          variant="outline"
+          disabled={resetting}
+          onClick={async () => {
+            setResetting(true);
+            try {
+              // 先把本地表单恢复成默认值,避免等待异步事件期间 UI 出现空值
+              form.reset({ shortcuts: { ...DEFAULT_USER_CONFIG.shortcuts } });
+              const r = await resetConfig('shortcuts');
+              if (r.ok) {
+                toast.success('快捷键已恢复默认');
+              } else {
+                toast.error('恢复默认失败,请重试');
+              }
+            } catch {
+              toast.error('恢复默认时出错,请重试');
+            } finally {
+              setResetting(false);
+            }
+          }}
+        >
+          {resetting ? '恢复中…' : '恢复默认'}
         </Button>
       </div>
     </form>
@@ -878,13 +902,9 @@ export function EditorSection(): JSX.Element {
   const setConfig = useConfigStore((s) => s.setConfig);
   const naming = config?.editor?.namingConvention;
   const enabled = new Set(
-    naming?.enabled?.length
-      ? naming.enabled
-      : DEFAULT_EDITOR_CONFIG.namingConvention.enabled,
+    naming?.enabled?.length ? naming.enabled : DEFAULT_EDITOR_CONFIG.namingConvention.enabled,
   );
-  const order = naming?.order?.length
-    ? naming.order
-    : DEFAULT_EDITOR_CONFIG.namingConvention.order;
+  const order = naming?.order?.length ? naming.order : DEFAULT_EDITOR_CONFIG.namingConvention.order;
 
   const toggleConvention = async (id: NamingConventionId) => {
     const nextEnabled = new Set(enabled);
@@ -893,10 +913,7 @@ export function EditorSection(): JSX.Element {
     } else {
       nextEnabled.add(id);
     }
-    await setConfig(
-      'editor.namingConvention.enabled',
-      Array.from(nextEnabled),
-    );
+    await setConfig('editor.namingConvention.enabled', Array.from(nextEnabled));
   };
 
   const move = async (index: number, direction: -1 | 1) => {
@@ -941,10 +958,7 @@ export function EditorSection(): JSX.Element {
                 const convention = NAMING_CONVENTIONS.find((c) => c.id === id);
                 if (!convention) return null;
                 return (
-                  <div
-                    key={id}
-                    className="flex items-center justify-between px-3 py-2"
-                  >
+                  <div key={id} className="flex items-center justify-between px-3 py-2">
                     <span className="text-sm">{convention.label}</span>
                     <div className="flex gap-1">
                       <Button
@@ -984,13 +998,7 @@ export function EditorSection(): JSX.Element {
               >
                 UP
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => move(0, 1)}
-                disabled
-              >
+              <Button type="button" variant="outline" size="sm" onClick={() => move(0, 1)} disabled>
                 DOWN
               </Button>
             </div>

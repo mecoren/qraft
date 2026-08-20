@@ -41,9 +41,10 @@ describe('config types', () => {
       search: 'Ctrl+F',
       close_panel: 'Esc',
       save_file: 'Ctrl+S',
-      cycle_naming_case: 'Shift+Alt+C',
+      cycle_naming_case: 'Ctrl+Shift+U',
+      toggle_case: 'Ctrl+Shift+L',
     };
-    expect(Object.keys(s)).toHaveLength(12);
+    expect(Object.keys(s)).toHaveLength(13);
   });
 });
 

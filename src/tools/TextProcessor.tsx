@@ -245,9 +245,7 @@ export function computeStats(input: string): TextStats {
     lines: input.split('\n').length,
     bytes: new TextEncoder().encode(input).length,
     sentences: (input.match(/[^.!?。！？]+[.!?。！？]+/g) ?? []).length,
-    paragraphs: input
-      .split(/\n{2,}/)
-      .filter((p) => p.trim().length > 0).length,
+    paragraphs: input.split(/\n{2,}/).filter((p) => p.trim().length > 0).length,
   };
 }
 
@@ -269,8 +267,7 @@ function EditorStats({ text }: { text: string }): JSX.Element {
       <span aria-hidden> · </span>
       <span data-testid="textproc-stat-words">{s.words}</span> 单词
       <span aria-hidden> · </span>
-      <span data-testid="textproc-stat-lines">{s.lines}</span> 行
-      <span aria-hidden> · </span>
+      <span data-testid="textproc-stat-lines">{s.lines}</span> 行<span aria-hidden> · </span>
       <span data-testid="textproc-stat-bytes">{s.bytes}</span> 字节
       <span aria-hidden> · </span>
       <span data-testid="textproc-stat-sentences">{s.sentences}</span> 句子

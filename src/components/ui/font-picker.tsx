@@ -1,7 +1,7 @@
 /**
  * FontPicker —— 字体族可搜索下拉框(combobox)
  *
- * 基于 Popover + Command(cmdk) 实现，参考 GoNavi 的 Ant Design Select(showSearch) 行为：
+ * 基于 Popover + Command(cmdk) 实现，Ant Design Select(showSearch) 行为：
  * - 输入框搜索：自定义 matchFontFamilyOption 模糊匹配(label/value/keywords)
  * - 清空：点击 trigger 上的 × 按钮回退到默认字体
  * - 选项渲染：用字体自身渲染 label + 全 CSS value 副标题(灰字)

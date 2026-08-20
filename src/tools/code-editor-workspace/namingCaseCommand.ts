@@ -2,10 +2,7 @@ import type { editor, IRange, Position } from 'monaco-editor';
 import { toast } from 'sonner';
 import { useConfigStore } from '@/store/configStore';
 import { DEFAULT_EDITOR_CONFIG } from '@/types/config';
-import {
-  cycleNamingCase,
-  type NamingConventionId,
-} from '@/lib/naming-convention';
+import { cycleNamingCase, toggleCase, type NamingConventionId } from '@/lib/naming-convention';
 
 /**
  * 全局「当前激活的编辑器实例」注册表。
@@ -32,14 +29,12 @@ export function unregisterActiveEditor(ed: editor.IStandaloneCodeEditor): void {
 
 function getNamingConfig() {
   const config = useConfigStore.getState().config;
-  const enabled =
-    config?.editor?.namingConvention?.enabled?.length
-      ? config.editor.namingConvention.enabled
-      : DEFAULT_EDITOR_CONFIG.namingConvention.enabled;
-  const order =
-    config?.editor?.namingConvention?.order?.length
-      ? config.editor.namingConvention.order
-      : DEFAULT_EDITOR_CONFIG.namingConvention.order;
+  const enabled = config?.editor?.namingConvention?.enabled?.length
+    ? config.editor.namingConvention.enabled
+    : DEFAULT_EDITOR_CONFIG.namingConvention.enabled;
+  const order = config?.editor?.namingConvention?.order?.length
+    ? config.editor.namingConvention.order
+    : DEFAULT_EDITOR_CONFIG.namingConvention.order;
   return {
     enabled: enabled as NamingConventionId[],
     order: order as NamingConventionId[],
@@ -58,9 +53,7 @@ function executeCycleNamingCase(editorInstance: editor.IStandaloneCodeEditor): v
   // 无选区时,作用于光标所在的「单词」范围,让快捷键在任意光标位置都可用
   if (!selection || selection.isEmpty()) {
     // selection 可能为 null;若空选区则用光标位置;getPosition() 在编辑器存活时不会返回 null
-    const pos: Position | null = selection
-      ? selection.getPosition()
-      : editorInstance.getPosition();
+    const pos: Position | null = selection ? selection.getPosition() : editorInstance.getPosition();
     if (!pos) return;
     const word = model.getWordAtPosition(pos);
     if (!word) return;
@@ -97,5 +90,51 @@ export function cycleNamingCaseShortcutHandler(): void {
     return;
   }
   executeCycleNamingCase(activeEditor);
+  activeEditor.focus();
+}
+
+/** 执行一次大小写切换(大写 <-> 小写)。 */
+function executeToggleCase(editorInstance: editor.IStandaloneCodeEditor): void {
+  const model = editorInstance.getModel();
+  if (!model) return;
+
+  const selection = editorInstance.getSelection();
+
+  // 无选区时,作用于光标所在的「单词」范围,让快捷键在任意光标位置都可用
+  if (!selection || selection.isEmpty()) {
+    const pos: Position | null = selection ? selection.getPosition() : editorInstance.getPosition();
+    if (!pos) return;
+    const word = model.getWordAtPosition(pos);
+    if (!word) return;
+    const range: IRange = {
+      startLineNumber: pos.lineNumber,
+      endLineNumber: pos.lineNumber,
+      startColumn: word.startColumn,
+      endColumn: word.endColumn,
+    };
+    const text = model.getValueInRange(range);
+    editorInstance.executeEdits('toggle-case', [{ range, text: toggleCase(text) }]);
+    return;
+  }
+
+  const selectedText = model.getValueInRange(selection);
+  editorInstance.executeEdits('toggle-case', [
+    {
+      range: selection,
+      text: toggleCase(selectedText),
+    },
+  ]);
+}
+
+/**
+ * 全局快捷键回调:对当前激活的编辑器执行大小写切换(大写 <-> 小写)。
+ * 无激活编辑器(编辑器工具未打开/未打开文件)时提示用户。
+ */
+export function toggleCaseShortcutHandler(): void {
+  if (!activeEditor) {
+    toast.info('请在文本编辑器中选中文字后使用该快捷键');
+    return;
+  }
+  executeToggleCase(activeEditor);
   activeEditor.focus();
 }

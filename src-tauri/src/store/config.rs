@@ -81,7 +81,7 @@ pub enum ThemeMode {
     System,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShortcutBinding {
     #[serde(default)]
     pub open_command_palette: String,
@@ -104,7 +104,31 @@ pub struct ShortcutBinding {
     #[serde(default)]
     pub close_panel: String,
     #[serde(default)]
+    pub save_file: String,
+    #[serde(default)]
     pub cycle_naming_case: String,
+    #[serde(default)]
+    pub toggle_case: String,
+}
+
+impl Default for ShortcutBinding {
+    fn default() -> Self {
+        Self {
+            open_command_palette: "Ctrl+K".into(),
+            toggle_sidebar: "Ctrl+B".into(),
+            execute_tool: "Ctrl+Enter".into(),
+            clear_input: "Ctrl+L".into(),
+            copy_output: "Ctrl+Shift+C".into(),
+            toggle_settings: "Ctrl+,".into(),
+            switch_tool: "Ctrl+P".into(),
+            open_history: "Ctrl+H".into(),
+            search: "Ctrl+F".into(),
+            close_panel: "Esc".into(),
+            save_file: "Ctrl+S".into(),
+            cycle_naming_case: "Ctrl+Shift+U".into(),
+            toggle_case: "Ctrl+Shift+L".into(),
+        }
+    }
 }
 
 /// JSON 文件实现的 `ConfigStore`

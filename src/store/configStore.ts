@@ -1,10 +1,6 @@
 import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
-import {
-  DEFAULT_EDITOR_CONFIG,
-  DEFAULT_USER_CONFIG,
-  type UserConfig,
-} from '@/types/config';
+import { DEFAULT_EDITOR_CONFIG, DEFAULT_USER_CONFIG, type UserConfig } from '@/types/config';
 import type { ConfigChangedPayload, ErrorInfo } from '@/types/ipc';
 
 /**
@@ -16,12 +12,24 @@ import type { ConfigChangedPayload, ErrorInfo } from '@/types/ipc';
  * 这里与默认配置做一次深合并做兜底。
  */
 function normalizeConfig(raw: UserConfig): UserConfig {
+  // 迁移:旧版把「切换字符命名风格」绑定到 Shift+Alt+C,
+  // 在 Windows 上 Alt 会被系统/菜单拦截导致快捷键失效,统一升级为 Ctrl+Shift+U。
+  // 仅当用户仍停留在旧默认值时替换,用户自定义过其它组合则保留。
+  const rawShortcuts = raw.shortcuts ?? {};
+  const shortcuts: UserConfig['shortcuts'] = {
+    ...DEFAULT_USER_CONFIG.shortcuts,
+    ...rawShortcuts,
+  };
+  if (rawShortcuts.cycle_naming_case === 'Shift+Alt+C') {
+    shortcuts.cycle_naming_case = DEFAULT_USER_CONFIG.shortcuts.cycle_naming_case;
+  }
+
   return {
     ...DEFAULT_USER_CONFIG,
     ...raw,
     general: { ...DEFAULT_USER_CONFIG.general, ...raw.general },
     theme: { ...DEFAULT_USER_CONFIG.theme, ...raw.theme },
-    shortcuts: { ...DEFAULT_USER_CONFIG.shortcuts, ...raw.shortcuts },
+    shortcuts,
     toolPrefs: { ...DEFAULT_USER_CONFIG.toolPrefs, ...(raw.toolPrefs ?? {}) },
     favorites: raw.favorites ?? DEFAULT_USER_CONFIG.favorites,
     editor: {
@@ -30,14 +38,12 @@ function normalizeConfig(raw: UserConfig): UserConfig {
       namingConvention: {
         ...DEFAULT_EDITOR_CONFIG.namingConvention,
         ...(raw.editor?.namingConvention ?? {}),
-        enabled:
-          raw.editor?.namingConvention?.enabled?.length
-            ? raw.editor.namingConvention.enabled
-            : DEFAULT_EDITOR_CONFIG.namingConvention.enabled,
-        order:
-          raw.editor?.namingConvention?.order?.length
-            ? raw.editor.namingConvention.order
-            : DEFAULT_EDITOR_CONFIG.namingConvention.order,
+        enabled: raw.editor?.namingConvention?.enabled?.length
+          ? raw.editor.namingConvention.enabled
+          : DEFAULT_EDITOR_CONFIG.namingConvention.enabled,
+        order: raw.editor?.namingConvention?.order?.length
+          ? raw.editor.namingConvention.order
+          : DEFAULT_EDITOR_CONFIG.namingConvention.order,
       },
     },
   };
@@ -123,6 +129,12 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   applyConfigChanged: (payload) => {
     const current = get().config;
     if (!current) return;
+    // 后端 reset 后 emit 的 new_value 为 Null,表示恢复默认值。
+    // 直接 setByPath 为 null 会让配置对象出现空值导致渲染异常,因此改走全量刷新。
+    if (payload.newValue === null || payload.newValue === undefined) {
+      void get().loadConfig();
+      return;
+    }
     const next: UserConfig = {
       ...current,
       general: { ...current.general },

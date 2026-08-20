@@ -797,30 +797,73 @@
 
 /* ===== Tailwind 任意值 utility 兜底 —— 同样写顶层 CSS ===== */
 /* 小数 spacing(scale 0.5) */
-.h-0\.5 { height: 0.125rem; }
-.h-1\.5 { height: 0.375rem; }
-.h-3\.5 { height: 0.875rem; }
-.w-0\.5 { width: 0.125rem; }
-.w-1\.5 { width: 0.375rem; }
-.w-2\.5 { width: 0.625rem; }
-.w-3\.5 { width: 0.875rem; }
-.size-1\.5 { width: 0.375rem; height: 0.375rem; }
-.size-2\.5 { width: 0.625rem; height: 0.625rem; }
-.top-1\.5 { top: 0.375rem; }
-.bottom-1\.5 { bottom: 0.375rem; }
-.right-1\.5 { right: 0.375rem; }
-.left-1\.5 { left: 0.375rem; }
+.h-0\.5 {
+  height: 0.125rem;
+}
+.h-1\.5 {
+  height: 0.375rem;
+}
+.h-3\.5 {
+  height: 0.875rem;
+}
+.w-0\.5 {
+  width: 0.125rem;
+}
+.w-1\.5 {
+  width: 0.375rem;
+}
+.w-2\.5 {
+  width: 0.625rem;
+}
+.w-3\.5 {
+  width: 0.875rem;
+}
+.size-1\.5 {
+  width: 0.375rem;
+  height: 0.375rem;
+}
+.size-2\.5 {
+  width: 0.625rem;
+  height: 0.625rem;
+}
+.top-1\.5 {
+  top: 0.375rem;
+}
+.bottom-1\.5 {
+  bottom: 0.375rem;
+}
+.right-1\.5 {
+  right: 0.375rem;
+}
+.left-1\.5 {
+  left: 0.375rem;
+}
 /* bracket 任意值 utility 兜底 —— 与 Tailwind spacing scale 等价 */
-.min-h-\[200px\] { min-height: 200px; }
-.min-h-\[80px\]  { min-height: 80px; }
-.min-w-\[120px\] { min-width: 120px; }
-.min-w-\[8rem\]  { min-width: 8rem; }
-.min-w-\[12rem\] { min-width: 12rem; }
-.max-w-\[calc\(100\%-2rem\)\] { max-width: calc(100% - 2rem); }
-.p-\[2px\] { padding: 2px; }
+.min-h-\[200px\] {
+  min-height: 200px;
+}
+.min-h-\[80px\] {
+  min-height: 80px;
+}
+.min-w-\[120px\] {
+  min-width: 120px;
+}
+.min-w-\[8rem\] {
+  min-width: 8rem;
+}
+.min-w-\[12rem\] {
+  min-width: 12rem;
+}
+.max-w-\[calc\(100\%-2rem\)\] {
+  max-width: calc(100% - 2rem);
+}
+.p-\[2px\] {
+  padding: 2px;
+}
 /* Tailwind utility 颜色变量 bridge,源代码使用 className 时 Tailwind 不出也能用 */
-.bg-scrollbar { background-color: var(--scrollbar-slider-bg); }
-
+.bg-scrollbar {
+  background-color: var(--scrollbar-slider-bg);
+}
 
 /* ============================================================
  * Markdown 预览排版(GitHub 风格,跟随主题变量)

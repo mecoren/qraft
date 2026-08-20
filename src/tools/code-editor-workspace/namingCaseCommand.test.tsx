@@ -9,6 +9,7 @@ import {
   registerActiveEditor,
   unregisterActiveEditor,
   cycleNamingCaseShortcutHandler,
+  toggleCaseShortcutHandler,
 } from './namingCaseCommand';
 import type { editor } from 'monaco-editor';
 
@@ -69,11 +70,11 @@ afterEach(() => {
 });
 
 describe('cycle_naming_case global shortcut', () => {
-  it('fires handler via useShortcut on Shift+Alt+C', async () => {
+  it('fires handler via useShortcut on Ctrl+Shift+U', async () => {
     const user = userEvent.setup();
     const onFire = vi.fn();
     render(<Harness onFire={onFire} />);
-    await user.keyboard('{Shift>}{Alt>}c{/Alt}{/Shift}');
+    await user.keyboard('{Control>}{Shift>}u{/Shift}{/Control}');
     expect(onFire).toHaveBeenCalledTimes(1);
   });
 
@@ -94,6 +95,29 @@ describe('cycle_naming_case global shortcut', () => {
     registerActiveEditor(stale);
     unregisterActiveEditor(stale as unknown as editor.IStandaloneCodeEditor);
     cycleNamingCaseShortcutHandler();
+    expect(infoMock).toHaveBeenCalled();
+  });
+});
+
+describe('toggle_case global shortcut', () => {
+  it('handler toggles word casing on the active editor', () => {
+    const ed = createFakeEditor('hello');
+    registerActiveEditor(ed);
+    toggleCaseShortcutHandler();
+    // 小写 → 大写
+    expect(ed.writes).toEqual(['HELLO']);
+    // 再次触发:大写 → 小写
+    toggleCaseShortcutHandler();
+    expect(ed.writes[ed.writes.length - 1]).toBe('hello');
+    unregisterActiveEditor(ed as unknown as editor.IStandaloneCodeEditor);
+  });
+
+  it('shows info toast when no active editor', () => {
+    const infoMock = toast.info as unknown as ReturnType<typeof vi.fn>;
+    const stale = createFakeEditor('x');
+    registerActiveEditor(stale);
+    unregisterActiveEditor(stale as unknown as editor.IStandaloneCodeEditor);
+    toggleCaseShortcutHandler();
     expect(infoMock).toHaveBeenCalled();
   });
 });

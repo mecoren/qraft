@@ -56,11 +56,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
           toast:
             'group toast group-[.toaster]:bg-popover-layer group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg group-[.toaster]:rounded-xl group-[.toaster]:p-4 group-[.toaster]:grid group-[.toaster]:grid-cols-[auto_1fr] group-[.toaster]:items-start group-[.toaster]:gap-x-3.5 group-[.toaster]:gap-y-1 group-[.toaster]:border-l-4 group-[.toaster]:border-l-border',
           // 各类型左侧强调色条
-          'group-[.toaster]:[&[data-type=success]]':
-            'group-[.toaster]:border-l-emerald-500',
+          'group-[.toaster]:[&[data-type=success]]': 'group-[.toaster]:border-l-emerald-500',
           'group-[.toaster]:[&[data-type=error]]': 'group-[.toaster]:border-l-red-500',
-          'group-[.toaster]:[&[data-type=warning]]':
-            'group-[.toaster]:border-l-amber-500',
+          'group-[.toaster]:[&[data-type=warning]]': 'group-[.toaster]:border-l-amber-500',
           'group-[.toaster]:[&[data-type=info]]': 'group-[.toaster]:border-l-blue-500',
           // 图标靠左对齐,与标题行顶部齐平
           icon: 'group-[.toast]:col-start-1 group-[.toast]:row-span-2 group-[.toast]:mt-0.5 group-[.toast]:size-5',

@@ -39,6 +39,8 @@ export interface ShortcutBinding {
   save_file: string;
   /** 文本编辑器：循环切换选中字符命名风格 */
   cycle_naming_case: string;
+  /** 文本编辑器：切换选中文本大小写(大写 <-> 小写) */
+  toggle_case: string;
 }
 
 export interface ToolPref {
@@ -75,7 +77,8 @@ export const DEFAULT_SHORTCUTS: ShortcutBinding = {
   search: 'Ctrl+F',
   close_panel: 'Esc',
   save_file: 'Ctrl+S',
-  cycle_naming_case: 'Shift+Alt+C',
+  cycle_naming_case: 'Ctrl+Shift+U',
+  toggle_case: 'Ctrl+Shift+L',
 };
 
 export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
