@@ -24,6 +24,7 @@ import { FilePlus2, FolderOpen, GitCompareArrows } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
+import { MonacoContextMenu, type MonacoEditor } from '@/components/ui/monaco-context-menu';
 import { Button } from '@/components/ui/button';
 import { registerActiveEditor, unregisterActiveEditor } from './namingCaseCommand';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -824,7 +825,9 @@ const diffOptions: editor.IDiffEditorConstructionOptions = {
   lineHeight: 20,
   lineNumbers: 'on',
   glyphMargin: false,
-  folding: false,
+  // 与 CodeEditor 保持一致:启用代码折叠,对比视图两侧 gutter 可折叠,
+  // 右键菜单中的「折叠 / 展开」菜单组才能生效
+  folding: true,
   minimap: { enabled: false },
   scrollBeyondLastLine: false,
   automaticLayout: true,
@@ -886,6 +889,12 @@ function FileCompareView({
   const monacoRef = useRef<Monaco | null>(null);
   // 挂载时的初始内容快照(仅在首次挂载时写入编辑器)
   const initialRef = useRef({ left: left.content, right: right.content });
+  // 对比视图右键菜单:DiffEditor 的 options.contextmenu: false 关闭了原生
+  // 英文菜单,这里由 MonacoContextMenu 接管;两侧编辑器共用同一菜单状态,
+  // 右键时记录具体是哪一个编辑器实例,菜单动作作用于该实例。
+  const [ctxOpen, setCtxOpen] = useState(false);
+  const [ctxPos, setCtxPos] = useState({ x: 0, y: 0 });
+  const [ctxEditor, setCtxEditor] = useState<MonacoEditor | null>(null);
 
   const handleBeforeMount = useCallback((monaco: Monaco) => {
     monacoRef.current = monaco;
@@ -914,6 +923,20 @@ function FileCompareView({
       modifiedEditor.onDidChangeModelContent(() => {
         onChangeRight(modifiedEditor.getValue());
       });
+      // 与 CodeEditor 同模式:拦截两侧编辑器的原生右键菜单,弹出中文菜单。
+      // e.event 是 Monaco 封装的 IMouseEvent,browserEvent 才是原生 MouseEvent,
+      // 其 clientX/clientY 为视口坐标,供 fixed 定位的菜单使用。
+      const attachContextMenu = (ed: MonacoEditor): void => {
+        ed.onContextMenu((e) => {
+          const native = e.event.browserEvent;
+          native.preventDefault();
+          setCtxEditor(ed);
+          setCtxPos({ x: native.clientX, y: native.clientY });
+          setCtxOpen(true);
+        });
+      };
+      attachContextMenu(originalEditor);
+      attachContextMenu(modifiedEditor);
     },
     [onChangeLeft, onChangeRight],
   );
@@ -956,6 +979,15 @@ function FileCompareView({
           }
         />
       </div>
+      {/* 中文右键菜单:两侧编辑器共用;动作作用于右键时所点的编辑器实例 */}
+      <MonacoContextMenu
+        editor={ctxEditor}
+        readOnly={false}
+        open={ctxOpen}
+        position={ctxPos}
+        onClose={() => setCtxOpen(false)}
+        data-testid={dataTestId ? `${dataTestId}-context-menu` : undefined}
+      />
     </div>
   );
 }

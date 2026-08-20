@@ -24,6 +24,8 @@
  *
  * 菜单项:撤销 / 重做 | 剪切 / 复制 / 粘贴 | 全选 | 查找 / 替换 |
  *        格式化文档 | 命令面板;剪切/复制按选区禁用,粘贴按只读禁用。
+ *        启用折叠时(options.folding = true)末尾追加「折叠 / 展开 /
+ *        切换折叠 / 全部折叠 / 全部展开」组,动作 id 见 FOLDING_MENU_DEFS。
  *
  * 已知坑(0.56 源码确认):
  * - 查找/替换的 id 不是 editor.action.find/replace,而是
@@ -44,6 +46,12 @@ export interface MonacoContextMenuProps {
   editor: MonacoEditor | null;
   /** 是否只读(禁用剪切/粘贴) */
   readOnly: boolean;
+  /**
+   * 是否启用了代码折叠(应与编辑器 options.folding 保持一致),默认 true。
+   * Monaco 折叠动作的前置条件是 CONTEXT_FOLDING_ENABLED(options.folding),
+   * 因此折叠关闭时整个折叠菜单组不注入,避免出现「点了没反应」的无效项。
+   */
+  folding?: boolean;
   /** 菜单是否打开 */
   open: boolean;
   /** 右键坐标(client 坐标,fixed 定位用) */
@@ -87,9 +95,27 @@ const MENU_DEFS: Omit<MenuEntry, 'disabled'>[] = [
   { id: 'editor.action.quickCommand', label: '命令面板', shortcut: 'Ctrl+Shift+P' },
 ];
 
+/**
+ * 折叠相关菜单项(仅 options.folding 为 true 时注入)。
+ * 动作 id 来自 monaco 0.56 folding.js 的 FoldingAction 系列:
+ * - 不存在 editor.action.toggleFolding 这个 id,「切换当前光标处折叠」
+ *   的正确 id 是 editor.toggleFold(Ctrl+K Ctrl+L)
+ * - 所有折叠动作都带 CONTEXT_FOLDING_ENABLED 前置条件,折叠关闭时不生效
+ */
+const FOLDING_MENU_DEFS: Omit<MenuEntry, 'disabled'>[] = [
+  { id: '__sep__f1', label: '' },
+  { id: 'editor.fold', label: '折叠', shortcut: 'Ctrl+Shift+[' },
+  { id: 'editor.unfold', label: '展开', shortcut: 'Ctrl+Shift+]' },
+  { id: 'editor.toggleFold', label: '切换折叠', shortcut: 'Ctrl+K Ctrl+L' },
+  { id: '__sep__f2', label: '' },
+  { id: 'editor.foldAll', label: '全部折叠', shortcut: 'Ctrl+K Ctrl+0' },
+  { id: 'editor.unfoldAll', label: '全部展开', shortcut: 'Ctrl+K Ctrl+J' },
+];
+
 export function MonacoContextMenu({
   editor,
   readOnly,
+  folding = true,
   open,
   position,
   onClose,
@@ -100,7 +126,10 @@ export function MonacoContextMenu({
     if (!editor) return [];
     const selection = editor.getSelection();
     const hasSelection = selection != null && !selection.isEmpty();
-    return MENU_DEFS.map((def) => {
+    // 折叠动作前置条件为 CONTEXT_FOLDING_ENABLED(即 options.folding),
+    // 折叠关闭时不注入该菜单组,避免无效项。
+    const defs = folding ? [...MENU_DEFS, ...FOLDING_MENU_DEFS] : MENU_DEFS;
+    return defs.map((def) => {
       if (def.id.startsWith('__sep__')) {
         return { ...def, disabled: false };
       }
@@ -115,8 +144,9 @@ export function MonacoContextMenu({
       }
       return { ...def, disabled: false };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, open, readOnly]);
+    // open 依赖是故意的:菜单重新打开时需基于最新选区重算禁用状态
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-x/exhaustive-deps
+  }, [editor, open, readOnly, folding]);
 
   // 浮层容器 ref:点击外部关闭
   const menuRef = useRef<HTMLDivElement>(null);

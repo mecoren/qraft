@@ -56,6 +56,12 @@ export interface CodeEditorProps {
   language?: EditorLanguage;
   /** 是否只读 */
   readOnly?: boolean;
+  /**
+   * 是否启用代码折叠(gutter 单击折叠/展开 + 右键菜单折叠组),默认 true。
+   * 关闭时同时从右键菜单移除「折叠 / 展开」菜单组(折叠动作依赖
+   * options.folding 的 CONTEXT_FOLDING_ENABLED 前置条件)。
+   */
+  folding?: boolean;
   /** 占位符文本(空值时显示) */
   placeholder?: string;
   /** 自定义容器类名 */
@@ -144,6 +150,7 @@ export function CodeEditor({
   onChange,
   language = 'plaintext',
   readOnly = false,
+  folding = true,
   placeholder,
   className,
   minimap = false,
@@ -363,7 +370,8 @@ export function CodeEditor({
             lineHeight: 20,
             lineNumbers: 'on',
             glyphMargin: false,
-            folding: false,
+            // 代码折叠:gutter 单击折叠/展开 + 右键菜单折叠组(经 folding prop 可关)
+            folding,
             minimap: { enabled: minimap },
             scrollBeyondLastLine: false,
             automaticLayout: true,
