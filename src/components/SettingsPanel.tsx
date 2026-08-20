@@ -244,8 +244,11 @@ export function UpdateSection(): JSX.Element {
 // 设计参考 wait-home/desktop 的 about-page(应用信息/开源许可/开源组件三部分)
 // ============================================================
 
-/** 应用版本号(与 package.json / tauri.conf.json / Cargo.toml 保持一致) */
-const APP_VERSION = '0.1.0';
+/**
+ * 应用版本号 —— 构建时由 Vite 注入(唯一数据源:package.json 的 version 字段)。
+ * 发版请使用 scripts/bump-version.sh 统一升级,勿在此处手动修改。
+ */
+const APP_VERSION = __APP_VERSION__;
 
 /** 应用信息条目 */
 const ABOUT_INFO_ITEMS: { label: string; value: string }[] = [

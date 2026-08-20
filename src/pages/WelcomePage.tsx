@@ -28,7 +28,11 @@ import { Logo } from '@/components/Logo';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const ISSUES_URL = 'https://github.com/mecoren/qraft/issues/new';
-const APP_VERSION = 'v0.1.0';
+/**
+ * 应用版本号 —— 构建时由 Vite 注入(唯一数据源:package.json 的 version 字段)。
+ * 发版请使用 scripts/bump-version.sh 统一升级,勿在此处手动修改。
+ */
+const APP_VERSION = __APP_VERSION__;
 
 /** KPI 卡片图标(顶部导入后别名,便于在 JSX 中按语义引用) */
 const CatalogIcon = Boxes;
@@ -156,7 +160,7 @@ export function WelcomePage(): JSX.Element {
             <h1 className="text-hero font-bold leading-tight tracking-tight text-hero-foreground">
               欢迎使用 Qraft
               <span className="ml-2 align-middle text-xs font-normal text-hero-foreground/70">
-                {APP_VERSION}
+                v{APP_VERSION}
               </span>
             </h1>
           </div>

@@ -2,6 +2,14 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
+
+// 应用版本唯一数据源 = package.json 的 version 字段。
+// 通过 define 注入全局常量 __APP_VERSION__,前端不再硬编码版本号;
+// 发版时统一使用 scripts/bump-version.sh 升级(package.json 为源,同步
+// src-tauri/Cargo.toml 与 src-tauri/tauri.conf.json)。
+const appVersion = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf8'))
+  .version as string;
 
 // Vite 配置:Tauri + React + HMR
 // - server.port 1420 是 Tauri 约定的开发端口
@@ -15,6 +23,9 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
   },
   clearScreen: false,
   server: {

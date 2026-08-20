@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
-# 统一升级 Qraft 三处版本号
+# 统一升级 Qraft 版本号 —— 唯一升级入口
 # 用法: scripts/bump-version.sh 0.2.0
-# 同步: package.json / src-tauri/Cargo.toml / src-tauri/tauri.conf.json
+#
+# 版本唯一数据源: package.json 的 version 字段
+# - 前端(SettingsPanel / WelcomePage)在构建时经 Vite define 自动注入
+#   __APP_VERSION__,无需手动修改任何前端源码
+# - 本脚本同步其余后端配置: src-tauri/Cargo.toml / src-tauri/tauri.conf.json
+# - Rust 端 app_version 命令使用编译期 CARGO_PKG_VERSION,随 Cargo.toml 自动同步
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
@@ -67,3 +72,6 @@ echo "  2. git add package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json C
 echo "  3. git commit -m \"chore(build): bump version to $NEW_VERSION\""
 echo "  4. git tag v$NEW_VERSION"
 echo "  5. git push origin main --tags"
+echo ""
+echo "Note: 前端版本号无需修改 —— SettingsPanel / WelcomePage 在构建时"
+echo "      由 Vite 从 package.json 自动注入 __APP_VERSION__。"
