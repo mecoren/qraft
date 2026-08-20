@@ -133,18 +133,20 @@ export function defineThemeFor(monaco: Monaco, name: string): void {
       'editor.lineHighlightBackground': isDark ? '#2f2f2f' : '#f3f3f3',
       'editor.lineHighlightBorder': '#00000000',
       'editorCursor.foreground': resolveColor('--primary', isDark ? '#4f7cff' : '#4f7cff'),
+      // 缩进参考线:默认线跟随边框色(低对比,几乎不可见);
+      // 活动线用非常淡的灰蓝,仅在做弱提示,避免主色蓝高亮喧宾夺主。
       'editorIndentGuide.background': resolveColor('--border', isDark ? '#333333' : '#e5e5e5'),
-      'editorIndentGuide.activeBackground': resolveColor(
-        '--primary',
-        isDark ? '#4f7cff' : '#4f7cff',
-      ),
+      'editorIndentGuide.activeBackground': isDark ? '#3a3a40' : '#d0d0d6',
       'editorWidget.background': resolveColor('--card', isDark ? '#1b1b1f' : '#ffffff'),
       'editorWidget.border': resolveColor('--border', isDark ? '#333333' : '#e5e5e5'),
       'editorSuggestWidget.background': resolveColor('--popover', isDark ? '#222222' : '#ffffff'),
       'editorSuggestWidget.border': resolveColor('--border', isDark ? '#333333' : '#e5e5e5'),
       'editorHoverWidget.background': resolveColor('--popover', isDark ? '#222222' : '#ffffff'),
-      'editorBracketMatch.background': resolveColor('--editor-bracket-match-bg', '#4f7cff22'),
-      'editorBracketMatch.border': 'transparent',
+      // 匹配括号高亮:背景使用与光标相同的主题主色(--primary),
+      // 但带低透明度(约 15%)作为柔和提示,与光标的实色形成呼应而不刺眼。
+      // 保留 `bracketPairColorization` 多色着色能力(它使用独立机制,不依赖此色块)。
+      'editorBracketMatch.background': resolveColor('--primary', '#4f7cff') + '26',
+      'editorBracketMatch.border': '#00000000',
       'scrollbarSlider.background': resolveColor(
         '--scrollbar-slider-bg',
         isDark ? '#ffffff1f' : '#0000001f',
@@ -209,15 +211,17 @@ export function defineVsCodeTheme(monaco: Monaco): void {
       'editor.lineHighlightBackground': '#2f2f2f',
       'editor.lineHighlightBorder': '#00000000',
       'editorCursor.foreground': '#aeafad',
-      'editorIndentGuide.background': '#404040',
-      'editorIndentGuide.activeBackground': '#707070',
+      'editorIndentGuide.background': '#333333',
+      'editorIndentGuide.activeBackground': '#4a4a4a',
       'editorWidget.background': '#252526',
       'editorWidget.border': '#454545',
       'editorSuggestWidget.background': '#252526',
       'editorSuggestWidget.border': '#454545',
       'editorHoverWidget.background': '#252526',
       'editorHoverWidget.border': '#454545',
-      'editorBracketMatch.background': '#264f78',
+      // 匹配括号高亮:VSCode 主题下使用与光标(#aeafad)相同的灰,
+      // 约 15% 透明度作为柔和提示。
+      'editorBracketMatch.background': '#aeafad26',
       'editorBracketMatch.border': '#00000000',
       'scrollbarSlider.background': '#ffffff1f',
       'scrollbarSlider.hoverBackground': '#ffffff33',

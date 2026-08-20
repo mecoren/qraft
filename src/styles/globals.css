@@ -746,6 +746,68 @@
   min-width: 28px;
 }
 
+/* ============================================================
+ * 编辑器光标 —— 弱化原生 <textarea> / <input> 的文本插入光标
+ *
+ * Windows 上的 Chromium / WebView2 把 textarea/input 的 caret
+ * 默认渲染成「2px 整像素粗」的矩形竖条,在小字号(12~13px)等宽字体
+ * 场景下非常显眼(粗细几乎与字符宽度持平),与卡片暗色背景对比也偏
+ * 强,容易喧宾夺主。这里统一调细 + 改色,让 caret 与字符轮廓融为一体。
+ *
+ * - care-color:跟随当前行高亮的微弱前景色,避免出现亮蓝/亮橙色块;
+ *   这里直接继承 `--foreground`,即使在亮/暗主题下也保有层级。
+ * - care-width(WebKit / Blink 私有属性):Windows Chrome / Edge 默认是
+ *   `auto`(≈2px),强制锁 1px,与等宽字符 stroke 视觉对齐。
+ * - 仅作用于编辑器外壳内的原生输入,避免影响全局表单(input/select)。
+ * ============================================================ */
+.editor-shell textarea,
+.editor-shell input,
+.line-editor textarea,
+.line-editor input {
+  caret-color: color-mix(in srgb, var(--foreground) 70%, transparent);
+}
+@supports (caret-width: 1px) {
+  .editor-shell textarea,
+  .editor-shell input,
+  .line-editor textarea,
+  .line-editor input {
+    caret-width: 1px;
+  }
+}
+
+/* ============================================================
+ * Monaco 匹配括号装饰 —— 弱化包裹 `[` / `]` 等的醒目色块
+ *
+ * Monaco 内部对匹配括号(`bracketPairColorization` 触发的
+ * `.bracket-match` 节点)绘制一个矩形色块 + 极细边框,默认颜色取
+ * 自主题 token `editorBracketMatch.background`,但即便把该 token
+ * 设成几乎透明,节点仍会有一圈 outline 状的红色矩形无法被 token
+ * 直接消除(由 Monaco Editor 的内置 viewPart 负责绘制)。
+ *
+ * 因为本项目 CodeEditor 显式设置 `useShadowDOM: false`,外部 CSS
+ * 可命中 Monaco 内部 DOM。这里把背景 / 边框 / box-shadow 一并抹平,
+ * 只保留 bracketPairColorization 的多色着色文本本身作为提示。
+ *
+ * 排除 `.bracket-match` 内部真正承载多色文本的字符选择子节点(防止
+ * 把字符颜色也清掉),仅针对装饰外壳生效。
+ * ============================================================ */
+.monaco-editor .bracket-match,
+.monaco-editor .bracket-match > .bracket-match-bg,
+.monaco-editor .bracket-match::before,
+.monaco-editor .bracket-match::after {
+  /* 仅清理 Monaco 内置 viewPart 绘制在 .bracket-match 上的红色边框/
+   * box-shadow 轮廓,背景保留主题 token(editorBracketMatch.background)
+   * 设置的主色叠加色,使匹配高亮与光标同色且柔和。 */
+  box-shadow: none !important;
+  border-color: transparent !important;
+  outline: none !important;
+}
+/* 略微保留「正被光标所在括号」的可读性:括号字符自身轻微提亮,
+ * 仅作用于 .bracket-match 节点直接包裹的字符 span。 */
+.monaco-editor .bracket-match > span {
+  text-shadow: 0 0 0.5px currentColor;
+}
+
 /* 滚动区原生滚动条占位隐藏,避免分组图标相对顶部/底部图标左移;
  * 同时作用于 Tab 栏 ScrollArea(横向)与左侧「打开的编辑器」面板(纵向) */
 [data-slot='scroll-area-viewport'] {

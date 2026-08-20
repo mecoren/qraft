@@ -120,7 +120,7 @@ export function LineEditor({
     <div
       data-testid={testId}
       className={cn(
-        'flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card-layer',
+        'editor-shell flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card-layer',
         className,
       )}
     >
