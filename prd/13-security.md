@@ -80,12 +80,16 @@ Qraft 把"零网络、本地优先"作为核心价值主张，安全是这一主
 
 - `default-src 'self'`：所有资源仅允许从应用自身加载
 - `img-src 'self' data:`：允许 data URI 的图片（用于 QR 码等）
-- `style-src 'self'`：Tailwind 在构建期生成 CSS 文件并由 `self` 加载，运行时不需要内联样式
+- `style-src 'self' 'unsafe-inline'`：Tailwind 静态 CSS 走 `self` 加载；`'unsafe-inline'` 是 **Monaco 编辑器必需**（见下方说明）
 - `script-src 'self'`：禁止外部脚本
 
 > 📌 **项目实际**
 >
-> 不使用 `style-src 'unsafe-inline'`。Tailwind CSS 经 Vite 构建后产物为静态 CSS 文件，通过 `style-src 'self'` 即可加载。若未来引入需运行时注入内联样式的第三方组件，应改用 `nonce` 机制（Tauri 支持 CSP nonce 注入），而非放宽到 `unsafe-inline`。
+> `style-src` 必须包含 `'unsafe-inline'`。原因：
+>
+> - Monaco 编辑器（`@monaco-editor/react`）在**运行时**通过 `createElement('style')` 动态注入样式表（主题、滚动条、悬浮框等，`node_modules/monaco-editor/min/vs/editor-*.js` 中 26 处）。这些元素在打包后运行时创建，**不在构建期嵌入 HTML 中**，因此 Tauri 的 CSP nonce 注入机制无法覆盖它们。
+> - 若 `style-src` 收紧为 `'self'`，打包产物中所有动态样式会被 WebView 拦截，表现为：编辑器完全无样式、滚动条滑块透明/消失、内联 `style={{...}}` 组件（进度条、颜色预览、卡片等）样式丢失。dev 模式因 `devCsp` 自带 `'unsafe-inline'` 而不受影响，只有 CI/CD 打包后才复现——这正是历史「样式丢失」类 bug 的根因。
+> - 曾尝试用 nonce 机制替代，但 Monaco 不感知 Tauri 的 `__TAURI_STYLE_NONCE__` 占位符（它运行时自建 style 标签），故只能放宽到 `'unsafe-inline'`。为抵消该放宽，`script-src` 保持严格 `'self'`，且外联样式仍全部来自 `self`。
 
 #### 禁用 Tauri HTTP 插件
 
@@ -537,7 +541,7 @@ flowchart TB
 > 3. `cargo deny check` 通过
 > 4. SBOM 生成并随 Release 发布
 > 5. 代码签名与公证完成
-> 6. CSP 配置审计（grep 检查无 `unsafe-inline` 等宽松策略）
+> 6. CSP 配置审计：`style-src 'unsafe-inline'` 为 Monaco 编辑器必需（见 §3.1 CSP 说明），允许保留；`script-src` 必须严格为 `'self'`，且不得出现 `'unsafe-eval'`（grep 检查 `script-src` 无 `unsafe-inline`/`unsafe-eval`）
 
 ### 6.2 日志与隐私
 
