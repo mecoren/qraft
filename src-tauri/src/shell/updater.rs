@@ -141,9 +141,9 @@ pub struct CheckUpdateResponse {
     pub current_version: String,
     pub notes: Option<String>,
     pub date: Option<String>,
-    /// 当前平台对应的目标安装包类型(updatePackageType`)
+    /// 当前平台对应的目标安装包类型(`updatePackageType`)
     pub package_type: Option<PackageType>,
-    /// 当前平台/安装方式对应的安装动作(updateInstallMode`)
+    /// 当前平台/安装方式对应的安装动作(`updateInstallMode`)
     pub install_mode: Option<InstallMode>,
     /// 安装方式的人类可读描述,前端直接展示
     pub install_mode_label: Option<String>,
