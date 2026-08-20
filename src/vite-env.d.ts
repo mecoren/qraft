@@ -5,4 +5,3 @@
  * 唯一数据源: package.json(经 scripts/bump-version.sh 同步后端配置)。
  */
 declare const __APP_VERSION__: string;
-
