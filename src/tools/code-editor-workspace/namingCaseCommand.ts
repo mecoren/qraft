@@ -1,4 +1,5 @@
-import type { editor } from 'monaco-editor';
+import type { editor, IRange, Position } from 'monaco-editor';
+import { Range } from 'monaco-editor';
 import { toast } from 'sonner';
 import { useConfigStore } from '@/store/configStore';
 import { DEFAULT_EDITOR_CONFIG } from '@/types/config';
@@ -48,8 +49,7 @@ function getNamingConfig() {
 
 /** 执行一次命名风格循环切换。 */
 function executeCycleNamingCase(editorInstance: editor.IStandaloneCodeEditor): void {
-  // 防御:编辑器可能已销毁(如切换到对比视图/工具后未注销),此时 getModel 会抛错
-  if (editorInstance.isDisposed()) return;
+  // 防御:编辑器可能已销毁(如切换到对比视图/工具后未注销),此时 model 为 null
   const model = editorInstance.getModel();
   if (!model) return;
 
@@ -58,12 +58,20 @@ function executeCycleNamingCase(editorInstance: editor.IStandaloneCodeEditor): v
 
   // 无选区时,作用于光标所在的「单词」范围,让快捷键在任意光标位置都可用
   if (!selection || selection.isEmpty()) {
-    const word = model.getWordAtPosition(
-      selection?.getPosition() ?? editorInstance.getPosition(),
-    );
+    // selection 可能为 null;若空选区则用光标位置;getPosition() 在编辑器存活时不会返回 null
+    const pos: Position | null = selection
+      ? selection.getPosition()
+      : editorInstance.getPosition();
+    if (!pos) return;
+    const word = model.getWordAtPosition(pos);
     if (!word) return;
-    const range = word.toRange();
-    const text = model.getValueInRange(range);
+    const range: IRange = {
+      startLineNumber: pos.lineNumber,
+      endLineNumber: pos.lineNumber,
+      startColumn: word.startColumn,
+      endColumn: word.endColumn,
+    };
+    const text = model.getValueInRange(Range.lift(range));
     const nextText = cycleNamingCase(text, enabled, order);
     editorInstance.executeEdits('cycle-naming-case', [{ range, text: nextText }]);
     return;

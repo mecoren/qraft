@@ -257,7 +257,11 @@ pub async fn app_check_update(app: tauri::AppHandle) -> Result<CheckUpdateRespon
         date: u.date.map(|d| d.to_string()),
     });
 
-    Ok(build_check_update_response(current_version, update, current_is_msi))
+    Ok(build_check_update_response(
+        current_version,
+        update,
+        current_is_msi,
+    ))
 }
 
 /// IPC Command:下载并安装更新,然后重启应用

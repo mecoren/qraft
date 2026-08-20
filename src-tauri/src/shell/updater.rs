@@ -90,9 +90,10 @@ pub fn resolve_install_mode(pkg: PackageType) -> InstallMode {
     match pkg {
         PackageType::Msi => InstallMode::WindowsMsi,
         PackageType::Nsis => InstallMode::WindowsNsis,
-        PackageType::Portable | PackageType::AppArchive | PackageType::AppImage | PackageType::Archive => {
-            InstallMode::InPlace
-        }
+        PackageType::Portable
+        | PackageType::AppArchive
+        | PackageType::AppImage
+        | PackageType::Archive => InstallMode::InPlace,
         PackageType::Dmg => InstallMode::MacosDmg,
         PackageType::Deb => InstallMode::LinuxDeb,
     }
@@ -263,10 +264,18 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "windows")]
     fn resolve_package_type_respects_msi_marker() {
-        // 模拟非 windows 平台分支由 cfg 决定,这里验证函数可调用且返回稳定枚举
-        let portable = resolve_package_type(false);
-        let msi = resolve_package_type(true);
-        assert_ne!(portable, msi);
+        // Windows:marker 区分 MSI 安装版与便携版
+        assert_eq!(resolve_package_type(true), PackageType::Msi);
+        assert_eq!(resolve_package_type(false), PackageType::Portable);
+        assert_ne!(resolve_package_type(true), resolve_package_type(false));
+    }
+
+    #[test]
+    #[cfg(not(target_os = "windows"))]
+    fn resolve_package_type_ignores_msi_marker_on_non_windows() {
+        // 非 Windows 平台:marker 被忽略,两种入参返回相同的平台包类型
+        assert_eq!(resolve_package_type(true), resolve_package_type(false));
     }
 }
