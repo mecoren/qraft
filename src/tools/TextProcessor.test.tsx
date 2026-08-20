@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 
 import {
   TextProcessor,
@@ -127,17 +127,22 @@ describe('TextProcessor component', () => {
   const getInput = (): HTMLTextAreaElement =>
     screen.getByTestId('input').querySelector('textarea')!;
 
-  it('renders an outer ButtonGroup with 4 nested ButtonGroup subgroups', () => {
+  it('renders two outer ButtonGroup rows with nested subgroups', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
-    // 外层容器
-    expect(screen.getByTestId('textproc-button-group')).toBeInTheDocument();
-    // 4 个内层子组
+    // 两个外层容器:第一排(转换/符号)、第二排(大小写/行重组)
+    expect(screen.getByTestId('textproc-button-group-row1')).toBeInTheDocument();
+    expect(screen.getByTestId('textproc-button-group-row2')).toBeInTheDocument();
+    // 第一排 4 个内层子组
     expect(screen.getByTestId('textproc-group-escape-stripWhitespace')).toBeInTheDocument();
     expect(screen.getByTestId('textproc-group-urlEncode-urlDecode')).toBeInTheDocument();
     expect(
       screen.getByTestId('textproc-group-unicodeToChinese-chineseToUnicode'),
     ).toBeInTheDocument();
     expect(screen.getByTestId('textproc-group-chineseSymbolToEnglish')).toBeInTheDocument();
+    // 第二排子组(大小写 / 行重组)
+    expect(screen.getByTestId('textproc-group-toUpperCase-toLowerCase-capitalizeSentences-capitalizeWords'))
+      .toBeInTheDocument();
+    expect(screen.getByTestId('textproc-group-reverseText-uniqueLines-sortLines')).toBeInTheDocument();
   });
 
   it('groups related transforms together (same group) and separates different ones', () => {
@@ -261,28 +266,41 @@ describe('TextProcessor component', () => {
 
   it('shows 0-character counts in both status bars when empty', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
-    expect(screen.getByTestId('input-char-count').textContent).toBe('0 字符');
-    expect(screen.getByTestId('output-char-count').textContent).toBe('0 字符');
+    // 字符统计由 EditorStats 渲染,位于各编辑器状态栏内(textproc-stat-chars 为纯数字)
+    expect(
+      within(screen.getByTestId('input-status')).getByTestId('textproc-stat-chars').textContent,
+    ).toBe('0');
+    expect(
+      within(screen.getByTestId('output-status')).getByTestId('textproc-stat-chars').textContent,
+    ).toBe('0');
   });
 
   it('places the char count inside the status bar, not the header', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     const inputStatus = screen.getByTestId('input-status');
     const outputStatus = screen.getByTestId('output-status');
-    expect(inputStatus.contains(screen.getByTestId('input-char-count'))).toBe(true);
-    expect(outputStatus.contains(screen.getByTestId('output-char-count'))).toBe(true);
+    expect(
+      within(inputStatus).getByTestId('textproc-stat-chars'),
+    ).toBeInTheDocument();
+    expect(
+      within(outputStatus).getByTestId('textproc-stat-chars'),
+    ).toBeInTheDocument();
   });
 
   it('updates the input char count as the user types', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     fireEvent.change(getInput(), { target: { value: '你好，世界!' } });
-    expect(screen.getByTestId('input-char-count').textContent).toBe('6 字符');
+    expect(
+      within(screen.getByTestId('input-status')).getByTestId('textproc-stat-chars').textContent,
+    ).toBe('6');
   });
 
   it('counts by Unicode code points (emoji is a single char, not two)', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     fireEvent.change(getInput(), { target: { value: 'a😀' } });
-    expect(screen.getByTestId('input-char-count').textContent).toBe('2 字符');
+    expect(
+      within(screen.getByTestId('input-status')).getByTestId('textproc-stat-chars').textContent,
+    ).toBe('2');
   });
 
   it('updates the output char count after a transform', () => {
@@ -290,9 +308,9 @@ describe('TextProcessor component', () => {
     fireEvent.change(getInput(), { target: { value: '你好，世界!' } });
     fireEvent.click(screen.getByTestId('textproc-btn-urlEncode'));
     const encoded = urlEncode('你好，世界!');
-    expect(screen.getByTestId('output-char-count').textContent).toBe(
-      `${Array.from(encoded).length} 字符`,
-    );
+    expect(
+      within(screen.getByTestId('output-status')).getByTestId('textproc-stat-chars').textContent,
+    ).toBe(String(Array.from(encoded).length));
   });
 
   it('renders a status bar at the bottom of each editor showing line/column', () => {

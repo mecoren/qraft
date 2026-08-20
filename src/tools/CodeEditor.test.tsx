@@ -611,7 +611,8 @@ describe('CodeEditorTool workspace', () => {
       await closeHandler?.();
     });
     await waitFor(() => expect(screen.getByTestId('unsaved-dialog')).toBeInTheDocument());
-    expect(screen.getByText(/确定要退出 Qraft 吗/)).toBeInTheDocument();
+    // quit-app 模式标题为「有 N 个未保存的更改」(见 UnsavedDialog)
+    expect(screen.getByText(/有 \d+ 个未保存的更改/)).toBeInTheDocument();
 
     // 取消 → 留在应用,且复位后端确认流程
     fireEvent.click(screen.getByTestId('unsaved-dialog-cancel'));

@@ -115,7 +115,8 @@ describe('App', () => {
     });
     const sidebar = screen.getByRole('navigation');
     const allTools = within(sidebar).getByTestId('nav-all-tools');
-    const editorBtn = within(sidebar).getByRole('button', { name: /文本编辑器/i });
+    // 固定条目用 testid 精确定位:「文本编辑器」分类折叠头文本相同,避免 role+name 多匹配
+    const editorBtn = within(sidebar).getByTestId('nav-text-editor');
     expect(editorBtn).toBeInTheDocument();
     // 文本编辑器必须紧跟「所有工具」之后(第一个兄弟节点)
     expect(allTools.nextElementSibling).toBe(editorBtn);

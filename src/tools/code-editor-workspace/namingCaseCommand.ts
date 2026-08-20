@@ -1,5 +1,4 @@
 import type { editor, IRange, Position } from 'monaco-editor';
-import { Range } from 'monaco-editor';
 import { toast } from 'sonner';
 import { useConfigStore } from '@/store/configStore';
 import { DEFAULT_EDITOR_CONFIG } from '@/types/config';
@@ -71,7 +70,7 @@ function executeCycleNamingCase(editorInstance: editor.IStandaloneCodeEditor): v
       startColumn: word.startColumn,
       endColumn: word.endColumn,
     };
-    const text = model.getValueInRange(Range.lift(range));
+    const text = model.getValueInRange(range);
     const nextText = cycleNamingCase(text, enabled, order);
     editorInstance.executeEdits('cycle-naming-case', [{ range, text: nextText }]);
     return;

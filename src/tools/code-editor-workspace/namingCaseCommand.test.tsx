@@ -25,7 +25,9 @@ function createFakeEditor(text: string) {
     getModel: () => ({
       // 无选区时命中光标所在单词,返回单词范围
       getWordAtPosition: () => ({
-        toRange: () => ({ start: { lineNumber: 1, column: 1 } }),
+        word: current,
+        startColumn: 1,
+        endColumn: current.length + 1,
       }),
       getValueInRange: () => current,
     }),

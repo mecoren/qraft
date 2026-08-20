@@ -56,7 +56,8 @@ describe('Sidebar 工具右键菜单', () => {
   it('固定「文本编辑器」条目右键可收藏', async () => {
     const user = userEvent.setup();
     renderSidebar();
-    const btn = screen.getByRole('button', { name: /文本编辑器/i });
+    // 固定条目用 testid 精确定位:「文本编辑器」分类折叠头文本相同,避免 role+name 多匹配
+    const btn = screen.getByTestId('nav-text-editor');
     await openContextMenu(user, btn);
     await user.click(await screen.findByRole('menuitem', { name: '收藏' }));
     expect(useUiStore.getState().favorites).toEqual(['text_editor']);
