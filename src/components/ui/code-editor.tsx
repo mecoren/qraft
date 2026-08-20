@@ -30,6 +30,7 @@ import { readClipboardText } from '@/lib/clipboard';
 import { readFileAsText } from '@/lib/file-utils';
 import { defineThemeFor, defineVsCodeTheme, getThemeName, useMonacoTheme } from './monaco-theme';
 import { MonacoContextMenu, type MonacoEditor } from './monaco-context-menu';
+import { attachFoldSummary, type FoldSummaryHandle } from './monaco-fold-summary';
 
 /** 编辑器支持的语言(未列出的语言会回退为 plaintext,不会报错) */
 export type EditorLanguage =
@@ -173,6 +174,8 @@ export function CodeEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
   // 用于在渲染期把已挂载的 editor 实例传给右键菜单,避免在 render 中直接读 editorRef.current
   const [editorInstance, setEditorInstance] = useState<MonacoEditor | null>(null);
+  // 折叠摘要 handle(JSON 语言启用,生命周期与 editor 绑定;卸载时 dispose)
+  const foldSummaryRef = useRef<FoldSummaryHandle | null>(null);
   // 中文右键菜单:open + 鼠标坐标(受控 Radix ContextMenu)
   const [ctxOpen, setCtxOpen] = useState(false);
   const [ctxPos, setCtxPos] = useState({ x: 0, y: 0 });
@@ -219,6 +222,14 @@ export function CodeEditor({
       setCtxPos({ x: native.clientX, y: native.clientY });
       setCtxOpen(true);
     });
+    // JSON 语言启用折叠摘要:object 显示字段数、array 显示元素数,
+    // 通过 afterContentClassName + 动态 CSS ::after 注入虚拟文本(不修改模型,
+    // Monaco 0.56 的 InjectedTextOptions.after.content 未实现)。
+    // 切换语言/locale/重新挂载时由 foldSummaryRef 在 effect cleanup 中释放旧 handle。
+    if (language === 'json') {
+      foldSummaryRef.current?.dispose();
+      foldSummaryRef.current = attachFoldSummary(editor);
+    }
     updateStatus();
     // monaco 实例在 beforeMount 时注入;极端加载顺序下可能为 null,
     // 此时仍要触发 onMount(调用方可能依赖 editor 实例做全局注册)。
@@ -237,6 +248,25 @@ export function CodeEditor({
       monaco.editor.setTheme(themeName);
     }
   }, [themeName, fixedTheme]);
+
+  // 折叠摘要生命周期管理(依赖 language):
+  // - 语言切到非 JSON 时立即清理 handle(避免给非 JSON 内容也注入字段/元素数)
+  // - 语言从非 JSON 切回 JSON 时补 attach(editor 不会因 language 变化重新
+  //   mount,handleMount 只在首次挂载执行一次,必须在此 effect 补偿)
+  // - 卸载时释放 handle(事件订阅 + 装饰集合),避免 Monaco 编辑器销毁后回调触发崩溃
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (editor && language === 'json' && !foldSummaryRef.current) {
+      foldSummaryRef.current = attachFoldSummary(editor);
+    } else if (language !== 'json') {
+      foldSummaryRef.current?.dispose();
+      foldSummaryRef.current = null;
+    }
+    return () => {
+      foldSummaryRef.current?.dispose();
+      foldSummaryRef.current = null;
+    };
+  }, [language]);
 
   // 在 monaco 实例就绪时定义初始主题
   const handleBeforeMount: BeforeMount = (monaco) => {

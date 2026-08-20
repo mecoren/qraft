@@ -18,7 +18,7 @@
  * - setMenus 直接覆盖(非追加),与「当前唯一激活工具」的语义一致
  */
 
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { create } from 'zustand';
 import type { ToolMenu } from '@/types/tool-menu';
 
@@ -64,17 +64,22 @@ export const useToolMenusStore = create<ToolMenusState>((set) => ({
  * 只有归属工具正好是当前激活工具时才渲染菜单栏(见 Titlebar)。
  */
 export function useToolMenus(toolId: string, menus: ToolMenu[]): void {
-  // 同步写入 mount:useState/useReducer 的初始化式更新不会触发 commit 后的 effect,
-  // 因此这里采用 render 期间同步调用 store.setState(已在 zustand 中官方支持)。
-  // 这是「工具挂载即菜单就位」的关键。
-  useToolMenusStore.getState().setMenus(toolId, menus);
+  // 菜单写入放在 useLayoutEffect:
+  // - 旧实现采用「render 期间同步 setMenus」,React 18/19 开发模式会告警
+  //   "Cannot update a component (Titlebar) while rendering a different component"
+  //   —— 渲染期间更新另一个订阅组件违反了 React 渲染规则
+  // - useLayoutEffect 在 commit 后、浏览器 paint 前执行,store 写入后 Titlebar
+  //   会在同一帧内完成更新,同样保证「首屏即可见菜单」且无闪烁;
+  //   只读菜单(memo 稳定)时不会重复触发,行为更优
+  useLayoutEffect(() => {
+    useToolMenusStore.getState().setMenus(toolId, menus);
+  }, [toolId, menus]);
 
-  // unmount 清理:effect cleanup 是唯一可靠的「组件卸载时执行」机制
+  // unmount 清理:effect cleanup 是唯一可靠的「组件卸载时执行」机制;
+  // 空依赖数组在卸载时执行 cleanup,menus 变更由上面的 useLayoutEffect 处理
   useEffect(() => {
     return () => {
       useToolMenusStore.getState().clear();
     };
-    // 仅在 mount/unmount 时跑,memos 变更由上面的同步 setMenus 处理
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }

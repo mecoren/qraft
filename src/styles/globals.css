@@ -1237,3 +1237,28 @@
   backdrop-filter: blur(20px) saturate(125%);
   -webkit-backdrop-filter: blur(20px) saturate(125%);
 }
+
+/* ============================================================
+ * Monaco 编辑器折叠摘要:JSON object/array 折叠后显示字段/元素数
+ *
+ * 由 src/components/ui/monaco-fold-summary.ts 通过
+ * afterContentClassName + 动态 CSS ::after 注入虚拟文本
+ * (0.56.0 的 InjectedTextOptions.after.content 未被实现,故用 CSS 伪元素),
+ * 视觉: `> { 3 字段 ⋮`  /  `> [ 5 项 ⋮`
+ *
+ * 动态 class 形如:monaco-fold-summary-obj-3 / monaco-fold-summary-arr-5,
+ * 用属性前缀选择器统配,给所有摘要统一基础样式:
+ * - muted-foreground 降低权重,与 Monaco 自带的 "⋯" 视觉一致
+ * - font-style: italic 提示这是动态摘要而非原始内容
+ * - margin-left 0.2em 与 line 内容 / "⋮" 形成视觉间隔
+ *
+ * 具体文案(如 " 3 字段")由 JS 按 count 注入的 CSS 规则提供
+ * (monaco-fold-summary.ts 的 ensureSummaryRule)。
+ * ============================================================ */
+.monaco-editor [class^='monaco-fold-summary-obj']:after,
+.monaco-editor [class^='monaco-fold-summary-arr']:after {
+  color: var(--muted-foreground);
+  font-style: italic;
+  margin-left: 0.2em;
+  opacity: 0.75;
+}
