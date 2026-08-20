@@ -58,7 +58,12 @@ pub enum InstallMode {
 /// 参考 `GoNavi` `resolveUpdatePackageType`:
 /// - Windows 通过 marker 文件(见 `is_msi_install`)区分 MSI 安装版与便携版
 /// - macOS / Linux 按各自打包产物返回对应类型
+///
+/// 参数 `current_is_msi` 仅 Windows 分支使用;非 Windows 平台会被忽略,
+/// 通过 `#[cfg_attr(not(target_os = "windows"), allow(unused_variables))]`
+/// 抑制未使用告警。
 #[must_use]
+#[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
 pub const fn resolve_package_type(current_is_msi: bool) -> PackageType {
     #[cfg(target_os = "windows")]
     {
