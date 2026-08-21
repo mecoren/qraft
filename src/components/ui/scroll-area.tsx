@@ -26,6 +26,10 @@ const ScrollArea = React.forwardRef<
       viewportClassName,
       orientation = 'vertical',
       scrollbarClassName,
+      /** 允许从外部传入 Viewport 的内联样式(如 maxHeight),
+       * 解决「仅限制 max-height、无显式 height」时 Radix Viewport 高度塌缩、
+       * 内容溢出 overflow-hidden 不可滚动、滑块计算为 0 拖不动的问题。 */
+      viewportStyle,
       ...props
     },
     ref,
@@ -38,6 +42,7 @@ const ScrollArea = React.forwardRef<
       <ScrollAreaPrimitive.Viewport
         ref={viewportRef}
         className={cn('h-full w-full rounded-[inherit]', viewportClassName)}
+        style={viewportStyle}
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
