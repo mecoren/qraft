@@ -17,6 +17,13 @@ monacoLoader.config({
   paths: {
     vs: `${import.meta.env.BASE_URL}monaco/vs`,
   },
+  // 中文本地化说明(与 GoNavi 的「先 import nls.messages.zh-cn 再加载 monaco」同源):
+  // - zh-cn.js 是纯脚本,由 index.html 在 <head> 里经典 <script> 静态引入,
+  //   严格早于本入口执行,已把 globalThis._VSCODE_NLS_MESSAGES 设为中文消息表;
+  //   Monaco 的 localize() 每次调用时懒读该全局,查找栏/折叠提示等内置 UI 即为中文。
+  // - 这里故意不配置 'vs/nls'.availableLanguages:该配置会让 vs/nls.messages-loader
+  //   插件 AMD-require zh-cn.js,但纯脚本无 define() 注册、回调永不触发,
+  //   editor.main 将永久挂起(编辑器空白),是已踩过的坑,勿回退。
 });
 
 // 应用启动:在 React 渲染前应用主题与字体设置,避免 FOUC(闪烁)

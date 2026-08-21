@@ -15,7 +15,12 @@
 import { useEffect, useState } from 'react';
 import type { Monaco } from '@monaco-editor/react';
 
-/** 深色调色板集合,其余视为亮色 */
+/**
+ * 深色调色板集合(兜底用)。
+ * 主判定改为读取 <html> 的 .dark 类(由 color-theme 的主题切换逻辑设置),
+ * 这样能正确覆盖 custom(用户可自定义浅/深)与 system 解析后的真实明暗,
+ * 避免浅色自定义主题被误判为暗色、或亮色主题某些变量回退错位。
+ */
 const DARK_PALETTES = new Set(['obsidian', 'deep-sea', 'twilight', 'emerald-night', 'custom']);
 
 /**
@@ -100,7 +105,8 @@ export function defineThemeFor(monaco: Monaco, name: string): void {
   const palette = name.replace(/^qraft-/, '') || 'daylight';
   // 切换调色板后变量值变化,清空颜色缓存以重新解析
   colorCache.clear();
-  const isDark = DARK_PALETTES.has(palette);
+  // 主判定:读取 <html> 的 .dark 类,真实反映当前明暗(覆盖 custom/system 解析)
+  const isDark = document.documentElement.classList.contains('dark') || DARK_PALETTES.has(palette);
 
   monaco.editor.defineTheme(name, {
     base: isDark ? 'vs-dark' : 'vs',
@@ -139,11 +145,34 @@ export function defineThemeFor(monaco: Monaco, name: string): void {
       // 活动线用非常淡的灰蓝,仅在做弱提示,避免主色蓝高亮喧宾夺主。
       'editorIndentGuide.background': resolveColor('--border', isDark ? '#333333' : '#e5e5e5'),
       'editorIndentGuide.activeBackground': isDark ? '#3a3a40' : '#d0d0d6',
-      'editorWidget.background': resolveColor('--card', isDark ? '#1b1b1f' : '#ffffff'),
-      'editorWidget.border': resolveColor('--border', isDark ? '#333333' : '#e5e5e5'),
-      'editorSuggestWidget.background': resolveColor('--popover', isDark ? '#222222' : '#ffffff'),
-      'editorSuggestWidget.border': resolveColor('--border', isDark ? '#333333' : '#e5e5e5'),
-      'editorHoverWidget.background': resolveColor('--popover', isDark ? '#222222' : '#ffffff'),
+      // 查找/替换小部件背景:亮色下用浅灰(--muted)而非纯白(--card),
+      // 否则小部件背景与编辑器背景(同为 --card 纯白)完全同色、且输入框
+      // 边框(--border 在亮色下极浅)几乎不可见,出现"白底白字看不清"。
+      'editorWidget.background': isDark
+        ? resolveColor('--popover', '#252526')
+        : resolveColor('--muted', '#f5f5f5'),
+      // 查找/替换框前景要足够亮:暗色下用近白,确保输入文字、图标、占位符清晰可读
+      'editorWidget.foreground': resolveColor(
+        '--card-foreground',
+        isDark ? '#f5f5f5' : '#1a1a1e',
+      ),
+      'editorWidget.border': resolveColor('--border', isDark ? '#4a4a4a' : '#d0d0d6'),
+      // 建议/悬浮小部件同理:亮色下用浅灰底 + 显式前景,保证文字清晰可读
+      'editorSuggestWidget.background': isDark
+        ? resolveColor('--popover', '#252526')
+        : resolveColor('--muted', '#f5f5f5'),
+      'editorSuggestWidget.foreground': resolveColor(
+        '--popover-foreground',
+        isDark ? '#f5f5f5' : '#1a1a1e',
+      ),
+      'editorSuggestWidget.border': resolveColor('--border', isDark ? '#4a4a4a' : '#d0d0d6'),
+      'editorHoverWidget.background': isDark
+        ? resolveColor('--popover', '#252526')
+        : resolveColor('--muted', '#f5f5f5'),
+      'editorHoverWidget.foreground': resolveColor(
+        '--popover-foreground',
+        isDark ? '#f5f5f5' : '#1a1a1e',
+      ),
       // 匹配括号高亮:背景使用与光标相同的主题主色(--primary),
       // 但带低透明度(约 15%)作为柔和提示,与光标的实色形成呼应而不刺眼。
       // 保留 `bracketPairColorization` 多色着色能力(它使用独立机制,不依赖此色块)。

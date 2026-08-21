@@ -20,6 +20,22 @@
      -->
     <link rel="stylesheet" href="/monaco/vs/editor/editor.main.css" />
     <!--
+     * Monaco 中文本地化消息表(~41KB,由 scripts/copy-monaco.mjs 从
+     * monaco-editor/min/vs/nls/lang/zh-cn.js 同步而来)。
+     *
+     * - 该文件是纯脚本:仅设置 globalThis._VSCODE_NLS_MESSAGES / _VSCODE_NLS_LANGUAGE,
+     *   不含 AMD define()。Monaco 的 localize() 每次调用时懒读这个全局表,
+     *   因此只需在任何 Monaco 模块求值前执行本脚本即可全量汉化
+     *   (查找栏 / 折叠提示 / 命令面板等内置 UI)。
+     * - 必须用经典 <script>(非 defer/async):经典脚本在解析阶段同步执行,
+     *   严格早于 <body> 里的 module 脚本(React 入口),时序天然满足。
+     * - 不要改回 require.config 的 'vs/nls'.availableLanguages 方案:
+     *   vs/nls.messages-loader 插件会 AMD-require 本文件,但纯脚本无法注册为
+     *   AMD 模块,require 回调永不触发,editor.main 将永久挂起(编辑器空白)。
+     * - 404 时 localize 回退英文 fallback,不影响编辑器挂载。
+     -->
+    <script src="/monaco/vs/nls/lang/zh-cn.js"></script>
+    <!--
      * Monaco 0.56 min 构建缺少 codicon 图标基础样式(`.codicon` 基类规则 + codicon 字体),
      * 0.56 min/vs/editor/editor.main.css 只含 codicon 的 @font-face data URI,
      * 没有 `.codicon` 类(font-family / 图标 content 规则),导致 gutter 折叠 / 展开
