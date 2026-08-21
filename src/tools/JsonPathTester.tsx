@@ -36,7 +36,7 @@ export function JsonPathTester(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="jsonpath-tester">
-      <section aria-label="JSONPath 表达式">
+      <section aria-label="JSONPath 表达式" data-search-anchor="jsonpath_tester:expression">
         <h2 className="mb-1.5 text-body-sm font-semibold">JSONPath 表达式</h2>
         <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 shadow-card">
           <Parentheses aria-hidden className="size-4 shrink-0 text-muted-foreground" />
@@ -60,6 +60,7 @@ export function JsonPathTester(_props: ToolProps): JSX.Element {
             onChange={setJson}
             data-testid="jsonpath-json"
             className="h-full"
+            searchAnchor="jsonpath_tester:input"
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
@@ -71,6 +72,7 @@ export function JsonPathTester(_props: ToolProps): JSX.Element {
             readOnly
             data-testid="jsonpath-result"
             className="h-full"
+            searchAnchor="jsonpath_tester:output"
             actions={<CopyAction text={result} testId="jsonpath-copy" />}
           />
         </ResizablePanel>

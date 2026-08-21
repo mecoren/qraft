@@ -1,0 +1,120 @@
+/**
+ * editor-text-search 单元测试 —— 文本编辑器工作区文件内容搜索的匹配规则与分组行为。
+ */
+import { describe, it, expect } from 'vitest';
+import { searchTabsText, findMatchRangesInContent, type TabGroup } from './editor-text-search';
+import type { EditorTab } from '@/tools/code-editor-workspace/schema';
+
+function makeTab(overrides: Partial<EditorTab> & { id: string }): EditorTab {
+  return {
+    title: overrides.id,
+    path: null,
+    language: 'plaintext',
+    content: '',
+    savedContent: '',
+    pinned: false,
+    ...overrides,
+  };
+}
+
+describe('searchTabsText', () => {
+  it('空查询返回空数组', () => {
+    const tabs = [makeTab({ id: 'a', content: 'hello world' })];
+    expect(searchTabsText(tabs, '')).toEqual([]);
+    expect(searchTabsText(tabs, '   ')).toEqual([]);
+  });
+
+  it('空 tabs 返回空数组', () => {
+    expect(searchTabsText([], 'hello')).toEqual([]);
+  });
+
+  it('无匹配返回空数组', () => {
+    const tabs = [makeTab({ id: 'a', content: 'foo bar' })];
+    expect(searchTabsText(tabs, 'hello')).toEqual([]);
+  });
+
+  it('大小写不敏感匹配', () => {
+    const tabs = [makeTab({ id: 'a', content: 'Hello world\nHELLO again' })];
+    const groups = searchTabsText(tabs, 'hello');
+    expect(groups[0].count).toBe(2);
+    const first = groups[0].matches[0];
+    expect(first.line).toBe(1);
+    expect(first.column).toBe(1);
+    expect(first.lineContent).toBe('Hello world');
+  });
+
+  it('一行内多处匹配按行聚合为一条结果,column 指向首个匹配', () => {
+    const tabs = [makeTab({ id: 'a', content: 'abc foo def foo ghi' })];
+    const groups = searchTabsText(tabs, 'foo');
+    expect(groups[0].count).toBe(1);
+    const m = groups[0].matches[0];
+    expect(m.column).toBe(5);
+    expect(m.matchStart).toBe(4); // 0-based 首个匹配起点
+    expect(m.matchEnd).toBe(7);
+  });
+
+  it('中文匹配正确', () => {
+    const tabs = [makeTab({ id: 'a', content: '你好世界\n今天天气不错' })];
+    const groups = searchTabsText(tabs, '天气');
+    expect(groups[0].count).toBe(1);
+    expect(groups[0].matches[0].line).toBe(2);
+  });
+
+  it('多行多 tab 按原始顺序分组,count 为匹配行数', () => {
+    const tabs = [
+      makeTab({ id: 'b', title: 'beta.txt', content: 'x' }),
+      makeTab({ id: 'a', title: 'alpha.ts', content: 'find me\nno match\nfind again' }),
+    ];
+    const groups = searchTabsText(tabs, 'find');
+    // 保持 tabs 原始顺序;无匹配的 tab 不出现在结果中
+    expect(groups.map((g) => g.tabId)).toEqual(['a']);
+    expect(groups[0].count).toBe(2);
+    expect(groups[0].matches.map((m) => m.line)).toEqual([1, 3]);
+  });
+
+  it('tab 元信息透传(path/tabTitle)', () => {
+    const tabs = [
+      makeTab({ id: 'a', title: 'notes.md', path: '/home/notes.md', content: 'find x' }),
+    ];
+    const [group] = searchTabsText(tabs, 'find');
+    expect(group.tabId).toBe('a');
+    expect(group.tabTitle).toBe('notes.md');
+    expect(group.path).toBe('/home/notes.md');
+  });
+
+  it('搜索结果结构完整(类型级别校验)', () => {
+    const tabs = [makeTab({ id: 'a', content: 'find\n' })];
+    const groups: TabGroup[] = searchTabsText(tabs, 'find');
+    expect(groups[0].matches[0].tabId).toBe('a');
+    expect(typeof groups[0].matches[0].line).toBe('number');
+    expect(typeof groups[0].matches[0].column).toBe('number');
+  });
+});
+
+describe('findMatchRangesInContent', () => {
+  it('返回行内全部匹配(Monaco 1-based 范围)', () => {
+    expect(findMatchRangesInContent('abc foo def foo ghi\nfoo end', 'foo')).toEqual([
+      { startLineNumber: 1, startColumn: 5, endLineNumber: 1, endColumn: 8 },
+      { startLineNumber: 1, startColumn: 13, endLineNumber: 1, endColumn: 16 },
+      { startLineNumber: 2, startColumn: 1, endLineNumber: 2, endColumn: 4 },
+    ]);
+  });
+
+  it('大小写不敏感', () => {
+    expect(findMatchRangesInContent('Foo bar', 'foo')).toEqual([
+      { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 4 },
+    ]);
+  });
+
+  it('空查询 / 无匹配返回空数组', () => {
+    expect(findMatchRangesInContent('abc', '')).toEqual([]);
+    expect(findMatchRangesInContent('abc', 'xyz')).toEqual([]);
+  });
+
+  it('中文匹配', () => {
+    expect(findMatchRangesInContent('天气不错\n今天天气', '天气')).toEqual([
+      { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 3 },
+      { startLineNumber: 2, startColumn: 3, endLineNumber: 2, endColumn: 5 },
+    ]);
+  });
+});

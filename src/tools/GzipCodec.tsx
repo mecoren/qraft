@@ -89,7 +89,7 @@ export function GzipCodec(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="gzip-codec">
-      <ConfigSection title="">
+      <ConfigSection title="" searchAnchor="gzip_codec:config">
         <ConfigRow icon={ArrowLeftRight} label="GZip 转换" hint="选择压缩或解压缩">
           <span className="text-xs text-muted-foreground">{compressMode ? '压缩' : '解压缩'}</span>
           <Switch
@@ -118,6 +118,7 @@ export function GzipCodec(_props: ToolProps): JSX.Element {
             placeholder={compressMode ? '输入要压缩的文本' : '输入 gzip base64 数据'}
             data-testid="gzip-input"
             className="h-full"
+            searchAnchor="gzip_codec:input"
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
@@ -129,6 +130,7 @@ export function GzipCodec(_props: ToolProps): JSX.Element {
             readOnly
             data-testid="gzip-output"
             className="h-full"
+            searchAnchor="gzip_codec:output"
             actions={<CopyAction text={output} testId="gzip-copy" />}
           />
         </ResizablePanel>

@@ -115,7 +115,7 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
 
   return (
     <Tabs defaultValue="generate" className="flex h-full flex-col" data-testid="qrcode-tool">
-      <TabsList>
+      <TabsList data-search-anchor="qrcode_tool:tabs">
         <TabsTrigger value="generate" data-testid="qr-tab-generate">
           <QrIcon aria-hidden className="size-3.5" /> 生成二维码
         </TabsTrigger>
@@ -134,8 +134,9 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
           placeholder="输入要编码的文本或链接"
           data-testid="qr-text"
           className="min-h-0 flex-1"
+          searchAnchor="qrcode_tool:input"
         />
-        <div className="flex w-80 shrink-0 flex-col gap-2">
+        <div className="flex w-80 shrink-0 flex-col gap-2" data-search-anchor="qrcode_tool:image">
           <div className="flex items-center justify-between">
             <h2 className="text-body-sm font-semibold">二维码</h2>
             <div className="flex gap-1">
@@ -232,6 +233,7 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
           readOnly
           data-testid="qr-decoded"
           className="min-h-0 flex-1"
+          searchAnchor="qrcode_tool:output"
           actions={<CopyAction text={decoded} testId="qr-copy" />}
         />
       </TabsContent>

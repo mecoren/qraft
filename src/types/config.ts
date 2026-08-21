@@ -37,6 +37,8 @@ export interface ShortcutBinding {
   close_panel: string;
   /** 保存当前编辑器(文本编辑器 Ctrl+S) */
   save_file: string;
+  /** 打开全局搜索面板(Ctrl+Shift+F) */
+  global_search: string;
   /** 文本编辑器：循环切换选中字符命名风格 */
   cycle_naming_case: string;
   /** 文本编辑器：切换选中文本大小写(大写 <-> 小写) */
@@ -77,6 +79,7 @@ export const DEFAULT_SHORTCUTS: ShortcutBinding = {
   search: 'Ctrl+F',
   close_panel: 'Esc',
   save_file: 'Ctrl+S',
+  global_search: 'Ctrl+Shift+F',
   cycle_naming_case: 'Ctrl+Shift+U',
   toggle_case: 'Ctrl+Shift+L',
 };

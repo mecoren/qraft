@@ -60,8 +60,9 @@ export function UrlCodec({ toolId }: ToolProps) {
           language="plaintext"
           className="flex-1"
           data-testid="input"
+          searchAnchor="url_codec:input"
         />
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4" data-search-anchor="url_codec:config">
           <div className="flex items-center gap-2">
             <Label htmlFor="url-action" className="text-xs">
               操作
@@ -117,6 +118,7 @@ export function UrlCodec({ toolId }: ToolProps) {
             language="plaintext"
             className="flex-1"
             data-testid="output"
+            searchAnchor="url_codec:output"
           />
         )}
       </div>

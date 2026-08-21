@@ -120,7 +120,7 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="image-converter">
-      <ConfigSection title="">
+      <ConfigSection title="" searchAnchor="image_converter:config">
         <ConfigRow icon={FileImage} label="目标格式">
           <Select value={format} onValueChange={(v) => setFormat(v as TargetFormat)}>
             <SelectTrigger data-testid="ic-format" className="w-28">
@@ -153,7 +153,10 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
       </ConfigSection>
 
       {/* 图片区 */}
-      <div className="flex items-center justify-between">
+      <div
+        className="flex items-center justify-between"
+        data-search-anchor="image_converter:image"
+      >
         <h2 className="text-body-sm font-semibold">图片</h2>
         <div className="flex items-center gap-1">
           <Button

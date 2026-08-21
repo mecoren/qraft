@@ -9,7 +9,7 @@
  * - 基于 Radix Dialog 提供模态、遮罩、Esc 关闭、焦点管理
  */
 
-import { useState, type JSX, type ReactNode } from 'react';
+import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import {
   Dialog,
@@ -40,6 +40,8 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useDialogWindow, DialogResizeHandle } from '@/hooks/useDialogWindow';
+import { useSearchStore } from '@/store/searchStore';
+import { scheduleHighlight } from '@/hooks/useSearchJump';
 
 /** 默认尺寸(px) */
 const DEFAULT_WIDTH = 880;
@@ -113,6 +115,29 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX
 
   const activeItem = menuItems.find((m) => m.id === active) ?? menuItems[0];
 
+  // 全局搜索跳转:目标为设置视图时切换左侧菜单并定位字段高亮。
+  // 消费时机只在弹窗打开时(open=true):弹窗未打开时保留 target,
+  // 由 useSearchJump 负责 setView('settings') 打开弹窗,本 effect 随 open/target
+  // 变化再次触发消费,避免与 useSearchJump 的 effect 竞态导致视图切换丢失。
+  const target = useSearchStore((s) => s.target);
+  const consume = useSearchStore((s) => s.consume);
+
+  useEffect(() => {
+    if (!open) return;
+    const t = useSearchStore.getState().target;
+    if (!t || t.view !== 'settings') return;
+    // 放入宏任务:让菜单 state 更新与高亮定位脱离 effect 同步路径(避免级联渲染)
+    window.setTimeout(() => {
+      if (t.settingsMenu) setActive(t.settingsMenu);
+      // 字段锚点(settings:menu:field)或分区锚点(settings:menu):
+      // 等待菜单切换 + 内容渲染后定位高亮(重试机制兜底)
+      if (t.anchor?.startsWith('settings:')) {
+        scheduleHighlight(t.anchor);
+      }
+      useSearchStore.getState().consume();
+    }, 0);
+  }, [open, target, consume]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
@@ -162,6 +187,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX
                     <li key={item.id}>
                       <button
                         type="button"
+                        data-search-anchor={`settings:${item.id}`}
                         onClick={() => setActive(item.id)}
                         className={cn(
                           'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',

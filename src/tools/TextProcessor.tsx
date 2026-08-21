@@ -457,7 +457,7 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="text-processor">
-      <ConfigSection title="">
+      <ConfigSection title="" searchAnchor="json_minifier:config">
         <ConfigRow
           icon={Wand2}
           label="转换"
@@ -507,6 +507,7 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
             onChange={setInput}
             className="h-full"
             data-testid="input"
+            searchAnchor="json_minifier:input"
             // 文本工具需要粘贴 / 打开文件 / 清除辅助按钮;编辑器工作区不使用 CodeEditor,
             // 不受 CodeEditor 默认关闭工具栏的全局影响。
             showPaste
@@ -527,6 +528,7 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
             value={output}
             className="h-full"
             data-testid="output"
+            searchAnchor="json_minifier:output"
             actions={<CopyAction text={output} testId="output-copy" />}
             showCharCount={false}
             statusBarRight={<EditorStats text={output} />}

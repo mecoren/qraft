@@ -92,11 +92,13 @@ interface SectionProps {
   icon?: LucideIcon;
   children: React.ReactNode;
   testId?: string;
+  /** 全局搜索锚点,用于跳转定位高亮 */
+  searchAnchor?: string;
 }
 
-function Section({ title, icon: Icon, children, testId }: SectionProps): JSX.Element {
+function Section({ title, icon: Icon, children, testId, searchAnchor }: SectionProps): JSX.Element {
   return (
-    <section data-testid={testId} className="mt-7 first:mt-0">
+    <section data-testid={testId} data-search-anchor={searchAnchor} className="mt-7 first:mt-0">
       <h2 className="mb-3 flex items-center gap-1.5 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
         {Icon && <Icon aria-hidden className="size-3.5" />}
         {title}
@@ -202,7 +204,7 @@ export function WelcomePage(): JSX.Element {
           </div>
 
           {recentEntries.length > 0 && (
-            <Section title="最近使用" testId="section-recents">
+            <Section title="最近使用" testId="section-recents" searchAnchor="welcome:recents">
               <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
                 {recentEntries.map((entry) => (
                   <ToolCard key={entry.id} entry={entry} onOpen={() => openEntry(entry)} />
@@ -212,7 +214,7 @@ export function WelcomePage(): JSX.Element {
           )}
 
           {favoriteEntries.length > 0 && (
-            <Section title="收藏夹" testId="section-favorites">
+            <Section title="收藏夹" testId="section-favorites" searchAnchor="welcome:favorites">
               <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
                 {favoriteEntries.map((entry) => (
                   <ToolCard key={entry.id} entry={entry} onOpen={() => openEntry(entry)} />
@@ -222,7 +224,7 @@ export function WelcomePage(): JSX.Element {
           )}
 
           {/* 所有工具:按分类分组,每组带分类图标小标题 */}
-          <Section title="所有工具" testId="section-all-tools">
+          <Section title="所有工具" testId="section-all-tools" searchAnchor="welcome:all-tools">
             <div className="flex flex-col gap-6">
               {CATALOG_CATEGORIES.map((cat) => {
                 const list = toolsByCategory.get(cat.id);

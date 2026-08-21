@@ -4,6 +4,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Titlebar } from '@/components/layout/Titlebar';
 import { CommandPalette } from '@/components/CommandPalette';
+import { SearchDialog } from '@/components/SearchDialog';
 import { ToolPanel } from '@/components/ToolPanel';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { SettingsDialog } from '@/components/SettingsDialog';
@@ -15,6 +16,7 @@ import { useToolStateStore } from '@/store/toolStateStore';
 import { useHistoryStore } from '@/store/historyStore';
 import { useUiStore } from '@/store/uiStore';
 import { useShortcut } from '@/hooks/useShortcut';
+import { useSearchJump } from '@/hooks/useSearchJump';
 import { listen } from '@/lib/ipc';
 import { cn } from '@/lib/utils';
 import { pullPendingOpenFiles, type PendingOpenFile } from '@/tools/code-editor-workspace/fileOps';
@@ -44,6 +46,7 @@ export function App(): JSX.Element {
   const view = useUiStore((s) => s.view);
   const setView = useUiStore((s) => s.setView);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const loadConfig = useConfigStore((s) => s.loadConfig);
   const applyConfigChanged = useConfigStore((s) => s.applyConfigChanged);
@@ -144,11 +147,17 @@ export function App(): JSX.Element {
   useShortcut('toggle_settings', () => setView('settings'), [setView]);
   useShortcut('switch_tool', () => setPaletteOpen(true), []);
   useShortcut('open_history', () => setView('history'), [setView]);
-  // Esc 关闭当前打开的面板:命令面板 > 设置/关于弹窗 > 历史/扩展页 > 回到工具/欢迎页
+  // 全局搜索:Ctrl+Shift+F 打开搜索面板
+  useShortcut('global_search', () => setSearchOpen(true), []);
+  // 搜索跳转:订阅 searchStore 的目标,切换视图/打开工具并定位高亮
+  useSearchJump();
+  // Esc 关闭当前打开的面板:全局搜索 > 命令面板 > 设置/关于弹窗 > 历史/扩展页 > 回到工具/欢迎页
   useShortcut(
     'close_panel',
     () => {
-      if (paletteOpen) {
+      if (searchOpen) {
+        setSearchOpen(false);
+      } else if (paletteOpen) {
         setPaletteOpen(false);
       } else if (view === 'settings' || view === 'about') {
         setView(currentToolId ? 'tool' : 'welcome');
@@ -156,7 +165,7 @@ export function App(): JSX.Element {
         setView(currentToolId ? 'tool' : 'welcome');
       }
     },
-    [paletteOpen, view, currentToolId, setView],
+    [searchOpen, paletteOpen, view, currentToolId, setView],
   );
 
   const handleSelectHistory = (entry: HistoryEntry) => {
@@ -202,6 +211,14 @@ export function App(): JSX.Element {
         onOpenChange={setPaletteOpen}
         onOpenSettings={() => setView('settings')}
         onOpenHistory={() => setView('history')}
+      />
+
+      {/* 全局搜索弹窗:由 Ctrl+Shift+F 唤起。
+       * key 让每次打开时重挂载,查询输入自动清空(避免上次输入残留) */}
+      <SearchDialog
+        key={`search-${searchOpen}`}
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
       />
 
       {/* key 让每次打开时弹窗重挂载,initialRect() 重新按当前视口尺寸居中

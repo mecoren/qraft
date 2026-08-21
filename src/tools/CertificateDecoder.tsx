@@ -100,6 +100,7 @@ export function CertificateDecoder(_props: ToolProps): JSX.Element {
           placeholder={'-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'}
           data-testid="cert-input"
           className="h-full"
+          searchAnchor="certificate_decoder:input"
         />
       </ResizablePanel>
       <ResizableHandle withHandle />
@@ -111,6 +112,7 @@ export function CertificateDecoder(_props: ToolProps): JSX.Element {
           readOnly
           data-testid="cert-output"
           className="h-full"
+          searchAnchor="certificate_decoder:output"
           actions={<CopyAction text={output} testId="cert-copy" />}
         />
       </ResizablePanel>

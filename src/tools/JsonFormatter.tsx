@@ -196,6 +196,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
             onChange={setText}
             className="h-full"
             data-testid="input"
+            searchAnchor="json_formatter:input"
             actions={
               <>
                 <Select value={String(indent)} onValueChange={(v) => setIndent(Number(v))}>
@@ -271,6 +272,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
             value={output}
             className="h-full"
             data-testid="output"
+            searchAnchor="json_formatter:output"
             actions={
               <>
                 {meta && (

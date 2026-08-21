@@ -63,6 +63,7 @@ const SHORTCUT_KEYS: Array<{
   { key: 'search', label: '搜索', pending: true },
   { key: 'close_panel', label: '关闭面板' },
   { key: 'save_file', label: '保存编辑器' },
+  { key: 'global_search', label: '全局搜索' },
   { key: 'cycle_naming_case', label: '切换字符命名风格' },
   { key: 'toggle_case', label: '切换大小写' },
 ];
@@ -184,7 +185,7 @@ export function UpdateSection(): JSX.Element {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
+      <div data-search-anchor="settings:update:check">
         <h3 className="text-sm font-semibold">检查更新</h3>
         <p className="text-xs text-muted-foreground">
           自动更新接入 GitHub Releases,可在下方手动检查。
@@ -245,13 +246,16 @@ interface ThemeCardProps {
   preview: [string, string];
   selected: boolean;
   onSelect: () => void;
+  /** 全局搜索锚点,用于跳转定位高亮 */
+  searchAnchor?: string;
 }
 
 /** 主题预览卡片:双色 accent + background 预览条 + 名称 */
-function ThemeCard({ label, preview, selected, onSelect }: ThemeCardProps) {
+function ThemeCard({ label, preview, selected, onSelect, searchAnchor }: ThemeCardProps) {
   return (
     <button
       type="button"
+      data-search-anchor={searchAnchor}
       onClick={onSelect}
       aria-pressed={selected}
       className={cn(
@@ -304,13 +308,17 @@ export function ThemeSection() {
         <CardDescription>选择预设主题或自定义 accent 色,切换即时生效并自动缓存</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div
+          className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+          data-search-anchor="settings:theme:presets"
+        >
           {/* 跟随系统 */}
           <ThemeCard
             label="跟随系统"
             preview={['oklch(0.16 0.01 264)', 'oklch(0.99 0.005 264)']}
             selected={paletteId === 'system'}
             onSelect={() => handleSelectPalette('system')}
+            searchAnchor="settings:theme:system"
           />
           {/* 5 套预设主题 */}
           {PRESET_PALETTES.map((p) => (
@@ -333,7 +341,10 @@ export function ThemeSection() {
 
         {/* 自定义 accent 选择器(仅自定义模式显示)*/}
         {paletteId === 'custom' && (
-          <div className="flex items-center gap-3 rounded-md border p-3">
+          <div
+            className="flex items-center gap-3 rounded-md border p-3"
+            data-search-anchor="settings:theme:custom"
+          >
             <input
               type="color"
               value={customAccent}
@@ -463,7 +474,7 @@ export function FontSection() {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {/* 字体族：界面字体 + 代码字体 双选择器 */}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2" data-search-anchor="settings:font:ui">
           <div className="flex items-center justify-between">
             <Label>界面字体</Label>
             {!fontsLoading && (
@@ -482,7 +493,7 @@ export function FontSection() {
           />
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2" data-search-anchor="settings:font:mono">
           <div className="flex items-center justify-between">
             <Label>代码字体</Label>
             <span className="text-xs text-muted-foreground">默认 JetBrains Mono</span>
@@ -501,7 +512,7 @@ export function FontSection() {
         </div>
 
         {/* 字号级别按钮组 */}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2" data-search-anchor="settings:font:size">
           <Label>字号</Label>
           <div className="flex gap-2">
             {FONT_SIZE_LEVELS.map((item, idx) => (
@@ -523,7 +534,7 @@ export function FontSection() {
         </div>
 
         {/* 字重级别按钮组 */}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2" data-search-anchor="settings:font:weight">
           <Label>字重</Label>
           <div className="flex gap-2">
             {FONT_WEIGHT_LEVELS.map((item, idx) => (
@@ -623,7 +634,7 @@ export function GeneralSection(): JSX.Element {
           <CardDescription>历史记录与清空确认</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2" data-search-anchor="settings:general:max_history">
             <Label htmlFor="maxHistory">最大历史数</Label>
             <Input
               id="maxHistory"
@@ -635,7 +646,7 @@ export function GeneralSection(): JSX.Element {
             )}
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2" data-search-anchor="settings:general:json_indent">
             <Label htmlFor="jsonIndent">JSON 默认缩进</Label>
             <Input
               id="jsonIndent"
@@ -644,7 +655,10 @@ export function GeneralSection(): JSX.Element {
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div
+            className="flex items-center gap-2"
+            data-search-anchor="settings:general:confirm_clear"
+          >
             <input id="confirmOnClear" type="checkbox" {...form.register('confirmOnClear')} />
             <Label htmlFor="confirmOnClear">清空前确认</Label>
           </div>
@@ -790,6 +804,7 @@ export function ShortcutSection(): JSX.Element {
         search: 'Ctrl+F',
         close_panel: 'Esc',
         save_file: 'Ctrl+S',
+        global_search: 'Ctrl+Shift+F',
         cycle_naming_case: 'Ctrl+Shift+U',
         toggle_case: 'Ctrl+Shift+L',
       },
@@ -834,7 +849,11 @@ export function ShortcutSection(): JSX.Element {
         <CardContent>
           <div className="grid grid-cols-2 gap-4">
             {SHORTCUT_KEYS.map((s) => (
-              <div key={s.key} className="flex flex-col gap-1">
+              <div
+                key={s.key}
+                className="flex flex-col gap-1"
+                data-search-anchor={`settings:shortcuts:${s.key}`}
+              >
                 <div className="flex items-center gap-1">
                   <Label htmlFor={`sc-${s.key}`}>{s.label}</Label>
                   {s.pending && (
@@ -934,7 +953,7 @@ export function EditorSection(): JSX.Element {
         <CardDescription>字符命名转换的启用项与循环顺序</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3" data-search-anchor="settings:editor:enabled_styles">
           <Label className="text-sm font-medium">启用风格</Label>
           <div className="grid grid-cols-2 gap-3">
             {NAMING_CONVENTIONS.map((convention: { id: NamingConventionId; label: string }) => (
@@ -950,7 +969,7 @@ export function EditorSection(): JSX.Element {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3" data-search-anchor="settings:editor:cycle_order">
           <Label className="text-sm font-medium">循环顺序</Label>
           <div className="flex gap-4">
             <div className="flex-1 divide-y divide-border rounded-md border border-border bg-background">

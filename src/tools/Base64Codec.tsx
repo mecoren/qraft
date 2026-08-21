@@ -174,7 +174,10 @@ function FileDropzone({
   );
 
   return (
-    <div className="flex h-full min-h-[200px] flex-col gap-2">
+    <div
+      className="flex h-full min-h-[200px] flex-col gap-2"
+      data-search-anchor="base64_codec:file"
+    >
       <div className="flex items-center justify-between">
         <h2 className="text-body-sm font-semibold">文件</h2>
         <Button
@@ -556,7 +559,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="base64-codec">
-      <ConfigSection title="">
+      <ConfigSection title="" searchAnchor="base64_codec:config">
         <ConfigRow icon={Binary} label="方向" hint="选择编码或解码方向">
           <Tabs value={direction} onValueChange={(v) => handleDirectionChange(v as Direction)}>
             {/* 固定宽度 w-36,与下方模式 SelectTrigger 视觉对齐 */}
@@ -639,6 +642,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
               onChange={setText}
               className="h-full"
               data-testid="input"
+              searchAnchor="base64_codec:input"
               actions={
                 isTextMode ? (
                   <HeaderAction
@@ -669,6 +673,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
               value={output}
               className="h-full"
               data-testid="output"
+              searchAnchor="base64_codec:output"
               actions={
                 <>
                   {meta && (

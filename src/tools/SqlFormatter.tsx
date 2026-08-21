@@ -52,7 +52,7 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="sql-formatter">
-      <ConfigSection title="">
+      <ConfigSection title="" searchAnchor="sql_formatter:config">
         <ConfigRow icon={Database} label="语言" hint="选择 SQL 方言">
           <Select value={dialect} onValueChange={(v) => setDialect(v as SqlLanguage)}>
             <SelectTrigger data-testid="sql-dialect" className="w-44">
@@ -104,6 +104,7 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
             onChange={setInput}
             data-testid="sql-input"
             className="h-full"
+            searchAnchor="sql_formatter:input"
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
@@ -115,6 +116,7 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
             readOnly
             data-testid="sql-output"
             className="h-full"
+            searchAnchor="sql_formatter:output"
             actions={<CopyAction text={output} testId="sql-copy" />}
           />
         </ResizablePanel>

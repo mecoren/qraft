@@ -304,7 +304,11 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3" data-testid="duplicate-detector">
       {/* 顶栏:全部配置 + 按钮合并在一行 */}
-      <section aria-label="配置" className="rounded-lg border border-border bg-card shadow-card">
+      <section
+        aria-label="配置"
+        className="rounded-lg border border-border bg-card shadow-card"
+        data-search-anchor="duplicate_detector:config"
+      >
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2">
           {/* 匹配模式 */}
           <label className="flex items-center gap-2 text-body-sm">
@@ -422,6 +426,7 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
             language="plaintext"
             className="h-full"
             data-testid="dd-input"
+            searchAnchor="duplicate_detector:input"
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
@@ -431,6 +436,7 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
             statUnique={statUnique}
             stats={stats}
             testId="dd-duplicates"
+            searchAnchor="duplicate_detector:result"
           />
         </ResizablePanel>
       </ResizablePanelGroup>
@@ -448,6 +454,8 @@ interface DuplicatesTableProps {
   statUnique: boolean;
   stats: DupStats;
   testId?: string;
+  /** 全局搜索锚点,用于跳转定位高亮 */
+  searchAnchor?: string;
 }
 
 /**
@@ -461,6 +469,7 @@ export function DuplicatesTable({
   statUnique,
   stats,
   testId,
+  searchAnchor,
 }: DuplicatesTableProps): JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -477,6 +486,7 @@ export function DuplicatesTable({
     <div
       data-testid={testId}
       data-slot="duplicates-table"
+      data-search-anchor={searchAnchor}
       className="flex h-full flex-col overflow-hidden rounded-md border border-input"
     >
       {/* 顶部 汇总 */}

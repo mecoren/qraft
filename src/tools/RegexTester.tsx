@@ -57,7 +57,10 @@ export function RegexTester({ toolId }: ToolProps) {
 
   return (
     <div className="flex flex-col gap-4 h-full">
-      <div className="grid grid-cols-[1fr_120px_auto] gap-3 items-end">
+      <div
+        className="grid grid-cols-[1fr_120px_auto] gap-3 items-end"
+        data-search-anchor="regex_tester:config"
+      >
         <div className="flex flex-col gap-1">
           <Label htmlFor="pattern-input" className="text-xs">
             正则表达式
@@ -98,6 +101,7 @@ export function RegexTester({ toolId }: ToolProps) {
             language="plaintext"
             className="flex-1"
             data-testid="input"
+            searchAnchor="regex_tester:input"
           />
         </div>
 
@@ -152,6 +156,7 @@ export function RegexTester({ toolId }: ToolProps) {
               language="plaintext"
               className="flex-1"
               data-testid="output"
+              searchAnchor="regex_tester:output"
             />
           )}
         </div>

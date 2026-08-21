@@ -86,7 +86,7 @@ export function LoremIpsum(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="lorem-ipsum">
-      <ConfigSection title="">
+      <ConfigSection title="" searchAnchor="lorem_ipsum:config">
         <ConfigRow icon={Pilcrow} label="类型" hint="生成粒度">
           <Select value={granularity} onValueChange={(v) => setGranularity(v as Granularity)}>
             <SelectTrigger data-testid="lorem-type" className="w-28">
@@ -128,6 +128,7 @@ export function LoremIpsum(_props: ToolProps): JSX.Element {
         readOnly
         data-testid="lorem-output"
         className="min-h-0 flex-1"
+        searchAnchor="lorem_ipsum:output"
         actions={<CopyAction text={output} testId="lorem-copy" />}
       />
     </div>

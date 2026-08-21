@@ -53,7 +53,7 @@ export function HashCalculator({ toolId }: ToolProps) {
 
   return (
     <div className="flex flex-col gap-4 h-full">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4" data-search-anchor="hash_calculator:config">
         <div className="flex items-center gap-2">
           <Label htmlFor="algo-select" className="text-xs">
             算法
@@ -86,6 +86,7 @@ export function HashCalculator({ toolId }: ToolProps) {
             language="plaintext"
             className="flex-1"
             data-testid="input"
+            searchAnchor="hash_calculator:input"
           />
         </div>
 
@@ -111,6 +112,7 @@ export function HashCalculator({ toolId }: ToolProps) {
               language="plaintext"
               className="flex-1"
               data-testid="output"
+              searchAnchor="hash_calculator:output"
             />
           )}
           {output?.meta && (

@@ -27,6 +27,7 @@ import { CodeEditor } from '@/components/ui/code-editor';
 import { MonacoContextMenu, type MonacoEditor } from '@/components/ui/monaco-context-menu';
 import { Button } from '@/components/ui/button';
 import { registerActiveEditor, unregisterActiveEditor } from './namingCaseCommand';
+import { registerTabEditor, clearTabEditors } from '@/lib/editor-search-registry';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { defineThemeFor, getThemeName, useMonacoTheme } from '@/components/ui/monaco-theme';
 import { useShortcut } from '@/hooks/useShortcut';
@@ -165,17 +166,26 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const activeEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
   // 挂载时把编辑器实例注册到全局「激活编辑器」注册表,供 cycle_naming_case
-  // 全局快捷键(useShortcut)使用;卸载时注销。
-  const handleEditorMount = useCallback((editorInstance: editor.IStandaloneCodeEditor) => {
-    activeEditorRef.current = editorInstance;
-    registerActiveEditor(editorInstance);
-  }, []);
+  // 全局快捷键(useShortcut)使用;并按当前 tab 注册到 tabId→实例注册表,
+  // 供全局搜索文本跳转定位高亮;卸载时同时注销。
+  const handleEditorMount = useCallback(
+    (editorInstance: editor.IStandaloneCodeEditor) => {
+      activeEditorRef.current = editorInstance;
+      registerActiveEditor(editorInstance);
+      const tabId = useEditorWorkspaceStore.getState().workspace.activeTabId;
+      if (tabId) registerTabEditor(tabId, editorInstance);
+    },
+    [],
+  );
 
   useEffect(() => {
     return () => {
       const ed = activeEditorRef.current;
       if (ed) unregisterActiveEditor(ed);
       activeEditorRef.current = null;
+      // 工作台卸载 = 全部 tab 的编辑器实例均已销毁,清空整个 tabId→实例注册表,
+      // 避免残留已销毁实例引用(跳转重试时 getModel() 返回 null 会误判)。
+      clearTabEditors();
     };
   }, []);
 
@@ -665,6 +675,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
           <div
             className="h-full shrink-0 overflow-hidden rounded-lg border border-border bg-sidebar shadow-sm transition-shadow @container/sidebar"
             style={{ width: workspace.leftSidebarVisible ? `${workspace.sidebarWidth}px` : 0 }}
+            data-search-anchor="text_editor:sidebar"
           >
             <EditorLeftSidebar
               tabs={workspace.tabs}
@@ -729,7 +740,10 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               data-testid="editor-tabs"
             />
 
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div
+              className="flex min-h-0 min-w-0 flex-1 flex-col"
+              data-search-anchor={showCompare ? 'text_editor:compare' : undefined}
+            >
               {showCompare && compareLeft && compareRight ? (
                 /* 对比差异视图:直接在页面中显示,两侧均可直接编辑 */
                 <FileCompareView
@@ -748,6 +762,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                 <CodeEditor
                   key={activeTab.id}
                   data-testid="editor"
+                  searchAnchor="text_editor:editor"
                   // 本地文件:工具栏展示路径面包屑(分段,末段为当前页);
                   // untitled 文件:仍展示文件名(untitled-1)纯文本
                   {...(activeTab.path

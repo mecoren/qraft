@@ -15,14 +15,21 @@ export function ConfigSection({
   title = '配置',
   children,
   className,
+  searchAnchor,
 }: {
   /** 卡片标题;传入空字符串时不渲染标题文字(仅保留无障碍名称) */
   title?: string;
   children: ReactNode;
   className?: string;
+  /** 全局搜索锚点(完整值 `${toolId}:${key}`),用于搜索跳转定位高亮 */
+  searchAnchor?: string;
 }): JSX.Element {
   return (
-    <section aria-label={title || '配置'} className={className}>
+    <section
+      aria-label={title || '配置'}
+      className={className}
+      data-search-anchor={searchAnchor}
+    >
       {title ? <h2 className="mb-1.5 text-body-sm font-semibold">{title}</h2> : null}
       <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-card">
         {children}
@@ -37,15 +44,21 @@ export function ConfigRow({
   hint,
   children,
   className,
+  searchAnchor,
 }: {
   icon?: LucideIcon;
   label: string;
   hint?: string;
   children?: ReactNode;
   className?: string;
+  /** 全局搜索锚点(完整值 `${toolId}:${key}`),用于搜索跳转定位高亮 */
+  searchAnchor?: string;
 }): JSX.Element {
   return (
-    <div className={cn('flex items-center gap-3 px-4 py-2.5', className)}>
+    <div
+      className={cn('flex items-center gap-3 px-4 py-2.5', className)}
+      data-search-anchor={searchAnchor}
+    >
       {Icon ? <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : null}
       <div className="min-w-0 flex-1">
         <div className="text-body-sm">{label}</div>

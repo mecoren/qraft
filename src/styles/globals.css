@@ -1262,3 +1262,47 @@
   margin-left: 0.2em;
   opacity: 0.75;
 }
+
+/* ============================================================
+ * 全局搜索跳转高亮 —— data-search-anchor 目标定位后的闪烁提示
+ *
+ * 由 useSearchJump / SettingsDialog 在 scrollIntoView 后为目标元素
+ * 追加 .search-anchor-highlight 类,呈现主题色 ring 脉冲 2 次后自动消退
+ * (类移除由 JS 定时器完成,动画结束即恢复原状)。
+ * ============================================================ */
+@keyframes search-anchor-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 40%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent);
+  }
+}
+
+.search-anchor-highlight {
+  border-radius: var(--radius-md);
+  animation: search-anchor-pulse 0.9s var(--ease-standard, ease-out) 2;
+}
+
+/* ============================================================
+ * 编辑器文本搜索匹配高亮 —— VSCode 搜索橙黄色
+ *
+ * .search-text-match      : Monaco decoration 类(编辑器内全部匹配项)
+ * .search-text-match-inline: 搜索面板结果行内匹配片段(<mark>)
+ * 使用半透明橙黄,深浅主题均清晰可见;由 useSearchJump 的
+ * deltaDecorations 应用/清理,面板内由 SearchDialog 渲染。
+ * ============================================================ */
+.search-text-match {
+  background: rgba(234, 92, 0, 0.38);
+  border-radius: 2px;
+}
+
+.search-text-match-inline {
+  background: rgba(234, 92, 0, 0.38);
+  border-radius: 2px;
+  color: inherit;
+  padding: 0;
+}

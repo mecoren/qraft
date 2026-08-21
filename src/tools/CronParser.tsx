@@ -67,7 +67,7 @@ export function CronParser(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="cron-parser">
-      <ConfigSection title="">
+      <ConfigSection title="" searchAnchor="cron_parser:config">
         <ConfigRow icon={Clock} label="包含秒" hint="6 段模式(秒 分 时 日 月 周)">
           <Switch
             checked={withSeconds}
@@ -90,7 +90,7 @@ export function CronParser(_props: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
 
-      <section aria-label="Cron 表达式">
+      <section aria-label="Cron 表达式" data-search-anchor="cron_parser:expression">
         <h2 className="mb-1.5 text-body-sm font-semibold">Cron 表达式</h2>
         <Input
           value={expr}
@@ -119,7 +119,11 @@ export function CronParser(_props: ToolProps): JSX.Element {
       </div>
 
       {/* 下次执行时间 */}
-      <section aria-label="计划的日期" className="flex min-h-0 flex-1 flex-col">
+      <section
+        aria-label="计划的日期"
+        className="flex min-h-0 flex-1 flex-col"
+        data-search-anchor="cron_parser:result"
+      >
         <div className="mb-1.5 flex items-center justify-between">
           <h2 className="text-body-sm font-semibold">接下来的计划日期</h2>
           <CopyAction text={nextText} testId="cron-copy" />

@@ -90,9 +90,10 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
         placeholder='[{"name":"Alice","age":30},{"name":"Bob","age":25}]'
         data-testid="jat-input"
         className="min-h-0"
+        searchAnchor="json_array_table:input"
       />
 
-      <div className="flex min-h-0 flex-col gap-2">
+      <div className="flex min-h-0 flex-col gap-2" data-search-anchor="json_array_table:table">
         <div className="flex items-center justify-between">
           <h2 className="text-body-sm font-semibold">表格</h2>
           <div className="flex gap-1">

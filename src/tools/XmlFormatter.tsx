@@ -111,7 +111,7 @@ export function XmlFormatter(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="xml-formatter">
-      <ConfigSection title="">
+      <ConfigSection title="" searchAnchor="xml_formatter:config">
         <ConfigRow icon={IndentIncrease} label="缩进">
           <Select value={mode} onValueChange={(v) => setMode(v as IndentMode)}>
             <SelectTrigger data-testid="xml-indent" className="w-32">
@@ -144,6 +144,7 @@ export function XmlFormatter(_props: ToolProps): JSX.Element {
             onChange={setInput}
             data-testid="xmlfmt-input"
             className="h-full"
+            searchAnchor="xml_formatter:input"
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
@@ -155,6 +156,7 @@ export function XmlFormatter(_props: ToolProps): JSX.Element {
             readOnly
             data-testid="xmlfmt-output"
             className="h-full"
+            searchAnchor="xml_formatter:output"
             actions={<CopyAction text={output} testId="xmlfmt-copy" />}
           />
         </ResizablePanel>

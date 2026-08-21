@@ -151,6 +151,8 @@ export interface CodeEditorProps {
   showCharCount?: boolean;
   /** 测试用 data-testid */
   'data-testid'?: string;
+  /** 全局搜索锚点(完整值 `${toolId}:${key}`),用于搜索跳转定位高亮 */
+  searchAnchor?: string;
   /** Monaco 编辑器挂载回调 */
   onMount?: (editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) => void;
   /**
@@ -223,6 +225,7 @@ export function CodeEditor({
   statusBarRight,
   showCharCount = true,
   'data-testid': dataTestId,
+  searchAnchor,
   fixedTheme,
   embedded = false,
   onMount,
@@ -375,6 +378,7 @@ export function CodeEditor({
     <div
       data-testid={dataTestId}
       data-slot="code-editor"
+      data-search-anchor={searchAnchor}
       className={cn(
         'relative flex min-h-[200px] h-full w-full flex-col',
         // 非嵌入模式:独立使用时自带圆角 + 边框,作为自包含的"卡片"

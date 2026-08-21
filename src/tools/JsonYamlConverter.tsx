@@ -45,7 +45,7 @@ export function JsonYamlConverter(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="json-yaml-converter">
-      <ConfigSection title="">
+      <ConfigSection title="" searchAnchor="json_yaml_converter:config">
         <ConfigRow icon={ArrowLeftRight} label="转换" hint="选择转换方向">
           <Select value={direction} onValueChange={(v) => setDirection(v as Direction)}>
             <SelectTrigger data-testid="jy-direction" className="w-40">
@@ -79,6 +79,7 @@ export function JsonYamlConverter(_props: ToolProps): JSX.Element {
             onChange={setInput}
             data-testid="jy-input"
             className="h-full"
+            searchAnchor="json_yaml_converter:input"
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
@@ -90,6 +91,7 @@ export function JsonYamlConverter(_props: ToolProps): JSX.Element {
             readOnly
             data-testid="jy-output"
             className="h-full"
+            searchAnchor="json_yaml_converter:output"
             actions={<CopyAction text={output} testId="jy-copy" />}
           />
         </ResizablePanel>

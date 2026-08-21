@@ -39,8 +39,9 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
         placeholder="# 标题&#10;&#10;- 列表项&#10;- **加粗** 与 *斜体*"
         data-testid="md-input"
         className="min-h-0"
+        searchAnchor="markdown_preview:input"
       />
-      <div className="flex min-h-0 flex-col">
+      <div className="flex min-h-0 flex-col" data-search-anchor="markdown_preview:preview">
         <h2 className="mb-1.5 text-body-sm font-semibold">预览</h2>
         <ScrollArea className="min-h-0 flex-1 rounded-lg border border-border bg-card shadow-card">
           <div className="px-5 py-4">

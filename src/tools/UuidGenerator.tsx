@@ -60,7 +60,7 @@ export function UuidGenerator({ toolId }: ToolProps) {
 
   return (
     <div className="flex flex-col gap-4 h-full">
-      <div className="flex items-end gap-4">
+      <div className="flex items-end gap-4" data-search-anchor="uuid_generator:config">
         <div className="flex flex-col gap-1">
           <Label className="text-xs">版本</Label>
           <Select value={version} onValueChange={(v) => setVersion(v as 'v4' | 'v7')}>
@@ -118,7 +118,11 @@ export function UuidGenerator({ toolId }: ToolProps) {
         </div>
       )}
 
-      <ScrollArea className="flex-1 rounded-md border p-3 font-mono text-sm" data-testid="output">
+      <ScrollArea
+        className="flex-1 rounded-md border p-3 font-mono text-sm"
+        data-testid="output"
+        data-search-anchor="uuid_generator:output"
+      >
         <pre className="whitespace-pre-wrap">{output?.text ?? ''}</pre>
       </ScrollArea>
     </div>

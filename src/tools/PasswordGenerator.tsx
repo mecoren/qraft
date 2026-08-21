@@ -112,7 +112,7 @@ export function PasswordGenerator(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="password-generator">
-      <ConfigSection title="">
+      <ConfigSection title="" searchAnchor="password_generator:config">
         <ConfigRow icon={KeyRound} label="长度">
           <Input
             type="number"
@@ -180,7 +180,10 @@ export function PasswordGenerator(_props: ToolProps): JSX.Element {
       </ConfigSection>
 
       {/* 强度与生成 */}
-      <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5 shadow-card">
+      <div
+        className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5 shadow-card"
+        data-search-anchor="password_generator:strength"
+      >
         <span className="text-xs text-muted-foreground">强度</span>
         <Progress value={noType ? 0 : strength.percent} className="h-1.5 w-40" />
         <span data-testid="pw-strength" className="text-xs">
@@ -199,6 +202,7 @@ export function PasswordGenerator(_props: ToolProps): JSX.Element {
         readOnly
         data-testid="pw-output"
         className="min-h-0 flex-1"
+        searchAnchor="password_generator:output"
         actions={<CopyAction text={output} testId="pw-copy" />}
       />
     </div>

@@ -96,6 +96,7 @@ export function XmlXsdTester(_props: ToolProps): JSX.Element {
       {/* 校验结论 */}
       <div
         data-testid="xsd-verdict"
+        data-search-anchor="xml_xsd_tester:verdict"
         className="flex items-start gap-2 rounded-lg border border-border bg-card px-4 py-3 shadow-card"
       >
         {verdict === null ? (
@@ -127,6 +128,7 @@ export function XmlXsdTester(_props: ToolProps): JSX.Element {
             placeholder={'<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">…'}
             data-testid="xsd-input"
             className="h-full"
+            searchAnchor="xml_xsd_tester:xsd"
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
@@ -138,6 +140,7 @@ export function XmlXsdTester(_props: ToolProps): JSX.Element {
             onChange={setXml}
             data-testid="xml-input"
             className="h-full"
+            searchAnchor="xml_xsd_tester:xml"
           />
         </ResizablePanel>
       </ResizablePanelGroup>

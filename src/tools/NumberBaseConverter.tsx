@@ -96,7 +96,7 @@ export function NumberBaseConverter(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="number-base-converter">
-      <ConfigSection title="">
+      <ConfigSection title="" searchAnchor="number_base_converter:config">
         <ConfigRow icon={LayoutList} label="格式化数字" hint="按进制惯例分组显示">
           <Switch
             checked={grouped}
@@ -121,7 +121,7 @@ export function NumberBaseConverter(_props: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
 
-      <section aria-label="输入">
+      <section aria-label="输入" data-search-anchor="number_base_converter:input">
         <h2 className="mb-1.5 text-body-sm font-semibold">输入</h2>
         <Input
           value={input}
@@ -138,7 +138,11 @@ export function NumberBaseConverter(_props: ToolProps): JSX.Element {
         ) : null}
       </section>
 
-      <section aria-label="转换结果" className="flex flex-col gap-2">
+      <section
+        aria-label="转换结果"
+        className="flex flex-col gap-2"
+        data-search-anchor="number_base_converter:result"
+      >
         <h2 className="text-body-sm font-semibold">转换结果</h2>
         {([16, 10, 8, 2] as Base[]).map((b, i) => {
           const text = results && !results.error ? results.values[i].text : '';

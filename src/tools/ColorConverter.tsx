@@ -61,7 +61,7 @@ export function ColorConverter({ toolId }: ToolProps) {
   return (
     <div className="flex flex-col gap-4 h-full">
       <div className="flex items-end gap-4">
-        <div className="flex flex-col gap-1 flex-1">
+        <div className="flex flex-col gap-1 flex-1" data-search-anchor="color_converter:input">
           <Label htmlFor="color-input" className="text-xs">
             颜色值
           </Label>
@@ -74,7 +74,7 @@ export function ColorConverter({ toolId }: ToolProps) {
             data-testid="input"
           />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1" data-search-anchor="color_converter:config">
           <Label htmlFor="format-select" className="text-xs">
             输入格式
           </Label>
@@ -107,7 +107,11 @@ export function ColorConverter({ toolId }: ToolProps) {
       )}
 
       {extra && (
-        <div className="grid grid-cols-2 gap-4 flex-1" data-testid="output">
+        <div
+          className="grid grid-cols-2 gap-4 flex-1"
+          data-testid="output"
+          data-search-anchor="color_converter:result"
+        >
           <div className="flex flex-col gap-3">
             <div className="rounded-md border p-3">
               <div className="text-xs font-semibold text-muted-foreground">预览</div>

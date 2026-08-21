@@ -46,7 +46,7 @@ export function HtmlCodec(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="html-codec">
-      <ConfigSection title="">
+      <ConfigSection title="" searchAnchor="html_codec:config">
         <ConfigRow icon={ArrowLeftRight} label="转换" hint="选择要使用的转换模式">
           <span className="text-xs text-muted-foreground">{encodeMode ? '编码' : '解码'}</span>
           <Switch
@@ -67,6 +67,7 @@ export function HtmlCodec(_props: ToolProps): JSX.Element {
             onChange={setInput}
             data-testid="html-input"
             className="h-full"
+            searchAnchor="html_codec:input"
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
@@ -78,6 +79,7 @@ export function HtmlCodec(_props: ToolProps): JSX.Element {
             readOnly
             data-testid="html-output"
             className="h-full"
+            searchAnchor="html_codec:output"
             actions={<CopyAction text={output} testId="html-copy" />}
           />
         </ResizablePanel>

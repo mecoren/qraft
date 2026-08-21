@@ -75,7 +75,7 @@ export function TimestampConverter({ toolId }: ToolProps) {
   return (
     <div className="flex flex-col gap-4 h-full">
       <div className="flex items-end gap-4">
-        <div className="flex flex-col gap-1 flex-1">
+        <div className="flex flex-col gap-1 flex-1" data-search-anchor="timestamp_converter:input">
           <Label htmlFor="ts-input" className="text-xs">
             输入(Unix 秒 / 毫秒 / 日期字符串)
           </Label>
@@ -88,7 +88,7 @@ export function TimestampConverter({ toolId }: ToolProps) {
             data-testid="input"
           />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1" data-search-anchor="timestamp_converter:config">
           <Label htmlFor="tz-select" className="text-xs">
             时区
           </Label>
@@ -120,7 +120,11 @@ export function TimestampConverter({ toolId }: ToolProps) {
       )}
 
       {extra && (
-        <ScrollArea className="flex-1 rounded-md border p-4" data-testid="output">
+        <ScrollArea
+          className="flex-1 rounded-md border p-4"
+          data-testid="output"
+          data-search-anchor="timestamp_converter:result"
+        >
           <dl className="grid grid-cols-[180px_1fr_auto] gap-x-4 gap-y-3 text-sm">
             <dt className="font-semibold">Unix(秒)</dt>
             <dd className="font-mono">{extra.unix_seconds}</dd>

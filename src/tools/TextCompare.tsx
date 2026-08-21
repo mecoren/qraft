@@ -255,7 +255,7 @@ export function TextCompare(_props: ToolProps): JSX.Element {
   );
 
   const renderActionGroup = (label: string, target: DiffTarget) => (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center gap-0.5" data-search-anchor={`text_compare:${target}`}>
       <span className="mr-0.5 text-xs text-muted-foreground">{label}</span>
       <ToolbarButton
         label={`${label}：粘贴`}
@@ -284,7 +284,7 @@ export function TextCompare(_props: ToolProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3" data-testid="text-compare">
       {/* 顶部工具栏:行内模式 + 差异统计 + 操作 */}
-      <section aria-label="配置">
+      <section aria-label="配置" data-search-anchor="text_compare:config">
         <div className="rounded-lg border border-border bg-card shadow-card">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
             <div className="flex items-center gap-3">
@@ -330,7 +330,10 @@ export function TextCompare(_props: ToolProps): JSX.Element {
       </section>
 
       {/* DiffEditor 主区域 */}
-      <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-border bg-card">
+      <div
+        className="min-h-0 flex-1 overflow-hidden rounded-md border border-border bg-card"
+        data-search-anchor="text_compare:diff"
+      >
         <DiffEditor
           language="plaintext"
           theme={themeName}

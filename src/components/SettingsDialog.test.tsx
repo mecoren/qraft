@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { invoke } from '@tauri-apps/api/core';
 import { SettingsDialog } from './SettingsDialog';
 import { useConfigStore } from '@/store/configStore';
+import { useSearchStore } from '@/store/searchStore';
 import { DEFAULT_USER_CONFIG } from '@/types/config';
 
 const invokeMock = invoke as unknown as ReturnType<typeof vi.fn>;
@@ -16,6 +17,7 @@ beforeEach(() => {
       : Promise.resolve({ success: true, data: true }),
   );
   useConfigStore.setState({ config: { ...DEFAULT_USER_CONFIG }, loading: false, error: null });
+  useSearchStore.setState({ target: null });
 });
 
 describe('SettingsDialog', () => {
@@ -49,6 +51,37 @@ describe('SettingsDialog', () => {
     render(<SettingsDialog open onOpenChange={onOpenChange} />);
     await user.click(screen.getByRole('button', { name: /关闭设置/ }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('search target with settingsMenu switches menu and consumes target', async () => {
+    render(<SettingsDialog open onOpenChange={() => {}} />);
+    act(() => {
+      useSearchStore.getState().requestJump({
+        view: 'settings',
+        settingsMenu: 'shortcuts',
+        anchor: 'settings:shortcuts:global_search',
+      });
+    });
+    // 切换到「快捷键」菜单,展示其字段
+    expect(await screen.findByLabelText(/打开命令面板/)).toBeInTheDocument();
+    // 跳转目标被 SettingsDialog 消费
+    expect(useSearchStore.getState().target).toBeNull();
+  });
+
+  it('search target highlights the settings field anchor', async () => {
+    render(<SettingsDialog open onOpenChange={() => {}} />);
+    act(() => {
+      useSearchStore.getState().requestJump({
+        view: 'settings',
+        settingsMenu: 'shortcuts',
+        anchor: 'settings:shortcuts:global_search',
+      });
+    });
+    await waitFor(() => {
+      const el = document.querySelector('[data-search-anchor="settings:shortcuts:global_search"]');
+      expect(el).not.toBeNull();
+      expect(el?.classList.contains('search-anchor-highlight')).toBe(true);
+    });
   });
 
   it('drags the dialog via the title bar', () => {

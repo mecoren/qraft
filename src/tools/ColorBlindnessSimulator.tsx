@@ -123,7 +123,10 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="color-blindness-simulator">
-      <div className="flex items-center justify-between">
+      <div
+        className="flex items-center justify-between"
+        data-search-anchor="color_blindness_simulator:source"
+      >
         <h2 className="text-body-sm font-semibold">源图片</h2>
         <Button
           variant="ghost"
@@ -147,7 +150,10 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
         }}
       />
 
-      <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3">
+      <div
+        className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3"
+        data-search-anchor="color_blindness_simulator:preview"
+      >
         {/* 原图 / 拖放区 */}
         <div
           data-testid="cb-dropzone"

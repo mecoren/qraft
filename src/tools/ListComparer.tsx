@@ -86,7 +86,7 @@ export function ListComparer(_props: ToolProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="list-comparer">
-      <ConfigSection title="">
+      <ConfigSection title="" searchAnchor="list_comparer:config">
         <ConfigRow icon={CaseSensitive} label="区分大小写">
           <Switch
             checked={caseSensitive}
@@ -128,6 +128,7 @@ export function ListComparer(_props: ToolProps): JSX.Element {
             onChange={setListA}
             data-testid="lc-a"
             className="h-full"
+            searchAnchor="list_comparer:a"
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
@@ -139,6 +140,7 @@ export function ListComparer(_props: ToolProps): JSX.Element {
             onChange={setListB}
             data-testid="lc-b"
             className="h-full"
+            searchAnchor="list_comparer:b"
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
@@ -150,6 +152,7 @@ export function ListComparer(_props: ToolProps): JSX.Element {
             readOnly
             data-testid="lc-result"
             className="h-full"
+            searchAnchor="list_comparer:result"
             actions={<CopyAction text={result} testId="lc-copy" />}
           />
         </ResizablePanel>

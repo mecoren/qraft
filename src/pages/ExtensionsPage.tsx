@@ -31,7 +31,10 @@ export function ExtensionsPage(): JSX.Element {
             </div>
           </header>
 
-          <section className="mt-6 rounded-lg border border-border bg-card p-4 shadow-card">
+          <section
+            className="mt-6 rounded-lg border border-border bg-card p-4 shadow-card"
+            data-search-anchor="extensions:builtin"
+          >
             <h2 className="text-sm font-semibold">内置扩展</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               共 {TOOL_ONLY_CATALOG.length} 个工具,按分类分组如下。
@@ -52,7 +55,10 @@ export function ExtensionsPage(): JSX.Element {
             </ul>
           </section>
 
-          <section className="mt-4 rounded-lg border border-dashed border-border p-4">
+          <section
+            className="mt-4 rounded-lg border border-dashed border-border p-4"
+            data-search-anchor="extensions:third-party"
+          >
             <h2 className="text-sm font-semibold">第三方扩展</h2>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
               第三方扩展机制(从磁盘加载自定义工具包)正在规划中。当前版本仅提供内置工具,

@@ -52,6 +52,7 @@ export function JwtParser({ toolId }: ToolProps) {
           language="plaintext"
           className="flex-1"
           data-testid="input"
+          searchAnchor="jwt_parser:input"
         />
         <Button onClick={handleParse} disabled={loading || !text}>
           {loading ? '解析中...' : '解析'}
@@ -76,6 +77,7 @@ export function JwtParser({ toolId }: ToolProps) {
                   value={JSON.stringify(extra.header, null, 2)}
                   language="json"
                   data-testid="header"
+                  searchAnchor="jwt_parser:header"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -85,6 +87,7 @@ export function JwtParser({ toolId }: ToolProps) {
                   value={JSON.stringify(extra.payload, null, 2)}
                   language="json"
                   data-testid="payload"
+                  searchAnchor="jwt_parser:payload"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -94,6 +97,7 @@ export function JwtParser({ toolId }: ToolProps) {
                   value={extra.signature}
                   language="plaintext"
                   data-testid="signature"
+                  searchAnchor="jwt_parser:signature"
                 />
               </div>
               {extra.expires_at && (
