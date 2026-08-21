@@ -2,7 +2,7 @@
  * UI 状态 Store —— 视图导航 / 侧栏 / 收藏夹 / 最近使用
  *
  * 职责:
- * - 应用级视图切换:welcome(欢迎页) / tool(工具页) / settings / extensions / history
+ * - 应用级视图切换:welcome(欢迎页) / tool(工具页) / settings / extensions / history / about
  * - 侧栏折叠状态与分类展开状态
  * - 收藏夹与最近使用列表(localStorage 持久化,重启恢复)
  *
@@ -18,7 +18,7 @@ import { persist } from 'zustand/middleware';
 import { useToolStateStore } from '@/store/toolStateStore';
 import type { CatalogCategoryId } from '@/lib/tool-catalog';
 
-export type AppView = 'welcome' | 'tool' | 'settings' | 'extensions' | 'history';
+export type AppView = 'welcome' | 'tool' | 'settings' | 'extensions' | 'history' | 'about';
 
 /** 最近使用列表上限 */
 export const MAX_RECENTS = 12;

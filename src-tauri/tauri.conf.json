@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Qraft",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "dev.qraft.app",
   "build": {
     "frontendDist": "../dist",
@@ -44,49 +44,86 @@
     "externalBin": [],
     "fileAssociations": [
       {
-        "ext": ["txt"],
+        "ext": [
+          "txt"
+        ],
         "name": "Text Document",
         "description": "Plain text files",
         "mimeType": "text/plain",
         "role": "Editor"
       },
       {
-        "ext": ["json"],
+        "ext": [
+          "json"
+        ],
         "name": "JSON Document",
         "description": "JavaScript Object Notation data files",
         "mimeType": "application/json",
         "role": "Editor"
       },
       {
-        "ext": ["md", "markdown"],
+        "ext": [
+          "md",
+          "markdown"
+        ],
         "name": "Markdown Document",
         "description": "Markdown plain text files",
         "mimeType": "text/markdown",
         "role": "Editor"
       },
       {
-        "ext": ["csv"],
+        "ext": [
+          "csv"
+        ],
         "name": "CSV Document",
         "description": "Comma-separated values files",
         "mimeType": "text/csv",
         "role": "Editor"
       },
       {
-        "ext": ["log"],
+        "ext": [
+          "log"
+        ],
         "name": "Log File",
         "description": "Plain text log files",
         "mimeType": "text/plain",
         "role": "Editor"
       },
       {
-        "ext": ["xml", "yaml", "yml", "toml", "ini", "conf", "env"],
+        "ext": [
+          "xml",
+          "yaml",
+          "yml",
+          "toml",
+          "ini",
+          "conf",
+          "env"
+        ],
         "name": "Configuration Text File",
         "description": "Configuration and data text files",
         "mimeType": "text/plain",
         "role": "Editor"
       },
       {
-        "ext": ["js", "ts", "jsx", "tsx", "py", "rs", "go", "java", "c", "h", "cpp", "hpp", "sh", "bash", "sql", "vue", "svelte"],
+        "ext": [
+          "js",
+          "ts",
+          "jsx",
+          "tsx",
+          "py",
+          "rs",
+          "go",
+          "java",
+          "c",
+          "h",
+          "cpp",
+          "hpp",
+          "sh",
+          "bash",
+          "sql",
+          "vue",
+          "svelte"
+        ],
         "name": "Source Code File",
         "description": "Source code files",
         "mimeType": "text/plain",
@@ -99,11 +136,15 @@
     "longDescription": "Qraft is a local-first developer toolbox with 10+ offline tools: JSON formatter, Base64, JWT parser, hash calculator, and more. Zero network, zero telemetry.",
     "windows": {
       "wix": {
-        "language": ["en-US"]
+        "language": [
+          "en-US"
+        ]
       },
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["English"]
+        "languages": [
+          "English"
+        ]
       },
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
@@ -119,7 +160,10 @@
     },
     "linux": {
       "deb": {
-        "depends": ["libwebkit2gtk-4.1-0", "libssl3"]
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libssl3"
+        ]
       },
       "appimage": {
         "bundleMediaFramework": true
@@ -129,7 +173,9 @@
   "plugins": {
     "updater": {
       "active": true,
-      "endpoints": ["https://github.com/mecoren/qraft/releases/latest/download/latest.json"],
+      "endpoints": [
+        "https://github.com/mecoren/qraft/releases/latest/download/latest.json"
+      ],
       "dialog": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJGRDdCMzU2QUY3NDk4RDcKUldUWG1IU3ZWclBYdjJGOW4rS05mVlVlOEd5M2J5RzRwVWE2S0ZIMnRCUSt6cHYzUlVYV3lXQTMK"
     }

@@ -16,6 +16,7 @@ import { useMemo, useState, type JSX } from 'react';
 import {
   ChevronRight,
   Home,
+  Info,
   Menu,
   Puzzle,
   Search,
@@ -328,6 +329,13 @@ export function Sidebar(): JSX.Element {
           onClick={() => setView('settings')}
           testId="rail-settings"
         />
+        <RailButton
+          icon={Info}
+          label="关于"
+          active={view === 'about'}
+          onClick={() => setView('about')}
+          testId="rail-about"
+        />
       </nav>
     );
   }
@@ -484,6 +492,13 @@ export function Sidebar(): JSX.Element {
           active={view === 'settings'}
           onClick={() => setView('settings')}
           testId="nav-settings"
+        />
+        <NavItem
+          icon={Info}
+          label="关于"
+          active={view === 'about'}
+          onClick={() => setView('about')}
+          testId="nav-about"
         />
       </div>
     </nav>

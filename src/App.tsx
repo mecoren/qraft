@@ -7,6 +7,7 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { ToolPanel } from '@/components/ToolPanel';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { SettingsDialog } from '@/components/SettingsDialog';
+import { AboutDialog } from '@/components/AboutDialog';
 import { WelcomePage } from '@/pages/WelcomePage';
 import { ExtensionsPage } from '@/pages/ExtensionsPage';
 import { useConfigStore } from '@/store/configStore';
@@ -143,13 +144,13 @@ export function App(): JSX.Element {
   useShortcut('toggle_settings', () => setView('settings'), [setView]);
   useShortcut('switch_tool', () => setPaletteOpen(true), []);
   useShortcut('open_history', () => setView('history'), [setView]);
-  // Esc 关闭当前打开的面板:命令面板 > 设置弹窗 > 历史/扩展页 > 回到工具/欢迎页
+  // Esc 关闭当前打开的面板:命令面板 > 设置/关于弹窗 > 历史/扩展页 > 回到工具/欢迎页
   useShortcut(
     'close_panel',
     () => {
       if (paletteOpen) {
         setPaletteOpen(false);
-      } else if (view === 'settings') {
+      } else if (view === 'settings' || view === 'about') {
         setView(currentToolId ? 'tool' : 'welcome');
       } else if (view === 'history' || view === 'extensions') {
         setView(currentToolId ? 'tool' : 'welcome');
@@ -204,10 +205,20 @@ export function App(): JSX.Element {
       />
 
       {/* key 让每次打开时弹窗重挂载,initialRect() 重新按当前视口尺寸居中
-       * 避免小屏→大屏窗口变化后,弹窗停留在原位置(被 resize clamp 在边缘)造成不居中 */}
+       * 避免小屏→大屏窗口变化后,弹窗停留在原位置(被 resize clamp 在边缘)造成不居中。
+       * 前缀避免两个弹窗的 key 在同时为 false 时冲突。 */}
       <SettingsDialog
-        key={String(view === 'settings')}
+        key={`settings-${view === 'settings'}`}
         open={view === 'settings'}
+        onOpenChange={(open) => {
+          if (!open) setView(currentToolId ? 'tool' : 'welcome');
+        }}
+      />
+
+      {/* 关于弹窗:独立于设置,由侧边栏「关于」入口打开 */}
+      <AboutDialog
+        key={`about-${view === 'about'}`}
+        open={view === 'about'}
         onOpenChange={(open) => {
           if (!open) setView(currentToolId ? 'tool' : 'welcome');
         }}

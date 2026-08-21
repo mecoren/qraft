@@ -21,13 +21,13 @@ beforeEach(() => {
 describe('SettingsDialog', () => {
   it('shows left menu and theme content by default', () => {
     render(<SettingsDialog open onOpenChange={() => {}} />);
-    // 左侧菜单项
+    // 左侧菜单项(关于已独立为 AboutDialog,不在设置菜单中)
     expect(screen.getByRole('button', { name: /主题/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /字体/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /通用/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /快捷键/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /更新/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /关于/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /关于/ })).not.toBeInTheDocument();
     // 默认展示主题内容(ThemeSection 的说明文案)
     expect(screen.getByText(/选择预设主题或自定义 accent 色/)).toBeInTheDocument();
   });
@@ -41,10 +41,6 @@ describe('SettingsDialog', () => {
     // 点击「快捷键」菜单
     await user.click(screen.getByRole('button', { name: /快捷键/ }));
     expect(screen.getByLabelText(/打开命令面板/)).toBeInTheDocument();
-    // 点击「关于」菜单
-    await user.click(screen.getByRole('button', { name: /关于/ }));
-    expect(screen.getByText(/本地优先的开发者工具箱/)).toBeInTheDocument();
-    expect(screen.getByText(/开源许可/)).toBeInTheDocument();
   });
 
   it('calls onOpenChange(false) when clicking close button', async () => {
