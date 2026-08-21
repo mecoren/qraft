@@ -45,7 +45,6 @@ import {
   revealInExplorer,
   saveToPath,
   saveWithDialog,
-  windowCloseCancel,
   windowCloseReady,
 } from './fileOps';
 import { useToolMenus } from '@/store/toolMenubarStore';
@@ -100,8 +99,17 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     void hydrate();
   }, [hydrate]);
 
-  // 窗口关闭确认:通知后端前端已就绪,并监听「用户点击关闭窗口」事件。
-  // 仅在 Tauri 运行时生效(浏览器 dev / 测试环境跳过)。
+  /** workspace 变更防抖持久化的定时器句柄;同时给窗口关闭守卫复用 */
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * 窗口关闭守卫:工作区内容已通过防抖 effect 实时写入 Rust config 缓存
+   * (`tool_prefs.editor_workspace_v1`),再次启动会自动还原,因此不再弹
+   * 「未保存更改」确认框。后端拦截关闭后,前端只需立即冲刷待落盘数据
+   * 并退出,避免 400ms 防抖窗口内的最后改动丢失。
+   *
+   * 仅在 Tauri 运行时生效(浏览器 dev / 测试环境跳过)。
+   */
   useEffect(() => {
     if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
     void windowCloseReady();
@@ -109,16 +117,17 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     void (async () => {
       try {
         unlisten = await listen('app:close-requested', async () => {
-          // 确保工作区已还原(用户可能从未打开过编辑器工具,store 未 hydrate)
-          await useEditorWorkspaceStore.getState().hydrate();
-          const state = useEditorWorkspaceStore.getState();
-          const dirtyTabs = state.workspace.tabs.filter((t) => t.content !== t.savedContent);
-          if (dirtyTabs.length === 0) {
-            // 无未保存内容:直接退出
-            void safeInvoke('app_quit');
-            return;
+          // 取消待执行的防抖 persist,立即写一次最新工作区到缓存
+          if (persistTimer.current) {
+            clearTimeout(persistTimer.current);
+            persistTimer.current = null;
           }
-          setUnsaved({ mode: 'quit-app' });
+          try {
+            await useEditorWorkspaceStore.getState().persist();
+          } catch {
+            // 持久化异常不影响退出,避免阻塞关闭流程
+          }
+          void safeInvoke('app_quit');
         });
       } catch {
         // 非 Tauri 环境或事件系统不可用:不拦截窗口关闭
@@ -128,7 +137,6 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   }, []);
 
   // workspace 变更 → 防抖持久化(ready 前 persist 为 no-op,不会覆盖已存数据)
-  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!ready) return;
     if (persistTimer.current) clearTimeout(persistTimer.current);
@@ -612,7 +620,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     });
   }, [unsaved, saveTabById]);
 
-  /** 未保存对话框:不保存关闭 / 确认关闭固定 Tab / 放弃并退出 */
+  /** 未保存对话框:不保存关闭 / 确认关闭固定 Tab */
   const handleUnsavedDiscard = useCallback(() => {
     if (!unsaved) return;
     const state = useEditorWorkspaceStore.getState();
@@ -626,19 +634,12 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       } else {
         state.closeRightTabs(unsaved.tabId);
       }
-    } else if (unsaved.mode === 'quit-app') {
-      // 放弃未保存内容,直接退出应用
-      void safeInvoke('app_quit');
     }
     setUnsaved(null);
   }, [unsaved]);
 
-  /** 未保存对话框:取消(保持打开 / 留在应用) */
+  /** 未保存对话框:取消(保持打开) */
   const handleUnsavedCancel = useCallback(() => {
-    if (unsaved?.mode === 'quit-app') {
-      // 复位后端关闭确认流程,下次关闭窗口可再次确认
-      void windowCloseCancel();
-    }
     setUnsaved(null);
   }, [unsaved]);
 
@@ -815,7 +816,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
           </div>
         </div>
 
-        {/* 未保存更改确认对话框(关闭 Tab / 全部关闭 / 退出应用) */}
+        {/* 未保存更改确认对话框(关闭 Tab / 全部关闭) */}
         <UnsavedDialog
           open={unsaved !== null}
           mode={unsaved?.mode ?? 'close-tab'}

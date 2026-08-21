@@ -21,14 +21,9 @@ export interface PendingOpenFile {
   content: string;
 }
 
-/** 通知后端:前端已加载完成,可拦截窗口关闭并询问未保存内容 */
+/** 通知后端:前端已加载完成,可拦截窗口关闭以冲刷工作区缓存 */
 export async function windowCloseReady(): Promise<void> {
   await safeInvoke('window_close_ready');
-}
-
-/** 通知后端:用户取消退出,复位关闭确认流程(下次关闭可再次确认) */
-export async function windowCloseCancel(): Promise<void> {
-  await safeInvoke('window_close_cancel');
 }
 
 /** 弹出打开对话框选择单个文本文件;用户取消返回 null */

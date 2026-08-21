@@ -78,7 +78,6 @@ vi.mock('./code-editor-workspace/fileOps', () => ({
   saveWithDialog: vi.fn(),
   encodeTextToBase64: vi.fn((t: string) => `b64:${t}`),
   windowCloseReady: vi.fn(),
-  windowCloseCancel: vi.fn(),
 }));
 
 // mock sonner,避免 toast 在 jsdom 中产生副作用
@@ -95,7 +94,6 @@ import {
   openTextFileDialog,
   saveToPath,
   saveWithDialog,
-  windowCloseCancel,
 } from './code-editor-workspace/fileOps';
 import { DEFAULT_WORKSPACE } from './code-editor-workspace/schema';
 
@@ -114,7 +112,6 @@ beforeEach(() => {
   (openTextFileDialog as unknown as Mock).mockReset();
   (saveToPath as unknown as Mock).mockReset();
   (saveWithDialog as unknown as Mock).mockReset();
-  (windowCloseCancel as unknown as Mock).mockReset();
   (listen as unknown as Mock).mockReset();
   (listen as unknown as Mock).mockResolvedValue(() => {});
 });
@@ -581,7 +578,7 @@ describe('CodeEditorTool workspace', () => {
     await waitFor(() => expect(screen.getByTestId('editor-empty')).toBeInTheDocument());
   });
 
-  it('prompts before quitting the app when there are unsaved changes', async () => {
+  it('flushes the workspace cache and quits the app without prompting, even with unsaved changes', async () => {
     // 模拟 Tauri 运行时(仅本测试)
     const hadInternals = Object.prototype.hasOwnProperty.call(window, '__TAURI_INTERNALS__');
     const prevInternals = (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
@@ -603,21 +600,36 @@ describe('CodeEditorTool workspace', () => {
     await clickToolbarItem('toolbar-open');
     await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('q.txt'));
 
+    // 标记一份未保存内容(打破 savedContent)
+    safeInvokeMock.mockClear();
     fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'qq' } });
     await waitFor(() => expect(screen.getByTestId('editor-tabs-dirty-q.txt')).toBeInTheDocument());
 
-    // 触发窗口关闭事件 → 弹退出确认
+    // 等待防抖窗结束后,一次 config_set 已被排期
+    await waitFor(
+      () => {
+        const setCalls = safeInvokeMock.mock.calls.filter((c) => c[0] === 'config_set');
+        expect(setCalls.length).toBeGreaterThan(0);
+      },
+      { timeout: 1000 },
+    );
+
+    // 触发窗口关闭事件 → 不应弹确认框,直接冲刷缓存并退出
+    safeInvokeMock.mockClear();
     await act(async () => {
       await closeHandler?.();
     });
-    await waitFor(() => expect(screen.getByTestId('unsaved-dialog')).toBeInTheDocument());
-    // quit-app 模式标题为「有 N 个未保存的更改」(见 UnsavedDialog)
-    expect(screen.getByText(/有 \d+ 个未保存的更改/)).toBeInTheDocument();
-
-    // 取消 → 留在应用,且复位后端确认流程
-    fireEvent.click(screen.getByTestId('unsaved-dialog-cancel'));
-    await waitFor(() => expect(screen.queryByTestId('unsaved-dialog')).toBeNull());
-    expect(windowCloseCancel as unknown as Mock).toHaveBeenCalled();
+    // 没有未保存对话框
+    expect(screen.queryByTestId('unsaved-dialog')).toBeNull();
+    // 退出前立即调用了一次 config_set 冲刷(即使原本尚未到防抖窗口)
+    await waitFor(() =>
+      expect(safeInvokeMock).toHaveBeenCalledWith('config_set', expect.anything()),
+    );
+    const flushCall = safeInvokeMock.mock.calls.find((c) => c[0] === 'config_set');
+    expect(flushCall?.[1].key).toBe('tool_prefs.editor_workspace_v1');
+    expect(flushCall?.[1].value.tabs[0].content).toBe('qq');
+    // 最后调用 app_quit
+    await waitFor(() => expect(safeInvokeMock).toHaveBeenCalledWith('app_quit'));
 
     // 清理 Tauri 模拟
     if (hadInternals) {

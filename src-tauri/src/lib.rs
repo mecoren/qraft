@@ -61,8 +61,7 @@ pub fn run() -> anyhow::Result<()> {
 
     use crate::commands::app::{
         WindowCloseGuard, app_check_update, app_install_update, app_open_external,
-        app_open_release_page, app_pull_open_files, app_quit, app_version, window_close_cancel,
-        window_close_ready,
+        app_open_release_page, app_pull_open_files, app_quit, app_version, window_close_ready,
     };
     use crate::commands::clipboard::{clipboard_read_text, clipboard_write_text};
     use crate::commands::config::{config_get, config_get_all, config_reset, config_set};
@@ -190,7 +189,7 @@ pub fn run() -> anyhow::Result<()> {
 
             Ok(())
         })
-        // 窗口关闭拦截:前端已就绪且未在确认流程时,阻止关闭并通知前端检查未保存内容
+        // 窗口关闭拦截:前端已就绪且未在确认流程时,阻止关闭并通知前端冲刷缓存后退出
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let guard = window.state::<WindowCloseGuard>();
@@ -230,7 +229,6 @@ pub fn run() -> anyhow::Result<()> {
             app_version,
             app_quit,
             window_close_ready,
-            window_close_cancel,
             app_pull_open_files,
             app_check_update,
             app_install_update,

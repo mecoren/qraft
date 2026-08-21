@@ -117,7 +117,9 @@ export function defineThemeFor(monaco: Monaco, name: string): void {
         '--card-foreground',
         isDark ? '#ffffff' : '#1a1a1e',
       ),
-      'editorGutter.background': resolveColor('--editor-gutter-bg', isDark ? '#1a1a1e' : '#f5f5f5'),
+      // 行号 gutter 背景与编辑器背景一致(都读 --card),避免行号栏出现色差;
+      // VS Code 默认行为就是 gutter 与编辑区同底色。
+      'editorGutter.background': resolveColor('--card', isDark ? '#1b1b1f' : '#ffffff'),
       // 编辑器选择/高亮/滚动条色读取专用 token,主题切换时自动同步
       // 选中文本背景:柔和淡蓝色(VS Code 同款),硬编码 hex 避免 OKLCH alpha 解析异常
       // - 浅色:#add6ff(淡蓝,VS Code vs 主题默认 selection 背景)

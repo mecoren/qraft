@@ -21,18 +21,18 @@ const RELEASES_PAGE: &str = "https://github.com/mecoren/qraft/releases";
 
 // ============ 窗口关闭守卫 ============
 
-/// 窗口关闭守卫状态:协调「用户点击关闭窗口」与前端「未保存确认」。
+/// 窗口关闭守卫状态:协调「用户点击关闭窗口」与前端「冲刷缓存 + 退出」.
 ///
 /// 流程(由 `lib.rs` 的 `on_window_event` 驱动):
 /// 1. 前端加载完成后调用 `window_close_ready` 置位 `webview_ready`。
 /// 2. 用户点窗口关闭 → 拦截 `CloseRequested`:若前端已就绪且未处于确认流程,
-///    则 `prevent_close` 并向前端 emit `app:close-requested`。
-/// 3. 前端检查未保存内容:
-///    - 无未保存 → 调用 `app_quit` 直接退出;
-///    - 有未保存 → 弹确认框,确认后 `app_quit`,取消后 `window_close_cancel`
-///      复位 `pending`(下次关闭可再次走确认流程)。
-/// 4. 若前端未就绪(启动瞬间)或 `pending` 已置位(再次点击关闭 = 强制退出),
+///    则 `prevent_close` 并向前端 emit `app:close-requested`,等待前端
+///    冲刷工作区缓存并调用 `app_quit` 退出。
+/// 3. 若前端未就绪(启动瞬间)或 `pending` 已置位(再次点击关闭 = 强制退出),
 ///    则放行关闭,避免前端异常/卡死时窗口无法关闭。
+///
+/// 退出应用不再弹「未保存更改」确认:工作区内容由前端防抖实时写入
+/// Rust config 缓存,再次启动会自动还原。
 #[derive(Default)]
 pub struct WindowCloseGuard {
     pub inner: Mutex<WindowCloseGuardState>,
@@ -42,7 +42,7 @@ pub struct WindowCloseGuard {
 pub struct WindowCloseGuardState {
     /// 前端已加载完成并调用 `window_close_ready` 置位
     pub webview_ready: bool,
-    /// 已拦截一次关闭并通知前端,等待确认结果
+    /// 已拦截一次关闭并通知前端,等待前端调 `app_quit`
     pub pending: bool,
 }
 
@@ -60,24 +60,6 @@ pub fn window_close_ready(app: tauri::AppHandle) -> Result<CommandResponse<()>, 
         .lock()
         .map_err(|e| AppError::Internal(anyhow::anyhow!("window close guard poisoned: {e}")))?;
     g.webview_ready = true;
-    drop(g);
-    Ok(CommandResponse::ok(()))
-}
-
-/// 用户取消退出:复位 `pending`,下次关闭窗口可再次进入确认流程
-///
-/// # Errors
-///
-/// - 守卫互斥锁中毒时返回 `AppError::Internal`
-#[tauri::command]
-#[allow(clippy::needless_pass_by_value)]
-pub fn window_close_cancel(app: tauri::AppHandle) -> Result<CommandResponse<()>, AppError> {
-    let guard = app.state::<WindowCloseGuard>();
-    let mut g = guard
-        .inner
-        .lock()
-        .map_err(|e| AppError::Internal(anyhow::anyhow!("window close guard poisoned: {e}")))?;
-    g.pending = false;
     drop(g);
     Ok(CommandResponse::ok(()))
 }
