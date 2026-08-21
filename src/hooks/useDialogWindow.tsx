@@ -259,7 +259,11 @@ export function useDialogWindow(options: DialogWindowOptions) {
   return {
     rect,
     dragEvents: { onPointerDown: onDragStart, onPointerMove: onDragMove, onPointerUp: onDragEnd },
-    resizeEvents: { onPointerDown: onResizeStart, onPointerMove: onResizeMove, onPointerUp: onResizeEnd },
+    resizeEvents: {
+      onPointerDown: onResizeStart,
+      onPointerMove: onResizeMove,
+      onPointerUp: onResizeEnd,
+    },
     onMove,
   };
 }

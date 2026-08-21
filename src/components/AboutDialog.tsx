@@ -30,7 +30,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from '@/components/ui/accordion';
 import { Logo } from '@/components/Logo';
 import { useDialogWindow, DialogResizeHandle } from '@/hooks/useDialogWindow';
 import { CHANGELOG_VERSIONS, CHANGE_CATEGORY_LABEL, type ChangeCategory } from '@/lib/changelog';
@@ -668,7 +673,10 @@ const COMPONENTS: OpenSourceComponent[] = [
 ];
 
 /** 变更类别 → Badge 变体 */
-const CHANGE_CATEGORY_VARIANT: Record<ChangeCategory, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const CHANGE_CATEGORY_VARIANT: Record<
+  ChangeCategory,
+  'default' | 'secondary' | 'destructive' | 'outline'
+> = {
   feature: 'default',
   fix: 'destructive',
   refactor: 'secondary',
@@ -925,7 +933,9 @@ function ComponentGroup({ list }: { list: OpenSourceComponent[] }): JSX.Element 
               <AccordionTrigger>
                 <div className="flex flex-1 items-center justify-between gap-3 pr-2">
                   <div className="flex min-w-0 flex-col items-start gap-0.5">
-                    <span className="truncate text-sm font-medium text-foreground">{comp.name}</span>
+                    <span className="truncate text-sm font-medium text-foreground">
+                      {comp.name}
+                    </span>
                     <span className="truncate text-[10px] text-muted-foreground">
                       {comp.description}
                     </span>

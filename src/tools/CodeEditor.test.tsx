@@ -90,11 +90,7 @@ import { listen, safeInvoke } from '@/lib/ipc';
 import { CodeEditorTool } from './CodeEditor';
 import { useEditorWorkspaceStore } from './code-editor-workspace/useEditorWorkspaceStore';
 import { ToolMenuBar } from '@/components/layout/ToolMenuBar';
-import {
-  openTextFileDialog,
-  saveToPath,
-  saveWithDialog,
-} from './code-editor-workspace/fileOps';
+import { openTextFileDialog, saveToPath, saveWithDialog } from './code-editor-workspace/fileOps';
 import { DEFAULT_WORKSPACE } from './code-editor-workspace/schema';
 
 const safeInvokeMock = safeInvoke as unknown as Mock;

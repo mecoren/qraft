@@ -42,11 +42,13 @@ export const CHANGELOG_VERSIONS: VersionInfo[] = [
     changes: [
       {
         category: 'feature',
-        description: '新增独立「关于」对话框:从设置弹窗分离,提供 应用信息 / 更新日志 / 开源许可 / 开源组件 四分区左右分栏布局,支持拖拽移动与四角缩放',
+        description:
+          '新增独立「关于」对话框:从设置弹窗分离,提供 应用信息 / 更新日志 / 开源许可 / 开源组件 四分区左右分栏布局,支持拖拽移动与四角缩放',
       },
       {
         category: 'feature',
-        description: '新增应用更新日志,采用折叠面板按版本展示迭代明细,默认展开最新版本,便于后续发版持续维护',
+        description:
+          '新增应用更新日志,采用折叠面板按版本展示迭代明细,默认展开最新版本,便于后续发版持续维护',
       },
       {
         category: 'feature',
@@ -62,7 +64,8 @@ export const CHANGELOG_VERSIONS: VersionInfo[] = [
       },
       {
         category: 'refactor',
-        description: '抽取通用弹窗窗口逻辑为 useDialogWindow hook(拖拽 / 四角缩放 / 视口 clamp),设置与关于弹窗共用',
+        description:
+          '抽取通用弹窗窗口逻辑为 useDialogWindow hook(拖拽 / 四角缩放 / 视口 clamp),设置与关于弹窗共用',
       },
       {
         category: 'refactor',
@@ -70,7 +73,8 @@ export const CHANGELOG_VERSIONS: VersionInfo[] = [
       },
       {
         category: 'chore',
-        description: '新增 shadcn Accordion 组件与 @radix-ui/react-accordion 依赖,支撑更新日志与开源组件的折叠交互',
+        description:
+          '新增 shadcn Accordion 组件与 @radix-ui/react-accordion 依赖,支撑更新日志与开源组件的折叠交互',
       },
     ],
   },
@@ -81,15 +85,18 @@ export const CHANGELOG_VERSIONS: VersionInfo[] = [
     changes: [
       {
         category: 'feature',
-        description: '更新源接入 GitHub Releases,并按安装方式分流更新:就地覆盖类自动下载 patch,系统安装版跳转手动下载整包,支持下载进度展示',
+        description:
+          '更新源接入 GitHub Releases,并按安装方式分流更新:就地覆盖类自动下载 patch,系统安装版跳转手动下载整包,支持下载进度展示',
       },
       {
         category: 'feature',
-        description: '代码编辑器工作区:多标签页与文件拖拽排序、多选文件并排对比差异、差异分组与 Tab 展示',
+        description:
+          '代码编辑器工作区:多标签页与文件拖拽排序、多选文件并排对比差异、差异分组与 Tab 展示',
       },
       {
         category: 'feature',
-        description: 'Monaco 编辑器增强:代码折叠、中文右键菜单、语言模式选择、底部状态栏与字符统计、JSON 编辑器折叠摘要',
+        description:
+          'Monaco 编辑器增强:代码折叠、中文右键菜单、语言模式选择、底部状态栏与字符统计、JSON 编辑器折叠摘要',
       },
       {
         category: 'feature',
@@ -97,7 +104,8 @@ export const CHANGELOG_VERSIONS: VersionInfo[] = [
       },
       {
         category: 'feature',
-        description: '统一 Base64 工具:支持多模式编解码与文件保存;文本比较工具重构为 Monaco DiffEditor',
+        description:
+          '统一 Base64 工具:支持多模式编解码与文件保存;文本比较工具重构为 Monaco DiffEditor',
       },
       {
         category: 'feature',
@@ -141,7 +149,8 @@ export const CHANGELOG_VERSIONS: VersionInfo[] = [
       },
       {
         category: 'refactor',
-        description: '品牌重塑:Logo 与应用图标透明化并新增暗色反色版本,全面应用到应用内、favicon 与打包图标',
+        description:
+          '品牌重塑:Logo 与应用图标透明化并新增暗色反色版本,全面应用到应用内、favicon 与打包图标',
       },
       {
         category: 'chore',
