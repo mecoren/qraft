@@ -19,6 +19,17 @@
      *   dist/monaco/... 复制产物。
      -->
     <link rel="stylesheet" href="/monaco/vs/editor/editor.main.css" />
+    <!--
+     * Monaco 0.56 min 构建缺少 codicon 图标基础样式(`.codicon` 基类规则 + codicon 字体),
+     * 0.56 min/vs/editor/editor.main.css 只含 codicon 的 @font-face data URI,
+     * 没有 `.codicon` 类(font-family / 图标 content 规则),导致 gutter 折叠 / 展开
+     * 等图标显示为缺失字形占位(Windows 上为方框带 X)。
+     *
+     * 同步脚本 scripts/copy-monaco.mjs 会把 monaco-editor/esm/vs/base/.../codicon.css +
+     * codicon.ttf 拷到 public/monaco/vs/base/browser/ui/codicons/codicon/,
+     * 这里静态 link 即可让 prod 构建加载,无需等 component 模块副作用生效。
+     -->
+    <link rel="stylesheet" href="/monaco/vs/base/browser/ui/codicons/codicon/codicon.css" />
   </head>
   <body>
     <div id="root"></div>

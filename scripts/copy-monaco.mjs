@@ -22,6 +22,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const SRC = path.join(ROOT, 'node_modules', 'monaco-editor', 'min', 'vs');
 const DEST = path.join(ROOT, 'public', 'monaco', 'vs');
+// Monaco 0.56 的 min 构建不包含 codicon 图标基础样式，导致折叠按钮等 gutter 图标
+// 显示为缺失字形占位（X）。从 esm 构建中把 codicon 的 CSS/TTF 一并同步到 public，
+// 由前端在编辑器挂载前显式加载。
+const CODICON_SRC = path.join(
+  ROOT,
+  'node_modules',
+  'monaco-editor',
+  'esm',
+  'vs',
+  'base',
+  'browser',
+  'ui',
+  'codicons',
+  'codicon',
+);
+const CODICON_DEST = path.join(DEST, 'base', 'browser', 'ui', 'codicons', 'codicon');
 
 /** 递归删除目标目录(忽略不存在的情况) */
 async function rmrf(target) {
@@ -56,15 +72,32 @@ async function main() {
   await rmrf(DEST);
   await copyDir(SRC, DEST);
 
+  // 同步 codicon 基础样式，确保 gutter 折叠/展开等图标能正确渲染
+  if (!existsSync(CODICON_SRC)) {
+    throw new Error(
+      `monaco-editor 的 codicon 资源不存在: ${CODICON_SRC}\n` +
+        '请确认 monaco-editor 已安装且包含 esm/vs/base/browser/ui/codicons/codicon。',
+    );
+  }
+  await copyDir(CODICON_SRC, CODICON_DEST);
+
   // 简单核验:loader.js 必须存在,否则相当于拷贝失败
   const loaderJs = path.join(DEST, 'loader.js');
   if (!existsSync(loaderJs)) {
     throw new Error(`拷贝完成但未发现 ${loaderJs},请检查源目录结构`);
   }
+  // codicon 核验:CSS 与字体文件必须存在
+  const codiconCss = path.join(CODICON_DEST, 'codicon.css');
+  const codiconTtf = path.join(CODICON_DEST, 'codicon.ttf');
+  if (!existsSync(codiconCss) || !existsSync(codiconTtf)) {
+    throw new Error(
+      `codicon 资源拷贝不完整: ${codiconCss} / ${codiconTtf} 缺失`,
+    );
+  }
 
   const elapsed = Date.now() - start;
   console.log(
-    `[copy-monaco] monaco-editor/min/vs → public/monaco/vs 完成 (${elapsed}ms)`,
+    `[copy-monaco] monaco-editor/min/vs + codicon → public/monaco/vs 完成 (${elapsed}ms)`,
   );
 }
 

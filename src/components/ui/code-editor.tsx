@@ -32,6 +32,35 @@ import { defineThemeFor, defineVsCodeTheme, getThemeName, useMonacoTheme } from 
 import { MonacoContextMenu, type MonacoEditor } from './monaco-context-menu';
 import { attachFoldSummary, type FoldSummaryHandle } from './monaco-fold-summary';
 
+/**
+ * 加载 Monaco 0.56 min 构建缺失的 codicon 基础样式。
+ *
+ * 背景:min/vs/editor/editor.main.css 只包含 codicon 的 @font-face 数据 URI，
+ * 没有 .codicon 基础类（font-family / 图标 content 规则）。这会导致 gutter 中的
+ * 折叠/展开按钮等图标显示为缺失字形占位（Windows 上表现为方框中带 X）。
+ * 同步脚本 copy-monaco.mjs 会把 esm 构建的 codicon.css + codicon.ttf 拷到
+ * public/monaco/vs/base/browser/ui/codicons/codicon/。
+ *
+ * 主路径在 index.html 静态 link，这里保留幂等的兜底注入:
+ * - 如果页面 head 已经存在该 CSS link（静态或先前注入），直接返回。
+ * - 否则动态注入 `<link rel="stylesheet">`，避免 dev / SSR 等缺失静态 link 的场景
+ *   也出现缺失字形 icon。
+ */
+const MONACO_CODICON_HREF_SUFFIX = 'monaco/vs/base/browser/ui/codicons/codicon/codicon.css';
+function ensureMonacoCodiconStyle(): void {
+  if (typeof document === 'undefined') return;
+  // 已存在同 href（静态 link 或先前注入），无需重复 append;浏览器自动复用 HTTP 缓存
+  const existing = document.querySelector(
+    `link[rel="stylesheet"][href*="${MONACO_CODICON_HREF_SUFFIX}"]`,
+  );
+  if (existing) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = `${import.meta.env.BASE_URL}${MONACO_CODICON_HREF_SUFFIX}`;
+  document.head.appendChild(link);
+}
+ensureMonacoCodiconStyle();
+
 /** 编辑器支持的语言(未列出的语言会回退为 plaintext,不会报错) */
 export type EditorLanguage =
   | 'plaintext'
