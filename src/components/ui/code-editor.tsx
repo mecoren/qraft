@@ -306,7 +306,7 @@ export function CodeEditor({
       setCtxPos({ x: native.clientX, y: native.clientY });
       setCtxOpen(true);
     });
-    // JSON 语言启用折叠摘要:object 显示字段数、array 显示元素数,
+    // JSON 语言启用折叠摘要:object 显示 `{ N 个键 }`、array 显示 `[ N 个元素 ]`,
     // 通过 afterContentClassName + 动态 CSS ::after 注入虚拟文本(不修改模型,
     // Monaco 0.56 的 InjectedTextOptions.after.content 未实现)。
     // 切换语言/locale/重新挂载时由 foldSummaryRef 在 effect cleanup 中释放旧 handle。

@@ -15,10 +15,15 @@
  *
  * 实现:
  * - 每个折叠区域按 (count, kind) 生成唯一 class(如 `monaco-fold-summary-obj-3`),
- *   首次遇到时向 document <style> 动态写入 `::after { content: " 3 字段" }`
+ *   首次遇到时向 document <style> 动态写入 `::after { content: "{ 3 个键 }" }`
  *   CSS 规则,同一 count 复用已生成的规则,避免无限增长。
- * - 用 afterContentClassName 把该 class 挂到折叠锚点行行尾,与 Monaco 的
- *   "⋯"(inline-folded)并排渲染,视觉 `> { 3 字段 ⋮`。
+ * - 用 afterContentClassName 把该 class 挂到折叠锚点行行尾,渲染完整包裹:
+ *   `{ 3 个键 }` / `[ 5 个元素 ]`(左右括号同色,均为摘要样式)。
+ * - 锚点行行尾的开括号是源码真实字符,若不处理会出现双开括号;用
+ *   inlineClassName 装饰(monaco-fold-summary-opener)把它着成与摘要一致的
+ *   弱化色——字符保留渲染、不隐藏,光标列位/选区宽度不受影响,左右括号
+ *   同色呼应。前提是锚点行以对应开括号收尾(格式化后的 JSON 必然如此),
+ *   否则跳过不显示,避免改动行中仍有语义的括号颜色。
  *
  * 计数算法(computeFoldSummary):
  * - 仅识别以 '{' 开头、'}' 收尾的折叠区(object),或 '[' / ']' 配对(array)
@@ -70,14 +75,18 @@ function summaryClassName(
     ensureStaticPlusRule(plus, kind);
     return { cls: plus, label: '' };
   }
-  return { cls: `${prefix}-${count}`, label: kind === 'object' ? `${count} 字段` : `${count} 项` };
+  return {
+    cls: `${prefix}-${count}`,
+    label: kind === 'object' ? `{ ${count} 个键 }` : `[ ${count} 个元素 ]`,
+  };
 }
 
 /** 确保「N+」通用规则已注入(仅一次,count 超上限时使用) */
 function ensureStaticPlusRule(cls: string, kind: 'object' | 'array'): void {
   if (injectedRules.has(cls)) return;
-  const label = kind === 'object' ? `${MAX_EXACT_COUNT}+ 字段` : `${MAX_EXACT_COUNT}+ 项`;
-  const rule = `.monaco-editor .${cls}:after { content: " ${label}"; }`;
+  const label =
+    kind === 'object' ? `{ ${MAX_EXACT_COUNT}+ 个键 }` : `[ ${MAX_EXACT_COUNT}+ 个元素 ]`;
+  const rule = `.monaco-editor .${cls}:after { content: "${label}"; }`;
   insertRule(rule, cls);
 }
 
@@ -90,9 +99,10 @@ function ensureSummaryRule(count: number, kind: 'object' | 'array'): void {
   const cls = resolved.cls;
   if (injectedRules.has(cls)) return;
 
-  const label = kind === 'object' ? `${count} 字段` : `${count} 项`;
-  // ::after content 的引号需转义;这里 label 全是数字 + 中文,安全
-  const rule = `.monaco-editor .${cls}:after { content: " ${label}"; }`;
+  const label = kind === 'object' ? `{ ${count} 个键 }` : `[ ${count} 个元素 ]`;
+  // ::after content 的引号需转义;这里 label 全是数字 + 中文 + 括号,安全。
+  // 前导空格省略——源码中被隐藏的开括号单元格正好充当与行内容的间隔
+  const rule = `.monaco-editor .${cls}:after { content: "${label}"; }`;
   insertRule(rule, cls);
 }
 
@@ -270,11 +280,35 @@ export function attachFoldSummary(editor: editor.IStandaloneCodeEditor): FoldSum
 
       const startLine = region.startLineNumber;
       const lineContent = model.getLineContent(startLine);
+      // 摘要文本自带成对括号(`{ 3 个键 }` / `[ 5 个元素 ]`)。源码行尾的
+      // 开括号是真实字符,若不处理会出现双开括号;给它叠加 monaco-fold-summary-opener
+      // 装饰,把颜色统一成摘要的弱化色(字符保留渲染,不隐藏,光标/选区不受影响),
+      // 视觉上与注入文本的左右括号同色呼应。若锚点行不是以对应开括号收尾
+      // (如紧凑写法 `{ "a": 1,`,括号在行中还有语义),跳过不显示。
+      const opener = summary.kind === 'object' ? '{' : '[';
+      const trimmed = lineContent.trimEnd();
+      if (!trimmed.endsWith(opener)) continue;
+
+      // 开括号着色:覆盖该字符(1 列宽)的 inlineClassName 装饰,
+      // CSS 侧统一为 muted 色(globals.css 的 monaco-fold-summary-opener)
+      decorations.push({
+        range: {
+          startLineNumber: startLine,
+          startColumn: trimmed.length,
+          endLineNumber: startLine,
+          endColumn: trimmed.length + 1,
+        },
+        options: {
+          inlineClassName: 'monaco-fold-summary-opener',
+          stickiness: 1 /* TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges */,
+        },
+      });
+
       // afterContentClassName 渲染在 range 的 endColumn 之后(见
       // inlineDecorations.js:70-78 After 型装饰)。这里放在 line 末尾的
-      // 虚拟 column(lineLength + 1),紧贴行内容,视觉上夹在 line 内容和
-      // Monaco 的 "⋯"(inline-folded,同样 After 型)之间:
-      //   `> { 3 字段 ⋮`
+      // 虚拟 column(lineLength + 1):被隐藏的开括号单元格正好充当
+      // 行内容与摘要之间的间隔
+      //   `> { 3 个键 }`(开括号为透明源码字符)
       const endCol = lineContent.length + 1;
 
       decorations.push({

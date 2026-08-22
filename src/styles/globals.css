@@ -1290,28 +1290,51 @@
 }
 
 /* ============================================================
- * Monaco 编辑器折叠摘要:JSON object/array 折叠后显示字段/元素数
+ * Monaco 编辑器折叠摘要:JSON object/array 折叠后显示键/元素数
  *
  * 由 src/components/ui/monaco-fold-summary.ts 通过
  * afterContentClassName + 动态 CSS ::after 注入虚拟文本
  * (0.56.0 的 InjectedTextOptions.after.content 未被实现,故用 CSS 伪元素),
- * 视觉: `> { 3 字段 ⋮`  /  `> [ 5 项 ⋮`
+ * 视觉: `{ 3 个键 }` / `[ 5 个元素 ]`——括号对样式统一,源码行尾的开括号
+ * 经 monaco-fold-summary-opener 着成同样的弱化色(字符保留,不隐藏)。
+ * Monaco 默认的行尾 "⋯" 在含摘要的行上隐藏。
  *
  * 动态 class 形如:monaco-fold-summary-obj-3 / monaco-fold-summary-arr-5,
- * 用属性前缀选择器统配,给所有摘要统一基础样式:
- * - muted-foreground 降低权重,与 Monaco 自带的 "⋯" 视觉一致
- * - font-style: italic 提示这是动态摘要而非原始内容
- * - margin-left 0.2em 与 line 内容 / "⋮" 形成视觉间隔
+ * 用属性包含选择器统配,给所有摘要统一基础样式:
+ * - muted-foreground 降低权重,弱化为"元信息"而非原始内容
+ * - font-size 0.9em 略小于正文,与 VS Code 行内提示(inlay hint)观感一致
+ * - font-variant-numeric: tabular-nums 让数字等宽,折叠/展开时宽度稳定不跳
+ * - 取消 italic(中文斜体渲染发虚),改用字号与颜色区分
  *
- * 具体文案(如 " 3 字段")由 JS 按 count 注入的 CSS 规则提供
+ * 具体文案(如 " 3 个键 }")由 JS 按 count 注入的 CSS 规则提供
  * (monaco-fold-summary.ts 的 ensureSummaryRule)。
  * ============================================================ */
-.monaco-editor [class^='monaco-fold-summary-obj']:after,
-.monaco-editor [class^='monaco-fold-summary-arr']:after {
+.monaco-editor [class*='monaco-fold-summary-obj']:after,
+.monaco-editor [class*='monaco-fold-summary-arr']:after {
   color: var(--muted-foreground);
-  font-style: italic;
-  margin-left: 0.2em;
-  opacity: 0.75;
+  font-style: normal;
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  margin-left: 0.25em;
+  opacity: 0.85;
+}
+
+/* 含折叠摘要的行隐藏 Monaco 自带的 "⋯"(folding.css 的 .inline-folded:after):
+ * 摘要已以 } / ] 收尾表达"此处有内容被折叠",省略号反而画蛇添足。
+ * 用 :has() 从行元素(view-line)向下匹配,仅影响摘要所在行,
+ * 非 JSON 语言或其他未带摘要的折叠行仍保留默认省略号。 */
+.monaco-editor .view-line:has([class*='monaco-fold-summary']) .inline-folded:after {
+  content: none;
+}
+
+/* 折叠锚点行行尾的源码开括号({ / [)与摘要括号统一着色:
+ * 字符保留渲染、不隐藏——只改颜色,不改字号/宽度,
+ * Monaco 的光标列位/选区宽度计算不受影响。
+ * !important 压过 Monaco 运行时注入的主题 token 色(mtk*)。 */
+.monaco-editor .monaco-fold-summary-opener {
+  color: var(--muted-foreground) !important;
+  opacity: 0.85;
 }
 
 /* ============================================================
