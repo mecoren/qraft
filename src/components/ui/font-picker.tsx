@@ -11,7 +11,7 @@
  * 界面字体 / 代码字体两个场景。
  */
 
-import { useState, type JSX } from 'react';
+import { memo, useCallback, useMemo, useState, type JSX } from 'react';
 import { Check, ChevronsUpDown, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -44,8 +44,15 @@ export interface FontPickerProps {
  * 单个字体选项的渲染：双行布局
  * - 主行：label，使用该字体自身渲染(`style.fontFamily = value`)
  * - 副行：value 的完整 CSS 字符串(灰字, font-mono)
+ *
+ * memo:系统字体可达数百项,搜索输入时避免无变化选项的重渲染
+ * (每项都带自定义 fontFamily 内联样式,重排成本高)。
  */
-function FontOptionLabel({ option }: { option: FontFamilyOption }): JSX.Element {
+const FontOptionLabel = memo(function FontOptionLabel({
+  option,
+}: {
+  option: FontFamilyOption;
+}): JSX.Element {
   // 选项 value 可能是单字体族名(已安装字体)，也可能是完整 fallback 栈(默认项)
   // 对单字体族名加引号渲染；完整栈直接使用
   const previewFamily = option.value.includes(',') ? option.value : `'${option.value}', sans-serif`;
@@ -55,7 +62,27 @@ function FontOptionLabel({ option }: { option: FontFamilyOption }): JSX.Element 
       <span className="text-[11px] text-muted-foreground/70 font-mono">{option.value}</span>
     </div>
   );
-}
+});
+
+/** 单个选项行:props 稳定(选项对象引用 + 布尔选中态 + 稳定回调)时跳过重渲染 */
+const FontOptionItem = memo(function FontOptionItem({
+  option,
+  isChecked,
+  onSelect,
+}: {
+  option: FontFamilyOption;
+  isChecked: boolean;
+  onSelect: (value: string) => void;
+}): JSX.Element {
+  return (
+    <CommandItem value={option.value} onSelect={() => onSelect(option.value)} className="gap-2">
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+        {isChecked && <Check className="size-4" />}
+      </span>
+      <FontOptionLabel option={option} />
+    </CommandItem>
+  );
+});
 
 export function FontPicker({
   value,
@@ -75,19 +102,25 @@ export function FontPicker({
       ({ value, label: value, keywords: [] } satisfies FontFamilyOption))
     : null;
 
-  // 按 query 过滤选项(自定义匹配，禁用 cmdk 默认 shouldFilter)
-  const filteredOptions = query
-    ? options.filter((opt) => matchFontFamilyOption(query, opt))
-    : options;
+  // 按 query 过滤选项(自定义匹配，禁用 cmdk 默认 shouldFilter)。
+  // useMemo:输入搜索词时避免每 keystroke 重建数组;选项对象引用保持稳定,
+  // 使下方 memo 的 FontOptionItem 能真正跳过未变化项的重渲染。
+  const filteredOptions = useMemo(
+    () => (query ? options.filter((opt) => matchFontFamilyOption(query, opt)) : options),
+    [options, query],
+  );
 
-  const handleSelect = (selectedValue: string) => {
-    // cmdk 的 CommandItem.value 默认是字符串；点击默认项时其 value 即默认栈字符串
-    // 选中默认项视为"清空自定义"(传 null)；选中其他项传该字体族名
-    const isDefault = options.find((opt) => opt.value === selectedValue)?.isDefault ?? false;
-    onChange(isDefault ? null : selectedValue);
-    setOpen(false);
-    setQuery('');
-  };
+  const handleSelect = useCallback(
+    (selectedValue: string) => {
+      // cmdk 的 CommandItem.value 默认是字符串；点击默认项时其 value 即默认栈字符串
+      // 选中默认项视为"清空自定义"(传 null)；选中其他项传该字体族名
+      const isDefault = options.find((opt) => opt.value === selectedValue)?.isDefault ?? false;
+      onChange(isDefault ? null : selectedValue);
+      setOpen(false);
+      setQuery('');
+    },
+    [options, onChange],
+  );
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation(); // 防止点击 × 触发 trigger 打开 popover
@@ -169,23 +202,17 @@ export function FontPicker({
             ) : (
               <CommandGroup>
                 {filteredOptions.map((option) => {
-                  const isSelected = value === option.value;
                   // 默认项与"未选(value=null)"状态都视为选中默认项
                   const isChecked = option.isDefault
                     ? value === null || value === option.value
-                    : isSelected;
+                    : value === option.value;
                   return (
-                    <CommandItem
+                    <FontOptionItem
                       key={option.value}
-                      value={option.value}
-                      onSelect={() => handleSelect(option.value)}
-                      className="gap-2"
-                    >
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                        {isChecked && <Check className="size-4" />}
-                      </span>
-                      <FontOptionLabel option={option} />
-                    </CommandItem>
+                      option={option}
+                      isChecked={isChecked}
+                      onSelect={handleSelect}
+                    />
                   );
                 })}
               </CommandGroup>

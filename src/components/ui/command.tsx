@@ -7,7 +7,6 @@ import { Search } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
@@ -59,12 +58,16 @@ const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
 >(({ className, ...props }, ref) => (
-  <ScrollArea
-    className={cn('max-h-[300px]', className)}
-    viewportStyle={{ maxHeight: '300px' }}
-  >
-    <CommandPrimitive.List ref={ref} className="w-full" {...props} />
-  </ScrollArea>
+  // 原生滚动(非 Radix ScrollArea):
+  // - 滚动条走 globals.css 全局美化样式(::-webkit-scrollbar token 化),与
+  //   设置面板 / 编辑器列表等所有区域观感一致(Radix 自绘悬浮滑块仅 hover 可见)
+  // - 少一层 ResizeObserver/滑块 transform 开销,长列表(系统字体 ~数百项)更流畅
+  // - 轨道可点击翻页、拖拽行为与原生一致,不再出现「点击轨道穿透关闭弹层」
+  <CommandPrimitive.List
+    ref={ref}
+    className={cn('max-h-[300px] overflow-y-auto overflow-x-hidden', className)}
+    {...props}
+  />
 ));
 
 CommandList.displayName = CommandPrimitive.List.displayName;

@@ -11,13 +11,7 @@
 
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import {
-  Dialog,
-  DialogOverlay,
-  DialogPortal,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
+import { Dialog, DialogPortal, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   Palette,
   Type,
@@ -139,9 +133,21 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX
   }, [open, target, consume]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    // modal={false}:关闭 Radix 的 RemoveScroll 滚动锁定。
+    // 根因:modal Dialog 的 Overlay 会包裹 react-remove-scroll,其 document 级
+    // 非 passive wheel 监听会对「目标不在 dialog 内容/shards 内」的滚轮事件
+    // 一律 preventDefault —— 而 FontPicker 下拉经 Portal 渲染在 body 末尾,
+    // 恰好在锁外,导致设置弹窗内所有下拉框滚轮失效(滑块拖拽不受影响)。
+    // 非模态后滚动恢复原生行为;遮罩由下方自绘 div 提供(视觉不变)。
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
       <DialogPortal>
-        <DialogOverlay />
+        {/* 自绘遮罩:modal=false 时 Radix 不再渲染 Overlay(其内部被 modal 门控),
+            这里用普通 div 维持原有的压暗背景与点击外部关闭体验 */}
+        <div
+          aria-hidden
+          className="fixed inset-0 z-50 bg-black/80"
+          onClick={() => onOpenChange(false)}
+        />
         {/* 使用 DialogPrimitive.Content 而非 DialogContent,完全自定义定位与样式:
            避免 Radix 默认的 left-[50%] top-[50%] translate-[-50%]/animate-in/zoom-in 等
            影响弹窗的最终位置,确保弹窗严格按 rect 渲染 */}

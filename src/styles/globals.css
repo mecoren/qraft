@@ -526,6 +526,30 @@
  * 可直接引用上方 CSS 变量,主题切换时无需重渲染 React。
  * ============================================================ */
 @theme inline {
+  /* 字体族 token:映射到 theme.ts 注入的用户字体 CSS 变量。
+   * 覆盖 Tailwind 默认栈后,.font-mono / .font-sans utility(utilities 层,
+   * 优先级高于 @layer base 中的元素选择器)也会跟随「设置 → 字体」的
+   * 界面字体 / 代码字体,覆盖行号编辑器、日志、DDL、数据表等所有编辑器。 */
+  --font-sans: var(
+    --app-font-family,
+    'Segoe UI Variable',
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    sans-serif
+  );
+  --font-mono: var(
+    --app-mono-font-family,
+    'JetBrains Mono',
+    'Fira Code',
+    'Cascadia Code',
+    Consolas,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    'DejaVu Sans Mono',
+    monospace
+  );
   /* 圆角 token 体系:全部由 --radius(0.5rem)基准派生,对齐 shadcn 官方
    * xs=4px / sm=4px / md=6px / lg=8px(基准) / xl=12px / 2xl=16px
    * 组件统一使用 rounded-sm/md/lg/xl,禁止直接书写具体像素值 */
@@ -689,27 +713,32 @@
 
 /* ============================================================
  * 全局滚动条美化(参考 DevToys 风格)—— 全应用统一
- * - 10px 细滚动条,track 半透明圆角,thumb 主题色圆角滑块(2px 内缩)
+ * - 10px 细滚动条,轨道透明(仅悬浮滑块,与 Radix ScrollArea 观感一致),
+ *   thumb 主题色圆角滑块(2px 内缩)
  * - thumb 最小 28px,便于抓取;hover/active 加深 + 平滑过渡
  * - 颜色全部取自主题 token(--scrollbar-slider-*),深浅主题自动适配
  *
+ * 注意:不要再额外声明标准属性 `scrollbar-color`(曾用 `*` 通配注入)。
+ * Chromium ≥121 / WebView2 下,一旦元素的 scrollbar-color 计算值非 auto,
+ * 该元素的所有 ::-webkit-scrollbar 自定义样式会被整体禁用,退化为
+ * 系统原生粗滚动条(典型症状:字体选择下拉出现一条粗灰条)。
+ * 颜色已由下方 ::-webkit-scrollbar-* 规则按同一 token 提供,无需重复。
+ *
  * 覆盖范围:
- * - 所有原生滚动条(工具区 / 侧栏 / 设置 / 历史面板 / 编辑器左栏等)
+ * - 所有原生滚动条(工具区 / 侧栏 / 设置 / 历史面板 / 编辑器左栏 /
+ *   命令面板与字体下拉等 cmdk 列表)
  * - Radix ScrollArea 自绘滚动条:scroll-area.tsx 的 thumb 改用同一 token
  * - Monaco / DiffEditor 滚动条:code-editor.tsx 与 TextCompare.tsx 的
  *   sliderSize 对齐为 6px,下方 CSS 补充圆角与过渡
  * - 编辑器 Tab 栏横条:删除旧局部覆盖,直接继承本样式
  * ============================================================ */
-* {
-  scrollbar-color: var(--scrollbar-slider-bg) color-mix(in oklch, var(--foreground) 5%, transparent);
-}
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: color-mix(in oklch, var(--foreground) 5%, transparent);
-  border-radius: 2em;
+  /* 无轨道底色:只保留悬浮滑块本身,避免列表右侧出现整条灰色背景柱 */
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background-color: var(--scrollbar-slider-bg);

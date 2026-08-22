@@ -23,7 +23,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { BookOpen, Code, GripHorizontal, Info, ScrollText, X, type LucideIcon } from 'lucide-react';
+import { BookOpen, Code, GripHorizontal, History, Info, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -61,7 +61,7 @@ interface CategoryItem {
 
 const CATEGORIES: CategoryItem[] = [
   { key: 'info', label: '应用信息', icon: Info },
-  { key: 'changelog', label: '更新日志', icon: ScrollText },
+  { key: 'changelog', label: '更新日志', icon: History },
   { key: 'licenses', label: '开源许可', icon: BookOpen },
   { key: 'components', label: '开源组件', icon: Code },
 ];
