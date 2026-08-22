@@ -17,9 +17,10 @@
  *   - 轨道 14px、滑块 10px(2px 内缩)、全圆角胶囊、--scrollbar-slider-* token
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { FileText, GitCompareArrows, Pin, X } from 'lucide-react';
+import { GitCompareArrows, Pin, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { FileIcon } from './FileIcon';
 import { TabContextMenu } from './TabContextMenu';
 import type { ComparePair, EditorTab } from './schema';
 
@@ -416,7 +417,7 @@ export function EditorTabsBar({
                           )}
                         />
                       ) : (
-                        <FileText aria-hidden className="size-3.5 shrink-0" />
+                        <FileIcon path={tab.path} />
                       )}
                       <span className="min-w-0 truncate" title={tab.title}>
                         {tab.title}

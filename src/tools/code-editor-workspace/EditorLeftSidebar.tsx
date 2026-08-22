@@ -23,9 +23,10 @@
  *   新建(空白 Tab) / 全部保存 / 全部关闭
  */
 import { useEffect, useRef, useState, type JSX } from 'react';
-import { ChevronDown, FilePlus2, FileText, GitCompareArrows, Pin, Save, X } from 'lucide-react';
+import { ChevronDown, FilePlus2, GitCompareArrows, Pin, Save, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { FileIcon } from './FileIcon';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -502,8 +503,8 @@ export function EditorLeftSidebar({
                             />
                           )}
                         </span>
-                        {/* 文件图标:始终显示,不随 hover 消失 */}
-                        <FileText aria-hidden className="size-3.5 shrink-0" />
+                        {/* 文件图标:始终显示,不随 hover 消失(按文件类型区分,仿 VSCode) */}
+                        <FileIcon path={tab.path} />
                         {/* 文件名:超出可用空间时显示 ... */}
                         <span className="min-w-0 truncate">{tab.title}</span>
                         {/* 固定图标:ml-auto 锚定在行最右侧(与 Tab 栏/标题区关闭图标一致),
@@ -640,13 +641,13 @@ export function EditorLeftSidebar({
                              * 图标槽位(固定宽度 w-3.5):与「打开的编辑器」dirty 圆点槽位同位置 (8, 22),
                              * 对比项无 dirty 概念,留空即可 ——
                              * 留这个槽位是为了让 GitCompareArrows 落在 (30, 44),
-                             * 与 FileText 位置完全一致,避免与 hover-X 在 (8, 22) 重叠。
+                             * 与文件图标(FileIcon)位置完全一致,避免与 hover-X 在 (8, 22) 重叠。
                              */}
                             <span
                               aria-hidden
                               className="flex w-3.5 shrink-0 items-center justify-center"
                             />
-                            {/* 对比图标:固定放在 (30, 44) 与 FileText 同一位置,
+                            {/* 对比图标:固定放在 (30, 44) 与文件图标同一位置,
                                   显式色不依赖 currentColor —— 激活态用 text-primary
                                   与 sidebar-primary/15 背景拉开对比,默认态用 muted-foreground
                                   保证在任何宽度下都清晰可见 */}
