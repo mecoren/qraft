@@ -196,3 +196,13 @@ export function fileNameFromPath(path: string): string {
   const idx = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
   return idx >= 0 ? path.slice(idx + 1) : path;
 }
+
+/**
+ * 从绝对路径提取所在目录(去掉最后的文件名部分;兼容 Windows `\` 与 POSIX `/`)。
+ * 用于「打开的编辑器」列表的描述列(VSCode 样式:名称后跟所在位置)。
+ * 无分隔符(纯文件名)时返回原路径。
+ */
+export function dirNameFromPath(path: string): string {
+  const idx = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  return idx > 0 ? path.slice(0, idx) : path;
+}

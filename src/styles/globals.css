@@ -818,6 +818,20 @@
   display: none;
 }
 
+/* ScrollArea 内容容器改为 block 布局 —— 让行内 truncate 正常显示省略号(...)
+ * 背景:Radix 会把内容包在 <div style="minWidth:100%; display:table"> 中,
+ * table 布局按内容的 max-content 撑宽容器;而 truncate 是 whitespace-nowrap,
+ * 其 max-content 就是完整文本宽度 —— 于是长文件名把整行撑到超出面板,
+ * 被 overflow-x 裁掉,永远不触发 text-ellipsis(显示为硬截断而非 ...)。
+ * 改为 block 后容器宽度受 viewport 约束(minWidth:100% 保留),
+ * 行内 min-w-0 + truncate 即可正常收缩并显示 ...。
+ * !important 用于覆盖 Radix 写在内联 style 上的 display:table。
+ * 对横向 ScrollArea(Tab 栏)无影响:min-w-max 行仍以溢出方式撑出滚动区。 */
+[data-radix-scroll-area-viewport] > div,
+[data-slot='scroll-area-viewport'] > div {
+  display: block !important;
+}
+
 /* ============================================================
  * ScrollArea 兜底样式 —— 完全脱离 Tailwind utility,只用普通 CSS 选择器
  *

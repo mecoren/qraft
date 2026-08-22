@@ -19,8 +19,14 @@ export type { EditorLanguage };
 export interface EditorTab {
   /** 稳定唯一 id(React key / 激活切换定位用) */
   id: string;
-  /** 顶栏 / 左栏显示名(文件名或 untitled-N) */
+  /** 顶栏 / 左栏显示名(文件名或 untitled-N;未命名 Tab 输入文字后为首行内容,见 autoTitle) */
   title: string;
+  /**
+   * 自动命名的原始标题(untitled-N)。仅未命名 Tab 使用:
+   * 输入文字后 title 改为内容首行派生文本,清空内容时回退到该名,
+   * 同时保证新 Tab 的序号分配不因改名而重复。保存绑定路径后清除。
+   */
+  autoTitle?: string;
   /** 本地文件绝对路径;新建未保存的 Tab 为 null */
   path: string | null;
   /** Monaco 语言 id */
@@ -69,8 +75,8 @@ export const DEFAULT_WORKSPACE: Workspace = {
 
 /** 左栏最小宽度(px);拖拽夹取、持久化校验、ARIA 属性共用 */
 export const SIDEBAR_MIN_WIDTH = 180;
-/** 左栏最大宽度(px) */
-export const SIDEBAR_MAX_WIDTH = 600;
+/** 左栏最大宽度(px);参考 VSCode:侧栏可拖得很宽以完整展示长路径描述 */
+export const SIDEBAR_MAX_WIDTH = 1200;
 /** 拖到最小宽度后继续左移超过该距离即隐藏侧栏(滞回区间,防来回闪烁) */
 export const SIDEBAR_HIDE_DELTA = 48;
 
@@ -140,7 +146,18 @@ function sanitizeTab(raw: unknown): EditorTab | null {
   const savedContent = typeof t.savedContent === 'string' ? t.savedContent : content;
   // 旧版本持久化数据无 pinned 字段,回退 false 保证兼容
   const pinned = t.pinned === true;
-  return { id: t.id, title: t.title, path, language, content, savedContent, pinned };
+  // 旧版本持久化数据无 autoTitle 字段(未命名 Tab 标题派生),缺省即不携带
+  const autoTitle = typeof t.autoTitle === 'string' && t.autoTitle ? t.autoTitle : undefined;
+  return {
+    id: t.id,
+    title: t.title,
+    ...(autoTitle !== undefined ? { autoTitle } : {}),
+    path,
+    language,
+    content,
+    savedContent,
+    pinned,
+  };
 }
 
 /**

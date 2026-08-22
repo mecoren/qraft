@@ -88,6 +88,17 @@ describe('EditorLeftSidebar 多选与对比', () => {
     expect(handlers.onSelectMany).toHaveBeenCalledWith('t2', false);
   });
 
+  it('鼠标中键点击文件项分发 onClose(对齐 Tab 栏中键关闭)', async () => {
+    const handlers = setup();
+    const user = userEvent.setup();
+    await user.pointer({
+      keys: '[MouseMiddle]',
+      target: screen.getByTestId('sidebar-item-b.ts'),
+    });
+
+    expect(handlers.onClose).toHaveBeenCalledWith('t2');
+  });
+
   it('固定 Tab 在文件列表项中显示 Pin 图标', () => {
     setup({ tabs: [{ ...tabs[0], pinned: true }], activeTabId: 't1' });
 
@@ -98,6 +109,56 @@ describe('EditorLeftSidebar 多选与对比', () => {
     setup();
 
     expect(screen.queryByTestId('sidebar-pin-a.ts')).not.toBeInTheDocument();
+  });
+
+  it('文件 Tab 在名称后显示所在目录作为描述', () => {
+    setup();
+
+    const item = screen.getByTestId('sidebar-item-a.ts');
+    expect(item).toHaveTextContent('a.ts');
+    expect(item).toHaveTextContent('C:/dev');
+  });
+
+  it('未命名 Tab 在名称后显示原始自动名(autoTitle)作为描述', () => {
+    setup({
+      tabs: [
+        {
+          id: 'u1',
+          title: '问我呢问问',
+          autoTitle: 'untitled-4',
+          path: null,
+          language: 'plaintext',
+          content: '问我呢问问',
+          savedContent: '',
+          pinned: false,
+        },
+      ],
+      activeTabId: 'u1',
+    });
+
+    const item = screen.getByTestId('sidebar-item-问我呢问问');
+    expect(item).toHaveTextContent('问我呢问问');
+    expect(item).toHaveTextContent('untitled-4');
+  });
+
+  it('相邻多选行去掉贴合边圆角,视觉上合并为一个整块', () => {
+    // 无激活 Tab,b.ts 与 c.ts 相邻且都被多选中:a.ts 未选中保持完整圆角
+    setup({ selectedTabIds: ['t2', 't3'], activeTabId: null });
+
+    const a = screen.getByTestId('sidebar-item-a.ts');
+    const b = screen.getByTestId('sidebar-item-b.ts');
+    const c = screen.getByTestId('sidebar-item-c.ts');
+
+    expect(a).toHaveClass('rounded');
+    expect(a).not.toHaveClass('rounded-t-none', 'rounded-b-none');
+
+    // b.ts 上方是未选中的 a.ts:保留顶部圆角,去掉与 c.ts 贴合的底部圆角
+    expect(b).toHaveClass('rounded-b-none');
+    expect(b).not.toHaveClass('rounded-t-none');
+
+    // c.ts 下方没有选中项:去掉与 b.ts 贴合的顶部圆角,保留底部圆角
+    expect(c).toHaveClass('rounded-t-none');
+    expect(c).not.toHaveClass('rounded-b-none');
   });
 
   it('Ctrl+点击追加多选(additive=true)', async () => {
@@ -156,6 +217,17 @@ describe('EditorLeftSidebar 对比差异分组', () => {
     await user.click(screen.getByTestId('sidebar-compare-c1'));
 
     expect(handlers.onSelectCompare).toHaveBeenCalledWith('c1');
+  });
+
+  it('鼠标中键点击对比条目分发 onCloseCompare(对齐文件列表中键关闭)', async () => {
+    const handlers = setup({ compares: [compare] });
+    const user = userEvent.setup();
+    await user.pointer({
+      keys: '[MouseMiddle]',
+      target: screen.getByTestId('sidebar-compare-c1'),
+    });
+
+    expect(handlers.onCloseCompare).toHaveBeenCalledWith('c1');
   });
 
   it('激活的对比条目高亮(aria-current)', () => {

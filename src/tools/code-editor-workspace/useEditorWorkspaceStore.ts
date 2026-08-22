@@ -31,14 +31,40 @@ function createId(): string {
   return `tab-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** 未命名 Tab 标题的最大显示长度(超出截断加省略号) */
+const UNTITLED_TITLE_MAX = 32;
+
+/**
+ * 由未命名 Tab 的内容推导标题(参考 VSCode:未命名缓冲区以首行文字
+ * 作为保存建议名,此处实时用于 Tab 显示名):
+ * - 取首个非空行并去除首尾空白(跳过开头的空行)
+ * - 超长截断加省略号,避免超长首行撑爆 Tab / 列表
+ * - 内容为空或全空白时返回 null(回退到自动命名)
+ */
+function deriveTitleFromContent(content: string): string | null {
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed) {
+      return trimmed.length > UNTITLED_TITLE_MAX
+        ? `${trimmed.slice(0, UNTITLED_TITLE_MAX)}…`
+        : trimmed;
+    }
+  }
+  return null;
+}
+
 /** 扫描现有 tabs 中最大的 `untitled-N` 序号,返回下一个可用序号 */
 function nextUntitledNumber(tabs: readonly EditorTab[]): number {
   let max = 0;
   for (const t of tabs) {
-    const m = /^untitled-(\d+)$/.exec(t.title);
-    if (m) {
-      const n = Number(m[1]);
-      if (n > max) max = n;
+    // 已按内容改名的未命名 Tab 原始自动名存于 autoTitle,同样计入,
+    // 避免「新建 untitled-1 → 输入文字改名 → 再新建」时序号重复
+    for (const name of [t.title, t.autoTitle]) {
+      const m = /^untitled-(\d+)$/.exec(name ?? '');
+      if (m) {
+        const n = Number(m[1]);
+        if (n > max) max = n;
+      }
     }
   }
   return max + 1;
@@ -293,7 +319,19 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   setTabContent: (id, content) => {
     const { workspace } = get();
-    const tabs = workspace.tabs.map((t) => (t.id === id ? { ...t, content } : t));
+    const tabs = workspace.tabs.map((t) => {
+      if (t.id !== id) return t;
+      // 未命名 Tab(自动命名 untitled-N 且未绑定路径):用首行文字做标题
+      // (参考 VSCode 对未命名缓冲区的处理)。autoTitle 记住原始自动名:
+      // 清空内容后回退,新 Tab 序号分配也不因改名而重复。
+      // 已打开文件 / 拖入文本 Tab 有明确标题,不参与派生。
+      // 改名后 title 不再匹配 untitled-N,故以 autoTitle 标记延续派生生命周期。
+      if (t.path === null && (t.autoTitle !== undefined || /^untitled-\d+$/.test(t.title))) {
+        const autoTitle = t.autoTitle ?? t.title;
+        return { ...t, content, autoTitle, title: deriveTitleFromContent(content) ?? autoTitle };
+      }
+      return { ...t, content };
+    });
     set({ workspace: { ...workspace, tabs }, userTouched: true });
   },
 
@@ -311,7 +349,15 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
       // 让高亮与文件类型保持同步;路径不变(覆盖保存)保留当前语言,
       // 避免覆盖用户手动选择。
       const language = t.path === path ? t.language : inferLanguageFromPath(path);
-      return { ...t, path, savedContent: t.content, title: fileNameFromPath(path), language };
+      // 保存后 title 绑定为真实文件名,内容派生标题的生命周期结束
+      return {
+        ...t,
+        path,
+        savedContent: t.content,
+        title: fileNameFromPath(path),
+        autoTitle: undefined,
+        language,
+      };
     });
     set({ workspace: { ...workspace, tabs }, userTouched: true });
   },

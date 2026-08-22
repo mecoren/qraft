@@ -35,6 +35,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { TabContextMenu } from './TabContextMenu';
+import { dirNameFromPath } from './languageMap';
 import type { ComparePair, EditorTab } from './schema';
 
 export interface EditorLeftSidebarProps {
@@ -410,6 +411,18 @@ export function EditorLeftSidebar({
                 // 是否在 Ctrl+多选中(不含激活 Tab 自身)
                 const multiSelected = selectedTabIds.includes(tab.id);
                 const selected = active || multiSelected;
+                // 相邻行是否也处于选中态:用于把连续多选合并成一个整块(仿 VSCode)
+                const isRowSelected = (t: EditorTab) =>
+                  t.id === activeTabId || selectedTabIds.includes(t.id);
+                const prevSelected = index > 0 && isRowSelected(tabs[index - 1]);
+                const nextSelected = index < tabs.length - 1 && isRowSelected(tabs[index + 1]);
+                /*
+                 * 描述列(参考 VSCode「打开的编辑器」):
+                 * - 已绑定路径的 Tab:显示所在目录(原始位置)
+                 * - 未命名 Tab:显示原始自动名(autoTitle,如 untitled-4),
+                 *   与内容派生的显示名并列,便于区分多个未命名缓冲区
+                 */
+                const description = tab.path ? dirNameFromPath(tab.path) : (tab.autoTitle ?? null);
                 return (
                   <li key={tab.id}>
                     <TabContextMenu
@@ -440,6 +453,17 @@ export function EditorLeftSidebar({
                         aria-selected={multiSelected ? 'true' : undefined}
                         // 拖拽排序:仅传入 onReorder 时启用
                         onPointerDown={(e) => handlePointerDown(e, tab)}
+                        // 鼠标中键关闭(对齐 Tab 栏/浏览器标签页习惯):
+                        // - 用 onMouseDown 而非 onAuxClick:auxclick 在部分 WebView2
+                        //   版本上不触发,且能在「中键自动滚动」前 preventDefault 拦截
+                        // - e.button === 1 仅响应中键,左/右键不受影响;
+                        //   拖拽不受影响(handlePointerDown 对非左键直接返回)
+                        onMouseDown={(e) => {
+                          if (e.button === 1) {
+                            e.preventDefault();
+                            onClose?.(tab.id);
+                          }
+                        }}
                         onClick={(e) => {
                           // 拖拽结束后抑制紧随的 click,避免误切换文件
                           if (suppressClickRef.current) {
@@ -470,6 +494,10 @@ export function EditorLeftSidebar({
                             : selected
                               ? 'bg-sidebar-primary/10 text-sidebar-primary'
                               : 'text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
+                          // 连续多选合并为整块:与相邻选中项贴合的边去掉圆角,
+                          // 消除两块高亮之间的分隔效果(仿 VSCode 多选外观)
+                          selected && prevSelected && 'rounded-t-none',
+                          selected && nextSelected && 'rounded-b-none',
                           // 拖拽中的文件项半透明(仿 VSCode 拖起效果)
                           dragId === tab.id && 'opacity-40',
                         )}
@@ -507,6 +535,16 @@ export function EditorLeftSidebar({
                         <FileIcon path={tab.path} />
                         {/* 文件名:超出可用空间时显示 ... */}
                         <span className="min-w-0 truncate">{tab.title}</span>
+                        {/*
+                         * 描述:名称后跟原始位置/自动名(VSCode 样式)。
+                         * flex-1 占满行剩余宽度(最大宽度即整行);
+                         * 空间不足时描述先截断(...),名称保持完整。
+                         */}
+                        {description && (
+                          <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                            {description}
+                          </span>
+                        )}
                         {/* 固定图标:ml-auto 锚定在行最右侧(与 Tab 栏/标题区关闭图标一致),
                             随侧边栏宽度变化而移动位置 */}
                         {tab.pinned && (
@@ -627,6 +665,13 @@ export function EditorLeftSidebar({
                             data-testid={`${dataTestId}-compare-${cp.id}`}
                             aria-current={isActive ? 'true' : undefined}
                             onClick={() => onSelectCompare?.(cp.id)}
+                            // 鼠标中键关闭(对齐文件列表与顶栏对比 Tab 的中键关闭习惯)
+                            onMouseDown={(e) => {
+                              if (e.button === 1) {
+                                e.preventDefault();
+                                onCloseCompare?.(cp.id);
+                              }
+                            }}
                             title={label}
                             className={cn(
                               // 与文件列表一致:relative 供关闭按钮绝对定位到图标槽位

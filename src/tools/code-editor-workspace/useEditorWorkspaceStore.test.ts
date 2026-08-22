@@ -269,6 +269,89 @@ describe('useEditorWorkspaceStore content & dirty', () => {
     expect(tab.savedContent).toBe('');
   });
 
+  describe('untitled tab title derived from content', () => {
+    it('uses the first non-empty line of typed text as the title', () => {
+      const s = useEditorWorkspaceStore.getState();
+      s.newBlankTab();
+      const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+      s.setTabContent(id, '\n  \nhello world\nsecond line');
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
+      // 跳过开头空行,取首个非空行(参考 VSCode 未命名缓冲区的命名建议)
+      expect(tab.title).toBe('hello world');
+      // 原始自动名保留在 autoTitle
+      expect(tab.autoTitle).toBe('untitled-1');
+    });
+
+    it('truncates a long first line with an ellipsis', () => {
+      const s = useEditorWorkspaceStore.getState();
+      s.newBlankTab();
+      const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+      const longLine = 'a'.repeat(40);
+      s.setTabContent(id, longLine);
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
+      expect(tab.title).toBe(`${'a'.repeat(32)}…`);
+    });
+
+    it('falls back to the original auto name when content is cleared', () => {
+      const s = useEditorWorkspaceStore.getState();
+      s.newBlankTab();
+      const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+      s.setTabContent(id, 'temporary');
+      s.setTabContent(id, '');
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
+      expect(tab.title).toBe('untitled-1');
+    });
+
+    it('does not rename tabs bound to a file path', () => {
+      const s = useEditorWorkspaceStore.getState();
+      s.openLocalFile('/dev/app.ts', 'const x = 1');
+      const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+      s.setTabContent(id, 'const y = 2');
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
+      expect(tab.title).toBe('app.ts');
+      expect(tab.autoTitle).toBeUndefined();
+    });
+
+    it('does not rename dropped-text tabs that already have a title', () => {
+      const s = useEditorWorkspaceStore.getState();
+      s.openDroppedText('snippet.txt', '');
+      const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+      s.setTabContent(id, 'pasted body');
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
+      expect(tab.title).toBe('snippet.txt');
+    });
+
+    it('stops deriving after the tab is saved to a path', () => {
+      const s = useEditorWorkspaceStore.getState();
+      s.newBlankTab();
+      const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+      s.setTabContent(id, 'draft line');
+      s.markSaved(id, '/notes/draft line.md');
+      s.setTabContent(id, 'new content');
+
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
+      expect(tab.title).toBe('draft line.md');
+    });
+
+    it('keeps untitled numbering unique after content-derived renames', () => {
+      const s = useEditorWorkspaceStore.getState();
+      s.newBlankTab();
+      const firstId = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+      s.setTabContent(firstId, 'my notes');
+
+      // untitled-1 已改名为 my notes:新 Tab 序号应基于 autoTitle 继续递增
+      s.newBlankTab();
+      const tabs = useEditorWorkspaceStore.getState().workspace.tabs;
+      expect(tabs.map((t) => t.title)).toEqual(['my notes', 'untitled-2']);
+    });
+  });
+
   it('markSaved binds path and clears dirty', () => {
     const s = useEditorWorkspaceStore.getState();
     s.newBlankTab();
