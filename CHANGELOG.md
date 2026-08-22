@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- 开发环境与正式安装版的数据隔离:`tauri dev` 不再读写正式版数据目录,且应用标识符由 `dev.qraft.app` 调整为 `cn.qraft.app`(生产:`%APPDATA%\cn.qraft.app`;开发:`cn.qraft.app.dev` → `%APPDATA%\cn.qraft.app.dev`)。此前开发与安装版共用同一标识符,开发时清缓存会连带清掉安装版的编辑器打开文件列表与历史记录
+  - 新增 `src-tauri/tauri.dev.conf.json`,开发构建覆盖应用标识符为 `cn.qraft.app.dev`(配置、历史、WebView2 用户数据、窗口状态、单实例锁全部分离,开发版与安装版可同时运行)
+  - `package.json` 的 `tauri` 脚本改为经 `scripts/tauri.mjs` 包装:拦截 `dev` 子命令自动注入 `--config src-tauri/tauri.dev.conf.json`(已显式携带 `--config/-c` 时不重复注入),其余子命令(`build` / `icon` 等)原样透传,发布流程不受影响;`TAURI_WRAPPER_PRINT=1` 可只打印最终参数用于调试
+
 ### Changed
 
 - 更新源由自建服务器改为接入 GitHub Releases(`https://github.com/mecoren/qraft/releases`)

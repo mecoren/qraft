@@ -290,6 +290,15 @@ pub struct ToolPref {
 - 历史：`{基目录}/history.jsonl`
 - 工作区：`{基目录}/workspace.json`
 
+> **实现现状（2026-08）**：运行时路径实际由 Tauri 解析——`app_config_dir()` / `app_data_dir()`，
+> 标识符为 `cn.qraft.app`，Windows 下即 `%APPDATA%\cn.qraft.app\config.json` 与同目录
+> `history.jsonl`；上表 `ProjectDirs` 路径仅存在于测试。编辑器工作区持久化为 config.json 内的
+> `tool_prefs.editor_workspace_v1` 键，无独立 workspace.json。
+>
+> **开发/生产隔离**：开发构建经 `scripts/tauri.mjs` 注入 `src-tauri/tauri.dev.conf.json`，
+> 标识符覆盖为 `cn.qraft.app.dev`，数据落在 `%APPDATA%\cn.qraft.app.dev` 与
+> `%LOCALAPPDATA%\cn.qraft.app.dev`（WebView2），与正式安装版互不影响。
+
 #### 原子写入
 
 配置写入使用 `atomicwrites` crate，避免崩溃导致文件损坏：
