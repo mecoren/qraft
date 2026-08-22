@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
+  DEFAULT_WORKSPACE,
+  normalizeWorkspace,
   resolveSidebarResize,
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
@@ -108,5 +110,45 @@ describe('resolveSidebarResize', () => {
     expect(resolve(0, 260, true, true)).toEqual({ action: 'resize', width: 260 });
     // 4) 退出钉住后回归标准规则:回拖越过「MIN-48」→ hide
     expect(resolve(260, -176, true, false)).toEqual({ action: 'hide' });
+  });
+});
+
+describe('normalizeWorkspace: folders / expandedDirs', () => {
+  it('旧版本数据缺失 folders/expandedDirs 字段时回退为空数组', () => {
+    const w = normalizeWorkspace({ tabs: [], activeTabId: null });
+    expect(w.folders).toEqual([]);
+    expect(w.expandedDirs).toEqual([]);
+  });
+
+  it('损坏值(非数组/非法条目)被剔除或回退为空', () => {
+    expect(normalizeWorkspace({ folders: 'nope' }).folders).toEqual([]);
+    expect(
+      normalizeWorkspace({ folders: [{ rootPath: '' }, null, { other: 1 }, 42] }).folders,
+    ).toEqual([]);
+    expect(normalizeWorkspace({ expandedDirs: [1, null, ''] }).expandedDirs).toEqual([]);
+  });
+
+  it('合法条目保留并按 rootPath 去重、展开路径去重', () => {
+    const w = normalizeWorkspace({
+      folders: [
+        { rootPath: 'C:\\a' },
+        { rootPath: 'C:\\a' }, // 重复根去重
+        { rootPath: 'C:\\b' },
+      ],
+      expandedDirs: ['C:\\a', 'C:\\a\\sub', 'C:\\a'], // 重复展开路径去重
+    });
+    expect(w.folders).toEqual([{ rootPath: 'C:\\a' }, { rootPath: 'C:\\b' }]);
+    expect(w.expandedDirs).toEqual(['C:\\a', 'C:\\a\\sub']);
+  });
+
+  it('兼容直接存路径字符串的旧格式文件夹条目', () => {
+    const w = normalizeWorkspace({ folders: ['C:\\legacy'] });
+    expect(w.folders).toEqual([{ rootPath: 'C:\\legacy' }]);
+  });
+
+  it('非对象输入回退默认工作区(folders/expandedDirs 为空)', () => {
+    const w = normalizeWorkspace(null);
+    expect(w.folders).toEqual(DEFAULT_WORKSPACE.folders);
+    expect(w.expandedDirs).toEqual(DEFAULT_WORKSPACE.expandedDirs);
   });
 });

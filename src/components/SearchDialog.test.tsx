@@ -21,6 +21,8 @@ function setTabs(tabs: EditorTab[]) {
       activeTabId: tabs[0]?.id ?? null,
       leftSidebarVisible: true,
       sidebarWidth: 288,
+      folders: [],
+      expandedDirs: [],
     },
     ready: true,
     userTouched: true,

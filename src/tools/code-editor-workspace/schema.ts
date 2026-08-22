@@ -60,6 +60,17 @@ export interface ComparePair {
   rightTabId: string;
 }
 
+/**
+ * 已打开的根文件夹(左栏「文件夹」树分组的根)
+ *
+ * 仅持久化根路径;目录树的子项由 FolderTreeSection 经 `fs_read_dir`
+ * 懒加载并缓存在会话内存中,不写入工作区(避免持久化膨胀)。
+ */
+export interface WorkspaceFolder {
+  /** 文件夹绝对路径(唯一标识,去重键) */
+  rootPath: string;
+}
+
 /** 工作区状态(整体持久化单元) */
 export interface Workspace {
   tabs: EditorTab[];
@@ -69,6 +80,13 @@ export interface Workspace {
   leftSidebarVisible: boolean;
   /** 左侧文件列表宽度(px),持久化记忆 */
   sidebarWidth: number;
+  /**
+   * 已打开的根文件夹列表(多根,顺序即展示顺序)。
+   * 关闭应用后随工作区还原(VSCode 行为);其中的文件 Tab 不受影响。
+   */
+  folders: WorkspaceFolder[];
+  /** 处于展开状态的目录路径集合(含根目录);持久化记忆展开缩放状态 */
+  expandedDirs: string[];
 }
 
 export const DEFAULT_WORKSPACE: Workspace = {
@@ -76,6 +94,8 @@ export const DEFAULT_WORKSPACE: Workspace = {
   activeTabId: null,
   leftSidebarVisible: true,
   sidebarWidth: 288,
+  folders: [],
+  expandedDirs: [],
 };
 
 /** 左栏最小宽度(px);拖拽夹取、持久化校验、ARIA 属性共用 */
@@ -168,6 +188,18 @@ function sanitizeTab(raw: unknown): EditorTab | null {
   };
 }
 
+/** 校验一条反序列化出的根文件夹是否结构合法,合法则返回规整后的副本 */
+function sanitizeFolder(raw: unknown): WorkspaceFolder | null {
+  if (typeof raw === 'string') {
+    // 兼容潜在的旧格式(直接存路径字符串)
+    return raw ? { rootPath: raw } : null;
+  }
+  if (typeof raw !== 'object' || raw === null) return null;
+  const f = raw as Record<string, unknown>;
+  if (typeof f.rootPath !== 'string' || !f.rootPath) return null;
+  return { rootPath: f.rootPath };
+}
+
 /**
  * 将任意反序列化值规整为合法 Workspace。
  *
@@ -185,6 +217,15 @@ export function normalizeWorkspace(raw: unknown): Workspace {
     typeof w.activeTabId === 'string' && tabs.some((t) => t.id === w.activeTabId)
       ? w.activeTabId
       : null;
+  // 打开的文件夹:按 rootPath 去重;旧版本数据缺失该字段时回退为空
+  const folderList = Array.isArray(w.folders)
+    ? w.folders.map(sanitizeFolder).filter((f): f is WorkspaceFolder => f !== null)
+    : [];
+  const folders = [...new Map(folderList.map((f) => [f.rootPath, f])).values()];
+  // 展开状态:仅保留字符串路径并去重;旧版本数据缺失该字段时回退为空
+  const expandedDirs = Array.isArray(w.expandedDirs)
+    ? [...new Set(w.expandedDirs.filter((d): d is string => typeof d === 'string' && !!d))]
+    : [];
   return {
     tabs,
     activeTabId,
@@ -193,5 +234,7 @@ export function normalizeWorkspace(raw: unknown): Workspace {
       typeof w.sidebarWidth === 'number' && w.sidebarWidth >= SIDEBAR_MIN_WIDTH
         ? w.sidebarWidth
         : DEFAULT_WORKSPACE.sidebarWidth,
+    folders,
+    expandedDirs,
   };
 }

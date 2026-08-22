@@ -3,6 +3,11 @@
  *
  * - `openTextFileDialog`:弹出系统打开对话框,返回 `{ path, content }` 或 null(取消)。
  *   Rust 端 `fs_open_dialog` 已把所选路径加入授权集合,后续可直接 `fs_write_file`。
+ * - `openFolderDialog`:弹出「打开文件夹」对话框,返回目录根路径或 null(取消)。
+ *   所选目录加入授权集合,其子树内文件可读写/枚举。
+ * - `readDirectory`:枚举已授权目录的子项(目录在前、名称不分大小写升序)。
+ * - `readTextFileChecked`:读取文本并校验可编辑性;二进制 / 非 UTF-8 抛
+ *   code=`ERR_FILE_UNSUPPORTED` 的 CommandError,前端弹「格式不支持」提示。
  * - `saveToPath`:直接覆盖写回已授权路径(`fs_write_file`)。
  * - `saveWithDialog`:弹「另存为」对话框(`fs_save_bytes`),保存后路径同样被授权。
  * - `encodeTextToBase64`:文本 → UTF-8 base64(`fs_save_bytes` 的输入格式)。
@@ -13,6 +18,13 @@ import { invokeCommand, safeInvoke } from '@/lib/ipc';
 export interface OpenFileResult {
   path: string;
   content: string;
+}
+
+/** 目录条目(fs_read_dir 返回) */
+export interface DirEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
 }
 
 /** 通过文件关联/命令行「用 Qraft 打开」的待打开文件 */
@@ -29,6 +41,26 @@ export async function windowCloseReady(): Promise<void> {
 /** 弹出打开对话框选择单个文本文件;用户取消返回 null */
 export async function openTextFileDialog(): Promise<OpenFileResult | null> {
   return invokeCommand<OpenFileResult | null>('fs_open_dialog', {});
+}
+
+/** 弹出「打开文件夹」对话框;用户取消返回 null,成功返回目录根路径 */
+export async function openFolderDialog(): Promise<string | null> {
+  const r = await invokeCommand<{ path: string } | null>('fs_open_folder_dialog', {});
+  return r?.path ?? null;
+}
+
+/** 枚举已授权目录的子项(Rust 端已排序:目录在前、名称不分大小写升序) */
+export async function readDirectory(path: string): Promise<DirEntry[]> {
+  return invokeCommand<DirEntry[]>('fs_read_dir', { path });
+}
+
+/**
+ * 读取文本文件并校验可编辑性(文件夹树点击文件时使用)。
+ * 二进制 / 非 UTF-8 时抛 CommandError(code=`ERR_FILE_UNSUPPORTED`)。
+ */
+export async function readTextFileChecked(path: string): Promise<OpenFileResult> {
+  const content = await invokeCommand<string>('fs_read_text_file_checked', { path });
+  return { path, content };
 }
 
 /** 直接覆盖写入已授权路径;成功返回 true,失败抛 CommandError */

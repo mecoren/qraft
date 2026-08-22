@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { DiffEditor, type Monaco, type MonacoDiffEditor } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
-import { FilePlus2, FolderOpen, GitCompareArrows } from 'lucide-react';
+import { FilePlus2, Folder, FolderOpen, GitCompareArrows } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
@@ -31,18 +31,23 @@ import { registerTabEditor, clearTabEditors } from '@/lib/editor-search-registry
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { defineThemeFor, getThemeName, useMonacoTheme } from '@/components/ui/monaco-theme';
 import { useShortcut } from '@/hooks/useShortcut';
-import { listen, safeInvoke } from '@/lib/ipc';
+import { listen, safeInvoke, CommandError } from '@/lib/ipc';
 import { writeClipboardText } from '@/lib/clipboard';
 import type { ToolProps } from '@/tools/registry';
-import { useEditorWorkspaceStore } from './useEditorWorkspaceStore';
+import {
+  useEditorWorkspaceStore,
+  folderNameFromPath,
+} from './useEditorWorkspaceStore';
 import { EditorTabsBar } from './EditorTabsBar';
 import { EditorLeftSidebar } from './EditorLeftSidebar';
 import { PathBreadcrumb } from './PathBreadcrumb';
 import { UnsavedDialog, type UnsavedMode } from './UnsavedDialog';
 import { EditorLanguagePicker } from './EditorLanguagePicker';
-import { LANGUAGE_LABELS } from './languageMap';
+import { LANGUAGE_LABELS, fileNameFromPath } from './languageMap';
 import {
   openTextFileDialog,
+  openFolderDialog,
+  readTextFileChecked,
   revealInExplorer,
   saveToPath,
   saveWithDialog,
@@ -217,6 +222,48 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '打开文件失败');
+    }
+  }, []);
+
+  /** 打开文件夹:加入左栏「文件夹」树(多根并存),默认展开根 */
+  const handleOpenFolder = useCallback(async () => {
+    try {
+      const rootPath = await openFolderDialog();
+      if (!rootPath) return; // 用户取消:静默
+      useEditorWorkspaceStore.getState().openFolder(rootPath);
+      toast.success(`已打开文件夹:${folderNameFromPath(rootPath)}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '打开文件夹失败');
+    }
+  }, []);
+
+  /**
+   * 点击文件夹树中的文件:
+   * - 已有同路径 Tab → 直接激活(不重复读取)
+   * - 否则经 `fs_read_text_file_checked` 读取并载入;
+   *   二进制 / 非 UTF-8(ERR_FILE_UNSUPPORTED)→ 弹错误提示,
+   *   文件节点保留在树中(组件层不做剔除)
+   */
+  const handleOpenTreeFile = useCallback(async (path: string) => {
+    const state = useEditorWorkspaceStore.getState();
+    const existing = state.workspace.tabs.find((t) => t.path === path);
+    if (existing) {
+      state.switchTab(existing.id);
+      setActiveCompareId(null);
+      return;
+    }
+    try {
+      const result = await readTextFileChecked(path);
+      state.openLocalFile(result.path, result.content);
+      setActiveCompareId(null);
+    } catch (e) {
+      if (e instanceof CommandError && e.code === 'ERR_FILE_UNSUPPORTED') {
+        toast.error(
+          `无法在编辑器中打开「${fileNameFromPath(path)}」:可能是二进制或不受支持的格式`,
+        );
+      } else {
+        toast.error(e instanceof Error ? e.message : '打开文件失败');
+      }
     }
   }, []);
 
@@ -514,7 +561,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
    * 菜单结构:
    * - File:
    *   - 新建 tab(快捷键 Ctrl+N)        → toolbar-new
-   *   - 打开文件...(快捷键 Ctrl+O)      → toolbar-open
+   *   - 打开...(快捷键 Ctrl+O)      → toolbar-open
+   *   - 打开文件夹...                    → toolbar-open-folder
    *   - 分隔线
    *   - 保存(快捷键 Ctrl+S)             → toolbar-save(disabled 无激活 tab)
    *   - 全部保存(快捷键 Ctrl+Shift+S)
@@ -549,6 +597,13 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                 icon: FolderOpen,
                 onSelect: () => void handleOpen(),
                 testId: 'toolbar-open',
+              },
+              {
+                id: 'open-folder',
+                label: '打开文件夹...',
+                icon: Folder,
+                onSelect: () => void handleOpenFolder(),
+                testId: 'toolbar-open-folder',
               },
             ],
           },
@@ -617,6 +672,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       handleCloseCurrent,
       handleNewTab,
       handleOpen,
+      handleOpenFolder,
       handleSave,
       handleSaveAll,
       handleToggleSidebar,
@@ -689,6 +745,16 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               activeTabId={workspace.activeTabId}
               dirtyCount={workspace.tabs.filter((t) => t.content !== t.savedContent).length}
               selectedTabIds={selectedTabIds}
+              // 「文件夹」树分组:已打开根文件夹的懒加载目录树(展开状态持久化)
+              folders={workspace.folders}
+              expandedDirs={workspace.expandedDirs}
+              onToggleDir={(dirPath) =>
+                useEditorWorkspaceStore.getState().toggleDirExpanded(dirPath)
+              }
+              onCloseFolder={(rootPath) =>
+                useEditorWorkspaceStore.getState().closeFolder(rootPath)
+              }
+              onOpenTreeFile={(path) => void handleOpenTreeFile(path)}
               onSelect={handleSelectTab}
               onSelectMany={handleSelectMany}
               onCompareSelected={handleCompareSelected}
@@ -827,6 +893,15 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                     >
                       <FolderOpen aria-hidden className="size-4" />
                       打开文件
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void handleOpenFolder()}
+                      data-testid="empty-open-folder"
+                    >
+                      <Folder aria-hidden className="size-4" />
+                      打开文件夹
                     </Button>
                     <Button
                       size="sm"

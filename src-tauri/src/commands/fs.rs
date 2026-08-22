@@ -1,13 +1,20 @@
 // 文件系统 IPC Command(受限)
 //
-// 实现 fs_read_file、fs_write_file、fs_save_bytes,通过 AuthorizedPaths 沙箱限制:
-// 仅允许用户在 dialog 中显式选择的路径 + app 数据目录。
+// 实现 fs_read_file、fs_write_file、fs_save_bytes、fs_read_dir、
+// fs_read_text_file_checked 等,通过 AuthorizedPaths 沙箱限制:
+// 仅允许用户在 dialog 中显式选择的路径/文件夹 + app 数据目录。
 // app 数据目录的读写由 ConfigStore/HistoryStore 内部处理,不走此 Command。
+//
+// 「打开文件夹」语义:用户通过 dialog 显式选择的目录根加入授权集合后,
+// 该目录子树内的文件视为同等可信(对齐 VSCode 工作区),允许读取、
+// 枚举与覆盖保存;目录外的路径依旧被拒绝。
 
 use std::collections::HashSet;
+use std::path::Path;
 use std::sync::Mutex;
 
 use base64::Engine as _;
+use serde::Serialize;
 use tauri_plugin_dialog::DialogExt;
 
 use crate::shell::AppError;
@@ -16,8 +23,9 @@ use crate::shell::response::CommandResponse;
 
 /// 授权路径集合
 ///
-/// 用户通过 dialog 显式选择的文件路径会被加入此集合,
-/// `fs_read_file` / `fs_write_file` 仅允许操作集合中的路径或 app 数据目录。
+/// 用户通过 dialog 显式选择的文件路径或文件夹根路径会被加入此集合,
+/// `fs_read_file` / `fs_write_file` / `fs_read_dir` 等仅允许操作集合中的
+/// 路径、已授权目录的子树内路径,或 app 数据目录。
 #[derive(Default)]
 pub struct AuthorizedPaths {
     inner: Mutex<HashSet<String>>,
@@ -39,12 +47,29 @@ impl AuthorizedPaths {
             .insert(path.to_string());
     }
 
-    /// 检查路径是否已授权
+    /// 检查路径是否已授权(精确匹配)
     pub fn is_authorized(&self, path: &str) -> bool {
         self.inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .contains(path)
+    }
+
+    /// 检查路径是否可访问:精确授权,或位于某个已授权目录的子树内
+    ///
+    /// 「打开文件夹」会把用户显式选择的目录根加入集合;此后该目录下的
+    /// 文件与子目录均视为已授权(组件级比较,`C:\dir2` 不会误匹配 `C:\dir`)。
+    #[must_use]
+    pub fn is_path_allowed(&self, path: &str) -> bool {
+        let guard = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if guard.contains(path) {
+            return true;
+        }
+        let p = Path::new(path);
+        guard.iter().any(|root| p.starts_with(root))
     }
 
     /// 撤销路径授权
@@ -60,10 +85,10 @@ impl AuthorizedPaths {
 
 /// 校验路径是否在允许范围内
 ///
-/// MVP 简化策略:仅允许 `AuthorizedPaths` 中的路径。
+/// MVP 简化策略:仅允许 `AuthorizedPaths` 中的路径或其授权目录子树内的路径。
 /// app 数据目录的读写由 ConfigStore/HistoryStore 内部处理,不走此 Command。
 fn validate_path(path: &str, authorized: &AuthorizedPaths) -> Result<(), AppError> {
-    if authorized.is_authorized(path) {
+    if authorized.is_path_allowed(path) {
         Ok(())
     } else {
         Err(AppError::Permission(format!(
@@ -114,6 +139,74 @@ pub async fn fs_write_file_inner(
 /// - 文件写入失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 pub async fn save_bytes_to_path(path: &str, bytes: &[u8]) -> Result<(), AppError> {
     tokio::fs::write(path, bytes).await.map_err(AppError::from)
+}
+
+/// NUL 字节启发式:前 8192 字节中出现 NUL(`\0`)即视为二进制内容。
+/// 与 `shell/file_open` 的系统级打开入口共用同一策略(参考 VS Code)。
+#[must_use]
+pub fn bytes_look_like_text(bytes: &[u8]) -> bool {
+    !bytes[..bytes.len().min(8192)].contains(&0)
+}
+
+/// 枚举目录内容(必须在授权集合或其授权目录子树内)
+///
+/// 排序规则:子目录在前,名称不分大小写升序(对齐 `VSCode` 资源管理器)。
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 目录读取失败(不存在/权限不足)时返回 `AppError::Io`(`ERR_FILE_IO`)
+pub async fn fs_read_dir_inner(
+    path: &str,
+    authorized: &AuthorizedPaths,
+) -> Result<CommandResponse<Vec<DirEntryInfo>>, AppError> {
+    validate_path(path, authorized)?;
+    let mut rd = tokio::fs::read_dir(path).await.map_err(AppError::from)?;
+    let mut entries: Vec<DirEntryInfo> = Vec::new();
+    while let Some(entry) = rd.next_entry().await.map_err(AppError::from)? {
+        let is_dir = entry.file_type().await.map_err(AppError::from)?.is_dir();
+        // Windows 目录分隔符统一为 `\`,与 dialog 返回的路径形态保持一致
+        let entry_path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        entries.push(DirEntryInfo {
+            name,
+            path: entry_path.to_string_lossy().into_owned(),
+            is_dir,
+        });
+    }
+    entries.sort_by(|a, b| {
+        b.is_dir
+            .cmp(&a.is_dir)
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
+    Ok(CommandResponse::ok(entries))
+}
+
+/// 读取文本文件并校验可编辑性(必须在授权范围内)
+///
+/// 用于「文件夹树」点击文件打开:
+/// - 二进制内容(NUL 字节启发式)→ `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
+/// - 非 UTF-8 编码 → 同样视为不受支持(编辑器聚焦 UTF-8 文本)
+///
+/// 前端据此弹「格式不支持」提示;文件仍保留在树列表中。
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+/// - 二进制/非 UTF-8 时返回 `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
+pub async fn fs_read_text_file_checked_inner(
+    path: &str,
+    authorized: &AuthorizedPaths,
+) -> Result<CommandResponse<String>, AppError> {
+    validate_path(path, authorized)?;
+    let bytes = tokio::fs::read(path).await.map_err(AppError::from)?;
+    if !bytes_look_like_text(&bytes) {
+        return Err(AppError::Unsupported("binary content".into()));
+    }
+    String::from_utf8(bytes)
+        .map(CommandResponse::ok)
+        .map_err(|_| AppError::Unsupported("non-utf-8 content".into()))
 }
 
 /// 校验文件扩展名与 MIME 的映射关系,返回规范扩展名(未匹配时返回 `bin`)
@@ -235,6 +328,22 @@ pub struct OpenFileResult {
     pub content: String,
 }
 
+/// 打开文件夹对话框的返回结果(目录根路径)
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenFolderResult {
+    pub path: String,
+}
+
+/// 目录条目(`fs_read_dir` 返回)
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DirEntryInfo {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+}
+
 /// 弹出打开文件对话框,读取选中文件的内容
 ///
 /// 用户在打开对话框中显式选择的路径会被加入授权集合,此后可通过
@@ -274,6 +383,70 @@ pub async fn fs_open_dialog(
     })))
 }
 
+/// 弹出打开文件夹对话框,返回所选目录根路径
+///
+/// 用户选择的目录会被加入授权集合,此后该目录子树内的文件可通过
+/// `fs_read_file` 重新读取、`fs_write_file` 覆盖保存、`fs_read_dir` 枚举。
+/// 用户取消对话框时返回 `Ok(CommandResponse::ok(None))`。
+///
+/// # Errors
+///
+/// - 对话框路径转换失败时返回 `AppError::Unknown`
+#[tauri::command]
+pub async fn fs_open_folder_dialog(
+    app: tauri::AppHandle,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<Option<OpenFolderResult>>, AppError> {
+    let Some(path) = app
+        .dialog()
+        .file()
+        .set_title("打开文件夹")
+        .blocking_pick_folder()
+    else {
+        // 用户取消对话框:返回 None,前端据此静默处理(不视为错误)
+        return Ok(CommandResponse::ok(None));
+    };
+    let path_buf = path
+        .into_path()
+        .map_err(|e| AppError::Unknown(format!("open folder path invalid: {e}")))?;
+    let path_str = path_buf.to_string_lossy().into_owned();
+    authorized.authorize(&path_str);
+    Ok(CommandResponse::ok(Some(OpenFolderResult {
+        path: path_str,
+    })))
+}
+
+/// 枚举指定目录的内容(必须在授权集合或其授权目录子树内)
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 目录读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+#[tauri::command]
+pub async fn fs_read_dir(
+    path: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<Vec<DirEntryInfo>>, AppError> {
+    fs_read_dir_inner(&path, &authorized).await
+}
+
+/// 读取文本文件并校验可编辑性,供文件夹树点击文件时调用
+///
+/// 二进制或非 UTF-8 内容返回 `ERR_FILE_UNSUPPORTED`,前端弹「格式不支持」提示。
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+/// - 二进制/非 UTF-8 时返回 `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
+#[tauri::command]
+pub async fn fs_read_text_file_checked(
+    path: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<String>, AppError> {
+    fs_read_text_file_checked_inner(&path, &authorized).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -296,6 +469,31 @@ mod tests {
 
         paths.revoke("/tmp/revoke.txt");
         assert!(!paths.is_authorized("/tmp/revoke.txt"));
+    }
+
+    #[test]
+    fn test_authorized_paths_subtree_semantics() {
+        // Windows 风格路径:组件级前缀比较,兄弟目录不误匹配
+        let paths = AuthorizedPaths::new();
+        paths.authorize(r"C:\work\project");
+
+        assert!(paths.is_path_allowed(r"C:\work\project"));
+        assert!(paths.is_path_allowed(r"C:\work\project\a.txt"));
+        assert!(paths.is_path_allowed(r"C:\work\project\sub\b.txt"));
+        // 兄弟目录(共享字符串前缀但非组件前缀)不可访问
+        assert!(!paths.is_path_allowed(r"C:\work\project2\a.txt"));
+        // 父目录与其它路径不可访问
+        assert!(!paths.is_path_allowed(r"C:\work"));
+        assert!(!paths.is_path_allowed(r"D:\elsewhere\a.txt"));
+    }
+
+    #[test]
+    fn test_authorized_paths_subtree_unix_semantics() {
+        let paths = AuthorizedPaths::new();
+        paths.authorize("/home/user/project");
+
+        assert!(paths.is_path_allowed("/home/user/project/src/main.rs"));
+        assert!(!paths.is_path_allowed("/home/user/project2/a.txt"));
     }
 
     #[tokio::test]
@@ -389,5 +587,106 @@ mod tests {
         );
         // 未知 MIME 使用回退扩展名
         assert_eq!(extension_for_mime("application/octet-stream", "dat"), "dat");
+    }
+
+    #[test]
+    fn test_bytes_look_like_text() {
+        assert!(bytes_look_like_text(b"hello world"));
+        // 空文件视为文本(与 file_open 一致)
+        assert!(bytes_look_like_text(b""));
+        // 前 8192 字节内含 NUL → 二进制
+        assert!(!bytes_look_like_text(&[0x00, 0x01, 0x02]));
+        // NUL 在 8192 之后:启发式只看头部
+        let mut late_nul = vec![b'a'; 9000];
+        late_nul[8500] = 0;
+        assert!(bytes_look_like_text(&late_nul));
+    }
+
+    #[tokio::test]
+    async fn test_fs_read_dir_unauthorized_path() {
+        let paths = AuthorizedPaths::new();
+        let result = fs_read_dir_inner("/etc", &paths).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code(), "ERR_PERMISSION_DENIED");
+    }
+
+    #[tokio::test]
+    async fn test_fs_read_dir_sorts_dirs_first_then_case_insensitive() {
+        let dir = std::env::temp_dir().join("qraft_test_read_dir");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("sub")).expect("create sub");
+        std::fs::write(dir.join("b.txt"), b"2").expect("write b");
+        std::fs::write(dir.join("A.txt"), b"1").expect("write A");
+
+        let paths = AuthorizedPaths::new();
+        paths.authorize(dir.to_str().unwrap());
+
+        let resp = fs_read_dir_inner(dir.to_str().unwrap(), &paths)
+            .await
+            .unwrap();
+        let names: Vec<&str> = resp.data.unwrap().iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, vec!["sub", "A.txt", "b.txt"]);
+
+        let entries = resp.data.unwrap();
+        assert!(entries[0].is_dir);
+        assert!(!entries[1].is_dir);
+        assert_eq!(entries[1].name, "A.txt");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn test_fs_read_text_file_checked_binary_is_unsupported() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_test_checked_bin.bin");
+        std::fs::write(&path, [0x00u8, 0x01, 0x02]).expect("write bin");
+
+        let paths = AuthorizedPaths::new();
+        paths.authorize(path.to_str().unwrap());
+
+        let err = fs_read_text_file_checked_inner(path.to_str().unwrap(), &paths)
+            .await
+            .unwrap_err();
+        assert_eq!(err.code(), "ERR_FILE_UNSUPPORTED");
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn test_fs_read_text_file_checked_non_utf8_is_unsupported() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_test_checked_latin1.txt");
+        // 无 NUL 但非 UTF-8(Latin-1 高位字节)
+        std::fs::write(&path, [0xFFu8, 0xFE, 0x41]).expect("write non-utf8");
+
+        let paths = AuthorizedPaths::new();
+        paths.authorize(path.to_str().unwrap());
+
+        let err = fs_read_text_file_checked_inner(path.to_str().unwrap(), &paths)
+            .await
+            .unwrap_err();
+        assert_eq!(err.code(), "ERR_FILE_UNSUPPORTED");
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn test_fs_read_text_file_checked_round_trip_and_subtree() {
+        let dir = std::env::temp_dir().join("qraft_test_checked_subtree");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("create dir");
+        let path = dir.join("inner.txt");
+        std::fs::write(&path, "hello folder").expect("write text");
+
+        // 仅授权目录根:子树内文件可读(打开文件夹语义)
+        let paths = AuthorizedPaths::new();
+        paths.authorize(dir.to_str().unwrap());
+
+        let resp = fs_read_text_file_checked_inner(path.to_str().unwrap(), &paths)
+            .await
+            .unwrap();
+        assert_eq!(resp.data.unwrap(), "hello folder");
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

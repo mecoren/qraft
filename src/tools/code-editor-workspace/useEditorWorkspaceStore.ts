@@ -23,6 +23,26 @@ import {
 } from './schema';
 import { fileNameFromPath, inferLanguageFromPath } from './languageMap';
 
+/**
+ * 从路径中提取末段作为文件夹显示名。
+ * 兼容 Windows(`\`)与 POSIX(`/`)分隔符;根盘符(如 `C:\`)原样返回。
+ */
+export function folderNameFromPath(rootPath: string): string {
+  const trimmed = rootPath.replace(/[\\/]+$/, '');
+  const last = trimmed.split(/[\\/]/).pop() ?? '';
+  return last || rootPath;
+}
+
+/** 判断某路径是否位于指定目录子树内(含自身;组件级比较,兼容两种分隔符) */
+function isUnderDir(path: string, dir: string): boolean {
+  if (path === dir) return true;
+  const prefix = dir.endsWith('\\') || dir.endsWith('/') ? dir : `${dir}\\`;
+  return (
+    path.startsWith(prefix) ||
+    path.startsWith(`${dir}/`)
+  );
+}
+
 /** 生成稳定唯一 id(Node 22 的 crypto.randomUUID,降级为时间戳+随机) */
 function createId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -103,6 +123,12 @@ interface WorkspaceState {
   closeAllTabs: () => void;
   /** 切换激活 Tab */
   switchTab: (id: string) => void;
+  /** 打开根文件夹:加入左栏「文件夹」树并默认展开根;重复打开同一根仅确保展开 */
+  openFolder: (rootPath: string) => void;
+  /** 关闭根文件夹:移除该根并清理其子树的展开状态(不影响其中已打开的 Tab) */
+  closeFolder: (rootPath: string) => void;
+  /** 切换目录的展开/折叠状态(懒加载由组件层触发,store 只记状态) */
+  toggleDirExpanded: (dirPath: string) => void;
   /** 更新 Tab 内容(编辑器 onChange 调用) */
   setTabContent: (id: string, content: string) => void;
   /** 更新 Tab 语言(语言选择器调用) */
@@ -247,6 +273,46 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const { workspace } = get();
     if (!workspace.tabs.some((t) => t.id === id)) return;
     set({ workspace: { ...workspace, activeTabId: id } });
+  },
+
+  openFolder: (rootPath) => {
+    const { workspace } = get();
+    if (workspace.folders.some((f) => f.rootPath === rootPath)) {
+      // 已打开:仅确保根处于展开状态(用户可能之前手动折叠过)
+      if (!workspace.expandedDirs.includes(rootPath)) {
+        set({
+          workspace: { ...workspace, expandedDirs: [...workspace.expandedDirs, rootPath] },
+          userTouched: true,
+        });
+      }
+      return;
+    }
+    set({
+      workspace: {
+        ...workspace,
+        folders: [...workspace.folders, { rootPath }],
+        expandedDirs: [...new Set([...workspace.expandedDirs, rootPath])],
+      },
+      userTouched: true,
+    });
+  },
+
+  closeFolder: (rootPath) => {
+    const { workspace } = get();
+    const folders = workspace.folders.filter((f) => f.rootPath !== rootPath);
+    // 根不存在(已关闭):no-op
+    if (folders.length === workspace.folders.length) return;
+    // 同步清理该子树内的展开状态;已打开的 Tab 不受影响(VSCode 行为)
+    const expandedDirs = workspace.expandedDirs.filter((d) => !isUnderDir(d, rootPath));
+    set({ workspace: { ...workspace, folders, expandedDirs }, userTouched: true });
+  },
+
+  toggleDirExpanded: (dirPath) => {
+    const { workspace } = get();
+    const expandedDirs = workspace.expandedDirs.includes(dirPath)
+      ? workspace.expandedDirs.filter((d) => d !== dirPath)
+      : [...workspace.expandedDirs, dirPath];
+    set({ workspace: { ...workspace, expandedDirs }, userTouched: true });
   },
 
   togglePinTab: (id) => {

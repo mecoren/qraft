@@ -96,6 +96,11 @@ pub enum AppError {
     #[error("io error: {0}")]
     Io(std::io::Error),
 
+    /// 文件内容不受支持(二进制 / 非 UTF-8 编码),无法在文本编辑器中打开。
+    /// 与 `Io` 区分开,前端据此弹出「格式不支持」提示而非通用读取失败。
+    #[error("unsupported file: {0}")]
+    Unsupported(String),
+
     #[error("permission denied: {0}")]
     Permission(String),
 
@@ -122,6 +127,7 @@ impl AppError {
             Self::Config(_) => "ERR_CONFIG_IO",
             Self::History(_) => "ERR_HISTORY_IO",
             Self::Io(_) => "ERR_FILE_IO",
+            Self::Unsupported(_) => "ERR_FILE_UNSUPPORTED",
             Self::Permission(_) | Self::Forbidden(_) => "ERR_PERMISSION_DENIED",
             Self::Internal(_) | Self::Unknown(_) => "ERR_INTERNAL",
         }
@@ -176,6 +182,7 @@ impl Serialize for AppError {
             | Self::History(s)
             | Self::Permission(s)
             | Self::Forbidden(s)
+            | Self::Unsupported(s)
             | Self::Unknown(s) => {
                 map.serialize_entry("detail", s)?;
             }
@@ -312,6 +319,16 @@ mod tests {
     fn test_app_error_forbidden_variant() {
         let err = AppError::Forbidden("url scheme not allowed".into());
         assert_eq!(err.code(), "ERR_PERMISSION_DENIED");
+    }
+
+    #[test]
+    fn test_app_error_unsupported_variant() {
+        let err = AppError::Unsupported("binary content".into());
+        assert_eq!(err.code(), "ERR_FILE_UNSUPPORTED");
+        assert!(err.to_string().contains("binary content"));
+        let v = serde_json::to_value(&err).unwrap();
+        assert_eq!(v["kind"], "ERR_FILE_UNSUPPORTED");
+        assert_eq!(v["detail"], "binary content");
     }
 
     #[test]

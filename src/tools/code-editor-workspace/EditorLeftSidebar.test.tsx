@@ -14,6 +14,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorLeftSidebar, type EditorLeftSidebarProps } from './EditorLeftSidebar';
 import type { EditorTab } from './schema';
 
+// mock IPC 封装:FolderTreeSection(文件夹树分组)经 readDirectory 懒加载
+vi.mock('./fileOps', () => ({
+  readDirectory: vi.fn().mockResolvedValue([]),
+}));
+
 const tabs: EditorTab[] = [
   {
     id: 't1',
@@ -64,6 +69,9 @@ function setup(props: Partial<EditorLeftSidebarProps> = {}) {
     onNewTab: vi.fn(),
     onSaveAll: vi.fn(),
     onCloseAll: vi.fn(),
+    onToggleDir: vi.fn(),
+    onCloseFolder: vi.fn(),
+    onOpenTreeFile: vi.fn(),
   };
   render(
     <EditorLeftSidebar
@@ -451,5 +459,32 @@ describe('EditorLeftSidebar 文件列表拖拽排序', () => {
 
     expect(handlers.onReorder).not.toHaveBeenCalled();
     expect(handlers.onSelectMany).toHaveBeenCalled();
+  });
+});
+
+describe('EditorLeftSidebar 文件夹树分组', () => {
+  it('未传入 folders 时不渲染「文件夹」分组,文件列表正常显示', () => {
+    setup();
+
+    expect(screen.queryByTestId('sidebar-folder-tree-folder-section')).not.toBeInTheDocument();
+    expect(screen.getByTestId('sidebar-item-a.ts')).toBeInTheDocument();
+  });
+
+  it('文件夹树分组位于已打开文件列表下方,点击目录分发 onToggleDir', async () => {
+    const handlers = setup({
+      folders: [{ rootPath: 'C:/dev' }],
+      expandedDirs: ['C:/dev'],
+    });
+    const user = userEvent.setup();
+
+    const section = screen.getByTestId('sidebar-folder-tree-folder-section');
+    const tabsList = screen.getByTestId('sidebar-item-a.ts').closest('ul');
+    // DOM 顺序:文件夹分组在文件列表之后(下方独立分组)
+    expect(tabsList!.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // 根目录默认展开;子项为空(mock 返回 []),但树内交互链路可验证:
+    // 展开根 → onToggleDir 分发
+    await user.click(screen.getByTestId('sidebar-folder-tree-node-dev'));
+    expect(handlers.onToggleDir).toHaveBeenCalledWith('C:/dev');
   });
 });

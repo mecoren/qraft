@@ -8,6 +8,10 @@
  * - hover 文件项 → 文件图标/dirty 圆点淡出,行尾关闭图标显示
  * - 多选 ≥2 个文件时,右键菜单出现「比较所选内容」项,可并排对比差异
  *
+ * 布局(自上而下紧贴堆叠,列表高度均随内容自适应、过长内部滚动):
+ * 文件列表 → 「文件夹」树分组(FolderTreeSection,已打开根目录的懒加载树)
+ * → 「对比差异」分组;空白余量留在面板底部
+ *
  * 「对比差异」分组(独立 div,位于文件列表下方,与「打开的编辑器」分离):
  * - 每次「比较所选内容」在此新增一条对比项(如 a.ts ⟷ b.ts)
  * - 点击对比项 → 主区域直接显示该对比的 Diff 视图(不弹窗)
@@ -36,7 +40,8 @@ import {
 } from '@/components/ui/context-menu';
 import { TabContextMenu } from './TabContextMenu';
 import { dirNameFromPath } from './languageMap';
-import type { ComparePair, EditorTab } from './schema';
+import { FolderTreeSection } from './FolderTreeSection';
+import type { ComparePair, EditorTab, WorkspaceFolder } from './schema';
 
 export interface EditorLeftSidebarProps {
   tabs: readonly EditorTab[];
@@ -45,6 +50,19 @@ export interface EditorLeftSidebarProps {
   dirtyCount: number;
   /** 当前多选文件(除激活 Tab 外被 Ctrl+点击选中的 Tab id 集合) */
   selectedTabIds?: readonly string[];
+  /**
+   * 已打开的根文件夹(「文件夹」树分组,位于文件列表下方)。
+   * 空数组时整组不渲染;展开状态见 expandedDirs。
+   */
+  folders?: readonly WorkspaceFolder[];
+  /** 处于展开状态的目录路径集合(含根;持久化记忆) */
+  expandedDirs?: readonly string[];
+  /** 切换目录展开/折叠(文件夹树) */
+  onToggleDir?: (dirPath: string) => void;
+  /** 关闭某个根文件夹(文件夹树行尾 hover 关闭按钮) */
+  onCloseFolder?: (rootPath: string) => void;
+  /** 点击文件夹树中的文件请求打开(上层读取校验,不支持时弹错且不剔除节点) */
+  onOpenTreeFile?: (path: string) => void;
   onSelect: (id: string) => void;
   /** 单击/Ctrl+点击选中处理:additive=true 表示追加切换(Ctrl/Cmd),否则单选 */
   onSelectMany?: (id: string, additive: boolean) => void;
@@ -103,6 +121,11 @@ export function EditorLeftSidebar({
   activeTabId,
   dirtyCount,
   selectedTabIds = [],
+  folders = [],
+  expandedDirs = [],
+  onToggleDir,
+  onCloseFolder,
+  onOpenTreeFile,
   onSelect,
   onSelectMany,
   onCompareSelected,
@@ -392,9 +415,11 @@ export function EditorLeftSidebar({
         </div>
       </div>
 
-      {/* 文件列表:独立滚动容器;「对比差异」分组为下方独立 div,不随本列表折叠隐藏 */}
+      {/* 文件列表:高度随内容自适应(不撑满剩余空间),使下方「文件夹」「对比
+          差异」分组紧贴列表底部而非被推到面板最底;Tab 过多时在剩余空间内收缩、
+          内部滚动(min-h-0 + flex-initial)。两个分组均为独立 div,不随本列表折叠隐藏 */}
       {!collapsed && (
-        <ScrollArea className="min-h-0 flex-1">
+        <ScrollArea className="min-h-0 flex-initial">
           {/* 打开的编辑器 分组 */}
           <ul ref={ulRef} className="p-1.5 pb-0" onPointerMove={handleContainerPointerMove}>
             {tabs.length === 0 ? (
@@ -580,6 +605,21 @@ export function EditorLeftSidebar({
         </ScrollArea>
       )}
 
+      {/* 文件夹树分组:已打开根文件夹的懒加载目录树,位于文件列表下方。
+          独立于上方文件列表的折叠状态;无打开文件夹时整组不渲染。
+          以 roots 签名作 key:文件夹开/关时重挂载并清空子项缓存,
+          展开的目录由组件内部 effect 自动重新补载。 */}
+      <FolderTreeSection
+        key={folders.map((f) => f.rootPath).join('|')}
+        folders={folders}
+        expandedDirs={expandedDirs}
+        activeTabPath={tabs.find((t) => t.id === activeTabId)?.path ?? null}
+        onToggleDir={onToggleDir}
+        onCloseFolder={onCloseFolder}
+        onOpenFile={onOpenTreeFile}
+        data-testid={`${dataTestId}-folder-tree`}
+      />
+
       {/* 对比差异 分组:独立 div,脱离「打开的编辑器」文件列表 ——
            - 不随文件列表折叠(collapsed)隐藏,自有折叠状态 compareCollapsed
            - 标题栏数量徽章 + 悬浮关闭键拥有独立布局空间,窄侧栏下完整显示不被裁切 */}
@@ -587,7 +627,7 @@ export function EditorLeftSidebar({
         <section
           aria-label="对比差异"
           data-testid={`${dataTestId}-compare-section`}
-          className="flex min-h-0 flex-none flex-col border-t border-sidebar-border"
+          className="flex min-h-0 flex-initial flex-col border-t border-sidebar-border"
         >
           <div
             data-testid={`${dataTestId}-compare-header`}
@@ -649,7 +689,7 @@ export function EditorLeftSidebar({
             </div>
           </div>
           {!compareCollapsed && (
-            <ScrollArea className="max-h-40 min-h-0 flex-none">
+            <ScrollArea className="max-h-40 min-h-0 flex-initial">
               <ul className="p-1.5 pt-0.5">
                 {compares.map((cp) => {
                   const left = tabs.find((t) => t.id === cp.leftTabId);

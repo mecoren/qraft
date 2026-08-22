@@ -32,7 +32,7 @@ use std::sync::Mutex;
 use serde::Serialize;
 use tauri::Emitter;
 
-use crate::commands::fs::AuthorizedPaths;
+use crate::commands::fs::{AuthorizedPaths, bytes_look_like_text};
 use crate::shell::AppError;
 
 /// 推送给前端的待打开文件负载
@@ -116,16 +116,15 @@ fn read_file_text(path: &str) -> Result<String, AppError> {
 
 /// 检测文件内容是否为可编辑文本
 ///
-/// 参考 VS Code 的启发式:读取文件前若干字节,若出现 NUL 字节(`\0`)则视为
-/// 二进制文件(UTF-16 编码也会被误判为二进制,但本工具聚焦 UTF-8/ASCII 文本,
-/// 与前端语言检测一致)。空文件视为文本。
+/// NUL 字节启发式与 `commands::fs` 共用(`bytes_look_like_text`,参考 VS Code):
+/// 前 8192 字节出现 NUL 即二进制。空文件视为文本。
 ///
 /// # Errors
 ///
 /// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 fn file_is_text(path: &str) -> Result<bool, AppError> {
     let bytes = std::fs::read(path).map_err(AppError::from)?;
-    Ok(!bytes[..bytes.len().min(8192)].contains(&0))
+    Ok(bytes_look_like_text(&bytes))
 }
 
 /// 通过文件关联/命令行/拖放打开单个文件;若为二进制或目录,不打开并推送
