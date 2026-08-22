@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
-import { safeInvoke, unwrapResponse, listen, AppError } from './ipc';
+import {
+  safeInvoke,
+  unwrapResponse,
+  listen,
+  invokeCommand,
+  CommandError,
+  AppError,
+} from './ipc';
 import type { CommandResponse } from '@/types/ipc';
 
 const invokeMock = invoke as unknown as ReturnType<typeof vi.fn>;
@@ -87,6 +94,72 @@ describe('safeInvoke', () => {
       expect(r.error.code).toBe('ERR_INTERNAL');
       expect(r.error.message).toContain('network down');
     }
+  });
+
+  it('normalizes AppError rejection payload (kind/detail) with real code preserved', async () => {
+    // 命令返回 Err(AppError) 时,Tauri 以序列化错误对象 reject(非 CommandResponse 包络)
+    invokeMock.mockRejectedValueOnce({
+      kind: 'ERR_FILE_UNSUPPORTED',
+      detail: 'binary content',
+    });
+    const r = await safeInvoke<unknown>('fs_read_text_file_checked', { path: 'a.lnk' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.code).toBe('ERR_FILE_UNSUPPORTED');
+      // 消息不得是 "[object Object]":detail 字符串应回填为 message
+      expect(r.error.message).toBe('binary content');
+      expect(r.error.details).toBe('binary content');
+    }
+  });
+
+  it('prefers explicit message over string detail in rejection payload', async () => {
+    invokeMock.mockRejectedValueOnce({
+      kind: 'ERR_CONFIG_IO',
+      detail: 'disk io failed',
+      message: '配置写入失败',
+    });
+    const r = await safeInvoke<unknown>('config_set');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.code).toBe('ERR_CONFIG_IO');
+      expect(r.error.message).toBe('配置写入失败');
+      expect(r.error.details).toBe('disk io failed');
+    }
+  });
+
+  it('falls back to internal message (never "[object Object]") for unknown object rejection', async () => {
+    invokeMock.mockRejectedValueOnce({ foo: 'bar' });
+    const r = await safeInvoke<unknown>('x');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.code).toBe('ERR_INTERNAL');
+      expect(r.error.message).not.toContain('[object');
+    }
+  });
+
+  it('string rejection is used as message directly', async () => {
+    invokeMock.mockRejectedValueOnce('boom');
+    const r = await safeInvoke<unknown>('x');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toBe('boom');
+  });
+});
+
+describe('invokeCommand 错误传递', () => {
+  it('throws CommandError with real code/message from Err(AppError) rejection', async () => {
+    invokeMock.mockRejectedValueOnce({
+      kind: 'ERR_PERMISSION_DENIED',
+      detail: 'path not authorized, must be selected via dialog: C:\\x',
+    });
+    const err = await invokeCommand('fs_read_dir', { path: 'C:\\x' }).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(CommandError);
+    expect((err as CommandError).code).toBe('ERR_PERMISSION_DENIED');
+    expect((err as CommandError).message).toBe(
+      'path not authorized, must be selected via dialog: C:\\x',
+    );
   });
 });
 

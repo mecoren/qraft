@@ -200,3 +200,28 @@ describe('FolderTreeSection 文件与文件夹动作', () => {
     expect(onToggleDir).not.toHaveBeenCalled();
   });
 });
+
+describe('FolderTreeSection 高度策略(fillHeight)', () => {
+  it('默认(下方有对比差异):内容自适应,section 带 max-h 封顶语义与底部分隔线', () => {
+    renderTree({ fillHeight: false });
+
+    const section = screen.getByTestId('sidebar-folder-tree-folder-section');
+    expect(section.className).toContain('flex-initial');
+    // 分隔线仅在自适应模式保留(撑满模式下方无分组无需分隔)
+    expect(section.className).toContain('border-b');
+    const scroll = screen.getByTestId('sidebar-folder-tree-tree-scroll');
+    expect(scroll.className).toContain('max-h-64');
+    expect(scroll.className).not.toContain('flex-1');
+  });
+
+  it('fillHeight=true(下方无对比差异):去掉限高并撑满剩余空间', () => {
+    renderTree({ fillHeight: true });
+
+    const section = screen.getByTestId('sidebar-folder-tree-folder-section');
+    expect(section.className).toContain('flex-1');
+    expect(section.className).not.toContain('border-b');
+    const scroll = screen.getByTestId('sidebar-folder-tree-tree-scroll');
+    expect(scroll.className).toContain('flex-1');
+    expect(scroll.className).not.toContain('max-h-64');
+  });
+});

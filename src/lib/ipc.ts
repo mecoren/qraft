@@ -39,6 +39,40 @@ const INTERNAL_ERROR: ErrorInfo = {
 };
 
 /**
+ * 归一化 Tauri 命令的 reject 载荷为 ErrorInfo。
+ *
+ * 命令签名 `Result<CommandResponse<T>, AppError>` 失败时,Tauri 会以
+ * 序列化后的 AppError 对象 reject(自定义 Serialize 形态:
+ * `{ kind: "ERR_XXX", detail: ... }`),而非 CommandResponse 包络 ——
+ * 若不映射,上层会拿到 `[object Object]` 消息且错误码丢失(恒为
+ * ERR_INTERNAL)。这里做与 unwrapResponse 同构的归一化:
+ * - Error 实例 → 保留 message(插件/网络层异常)
+ * - `{ kind | code, detail | details, message? }` → 还原错误码与消息
+ * - 字符串 → 直接作为消息;其余原样字符串化兜底
+ */
+function normalizeRejection(e: unknown): ErrorInfo {
+  if (e instanceof Error) {
+    return { code: INTERNAL_ERROR.code, message: e.message };
+  }
+  if (typeof e === 'string') {
+    return { code: INTERNAL_ERROR.code, message: e };
+  }
+  if (typeof e === 'object' && e !== null) {
+    const obj = e as Record<string, unknown>;
+    const detail = obj.detail !== undefined ? obj.detail : obj.details;
+    const kind = typeof obj.kind === 'string' && obj.kind ? obj.kind : undefined;
+    const code = typeof obj.code === 'string' && obj.code ? obj.code : undefined;
+    const rawMessage = typeof obj.message === 'string' && obj.message ? obj.message : undefined;
+    return {
+      code: kind ?? code ?? INTERNAL_ERROR.code,
+      message: rawMessage ?? (typeof detail === 'string' && detail ? detail : undefined) ?? INTERNAL_ERROR.message,
+      ...(detail !== undefined ? { details: detail } : {}),
+    };
+  }
+  return { code: INTERNAL_ERROR.code, message: String(e) };
+}
+
+/**
  * 解包 CommandResponse,失败返回归一化后的 ErrorInfo。
  * 当 success=true 但 data 缺失时视为 ERR_INTERNAL。
  *
@@ -68,7 +102,8 @@ export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Pr
 
 /**
  * 安全 invoke,自动解包 CommandResponse。
- * 任何异常(包括 IPC 抛错、响应缺失 error 字段)统一转 ErrorInfo。
+ * 命令以 Err(AppError) reject 时,载荷经 normalizeRejection 归一化,
+ * 保留真实错误码与消息(避免 `[object Object]` / 错误码丢失)。
  */
 export async function safeInvoke<T>(
   cmd: string,
@@ -78,13 +113,7 @@ export async function safeInvoke<T>(
     const resp = await tauriInvoke<CommandResponse<T>>(cmd, args);
     return unwrapResponse(resp);
   } catch (e) {
-    return {
-      ok: false,
-      error: {
-        code: 'ERR_INTERNAL',
-        message: e instanceof Error ? e.message : String(e),
-      },
-    };
+    return { ok: false, error: normalizeRejection(e) };
   }
 }
 

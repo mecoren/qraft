@@ -257,12 +257,14 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       state.openLocalFile(result.path, result.content);
       setActiveCompareId(null);
     } catch (e) {
+      const name = fileNameFromPath(path);
       if (e instanceof CommandError && e.code === 'ERR_FILE_UNSUPPORTED') {
-        toast.error(
-          `无法在编辑器中打开「${fileNameFromPath(path)}」:可能是二进制或不受支持的格式`,
-        );
+        toast.error(`无法在编辑器中打开「${name}」:可能是二进制或不受支持的格式`);
       } else {
-        toast.error(e instanceof Error ? e.message : '打开文件失败');
+        // 其余失败(未授权/不存在等):展示后端返回的真实错误信息
+        toast.error(
+          `打开「${name}」失败:${e instanceof Error ? e.message : '未知错误'}`,
+        );
       }
     }
   }, []);

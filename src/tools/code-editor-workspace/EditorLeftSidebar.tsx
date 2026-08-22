@@ -607,6 +607,8 @@ export function EditorLeftSidebar({
 
       {/* 文件夹树分组:已打开根文件夹的懒加载目录树,位于文件列表下方。
           独立于上方文件列表的折叠状态;无打开文件夹时整组不渲染。
+          高度:无「对比差异」分组时撑满剩余空间(fillHeight),
+          有则内容自适应 max-h-64 封顶,把空间让给对比差异分组。
           以 roots 签名作 key:文件夹开/关时重挂载并清空子项缓存,
           展开的目录由组件内部 effect 自动重新补载。 */}
       <FolderTreeSection
@@ -614,6 +616,7 @@ export function EditorLeftSidebar({
         folders={folders}
         expandedDirs={expandedDirs}
         activeTabPath={tabs.find((t) => t.id === activeTabId)?.path ?? null}
+        fillHeight={compares.length === 0}
         onToggleDir={onToggleDir}
         onCloseFolder={onCloseFolder}
         onOpenFile={onOpenTreeFile}

@@ -2,7 +2,10 @@
  * 左栏「文件夹」树分组 —— 已打开根文件夹的懒加载目录树
  *
  * 位于「打开的编辑器」面板内、已打开文件列表下方(「对比差异」分组之前),
- * 独立折叠(仿 VSCode 资源管理器的多根工作区)。交互:
+ * 独立折叠(仿 VSCode 资源管理器的多根工作区)。
+ *
+ * 高度策略:下方无「对比差异」分组时(fillHeight)去掉限高、撑满剩余空间;
+ * 有对比差异分组时内容自适应、max-h-64 封顶,把空间让给下方分组。交互:
  * - 分组头点击 → 折叠/展开整个「文件夹」分组(仅本组,不影响文件列表)
  * - 根文件夹行:点击切换根的展开;hover 行尾显示关闭按钮(移除该根,
  *   不影响其中已打开的文件 Tab)
@@ -38,6 +41,13 @@ export interface FolderTreeSectionProps {
   expandedDirs: readonly string[];
   /** 当前激活 Tab 的路径(用于高亮树中的活动文件;null 表示无激活文件) */
   activeTabPath?: string | null;
+  /**
+   * 是否撑满面板剩余高度(默认 false)。
+   * 下方没有「对比差异」分组时置 true:树区去掉 max-h 上限并填满剩余空间,
+   * 空白余量归入树区而非散落在面板底部;有对比差异分组时保持内容自适应
+   * (max-h-64 封顶),把空间让给下方分组。
+   */
+  fillHeight?: boolean;
   /** 切换目录展开/折叠 */
   onToggleDir?: (dirPath: string) => void;
   /** 关闭某个根文件夹 */
@@ -52,6 +62,7 @@ export function FolderTreeSection({
   folders,
   expandedDirs,
   activeTabPath = null,
+  fillHeight = false,
   onToggleDir,
   onCloseFolder,
   onOpenFile,
@@ -215,7 +226,11 @@ export function FolderTreeSection({
     <section
       aria-label="文件夹"
       data-testid={`${dataTestId}-folder-section`}
-      className="flex min-h-0 flex-initial flex-col border-b border-sidebar-border"
+      className={cn(
+        'flex min-h-0 flex-col',
+        // 撑满剩余高度时不需要底部分隔线(下方无分组);自适应模式保留分隔线
+        fillHeight ? 'flex-1' : 'border-b border-sidebar-border flex-initial',
+      )}
     >
       {/* 分组头:点击切换整组折叠;样式对齐「打开的编辑器」「对比差异」标题 */}
       <div
@@ -252,7 +267,11 @@ export function FolderTreeSection({
       </div>
 
       {!collapsed && (
-        <ScrollArea className="max-h-64 min-h-0 flex-initial">
+        <ScrollArea
+          data-testid={`${dataTestId}-tree-scroll`}
+          // fillHeight:不限高撑满剩余空间;否则内容自适应、max-h-64 封顶内部滚动
+          className={cn('min-h-0', fillHeight ? 'flex-1' : 'max-h-64 flex-initial')}
+        >
           <ul className="p-1.5 pt-1">
             {folders.map((f) => {
               const rootName =
