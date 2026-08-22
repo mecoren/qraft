@@ -1,8 +1,10 @@
 /**
  * 顶栏 Tab 栏 —— VSCode 风格多文件切换
  *
- * - 每个 Tab 显示标题 + 未保存圆点(•)+ 关闭按钮(×)
- * - 固定(pinned)Tab 始终排在最前,显示 Pin 图标(对齐 VSCode 语义)
+ * - 每个 Tab 依次显示:文件图标 → 标题 → 未保存圆点(•)/ 关闭按钮(×)
+ *   共用槽位;平时显示圆点(有未保存改动),悬停 Tab 时圆点淡出、
+ *   × 在同一位置淡入(仿 VSCode)
+ * - 固定(pinned)Tab 用 Pin 图标替代文件图标,始终排在最前
  * - 激活 Tab:顶部 2px 主色条 + 高亮背景
  * - 右键 Tab 弹出共享 ContextMenu(关闭/固定/复制路径/资源管理器等)
  * - 对比差异项也作为 Tab 展示(如 a.ts ⟷ b.ts),点击切换激活对比,
@@ -15,7 +17,7 @@
  *   - 轨道 14px、滑块 10px(2px 内缩)、全圆角胶囊、--scrollbar-slider-* token
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { GitCompareArrows, Pin, X } from 'lucide-react';
+import { FileText, GitCompareArrows, Pin, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { TabContextMenu } from './TabContextMenu';
@@ -400,44 +402,54 @@ export function EditorTabsBar({
                           className="absolute top-1.5 bottom-1.5 right-0 w-0.5 rounded-full bg-primary"
                         />
                       )}
-                      {tab.pinned && (
+                      {/*
+                       * Tab 依次:图标 → 文件名 → 未保存圆点/关闭按钮共用槽位。
+                       * 固定 Tab 用 Pin 图标替代文件图标(对齐 VSCode 语义)。
+                       */}
+                      {tab.pinned ? (
                         <Pin
                           aria-label="已固定"
                           data-testid={`${dataTestId}-pin-${tab.title}`}
                           className={cn(
-                            'size-3 shrink-0',
+                            'size-3.5 shrink-0',
                             active ? 'text-primary' : 'text-muted-foreground/70',
                           )}
                         />
+                      ) : (
+                        <FileText aria-hidden className="size-3.5 shrink-0" />
                       )}
-                      {dirty && (
-                        <span
-                          aria-label="未保存"
-                          data-testid={`${dataTestId}-dirty-${tab.title}`}
-                          className="size-2 shrink-0 rounded-full bg-primary"
-                        />
-                      )}
-                      <span className="truncate" title={tab.title}>
+                      <span className="min-w-0 truncate" title={tab.title}>
                         {tab.title}
                       </span>
-                      <button
-                        type="button"
-                        // 从关闭按钮按下拖动不应触发 Tab 拖拽(见 handlePointerDown 守卫)
-                        aria-label={`关闭 ${tab.title}`}
-                        data-testid={`${dataTestId}-close-${tab.title}`}
-                        onClick={(e) => {
-                          // 阻止冒泡,避免同时触发 Tab 切换
-                          e.stopPropagation();
-                          onClose(tab.id);
-                        }}
-                        className={cn(
-                          'ml-auto flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
-                          // 非激活 Tab 的关闭按钮悬停 Tab 时才显示(仿 VSCode)
-                          !active && 'opacity-0 group-hover:opacity-100',
+                      {/*
+                       * 未保存圆点 / 关闭按钮 共用槽位(ml-auto 锚定右侧):
+                       * 平时显示未保存圆点(有未保存改动时),悬停 Tab 时
+                       * 圆点淡出、关闭按钮在同一位置淡入(仿 VSCode)。
+                       * 无未保存改动时槽位留空,悬停同样出现关闭按钮。
+                       */}
+                      <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
+                        {dirty && (
+                          <span
+                            aria-label="未保存"
+                            data-testid={`${dataTestId}-dirty-${tab.title}`}
+                            className="size-2 rounded-full bg-primary transition-opacity group-hover:opacity-0"
+                          />
                         )}
-                      >
-                        <X aria-hidden className="size-3" />
-                      </button>
+                        <button
+                          type="button"
+                          // 从关闭按钮按下拖动不应触发 Tab 拖拽(见 handlePointerDown 守卫)
+                          aria-label={`关闭 ${tab.title}`}
+                          data-testid={`${dataTestId}-close-${tab.title}`}
+                          onClick={(e) => {
+                            // 阻止冒泡,避免同时触发 Tab 切换
+                            e.stopPropagation();
+                            onClose(tab.id);
+                          }}
+                          className="absolute inset-0 z-10 flex items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+                        >
+                          <X aria-hidden className="size-3" />
+                        </button>
+                      </span>
                     </div>
                   </TabContextMenu>
                 );
@@ -476,28 +488,27 @@ export function EditorTabsBar({
                       aria-hidden
                       data-testid={`${dataTestId}-compare-icon-${cp.id}`}
                       className={cn(
-                        'size-3 shrink-0',
+                        'size-3.5 shrink-0',
                         active ? 'text-primary' : 'text-muted-foreground/70',
                       )}
                     />
-                    <span className="truncate">{label}</span>
-                    <button
-                      type="button"
-                      aria-label={`关闭对比 ${label}`}
-                      data-testid={`${dataTestId}-compare-close-${cp.id}`}
-                      onClick={(e) => {
-                        // 阻止冒泡,避免同时触发 Tab 切换
-                        e.stopPropagation();
-                        onCloseCompare?.(cp.id);
-                      }}
-                      className={cn(
-                        'ml-auto flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
-                        // 非激活 Tab 的关闭按钮悬停 Tab 时才显示(仿 VSCode)
-                        !active && 'opacity-0 group-hover:opacity-100',
-                      )}
-                    >
-                      <X aria-hidden className="size-3" />
-                    </button>
+                    <span className="min-w-0 truncate">{label}</span>
+                    {/* 关闭按钮槽位:与普通 Tab 一致,悬停时在右侧槽位内淡入 */}
+                    <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
+                      <button
+                        type="button"
+                        aria-label={`关闭对比 ${label}`}
+                        data-testid={`${dataTestId}-compare-close-${cp.id}`}
+                        onClick={(e) => {
+                          // 阻止冒泡,避免同时触发 Tab 切换
+                          e.stopPropagation();
+                          onCloseCompare?.(cp.id);
+                        }}
+                        className="absolute inset-0 z-10 flex items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+                      >
+                        <X aria-hidden className="size-3" />
+                      </button>
+                    </span>
                   </div>
                 );
               })}

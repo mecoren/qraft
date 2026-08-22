@@ -17,7 +17,7 @@ monacoLoader.config({
   paths: {
     vs: `${import.meta.env.BASE_URL}monaco/vs`,
   },
-  // 中文本地化说明(与 GoNavi 的「先 import nls.messages.zh-cn 再加载 monaco」同源):
+  // 中文本地化说明(「先 import nls.messages.zh-cn 再加载 monaco」同源):
   // - zh-cn.js 是纯脚本,由 index.html 在 <head> 里经典 <script> 静态引入,
   //   严格早于本入口执行,已把 globalThis._VSCODE_NLS_MESSAGES 设为中文消息表;
   //   Monaco 的 localize() 每次调用时懒读该全局,查找栏/折叠提示等内置 UI 即为中文。

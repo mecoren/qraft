@@ -67,6 +67,64 @@ export const DEFAULT_WORKSPACE: Workspace = {
   sidebarWidth: 288,
 };
 
+/** 左栏最小宽度(px);拖拽夹取、持久化校验、ARIA 属性共用 */
+export const SIDEBAR_MIN_WIDTH = 180;
+/** 左栏最大宽度(px) */
+export const SIDEBAR_MAX_WIDTH = 600;
+/** 拖到最小宽度后继续左移超过该距离即隐藏侧栏(滞回区间,防来回闪烁) */
+export const SIDEBAR_HIDE_DELTA = 48;
+
+/** 拖拽分隔条的下一步动作:调整到指定宽度 / 隐藏 / 恢复显示 / 无动作 */
+export type SidebarResizeAction =
+  | { action: 'resize'; width: number }
+  | { action: 'hide' }
+  | { action: 'show' }
+  | { action: 'idle' };
+
+/**
+ * 由拖拽基准与光标位移推导分隔条拖拽的下一步动作。
+ *
+ * 基准契约(由调用方在拖拽期间维护 refs,统一以「宽度零点」锚定):
+ * - 隐藏状态下按下:startWidth=0、startX=抓取点(≈收起后侧栏左缘),
+ *   raw 即光标到左缘的距离,pinned=true
+ * - 手势中触发 hide:startWidth=-SIDEBAR_HIDE_DELTA、startX=hide 时光标X,
+ *   把「需回拖滞回带宽才能恢复」编码进基准
+ *
+ * 规则:
+ * - 隐藏且 raw >= 0(向右任意移动)→ show(以最小宽度起步并进入钉住阶段)
+ * - pinned(最小宽度钉住阶段):raw <= -SIDEBAR_HIDE_DELTA → hide;
+ *   其余 clamp 到 MIN~MAX —— 光标未越过「左缘 + 最小宽度」前恒为 MIN,
+ *   先以最小宽度展示,超过该边界才跟手放宽
+ * - 非 pinned 可见且 raw <= MIN - 阈值 继续左移 → hide(不覆盖已存宽度,
+ *   菜单/Ctrl+B 恢复显示时仍回到原宽度)
+ * - 其余可见情况 → resize(夹在 MIN~MAX 之间);隐藏期间左移为 idle,
+ *   不产生任何状态写入
+ *
+ * 滞回:show 在零点触发、hide 需越过零点/边界一个阈值带宽,不会震荡。
+ */
+export function resolveSidebarResize(
+  startWidth: number,
+  clientX: number,
+  startX: number,
+  visible: boolean,
+  /** 最小宽度钉住阶段:隐藏态按下,或刚由拖拽恢复、尚未越过最小宽度边界 */
+  pinned = false,
+): SidebarResizeAction {
+  // 用未夹取的原始目标宽度做阈值判断,夹取后的值仅用于写宽度
+  const raw = startWidth + (clientX - startX);
+  if (!visible) {
+    return raw >= 0 ? { action: 'show' } : { action: 'idle' };
+  }
+  if (pinned) {
+    // 左缘零点规则:拖离侧栏左缘超过滞回带宽才重新隐藏
+    if (raw <= -SIDEBAR_HIDE_DELTA) return { action: 'hide' };
+  } else if (raw <= SIDEBAR_MIN_WIDTH - SIDEBAR_HIDE_DELTA) {
+    return { action: 'hide' };
+  }
+  const width = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, raw));
+  return { action: 'resize', width };
+}
+
 /** 工作区在 Rust 配置存储中的键(点分路径,挂在 tool_prefs 下) */
 export const WORKSPACE_CONFIG_KEY = 'tool_prefs.editor_workspace_v1';
 
@@ -107,6 +165,8 @@ export function normalizeWorkspace(raw: unknown): Workspace {
     activeTabId,
     leftSidebarVisible: typeof w.leftSidebarVisible === 'boolean' ? w.leftSidebarVisible : true,
     sidebarWidth:
-      typeof w.sidebarWidth === 'number' && w.sidebarWidth >= 180 ? w.sidebarWidth : 288,
+      typeof w.sidebarWidth === 'number' && w.sidebarWidth >= SIDEBAR_MIN_WIDTH
+        ? w.sidebarWidth
+        : DEFAULT_WORKSPACE.sidebarWidth,
   };
 }
