@@ -37,7 +37,6 @@ const INTERNAL_ERROR: ErrorInfo = {
   code: 'ERR_INTERNAL',
   message: 'Unexpected IPC response',
 };
-
 /**
  * 归一化 Tauri 命令的 reject 载荷为 ErrorInfo。
  *
@@ -50,7 +49,7 @@ const INTERNAL_ERROR: ErrorInfo = {
  * - `{ kind | code, detail | details, message? }` → 还原错误码与消息
  * - 字符串 → 直接作为消息;其余原样字符串化兜底
  */
-function normalizeRejection(e: unknown): ErrorInfo {
+export function normalizeIpcError(e: unknown): ErrorInfo {
   if (e instanceof Error) {
     return { code: INTERNAL_ERROR.code, message: e.message };
   }
@@ -65,7 +64,8 @@ function normalizeRejection(e: unknown): ErrorInfo {
     const rawMessage = typeof obj.message === 'string' && obj.message ? obj.message : undefined;
     return {
       code: kind ?? code ?? INTERNAL_ERROR.code,
-      message: rawMessage ?? (typeof detail === 'string' && detail ? detail : undefined) ?? INTERNAL_ERROR.message,
+      message:
+        rawMessage ?? (typeof detail === 'string' && detail ? detail : undefined) ?? INTERNAL_ERROR.message,
       ...(detail !== undefined ? { details: detail } : {}),
     };
   }
@@ -113,7 +113,7 @@ export async function safeInvoke<T>(
     const resp = await tauriInvoke<CommandResponse<T>>(cmd, args);
     return unwrapResponse(resp);
   } catch (e) {
-    return { ok: false, error: normalizeRejection(e) };
+    return { ok: false, error: normalizeIpcError(e) };
   }
 }
 

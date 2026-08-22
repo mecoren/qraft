@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type JSX } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@/lib/ipc';
+import { listen, normalizeIpcError } from '@/lib/ipc';
 import { toast } from 'sonner';
 import { Palette, Type, Check, ArrowUp, ArrowDown, FileText, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -148,7 +148,8 @@ export function UpdateSection(): JSX.Element {
         toast.info(`当前为「${resp.installModeLabel}」,需前往 GitHub Releases 下载整包更新`);
       }
     } catch (err) {
-      toast.error(`检查更新失败: ${String(err)}`);
+      // Tauri 命令 Err(AppError) 时以序列化错误对象 reject,需归一化取真实消息
+      toast.error(`检查更新失败:${normalizeIpcError(err).message}`);
     } finally {
       setChecking(false);
     }
@@ -167,7 +168,8 @@ export function UpdateSection(): JSX.Element {
       await invoke('app_install_update', { installMode: updateInfo?.installMode ?? null });
       // 安装后会自动重启,代码不会执行到这里
     } catch (err) {
-      const msg = String(err);
+      // 归一化后取真实消息(哨兵标记 MANUAL_INSTALL_REQUIRED 在 detail 文本中)
+      const msg = normalizeIpcError(err).message;
       if (msg.includes('MANUAL_INSTALL_REQUIRED')) {
         // 兜底:Rust 端判定为系统安装版,跳转下载页
         void invoke('app_open_release_page');
