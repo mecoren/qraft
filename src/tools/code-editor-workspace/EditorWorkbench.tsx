@@ -782,6 +782,12 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                   onChange={(v) =>
                     useEditorWorkspaceStore.getState().setTabContent(activeTab.id, v)
                   }
+                  // 自动换行按 Tab 独立记忆(右键菜单「自动换行」切换),
+                  // 只作用于当前编辑器;随工作区持久化
+                  wordWrap={activeTab.wordWrap ?? true}
+                  onToggleWordWrap={() => {
+                    useEditorWorkspaceStore.getState().toggleTabWordWrap(activeTab.id);
+                  }}
                   minimap
                   onMount={handleEditorMount}
                   // 右下角语言徽章(仿 VSCode):点击弹出「选择语言模式」对话框,

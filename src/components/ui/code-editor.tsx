@@ -20,7 +20,7 @@
  *   因此切换主题无需重挂载编辑器。
  */
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import Editor, { type BeforeMount, type Monaco, type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { ClipboardPaste, FolderOpen, X } from 'lucide-react';
@@ -162,6 +162,16 @@ export interface CodeEditorProps {
    */
   fixedTheme?: string;
   /**
+   * 是否自动换行(受控模式)。缺省时组件内部维护开关状态(默认开启),
+   * 经右键菜单「自动换行」切换时只影响当前编辑器实例,互不干扰。
+   */
+  wordWrap?: boolean;
+  /**
+   * 切换自动换行回调(受控模式)。提供时由宿主持久化/管理状态;
+   * 缺省时组件自行翻转内部状态。
+   */
+  onToggleWordWrap?: () => void;
+  /**
    * 嵌入模式:去除容器自身的圆角与边框,由父容器统一提供外框。
    *
    * 适用于编辑器已被装入已带边框/圆角的卡片场景(典型:code-editor-workspace
@@ -227,6 +237,8 @@ export function CodeEditor({
   'data-testid': dataTestId,
   searchAnchor,
   fixedTheme,
+  wordWrap,
+  onToggleWordWrap,
   embedded = false,
   onMount,
 }: CodeEditorProps): ReactNode {
@@ -240,6 +252,17 @@ export function CodeEditor({
   // 中文右键菜单:open + 鼠标坐标(受控 Radix ContextMenu)
   const [ctxOpen, setCtxOpen] = useState(false);
   const [ctxPos, setCtxPos] = useState({ x: 0, y: 0 });
+  // 自动换行开关:受控(wordWrap prop)优先,否则组件内自管(默认开启)。
+  // 右键菜单「自动换行」切换只作用于当前编辑器实例。
+  const [innerWordWrap, setInnerWordWrap] = useState(true);
+  const wordWrapOn = wordWrap ?? innerWordWrap;
+  const toggleWordWrap = useCallback((): void => {
+    if (onToggleWordWrap) {
+      onToggleWordWrap();
+      return;
+    }
+    setInnerWordWrap((v) => !v);
+  }, [onToggleWordWrap]);
   // 主题名随 data-palette 变化,触发 Editor 重新应用主题;
   // 提供 fixedTheme 时使用固定主题(hook 无条件调用,再合并取优)
   const paletteThemeName = useMonacoTheme();
@@ -467,7 +490,8 @@ export function CodeEditor({
             minimap: { enabled: minimap },
             scrollBeyondLastLine: false,
             automaticLayout: true,
-            wordWrap: 'on',
+            // 自动换行:默认开启,可经右键菜单「自动换行」按当前编辑器切换
+            wordWrap: wordWrapOn ? 'on' : 'off',
             tabSize: 2,
             // 当前行高亮:'all' 覆盖整行(含 gutter),类似 VS Code。
             // 背景色使用柔和浅灰(#f3f3f3 / #2f2f2f,见 defineThemeFor),
@@ -515,6 +539,8 @@ export function CodeEditor({
         <MonacoContextMenu
           editor={editorInstance}
           readOnly={readOnly}
+          wordWrapOn={wordWrapOn}
+          onToggleWordWrap={toggleWordWrap}
           open={ctxOpen}
           position={ctxPos}
           onClose={() => setCtxOpen(false)}

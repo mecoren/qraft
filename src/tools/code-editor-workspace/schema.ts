@@ -37,6 +37,11 @@ export interface EditorTab {
   savedContent: string;
   /** 固定 Tab:不被批量关闭,始终排在 Tab 栏最前 */
   pinned: boolean;
+  /**
+   * 自动换行开关(仅当前编辑器生效):右键菜单「自动换行」切换。
+   * 可选字段,缺省视为 true(与旧行为一致);随工作区持久化记忆。
+   */
+  wordWrap?: boolean;
 }
 
 /**
@@ -148,6 +153,8 @@ function sanitizeTab(raw: unknown): EditorTab | null {
   const pinned = t.pinned === true;
   // 旧版本持久化数据无 autoTitle 字段(未命名 Tab 标题派生),缺省即不携带
   const autoTitle = typeof t.autoTitle === 'string' && t.autoTitle ? t.autoTitle : undefined;
+  // 旧版本持久化数据无 wordWrap 字段:缺省视为开启(与历史行为一致)
+  const wordWrap = typeof t.wordWrap === 'boolean' ? t.wordWrap : true;
   return {
     id: t.id,
     title: t.title,
@@ -157,6 +164,7 @@ function sanitizeTab(raw: unknown): EditorTab | null {
     content,
     savedContent,
     pinned,
+    wordWrap,
   };
 }
 

@@ -26,6 +26,8 @@
  *        格式化文档 | 命令面板;剪切/复制按选区禁用,粘贴按只读禁用。
  *        启用折叠时(options.folding = true)末尾追加「折叠 / 展开 /
  *        切换折叠 / 全部折叠 / 全部展开」组,动作 id 见 FOLDING_MENU_DEFS。
+ *        提供 onToggleWordWrap 时末尾追加「自动换行」开关项(带勾选态),
+ *        切换仅作用于当前编辑器实例,由宿主经 props 下发 wordWrap 生效。
  *
  * 已知坑(0.56 源码确认):
  * - 查找/替换的 id 不是 editor.action.find/replace,而是
@@ -33,8 +35,9 @@
  * - 粘贴命令在 WebView2 中 editor.trigger 不视为用户手势,execCommand('paste')
  *   被拒绝;改为 navigator.clipboard.readText() + editor.executeEdits 手动插入。
  */
-import { useCallback, useEffect, useMemo, useRef, type JSX } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type JSX } from 'react';
 import { createPortal } from 'react-dom';
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { OnMount } from '@monaco-editor/react';
 
@@ -52,6 +55,16 @@ export interface MonacoContextMenuProps {
    * 因此折叠关闭时整个折叠菜单组不注入,避免出现「点了没反应」的无效项。
    */
   folding?: boolean;
+  /**
+   * 当前是否开启自动换行(用于「自动换行」项的勾选态展示)。
+   * 仅在提供 onToggleWordWrap 时生效。
+   */
+  wordWrapOn?: boolean;
+  /**
+   * 切换自动换行回调;提供时菜单末尾注入「自动换行」开关项。
+   * 缺省时不注入(如 DiffEditor 对比视图等不开放该开关的场景)。
+   */
+  onToggleWordWrap?: () => void;
   /** 菜单是否打开 */
   open: boolean;
   /** 右键坐标(client 坐标,fixed 定位用) */
@@ -63,12 +76,14 @@ export interface MonacoContextMenuProps {
 }
 
 interface MenuEntry {
-  /** Monaco 命令/动作 id(editor.trigger 用) */
+  /** Monaco 命令/动作 id(editor.trigger 用);__ 前缀为本地特殊项 */
   id: string;
   label: string;
   shortcut?: string;
   /** 是否禁用(仅上下文禁用:剪切/复制需选区,粘贴只读) */
   disabled: boolean;
+  /** 勾选态(仅「自动换行」等开关项使用;定义即渲染勾选列) */
+  checked?: boolean;
 }
 
 /**
@@ -116,6 +131,8 @@ export function MonacoContextMenu({
   editor,
   readOnly,
   folding = true,
+  wordWrapOn,
+  onToggleWordWrap,
   open,
   position,
   onClose,
@@ -128,7 +145,19 @@ export function MonacoContextMenu({
     const hasSelection = selection != null && !selection.isEmpty();
     // 折叠动作前置条件为 CONTEXT_FOLDING_ENABLED(即 options.folding),
     // 折叠关闭时不注入该菜单组,避免无效项。
-    const defs = folding ? [...MENU_DEFS, ...FOLDING_MENU_DEFS] : MENU_DEFS;
+    const baseDefs = folding ? [...MENU_DEFS, ...FOLDING_MENU_DEFS] : MENU_DEFS;
+    // 提供切换回调时,末尾追加「自动换行」开关组(仅作用于当前编辑器实例)
+    const defs: Omit<MenuEntry, 'disabled'>[] = onToggleWordWrap
+      ? [
+          ...baseDefs,
+          { id: '__sep__w', label: '' },
+          {
+            id: '__toggle_word_wrap__',
+            label: '自动换行',
+            checked: wordWrapOn ?? false,
+          },
+        ]
+      : baseDefs;
     return defs.map((def) => {
       if (def.id.startsWith('__sep__')) {
         return { ...def, disabled: false };
@@ -146,10 +175,49 @@ export function MonacoContextMenu({
     });
     // open 依赖是故意的:菜单重新打开时需基于最新选区重算禁用状态
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-x/exhaustive-deps
-  }, [editor, open, readOnly, folding]);
+  }, [editor, open, readOnly, folding, wordWrapOn, onToggleWordWrap]);
 
-  // 浮层容器 ref:点击外部关闭
+  // 浮层容器 ref:点击外部关闭 + 视口边界修正测量
   const menuRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * 视口边界修正(fixed 定位不会自动避让视口边缘):
+   * - 底部放不下 → 整个菜单向上顶(底边对齐光标上方);
+   *   向上仍放不下(视口过矮)→ 贴顶夹取并限制高度、内部滚动;
+   * - 右侧放不下 → 左移,保证完整可见。
+   * useLayoutEffect 在首帧绘制前测量并直接写回样式,无闪跳、无额外渲染。
+   */
+  useLayoutEffect(() => {
+    if (!open) return;
+    const el = menuRef.current;
+    if (!el) return;
+    // 与视口边缘保留的安全间距(px)
+    const margin = 8;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    let x = position.x;
+    let y = position.y;
+    let maxH: number | undefined;
+    if (x + w > window.innerWidth - margin) {
+      x = Math.max(margin, window.innerWidth - w - margin);
+    }
+    if (y + h > window.innerHeight - margin) {
+      y = position.y - h;
+      if (y < margin) {
+        y = margin;
+        maxH = window.innerHeight - margin * 2;
+      }
+    }
+    // 每次打开都先复位,再按需写入修正值
+    el.style.maxHeight = '';
+    el.style.overflowY = '';
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    if (maxH !== undefined) {
+      el.style.maxHeight = `${maxH}px`;
+      el.style.overflowY = 'auto';
+    }
+  }, [open, position]);
 
   // 点击外部 / Esc / 滚动 / blur 关闭
   useEffect(() => {
@@ -209,6 +277,13 @@ export function MonacoContextMenu({
         void handlePaste();
         return;
       }
+      // 本地开关项:不经过 editor.trigger,直接回调宿主切换状态
+      // (wordWrap 由 React props → Monaco updateOptions 生效)
+      if (id === '__toggle_word_wrap__') {
+        onClose();
+        onToggleWordWrap?.();
+        return;
+      }
       onClose();
       if (!editor) return;
       // editor.trigger 对 registerCommand 与 registerEditorAction 均有效,
@@ -220,7 +295,7 @@ export function MonacoContextMenu({
         editor.getAction(id)?.run();
       }
     },
-    [editor, onClose, handlePaste],
+    [editor, onClose, handlePaste, onToggleWordWrap],
   );
 
   if (!open) return null;
@@ -262,6 +337,13 @@ export function MonacoContextMenu({
             )}
           >
             <span className="flex-1 truncate text-left">{entry.label}</span>
+            {entry.checked && (
+              <Check
+                aria-label={`${entry.label}已开启`}
+                data-testid={`${dataTestId ?? 'monaco-ctx'}-${entry.id.split('.').pop()}-check`}
+                className="ml-auto size-3.5 shrink-0 text-primary"
+              />
+            )}
             {entry.shortcut && (
               <kbd className="ml-4 shrink-0 font-mono text-xs tracking-wider opacity-60">
                 {entry.shortcut}

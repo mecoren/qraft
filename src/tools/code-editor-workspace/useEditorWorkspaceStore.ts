@@ -108,6 +108,11 @@ interface WorkspaceState {
   /** 更新 Tab 语言(语言选择器调用) */
   setTabLanguage: (id: string, language: EditorLanguage) => void;
   /**
+   * 切换 Tab 的自动换行开关(右键菜单「自动换行」调用)。
+   * 仅作用于该 Tab 对应的编辑器实例;缺省视为开启,切换后随工作区持久化。
+   */
+  toggleTabWordWrap: (id: string) => void;
+  /**
    * 保存成功后绑定路径并固化内容快照(清 dirty)。
    * 路径变化(首次另存为/另存为到新扩展名)时按新路径重新推断语言,
    * 让 Monaco 高亮与文件类型保持同步;覆盖保存保留当前语言。
@@ -338,6 +343,15 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
   setTabLanguage: (id, language) => {
     const { workspace } = get();
     const tabs = workspace.tabs.map((t) => (t.id === id ? { ...t, language } : t));
+    set({ workspace: { ...workspace, tabs }, userTouched: true });
+  },
+
+  toggleTabWordWrap: (id) => {
+    const { workspace } = get();
+    // 缺省(旧数据/新建 Tab 未写入字段)视为开启,取反得到目标状态
+    const tabs = workspace.tabs.map((t) =>
+      t.id === id ? { ...t, wordWrap: !(t.wordWrap ?? true) } : t,
+    );
     set({ workspace: { ...workspace, tabs }, userTouched: true });
   },
 
