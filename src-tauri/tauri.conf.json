@@ -144,7 +144,8 @@
         "installMode": "currentUser",
         "languages": [
           "English"
-        ]
+        ],
+        "installerHooks": "./windows/installer-hooks.nsh"
       },
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
