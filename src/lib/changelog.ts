@@ -111,8 +111,7 @@ export const CHANGELOG_VERSIONS: VersionInfo[] = [
       },
       {
         category: 'chore',
-        description:
-          '开发/生产环境数据隔离:dev 使用独立应用标识符,不再读写正式版数据目录',
+        description: '开发/生产环境数据隔离:dev 使用独立应用标识符,不再读写正式版数据目录',
       },
       {
         category: 'chore',
