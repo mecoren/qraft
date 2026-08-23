@@ -9,6 +9,7 @@
  *
  * v0.1.0 内容基于 git log(2026-07-25 首提交 至 2026-08-21 00:00)提炼,
  * v0.1.1 内容基于 git log 与代码(2026-08-21 00:00 之后)提炼,
+ * v0.1.2 内容基于 git log(v0.1.1 标签之后至 2026-08-23)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -35,6 +36,90 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.1.2',
+    date: '2026-08-23',
+    summary:
+      '工具箱扩容与编辑器全面增强:IP 解析、PNG 压缩、多编码支持、多根文件夹工作区与 Markdown 预览升级',
+    changes: [
+      {
+        category: 'feature',
+        description:
+          '新增 IP 地址解析器与归属地查询:支持 IPv4/IPv6 与 CIDR 记法解析,实时计算子网掩码、网络/广播地址、可用主机范围等信息,并可查询 IP 归属地',
+      },
+      {
+        category: 'feature',
+        description: '新增 PNG 压缩工具,集成 OxiPNG 无损优化与调色板量化压缩',
+      },
+      {
+        category: 'feature',
+        description:
+          '新增多语言文本编码检测与转换(UTF-8 / GBK / Big5 等),编辑器支持文件编码切换并持久化',
+      },
+      {
+        category: 'feature',
+        description:
+          '编辑器支持打开文件夹形成多根文件夹工作区:目录树懒加载、展开状态持久化,并校验二进制/非 UTF-8 文件',
+      },
+      {
+        category: 'feature',
+        description: 'Markdown 预览增强:分栏编辑、公式与图表渲染、滚动同步',
+      },
+      {
+        category: 'feature',
+        description: '新增 JSON 键排序与实体类生成工具',
+      },
+      {
+        category: 'feature',
+        description: '文件树按文件类型展示 Material Icon Theme 图标(参考 VSCode 效果)',
+      },
+      {
+        category: 'feature',
+        description: '编辑器支持单个 Tab 自动换行开关,右键菜单切换并随工作区持久化',
+      },
+      {
+        category: 'feature',
+        description: '全局搜索支持结果跳转与字段高亮;生产环境下禁用浏览器默认右键菜单',
+      },
+      {
+        category: 'fix',
+        description: '完善 Monaco 中文本地化与主题明暗判定',
+      },
+      {
+        category: 'fix',
+        description: '修复命令面板滚动区域高度塌缩与下拉框滚轮失效问题',
+      },
+      {
+        category: 'fix',
+        description:
+          '优化文件打开失败的错误提示:区分不支持格式等错误类型,IPC 错误归一化保留真实错误详情',
+      },
+      {
+        category: 'refactor',
+        description:
+          '编辑器侧边栏体验优化:Tab 显示所在目录、未命名 Tab 按首行内容派生标题、中键关闭 Tab、拖拽逻辑重构(滞回防抖)与文件树高度策略自适应',
+      },
+      {
+        category: 'refactor',
+        description:
+          '优化 Monaco JSON 折叠摘要样式({ N 个键 } / [ N 个元素 ])、全局滚动条样式与字体选择器性能',
+      },
+      {
+        category: 'chore',
+        description:
+          'Windows 安装包集成右键菜单:安装时注册文件/文件夹右键菜单与「打开方式」列表,卸载自动清理',
+      },
+      {
+        category: 'chore',
+        description:
+          '开发/生产环境数据隔离:dev 使用独立应用标识符,不再读写正式版数据目录',
+      },
+      {
+        category: 'chore',
+        description: '补充 destructive-foreground 颜色变量,完善主题色彩体系',
+      },
+    ],
+  },
   {
     version: '0.1.1',
     date: '2026-08-21',
