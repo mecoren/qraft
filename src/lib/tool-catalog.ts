@@ -344,20 +344,10 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
   {
     id: 'markdown_preview',
     name: 'Markdown 预览',
-    description:
-      '类 Typora 分栏预览:代码高亮、数学公式、Mermaid 图表、大纲导航与多排版主题',
+    description: '类 Typora 分栏预览:代码高亮、数学公式、Mermaid 图表、大纲导航与多排版主题',
     category: 'text',
     icon: FileText,
-    keywords: [
-      'markdown',
-      'md',
-      '预览',
-      '公式',
-      'katex',
-      'mermaid',
-      '大纲',
-      '导出 html',
-    ],
+    keywords: ['markdown', 'md', '预览', '公式', 'katex', 'mermaid', '大纲', '导出 html'],
   },
   {
     id: 'list_comparer',

@@ -12,7 +12,15 @@
  * 宿主可通过 onScroller / onArticle / onRendered 回调接入同步与导出能力。
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type MouseEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type JSX,
+  type MouseEvent,
+} from 'react';
 import { cn } from '@/lib/utils';
 import { writeClipboardText } from '@/lib/clipboard';
 import { openExternal } from '@/lib/open-external';
@@ -91,10 +99,7 @@ export function MarkdownPreviewPane({
 
   const isDark = useIsDarkTheme();
   /** Night 主题固定深色:Mermaid 图表需叠加判定 */
-  const effectiveDark = useMemo(
-    () => isDark || themeId === 'night',
-    [isDark, themeId],
-  );
+  const effectiveDark = useMemo(() => isDark || themeId === 'night', [isDark, themeId]);
 
   const articleRef = useRef<HTMLElement | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -102,9 +107,11 @@ export function MarkdownPreviewPane({
   /** 图片 lightbox 当前展示的 src(null=关闭) */
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   /** 脚注悬浮预览:定位 + 内容文本 */
-  const [footnotePop, setFootnotePop] = useState<{ top: number; left: number; text: string } | null>(
-    null,
-  );
+  const [footnotePop, setFootnotePop] = useState<{
+    top: number;
+    left: number;
+    text: string;
+  } | null>(null);
 
   // —— 输入 → 两阶段渲染(Worker 异步)——
   useEffect(() => {

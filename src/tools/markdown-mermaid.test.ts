@@ -8,11 +8,7 @@ const initialize = vi.fn();
 
 vi.mock('mermaid', () => ({ default: { initialize, render } }));
 
-import {
-  clearMermaidSvgCache,
-  renderMermaidIn,
-  rerenderMermaidIn,
-} from './markdown-mermaid';
+import { clearMermaidSvgCache, renderMermaidIn, rerenderMermaidIn } from './markdown-mermaid';
 
 /** 构建含 n 个相同定义占位容器的宿主元素 */
 function hostWith(def: string, count = 1): HTMLElement {

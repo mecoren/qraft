@@ -11,7 +11,14 @@
  * 纯转义展示,加载完成后的下一轮渲染自动恢复高亮。
  */
 
-import { lexer as markedLexer, Marked, type Tokens, type Token, type TokenizerThis, type RendererThis } from 'marked';
+import {
+  lexer as markedLexer,
+  Marked,
+  type Tokens,
+  type Token,
+  type TokenizerThis,
+  type RendererThis,
+} from 'marked';
 import hljs from 'highlight.js/lib/core';
 import javascript from 'highlight.js/lib/languages/javascript';
 import typescript from 'highlight.js/lib/languages/typescript';
@@ -80,9 +87,28 @@ export async function loadExtendedLanguages(): Promise<void> {
     import('highlight.js/lib/languages/yaml'),
   ]);
   const names = [
-    'c', 'cpp', 'csharp', 'dart', 'diff', 'dockerfile', 'go', 'graphql', 'ini',
-    'java', 'kotlin', 'less', 'lua', 'makefile', 'php', 'powershell',
-    'ruby', 'rust', 'scss', 'sql', 'swift', 'yaml',
+    'c',
+    'cpp',
+    'csharp',
+    'dart',
+    'diff',
+    'dockerfile',
+    'go',
+    'graphql',
+    'ini',
+    'java',
+    'kotlin',
+    'less',
+    'lua',
+    'makefile',
+    'php',
+    'powershell',
+    'ruby',
+    'rust',
+    'scss',
+    'sql',
+    'swift',
+    'yaml',
   ] as const;
   for (const [index, name] of names.entries()) {
     hljs.registerLanguage(name, modules[index]?.default as HljsLanguageModule);
@@ -138,7 +164,11 @@ const LANG_ALIASES: Readonly<Record<string, string>> = {
 /** 归一化围栏语言标识;返回 hljs 语言名,null 表示当前不可用(纯转义展示) */
 export function resolveHighlightLang(lang?: string): string | null {
   if (!lang) return null;
-  const tag = lang.trim().toLowerCase().split(/[\s,:{]/)[0] ?? '';
+  const tag =
+    lang
+      .trim()
+      .toLowerCase()
+      .split(/[\s,:{]/)[0] ?? '';
   if (!tag || tag === 'mermaid') return null;
   const mapped = LANG_ALIASES[tag] ?? tag;
   return hljs.getLanguage(mapped) ? mapped : null;
@@ -266,9 +296,7 @@ export function buildTocHtml(outline: OutlineItem[]): string {
       if (cursor < outline.length && outline[cursor].level > level) {
         children = `<ul>${buildLevel(level + 1)}</ul>`;
       }
-      items.push(
-        `<li><a href="#${node.id}">${escapeHtml(node.text)}</a>${children}</li>`,
-      );
+      items.push(`<li><a href="#${node.id}">${escapeHtml(node.text)}</a>${children}</li>`);
     }
     return items.join('');
   };
@@ -457,7 +485,10 @@ function collectFootnoteDefs(source: string): { defs: Map<string, string>; body:
  * 将正文中的脚注引用替换为带序号的上标链接。
  * 返回替换后的正文与按出现顺序排列的引用标签。
  */
-function replaceFootnoteRefs(body: string, defs: Map<string, string>): { body: string; order: string[] } {
+function replaceFootnoteRefs(
+  body: string,
+  defs: Map<string, string>,
+): { body: string; order: string[] } {
   const order: string[] = [];
   const replaced = mapOutsideFences(body, (line) =>
     line.replace(/\[\^([^\]\s]+)\]/g, (whole, label: string) => {
@@ -506,11 +537,7 @@ const COPY_SVG =
  * @param fastHighlight true 时跳过 hljs 高亮(两阶段渲染的快速阶段,
  *   仅纯转义,布局尺寸与完整阶段一致,避免视觉跳动)
  */
-function createRendererObject(
-  slugs: Slugger,
-  collected: HeadingMeta[],
-  fastHighlight: boolean,
-) {
+function createRendererObject(slugs: Slugger, collected: HeadingMeta[], fastHighlight: boolean) {
   return {
     /** 标题:注入锚点 id + 悬停锚点链接,并记录元数据(大纲/[toc] 的唯一事实源) */
     heading(this: RendererThis, { tokens, depth }: Tokens.Heading): string {
@@ -528,7 +555,11 @@ function createRendererObject(
 
     /** 围栏代码块:mermaid → 占位容器;其余 → hljs 高亮 + 语言徽标 + 复制按钮 */
     code({ text, lang }: Tokens.Code): string {
-      const langTag = lang?.trim().toLowerCase().split(/[\s,:{]/)[0] ?? '';
+      const langTag =
+        lang
+          ?.trim()
+          .toLowerCase()
+          .split(/[\s,:{]/)[0] ?? '';
 
       if (langTag === 'mermaid') {
         return (

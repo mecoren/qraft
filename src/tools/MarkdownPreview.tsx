@@ -20,14 +20,7 @@
  * 本页保留工具级 UI(大纲/主题选择/导出/状态栏)与滚动同步编排。
  */
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type JSX,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import type { Monaco } from '@monaco-editor/react';
 import { useStore } from 'zustand';
@@ -70,16 +63,9 @@ import { readClipboardText, writeClipboardRichText, writeClipboardText } from '@
 import { showAlert } from '@/lib/toast-alert';
 import { cn } from '@/lib/utils';
 import { computeDocStats, type DocStats, type OutlineItem } from './markdown-render';
-import {
-  applyInlineWrap,
-  toggleLinePrefixes,
-  type LinePrefixMode,
-} from './markdown-edit';
+import { applyInlineWrap, toggleLinePrefixes, type LinePrefixMode } from './markdown-edit';
 import { htmlToMarkdown } from './markdown-paste';
-import {
-  MarkdownPreviewPane,
-  useIsDarkTheme,
-} from './markdown-preview-pane';
+import { MarkdownPreviewPane, useIsDarkTheme } from './markdown-preview-pane';
 import { buildSyncAnchors, mapAcrossAnchors } from './markdown-scroll';
 import { buildStandaloneHtml, saveStandaloneHtml } from './markdown-export';
 import {
@@ -390,7 +376,9 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
       lineNumber: selection.startLineNumber,
       column: selection.startColumn,
     });
-    ed.executeEdits('md-format', [{ range: selection, text: result.insert, forceMoveMarkers: true }]);
+    ed.executeEdits('md-format', [
+      { range: selection, text: result.insert, forceMoveMarkers: true },
+    ]);
     const startPos = model.getPositionAt(startOffset + result.selectStart);
     const endPos = model.getPositionAt(startOffset + result.selectEnd);
     ed.setSelection({
@@ -561,17 +549,14 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
       instance.addCommand(KeyMod.CtrlCmd | KeyCode.KeyB, () => applyInline('**', '**', '加粗文字'));
       instance.addCommand(KeyMod.CtrlCmd | KeyCode.KeyI, () => applyInline('*', '*', '斜体文字'));
       instance.addCommand(KeyMod.CtrlCmd | KeyCode.KeyE, () => applyInline('`', '`', '代码'));
-      instance.addCommand(
-        KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyX,
-        () => applyInline('~~', '~~', '删除线'),
+      instance.addCommand(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyX, () =>
+        applyInline('~~', '~~', '删除线'),
       );
-      instance.addCommand(
-        KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.Digit1,
-        () => applyLinePrefix('h1'),
+      instance.addCommand(KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.Digit1, () =>
+        applyLinePrefix('h1'),
       );
-      instance.addCommand(
-        KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.Digit2,
-        () => applyLinePrefix('h2'),
+      instance.addCommand(KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.Digit2, () =>
+        applyLinePrefix('h2'),
       );
       instance.addCommand(
         KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyV,
@@ -600,7 +585,11 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
     void writeClipboardRichText(html).then((ok) => {
       showAlert(
         ok
-          ? { variant: 'success', title: '已复制富文本', description: '可直接粘贴到邮件或文档编辑器' }
+          ? {
+              variant: 'success',
+              title: '已复制富文本',
+              description: '可直接粘贴到邮件或文档编辑器',
+            }
           : { variant: 'destructive', title: '复制失败' },
       );
     });
@@ -611,7 +600,11 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
     const html = articleRef.current?.innerHTML ?? '';
     if (!html) return;
     void writeClipboardText(html).then((ok) => {
-      showAlert(ok ? { variant: 'success', title: '已复制 HTML 源码' } : { variant: 'destructive', title: '复制失败' });
+      showAlert(
+        ok
+          ? { variant: 'success', title: '已复制 HTML 源码' }
+          : { variant: 'destructive', title: '复制失败' },
+      );
     });
   }, []);
 
@@ -815,7 +808,11 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
             )}
 
             {showPreview && (
-              <ResizablePanel defaultSize={showEditor ? 50 : 100} minSize={20} className="min-h-0 min-w-0">
+              <ResizablePanel
+                defaultSize={showEditor ? 50 : 100}
+                minSize={20}
+                className="min-h-0 min-w-0"
+              >
                 <section
                   className="flex h-full min-h-0 flex-col"
                   data-search-anchor="markdown_preview:preview"
@@ -833,7 +830,11 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
                       </SelectTrigger>
                       <SelectContent>
                         {THEME_ITEMS.map((item) => (
-                          <SelectItem key={item.id} value={item.id} data-testid={`theme-${item.id}`}>
+                          <SelectItem
+                            key={item.id}
+                            value={item.id}
+                            data-testid={`theme-${item.id}`}
+                          >
                             {item.label}
                           </SelectItem>
                         ))}
@@ -861,11 +862,17 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem data-testid="export-html-file" onSelect={() => void handleExportHtml()}>
+                          <DropdownMenuItem
+                            data-testid="export-html-file"
+                            onSelect={() => void handleExportHtml()}
+                          >
                             <Download aria-hidden className="mr-2 size-3.5 opacity-60" />
                             另存为 HTML 文件
                           </DropdownMenuItem>
-                          <DropdownMenuItem data-testid="copy-html-source" onSelect={handleCopyHtmlSource}>
+                          <DropdownMenuItem
+                            data-testid="copy-html-source"
+                            onSelect={handleCopyHtmlSource}
+                          >
                             <FileCode2 aria-hidden className="mr-2 size-3.5 opacity-60" />
                             复制 HTML 源码
                           </DropdownMenuItem>

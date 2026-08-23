@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildTocHtml,
-  computeDocStats,
-  renderMarkdown,
-  slugifyText,
-} from './markdown-render';
+import { buildTocHtml, computeDocStats, renderMarkdown, slugifyText } from './markdown-render';
 
 describe('slugifyText', () => {
   it('保留中文并折叠空白为连字符', () => {
@@ -206,9 +201,7 @@ describe('renderMarkdown:两阶段渲染(fast 模式)', () => {
 
   it('fast 与完整模式的大纲一致(锚点稳定不跳动)', () => {
     const md = '# T1\n\n## T2\n\n```py\nx=1\n```';
-    expect(renderMarkdown(md, { fastHighlight: true }).outline).toEqual(
-      renderMarkdown(md).outline,
-    );
+    expect(renderMarkdown(md, { fastHighlight: true }).outline).toEqual(renderMarkdown(md).outline);
   });
 });
 

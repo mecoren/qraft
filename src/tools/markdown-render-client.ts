@@ -10,11 +10,7 @@
  * 结果契约:resolve 的 RenderResult 均已消毒,可直接注入 DOM。
  */
 
-import {
-  renderMarkdown,
-  sanitizeMarkdownHtml,
-  type RenderResult,
-} from './markdown-render';
+import { renderMarkdown, sanitizeMarkdownHtml, type RenderResult } from './markdown-render';
 import { loadExtendedLanguages } from './markdown-core';
 
 interface WorkerEnvelope {
@@ -100,17 +96,20 @@ export function renderMarkdownAsync(source: string, fastHighlight = false): Prom
       clearTimeout(guard);
       resolve(result);
     };
-    const guard = setTimeout(() => {
-      pending.delete(id);
-      if (isFirstJob) {
-        // 首任务超时:Worker 环境异常,熔断
-        broken = true;
-        instance.terminate();
-        worker = null;
-        rejectAllPending();
-      }
-      finish(fallback());
-    }, isFirstJob ? FIRST_JOB_TIMEOUT_MS : 15_000);
+    const guard = setTimeout(
+      () => {
+        pending.delete(id);
+        if (isFirstJob) {
+          // 首任务超时:Worker 环境异常,熔断
+          broken = true;
+          instance.terminate();
+          worker = null;
+          rejectAllPending();
+        }
+        finish(fallback());
+      },
+      isFirstJob ? FIRST_JOB_TIMEOUT_MS : 15_000,
+    );
 
     pending.set(id, (envelope) => {
       if (!envelope?.ok || !envelope.raw) {

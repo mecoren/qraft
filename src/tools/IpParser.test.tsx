@@ -65,17 +65,12 @@ describe('parseIpv4', () => {
     expect(parseIpv4(input)).toBe(expected);
   });
 
-  it.each([
-    ['256.1.1.1'],
-    ['1.2.3'],
-    ['1.2.3.4.5'],
-    ['a.b.c.d'],
-    ['01.2.3.4'],
-    ['-1.2.3.4'],
-    [''],
-  ])('rejects %s', (input) => {
-    expect(parseIpv4(input)).toBeNull();
-  });
+  it.each([['256.1.1.1'], ['1.2.3'], ['1.2.3.4.5'], ['a.b.c.d'], ['01.2.3.4'], ['-1.2.3.4'], ['']])(
+    'rejects %s',
+    (input) => {
+      expect(parseIpv4(input)).toBeNull();
+    },
+  );
 });
 
 describe('formatIpv4', () => {
@@ -90,7 +85,7 @@ describe('formatIpv4', () => {
 
 describe('parseIpv6', () => {
   it('parses full form', () => {
-    expect(parseIpv6('2001:0db8:0000:0000:0000:0000:0000:0001')).toBe(0x20010db8n << 96n | 1n);
+    expect(parseIpv6('2001:0db8:0000:0000:0000:0000:0000:0001')).toBe((0x20010db8n << 96n) | 1n);
   });
 
   it('parses :: compression', () => {
@@ -104,15 +99,12 @@ describe('parseIpv6', () => {
     expect(mapped).toBe((0xffffn << 32n) | 0xc0a80182n);
   });
 
-  it.each([
-    ['1.2.3.4'],
-    ['2001:db8:::1'],
-    ['12345::'],
-    ['2001:db8:1:2:3:4:5:6:7'],
-    ['gggg::1'],
-  ])('rejects %s', (input) => {
-    expect(parseIpv6(input)).toBeNull();
-  });
+  it.each([['1.2.3.4'], ['2001:db8:::1'], ['12345::'], ['2001:db8:1:2:3:4:5:6:7'], ['gggg::1']])(
+    'rejects %s',
+    (input) => {
+      expect(parseIpv6(input)).toBeNull();
+    },
+  );
 });
 
 describe('formatIpv6Compressed', () => {
@@ -274,9 +266,7 @@ describe('IpParser', () => {
     expect(screen.getByTestId('ip-item-cidr')).toHaveTextContent('192.168.1.128/26');
     expect(screen.getByTestId('ip-item-network')).toHaveTextContent('192.168.1.128');
     expect(screen.getByTestId('ip-item-broadcast')).toHaveTextContent('192.168.1.191');
-    expect(screen.getByTestId('ip-item-hosts')).toHaveTextContent(
-      '192.168.1.129 - 192.168.1.190',
-    );
+    expect(screen.getByTestId('ip-item-hosts')).toHaveTextContent('192.168.1.129 - 192.168.1.190');
     expect(screen.getByTestId('ip-item-usable')).toHaveTextContent('62');
   });
 
@@ -315,9 +305,7 @@ describe('IpParser', () => {
     expect(screen.getByTestId('ip-geo-card-country')).toHaveTextContent('Hong Kong');
     expect(screen.getByTestId('ip-geo-card-region')).toHaveTextContent('Hong Kong');
     expect(screen.getByTestId('ip-geo-card-city')).toHaveTextContent('Hong Kong');
-    expect(screen.getByTestId('ip-geo-card-org')).toHaveTextContent(
-      'RadishCloud Technology LLC',
-    );
+    expect(screen.getByTestId('ip-geo-card-org')).toHaveTextContent('RadishCloud Technology LLC');
     expect(screen.getByTestId('ip-geo-card-network')).toHaveTextContent('(DCH)');
     expect(screen.getByTestId('ip-geo-card-asn')).toHaveTextContent('201217');
     expect(screen.getByTestId('ip-geo-card-timezone')).toHaveTextContent('+08:00 (HKT)');
@@ -349,9 +337,7 @@ describe('IpParser', () => {
   });
 
   it('shows error alert when geo query fails', async () => {
-    lookupIpGeoMock.mockRejectedValue(
-      new Error('ip lookup request failed: Network unreachable'),
-    );
+    lookupIpGeoMock.mockRejectedValue(new Error('ip lookup request failed: Network unreachable'));
     render(<IpParser toolId="ip_parser" metadata={null as never} />);
     fireEvent.click(screen.getByTestId('ip-geo-query'));
 

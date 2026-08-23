@@ -1004,8 +1004,8 @@
 /* —— 基底与默认变量(Qraft 默认主题 = typora)—— */
 .markdown-body {
   --md-font:
-    var(--app-font-family, system-ui), -apple-system, 'Segoe UI', 'PingFang SC',
-    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    var(--app-font-family, system-ui), -apple-system, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
   --md-heading-font: var(--md-font);
   --md-mono-font: var(--app-mono-font-family, 'JetBrains Mono', ui-monospace, monospace);
   --md-text: var(--foreground);
@@ -1071,8 +1071,8 @@
 
 /* Newsprint 报纸风:衬线字体、暖色纸张、深红强调(深浅两套) */
 .markdown-body.md-theme-newsprint {
-  --md-font: Georgia, 'Times New Roman', 'Source Han Serif SC', 'Noto Serif SC', 'Songti SC', SimSun,
-    serif;
+  --md-font:
+    Georgia, 'Times New Roman', 'Source Han Serif SC', 'Noto Serif SC', 'Songti SC', SimSun, serif;
   --md-heading-font: Georgia, 'Times New Roman', 'Source Han Serif SC', 'Noto Serif SC', serif;
   --md-text: oklch(0.25 0.01 80);
   --md-heading-text: oklch(0.22 0.02 60);
@@ -1103,8 +1103,9 @@
 
 /* Pixyll 杂志风:大号衬线正文、宽松行距、极简装饰 */
 .markdown-body.md-theme-pixyll {
-  --md-font: Georgia, 'Palatino Linotype', Palatino, 'Source Han Serif SC', 'Noto Serif SC',
-    'Songti SC', serif;
+  --md-font:
+    Georgia, 'Palatino Linotype', Palatino, 'Source Han Serif SC', 'Noto Serif SC', 'Songti SC',
+    serif;
   --md-heading-font: var(--md-font);
   --md-content-width: min(100%, 40rem);
   --md-line-height: 1.95;
@@ -1580,7 +1581,9 @@
   font-weight: 400;
   text-decoration: none;
   opacity: 0;
-  transition: opacity 120ms ease, color 120ms ease;
+  transition:
+    opacity 120ms ease,
+    color 120ms ease;
 }
 .markdown-body h1:hover .md-heading-anchor,
 .markdown-body h2:hover .md-heading-anchor,

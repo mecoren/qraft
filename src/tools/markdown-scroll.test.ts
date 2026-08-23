@@ -44,7 +44,8 @@ describe('buildSyncAnchors', () => {
         { id: 'backwards', line: 4 },
         { id: 'same-top', line: 9 },
       ],
-      resolveTop: (id) => (id === 'b' ? 120 : id === 'backwards' ? 50 : id === 'same-top' ? 120 : null),
+      resolveTop: (id) =>
+        id === 'b' ? 120 : id === 'backwards' ? 50 : id === 'same-top' ? 120 : null,
       maxLine: 60,
       maxScrollTop: 600,
     });

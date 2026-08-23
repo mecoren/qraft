@@ -170,7 +170,7 @@ function EntryIcon({ entry }: { entry: SearchEntry }): JSX.Element {
 }
 
 export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Element {
-  const [mode, setMode] = useState<SearchMode>('text');
+  const [mode, setMode] = useState<SearchMode>('feature');
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
 

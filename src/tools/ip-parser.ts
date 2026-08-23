@@ -183,9 +183,7 @@ export function formatIpv6Compressed(value: bigint): string {
   }
   if (bestLen < 2) return hexGroups.join(':');
   const head = hexGroups.slice(0, bestStart).join(':');
-  const tail = hexGroups
-    .slice(bestStart + bestLen)
-    .join(':');
+  const tail = hexGroups.slice(bestStart + bestLen).join(':');
   return `${head}::${tail}`;
 }
 

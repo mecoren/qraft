@@ -27,9 +27,7 @@ vi.mock('@/components/ui/code-editor', () => ({
 
 // react-resizable-panels 在 jsdom 下不可用(见 CodeEditor.test 说明),渲染静态面板
 vi.mock('@/components/ui/resizable', () => ({
-  ResizablePanelGroup: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  ResizablePanelGroup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   ResizablePanel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   ResizableHandle: () => <div />,
 }));
@@ -79,9 +77,12 @@ describe('MarkdownPreview', () => {
       { timeout: 1500 },
     );
     // 草稿防抖持久化
-    await waitFor(() => {
-      expect(localStorage.getItem(DRAFT_STORAGE_KEY)).toContain('Hello Preview');
-    }, { timeout: 1500 });
+    await waitFor(
+      () => {
+        expect(localStorage.getItem(DRAFT_STORAGE_KEY)).toContain('Hello Preview');
+      },
+      { timeout: 1500 },
+    );
   });
 
   it('空输入显示空态提示', async () => {

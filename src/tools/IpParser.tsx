@@ -41,8 +41,7 @@ function toInfoItems(a: IpAnalysis): InfoItem[] {
     items.push(
       {
         label: '可用主机范围',
-        value:
-          a.firstHost === a.lastHost ? a.firstHost : `${a.firstHost} - ${a.lastHost}`,
+        value: a.firstHost === a.lastHost ? a.firstHost : `${a.firstHost} - ${a.lastHost}`,
         testId: 'ip-item-hosts',
       },
       { label: '可用主机数', value: a.usableHosts.toString(), testId: 'ip-item-usable' },
@@ -103,10 +102,30 @@ function toGeoItems(info: IpGeoInfo): GeoItem[] {
       ),
       copyText: info.country ?? UNAVAILABLE,
     },
-    { label: 'Region', testId: 'ip-geo-card-region', value: info.region ?? UNAVAILABLE, copyText: info.region ?? UNAVAILABLE },
-    { label: 'City', testId: 'ip-geo-card-city', value: info.city ?? UNAVAILABLE, copyText: info.city ?? UNAVAILABLE },
-    { label: 'Org&ISP', testId: 'ip-geo-card-org', value: info.orgIsp ?? UNAVAILABLE, copyText: info.orgIsp ?? UNAVAILABLE },
-    { label: 'Network Type', testId: 'ip-geo-card-network', value: info.networkType, copyText: info.networkType },
+    {
+      label: 'Region',
+      testId: 'ip-geo-card-region',
+      value: info.region ?? UNAVAILABLE,
+      copyText: info.region ?? UNAVAILABLE,
+    },
+    {
+      label: 'City',
+      testId: 'ip-geo-card-city',
+      value: info.city ?? UNAVAILABLE,
+      copyText: info.city ?? UNAVAILABLE,
+    },
+    {
+      label: 'Org&ISP',
+      testId: 'ip-geo-card-org',
+      value: info.orgIsp ?? UNAVAILABLE,
+      copyText: info.orgIsp ?? UNAVAILABLE,
+    },
+    {
+      label: 'Network Type',
+      testId: 'ip-geo-card-network',
+      value: info.networkType,
+      copyText: info.networkType,
+    },
     {
       label: 'ASN',
       testId: 'ip-geo-card-asn',
@@ -175,14 +194,9 @@ export function IpParser(_props: ToolProps): JSX.Element {
           data-search-anchor="ip_parser:summary"
           className="rounded-lg border border-border bg-card px-4 py-3 shadow-card"
         >
-          <p className="mb-1 text-xs font-medium tracking-wide text-primary uppercase">
-            解析结果
-          </p>
+          <p className="mb-1 text-xs font-medium tracking-wide text-primary uppercase">解析结果</p>
           <div className="flex flex-wrap items-center gap-2">
-            <h2
-              data-testid="ip-summary-address"
-              className="break-all font-mono text-2xl font-bold"
-            >
+            <h2 data-testid="ip-summary-address" className="break-all font-mono text-2xl font-bold">
               {parsed.result.ip}
             </h2>
             <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
@@ -190,9 +204,11 @@ export function IpParser(_props: ToolProps): JSX.Element {
             </span>
             <span
               data-testid="ip-summary-type"
-              className={parsed.result.scope.includes('公网') || parsed.result.scope.includes('全球单播')
-                ? 'rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400'
-                : 'rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400'}
+              className={
+                parsed.result.scope.includes('公网') || parsed.result.scope.includes('全球单播')
+                  ? 'rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400'
+                  : 'rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400'
+              }
             >
               {parsed.result.scope}
             </span>
