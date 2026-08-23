@@ -341,7 +341,13 @@ pub async fn fs_save_bytes(
     mime: String,
     authorized: tauri::State<'_, AuthorizedPaths>,
 ) -> Result<CommandResponse<Option<String>>, AppError> {
-    let ext = extension_for_mime(&mime, "bin");
+    // 扩展名优先取文件名(如 xxx.html),MIME 映射表未覆盖的类型
+    // (text/html 等)不再退化为 .bin 过滤器,避免保存对话框误导后缀
+    let ext_from_name = Path::new(&file_name)
+        .extension()
+        .map(|e| e.to_string_lossy().into_owned())
+        .filter(|e| !e.is_empty() && e.len() <= 8);
+    let ext = ext_from_name.unwrap_or_else(|| extension_for_mime(&mime, "bin"));
     let mime_name = mime.split(';').next().unwrap_or(&mime);
     let Some(path) = app
         .dialog()

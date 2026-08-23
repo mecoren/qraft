@@ -20,7 +20,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { DiffEditor, type Monaco, type MonacoDiffEditor } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
-import { FilePlus2, Folder, FolderOpen, GitCompareArrows } from 'lucide-react';
+import {
+  Columns2,
+  Eye,
+  FilePlus2,
+  Folder,
+  FolderOpen,
+  GitCompareArrows,
+  PenLine,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
@@ -40,6 +48,11 @@ import { useShortcut } from '@/hooks/useShortcut';
 import { listen, safeInvoke, CommandError } from '@/lib/ipc';
 import { writeClipboardText } from '@/lib/clipboard';
 import type { ToolProps } from '@/tools/registry';
+import {
+  MarkdownPreviewPane,
+  isMarkdownDocument,
+} from '@/tools/markdown-preview-pane';
+import { useMarkdownPreviewStore } from '@/tools/markdownPreviewStore';
 import { useEditorWorkspaceStore, folderNameFromPath } from './useEditorWorkspaceStore';
 import { EditorTabsBar } from './EditorTabsBar';
 import { EditorLeftSidebar } from './EditorLeftSidebar';
@@ -103,6 +116,10 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const [activeCompareId, setActiveCompareId] = useState<string | null>(null);
   /** 语言模式选择对话框(右下角语言徽章触发) */
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
+
+  // —— Markdown 视图模式(编辑/分屏/预览;仅 md 文档生效,与工具页共享偏好)——
+  const mdViewMode = useMarkdownPreviewStore((s) => s.viewMode);
+  const setMdViewMode = useMarkdownPreviewStore((s) => s.setViewMode);
   /**
    * 分隔条 hover / 拖拽中状态:
    * 拖拽分隔条时鼠标会移出侧栏面板,导致侧栏悬浮态丢失、按钮/徽章闪烁;

@@ -10,4 +10,5 @@ pub mod font;
 pub mod fs;
 pub mod history;
 pub mod image;
+pub mod ip_lookup;
 pub mod tool;

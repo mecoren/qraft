@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- 新增「IP 地址解析器」纯前端工具(转换器分类):分析 IPv4 / IPv6 地址与 CIDR 记法(如 `192.168.1.130/26`),实时计算子网掩码、通配符掩码、CIDR 网络地址、广播地址、可用主机范围与数量、总地址数、二/十六进制与整数表示等网络信息;识别 RFC 1918 私网、环回、链路本地、CGNAT、组播等特殊地址段(RFC 6890)与 IPv4 传统 A-E 分类、IPv6 作用域(fc00::/7 唯一本地、2001:db8::/32 文档段等);全部计算在本地离线完成,不发起任何网络请求
+  - 新增 `src/tools/ip-parser.ts`(BigInt 实现 128bit 解析,支持 `::` 压缩与内嵌 IPv4 尾部)、`src/tools/IpParser.tsx`(参考 iplocation.net Lookup Summary 的信息卡布局)与配套测试
+  - 注册 UI 组件(`registry.ts`)、工具目录条目(`tool-catalog.ts`)与全局搜索锚点(`search-anchors.ts`)
+
 ### Fixed
 
 - 开发环境与正式安装版的数据隔离:`tauri dev` 不再读写正式版数据目录,且应用标识符由 `dev.qraft.app` 调整为 `cn.qraft.app`(生产:`%APPDATA%\cn.qraft.app`;开发:`cn.qraft.app.dev` → `%APPDATA%\cn.qraft.app.dev`)。此前开发与安装版共用同一标识符,开发时清缓存会连带清掉安装版的编辑器打开文件列表与历史记录

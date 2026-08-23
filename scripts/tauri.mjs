@@ -5,8 +5,8 @@
 // %APPDATA% 数据目录;开发时清缓存/改配置会直接破坏正常安装版的数据
 // (编辑器打开文件列表、历史记录等)。
 //
-// 方案:开发构建使用独立标识符(cn.qraft.app.dev),由 src-tauri/tauri.dev.conf.json
-// 提供(正式版为 cn.qraft.app)。本包装器拦截 `dev` 子命令并自动注入 --config
+// 方案:开发构建使用独立标识符(cn.wait.qraft.dev),由 src-tauri/tauri.dev.conf.json
+// 提供(正式版为 cn.wait.qraft)。本包装器拦截 `dev` 子命令并自动注入 --config
 // 指向该覆盖配置:
 // - 仅对 `dev` 注入,`build` / `icon` 等其余子命令原样透传,发布流程零影响
 // - 命令行已显式携带 --config/-c 时不重复注入

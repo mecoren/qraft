@@ -64,8 +64,14 @@ png = "0.17"
 # OxiPNG 无损优化(参考 DevToys.PngCompressor 的 OxiPNG 通道)
 oxipng = { version = "9", default-features = false, features = ["parallel", "zopfli"] }
 
-# 禁止引入网络相关 crate(见 13-security.md §3.1):
-#   tauri-plugin-http / reqwest / ureq —— 均不允许
+# 网络访问策略(见 13-security.md §3.1):
+#   零网络原则下仅允许两类例外:
+#   1. 自动更新 —— tauri-plugin-updater
+#   2. IP 归属地查询(P0 后新增,用户手动触发)—— 下方 ureq,
+#      仅允许访问 src-tauri/src/net/ip_lookup.rs 中硬编码白名单域名
+#      (ip-api.com / flagcdn.com);除此之外 tauri-plugin-http /
+#      reqwest / ureq 等一律禁止引入。
+ureq = { version = "2", default-features = false, features = ["tls", "gzip", "json"] }
 
 # 桌面端云母 / vibrancy 材质(Windows apply_mica / macOS apply_vibrancy;
 # Linux 无原生支持,自动 no-op,由前端 CSS backdrop-filter 回退)

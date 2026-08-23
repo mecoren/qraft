@@ -7,9 +7,9 @@ pub mod history;
 /// 获取 Qraft 项目目录(配置基目录)
 ///
 /// 项目目录由 directories crate 按跨平台规则解析:
-/// - macOS: ~/Library/Application Support/Qraft
+/// - macOS: ~/Library/Application Support/cn.wait.Qraft
 /// - Linux: ~/.config/qraft
-/// - Windows: %APPDATA%\Qraft\config
+/// - Windows: %APPDATA%\wait\Qraft\config
 ///
 /// # Panics
 ///
@@ -18,7 +18,7 @@ pub mod history;
 #[must_use]
 #[allow(clippy::expect_used)]
 pub fn project_dirs() -> ProjectDirs {
-    ProjectDirs::from("dev", "qraft", "Qraft")
+    ProjectDirs::from("cn", "wait", "Qraft")
         .expect("Failed to determine project directories: home directory not found")
 }
 

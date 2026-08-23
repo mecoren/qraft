@@ -322,10 +322,21 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
     {
       key: 'input',
       title: 'Markdown',
-      description: 'Markdown 源文本',
-      keywords: ['md', 'markdown'],
+      description: 'Markdown 源文本编辑器',
+      keywords: ['md', 'markdown', '编辑', '源码'],
     },
-    { key: 'preview', title: '预览', description: 'GitHub 风格渲染', keywords: ['渲染', 'html'] },
+    {
+      key: 'preview',
+      title: '预览',
+      description: '类 Typora 渲染:代码高亮 / 公式 / Mermaid / 排版主题',
+      keywords: ['渲染', 'html', '主题', '导出'],
+    },
+    {
+      key: 'outline',
+      title: '大纲',
+      description: '标题树导航,点击定位章节',
+      keywords: ['目录', 'toc', '导航', '标题'],
+    },
   ],
   list_comparer: [
     {
@@ -386,6 +397,40 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       title: '接下来的计划日期',
       description: '下次执行时间',
       keywords: ['计划', '结果', '下次执行'],
+    },
+  ],
+  ip_parser: [
+    {
+      key: 'summary',
+      title: '解析结果摘要',
+      description: 'IP 地址与类型徽章',
+      keywords: ['ip', '摘要', '公网', '私网'],
+    },
+    {
+      key: 'input',
+      title: '输入',
+      description: 'IPv4 / IPv6 地址或 CIDR',
+      keywords: ['ip', 'ipv4', 'ipv6', 'cidr', '子网'],
+    },
+    {
+      key: 'result',
+      title: '网络信息',
+      description: '子网掩码 / CIDR / 可用主机范围',
+      keywords: [
+        '子网掩码',
+        '通配符掩码',
+        'cidr',
+        '网络地址',
+        '广播地址',
+        '主机范围',
+        '可用主机数',
+      ],
+    },
+    {
+      key: 'geo',
+      title: '归属地与运营商',
+      description: '国家 / 城市 / ISP / ASN / 时区(联网查询)',
+      keywords: ['归属地', '地理', 'isp', '运营商', 'asn', '时区', '邮编', 'geo', '国家', '城市'],
     },
   ],
   timestamp_converter: [

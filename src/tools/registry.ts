@@ -103,6 +103,7 @@ registerTool('number_base_converter', () =>
   import('./NumberBaseConverter').then((m) => ({ default: m.NumberBaseConverter })),
 );
 registerTool('cron_parser', () => import('./CronParser').then((m) => ({ default: m.CronParser })));
+registerTool('ip_parser', () => import('./IpParser').then((m) => ({ default: m.IpParser })));
 registerTool('json_yaml_converter', () =>
   import('./JsonYamlConverter').then((m) => ({ default: m.JsonYamlConverter })),
 );
