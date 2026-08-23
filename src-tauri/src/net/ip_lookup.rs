@@ -110,8 +110,9 @@ fn validate_lookup_ip(ip: &str) -> Result<(), AppError> {
             "ip lookup: invalid ip length: {ip}"
         )));
     }
-    let ok_chars =
-        ip.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == ':');
+    let ok_chars = ip
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == ':');
     let has_sep = ip.contains('.') || ip.contains(':');
     // 全字母数字但不含分隔符的输入(如 "abc")同样拒绝
     if !ok_chars || !has_sep {
@@ -172,8 +173,7 @@ fn tz_abbreviation(tz: &str) -> Option<String> {
         .format("%Z")
         .to_string();
     // 部分时区 %Z 输出为偏移量或空串,视为无效缩写
-    (!abbr.is_empty() && !abbr.starts_with('+') && !abbr.starts_with('-'))
-        .then_some(abbr)
+    (!abbr.is_empty() && !abbr.starts_with('+') && !abbr.starts_with('-')).then_some(abbr)
 }
 
 /// 由 `mobile`/`proxy`/`hosting` 标记推导网络类型(对齐 `IP2Location` usage type 风格)。
@@ -204,10 +204,7 @@ fn zone_offset_seconds(zone: chrono_tz::Tz) -> i32 {
 /// # Errors
 ///
 /// 上游返回 fail 状态(如私网地址)时返回 `AppError::Unknown`。
-fn map_api_response(
-    api: ApiGeoResponse,
-    flag: Option<String>,
-) -> Result<IpLookupData, AppError> {
+fn map_api_response(api: ApiGeoResponse, flag: Option<String>) -> Result<IpLookupData, AppError> {
     if api.status.as_deref() == Some("fail") {
         let msg = api.message.unwrap_or_else(|| "unknown error".to_string());
         return Err(AppError::Unknown(format!("ip lookup failed: {msg}")));
@@ -219,10 +216,7 @@ fn map_api_response(
         api.hosting.unwrap_or(false),
     );
 
-    let (asn_number, asn_org) = api
-        .as_field
-        .as_deref()
-        .map_or((None, None), parse_asn);
+    let (asn_number, asn_org) = api.as_field.as_deref().map_or((None, None), parse_asn);
 
     let timezone_display = api.timezone.as_deref().and_then(|tz| {
         // 优先使用上游 offset 字段;缺失时按 IANA 时区推算
@@ -312,9 +306,9 @@ pub fn lookup(raw_ip: Option<&str>) -> Result<IpLookupData, AppError> {
             "ip lookup request failed: {e}(请检查网络连接后重试)"
         ))
     })?;
-    let api: ApiGeoResponse = resp.into_json().map_err(|e| {
-        AppError::Unknown(format!("ip lookup response parse failed: {e}"))
-    })?;
+    let api: ApiGeoResponse = resp
+        .into_json()
+        .map_err(|e| AppError::Unknown(format!("ip lookup response parse failed: {e}")))?;
 
     let flag = api
         .country_code
@@ -435,10 +429,7 @@ mod tests {
             "(ISP) - Fixed Line ISP"
         );
         // mobile 优先级最高
-        assert_eq!(
-            derive_network_type(true, true, true),
-            "(MOB) - Mobile ISP"
-        );
+        assert_eq!(derive_network_type(true, true, true), "(MOB) - Mobile ISP");
     }
 
     // ---- map_api_response ----
@@ -469,33 +460,23 @@ mod tests {
     #[test]
     fn test_map_api_response_full() {
         let api: ApiGeoResponse = serde_json::from_value(fixture_response()).unwrap();
-        let data =
-            map_api_response(api, Some("data:image/png;base64,AAA".into())).unwrap();
+        let data = map_api_response(api, Some("data:image/png;base64,AAA".into())).unwrap();
 
         assert_eq!(data.query_ip.as_deref(), Some("103.152.220.7"));
         assert_eq!(data.country.as_deref(), Some("Hong Kong"));
         assert_eq!(data.country_code.as_deref(), Some("HK"));
         assert_eq!(data.region.as_deref(), Some("Hong Kong"));
         assert_eq!(data.city.as_deref(), Some("Hong Kong"));
-        assert_eq!(
-            data.org_isp.as_deref(),
-            Some("RadishCloud Technology LLC")
-        );
+        assert_eq!(data.org_isp.as_deref(), Some("RadishCloud Technology LLC"));
         assert_eq!(data.asn_number, Some(201_217));
-        assert_eq!(
-            data.asn_org.as_deref(),
-            Some("RadishCloud Technology LLC")
-        );
+        assert_eq!(data.asn_org.as_deref(), Some("RadishCloud Technology LLC"));
         assert!(data.network_type.starts_with("(DCH)"));
         assert!(data.hosting && !data.mobile && !data.proxy);
         // 邮编为空串 → 归一化为 None(前端显示「不可用」)
         assert_eq!(data.postal_code, None);
         assert_eq!(data.timezone_display.as_deref(), Some("+08:00 (HKT)"));
         assert_eq!(data.latitude, Some(22.2855));
-        assert_eq!(
-            data.flag_data_uri,
-            Some("data:image/png;base64,AAA".into())
-        );
+        assert_eq!(data.flag_data_uri, Some("data:image/png;base64,AAA".into()));
     }
 
     #[test]
@@ -505,10 +486,7 @@ mod tests {
         raw["zip"] = serde_json::json!("999077");
         let api: ApiGeoResponse = serde_json::from_value(raw).unwrap();
         let data = map_api_response(api, None).unwrap();
-        assert_eq!(
-            data.org_isp.as_deref(),
-            Some("RadishCloud Technology LLC")
-        );
+        assert_eq!(data.org_isp.as_deref(), Some("RadishCloud Technology LLC"));
         assert_eq!(data.postal_code.as_deref(), Some("999077"));
         assert_eq!(data.flag_data_uri, None);
     }

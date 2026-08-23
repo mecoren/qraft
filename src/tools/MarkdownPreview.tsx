@@ -27,7 +27,6 @@ import {
   useRef,
   useState,
   type JSX,
-  type MouseEvent,
 } from 'react';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import type { Monaco } from '@monaco-editor/react';
@@ -70,7 +69,7 @@ import { Switch } from '@/components/ui/switch';
 import { readClipboardText, writeClipboardRichText, writeClipboardText } from '@/lib/clipboard';
 import { showAlert } from '@/lib/toast-alert';
 import { cn } from '@/lib/utils';
-import { computeDocStats, renderMarkdown, type DocStats, type OutlineItem } from './markdown-render';
+import { computeDocStats, type DocStats, type OutlineItem } from './markdown-render';
 import {
   applyInlineWrap,
   toggleLinePrefixes,
