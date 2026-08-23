@@ -55,6 +55,14 @@ chrono-tz = "0.9"
 regex = "1.10"
 percent-encoding = "2.3"
 async-stream = "0.3"
+# 编辑器文件编码检测/转换(UTF-8/GBK/Big5/Shift-JIS/Windows-1252/UTF-16)
+encoding_rs = "0.8"
+
+# —— 图片处理(PNG 压缩工具)——
+# PNG 解码/编码(png crate 支持 Indexed 调色板输出,用于有损量化)
+png = "0.17"
+# OxiPNG 无损优化(参考 DevToys.PngCompressor 的 OxiPNG 通道)
+oxipng = { version = "9", default-features = false, features = ["parallel", "zopfli"] }
 
 # 禁止引入网络相关 crate(见 13-security.md §3.1):
 #   tauri-plugin-http / reqwest / ureq —— 均不允许

@@ -25,11 +25,7 @@ export function ConfigSection({
   searchAnchor?: string;
 }): JSX.Element {
   return (
-    <section
-      aria-label={title || '配置'}
-      className={className}
-      data-search-anchor={searchAnchor}
-    >
+    <section aria-label={title || '配置'} className={className} data-search-anchor={searchAnchor}>
       {title ? <h2 className="mb-1.5 text-body-sm font-semibold">{title}</h2> : null}
       <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-card">
         {children}

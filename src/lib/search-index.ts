@@ -69,7 +69,12 @@ function buildAllEntries(): SearchEntry[] {
 
   // —— 工具级条目 ——
   for (const entry of TOOL_CATALOG) {
-    const view: AppView = entry.special === 'settings' ? 'settings' : entry.special === 'extensions' ? 'extensions' : 'tool';
+    const view: AppView =
+      entry.special === 'settings'
+        ? 'settings'
+        : entry.special === 'extensions'
+          ? 'extensions'
+          : 'tool';
     entries.push({
       id: `tool:${entry.id}`,
       kind: 'tool',
@@ -160,9 +165,7 @@ export function searchIndex(query: string): Map<SearchEntryKind, SearchEntry[]> 
   const q = query.trim().toLowerCase();
   const result = new Map<SearchEntryKind, SearchEntry[]>();
   for (const kind of SEARCH_ENTRY_KINDS) {
-    const hit = ALL_ENTRIES.filter(
-      (e) => e.kind === kind && (q === '' || matches(e, q)),
-    );
+    const hit = ALL_ENTRIES.filter((e) => e.kind === kind && (q === '' || matches(e, q)));
     if (hit.length > 0) result.set(kind, hit);
   }
   return result;

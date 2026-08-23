@@ -4,7 +4,12 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { searchIndex, type SearchEntry, SEARCH_ENTRY_KINDS, getAllSearchEntries } from './search-index';
+import {
+  searchIndex,
+  type SearchEntry,
+  SEARCH_ENTRY_KINDS,
+  getAllSearchEntries,
+} from './search-index';
 import { TOOL_ANCHORS } from './search-anchors';
 import { TOOL_CATALOG } from '@/lib/tool-catalog';
 
@@ -96,9 +101,9 @@ describe('searchIndex', () => {
     for (const [toolId, anchors] of Object.entries(TOOL_ANCHORS)) {
       for (const a of anchors) {
         const full = `${toolId}:${a.key}`;
-        expect(
-          sections.some((s) => s.target.toolId === toolId && s.target.anchor === full),
-        ).toBe(true);
+        expect(sections.some((s) => s.target.toolId === toolId && s.target.anchor === full)).toBe(
+          true,
+        );
       }
     }
   });
@@ -133,15 +138,15 @@ describe('searchIndex', () => {
   });
 
   it('页面条目可检索', () => {
-    expect(
-      flatResults('历史').some((e) => e.kind === 'page' && e.target.view === 'history'),
-    ).toBe(true);
+    expect(flatResults('历史').some((e) => e.kind === 'page' && e.target.view === 'history')).toBe(
+      true,
+    );
     expect(
       flatResults('管理扩展').some((e) => e.kind === 'page' && e.target.view === 'extensions'),
     ).toBe(true);
-    expect(
-      flatResults('关于').some((e) => e.kind === 'page' && e.target.view === 'about'),
-    ).toBe(true);
+    expect(flatResults('关于').some((e) => e.kind === 'page' && e.target.view === 'about')).toBe(
+      true,
+    );
   });
 
   it('无匹配时返回空分组', () => {

@@ -7,11 +7,18 @@
  * - 选项渲染：用字体自身渲染 label + 全 CSS value 副标题(灰字)
  * - loading 态：加载系统字体列表时显示提示
  *
+ * 性能(系统字体可达数百上千个):
+ * - 渐进渲染:首次只渲染前 INITIAL_VISIBLE_OPTIONS 项,滚动到底部时经
+ *   IntersectionObserver 追加 LOAD_STEP 项,避免一次挂载全部选项的
+ *   字体匹配/排版开销导致首次打开卡顿
+ * - 懒加载:onOpen 回调通知宿主在首次展开时才枚举系统字体,
+ *   打开设置面板不再触发 DirectWrite 枚举
+ *
  * 与 SettingsPanel 解耦：通过 props 注入 options/value/onChange，可复用于
  * 界面字体 / 代码字体两个场景。
  */
 
-import { memo, useCallback, useMemo, useState, type JSX } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { Check, ChevronsUpDown, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -36,9 +43,16 @@ export interface FontPickerProps {
   onChange: (value: string | null) => void;
   /** 是否正在加载系统字体列表 */
   loading?: boolean;
+  /** 下拉首次/每次展开时回调(宿主用于懒加载系统字体列表) */
+  onOpen?: () => void;
   /** aria-label，用于无障碍 */
   'aria-label'?: string;
 }
+
+/** 首屏渲染的选项数(其余随滚动渐进追加) */
+const INITIAL_VISIBLE_OPTIONS = 50;
+/** 每次触底追加的选项数 */
+const LOAD_STEP = 50;
 
 /**
  * 单个字体选项的渲染：双行布局
@@ -90,10 +104,17 @@ export function FontPicker({
   placeholder,
   onChange,
   loading = false,
+  onOpen,
   'aria-label': ariaLabel,
 }: FontPickerProps): JSX.Element {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  // 渐进渲染窗口:首屏 INITIAL_VISIBLE_OPTIONS,触底后按 LOAD_STEP 追加
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_OPTIONS);
+  /** 触底哨兵元素(挂在列表末尾) */
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  // 环境探测:无 IntersectionObserver(jsdom 等)时直接全量渲染,不做渐进
+  const [supportsIO] = useState(() => typeof IntersectionObserver !== 'undefined');
 
   // 当前选中项的 label，用于 trigger 显示；未选则显示 placeholder
   const selectedOption = value
@@ -109,6 +130,39 @@ export function FontPicker({
     () => (query ? options.filter((opt) => matchFontFamilyOption(query, opt)) : options),
     [options, query],
   );
+
+  // 搜索词变化后重置窗口(新结果集从头浏览):
+  // 用「渲染期比较」官方模式重置 state,避免在 effect 同步体内 setState
+  const [renderedQuery, setRenderedQuery] = useState(query);
+  if (renderedQuery !== query) {
+    setRenderedQuery(query);
+    setVisibleCount(INITIAL_VISIBLE_OPTIONS);
+  }
+
+  // 当前窗口内渲染的选项(渐进追加;无 IO 环境直接全量)
+  const shownOptions = useMemo(
+    () => filteredOptions.slice(0, supportsIO ? visibleCount : filteredOptions.length),
+    [filteredOptions, visibleCount, supportsIO],
+  );
+  const hasMore = supportsIO && visibleCount < filteredOptions.length;
+
+  // 触底自动追加:哨兵进入视口即扩窗(root=null 对嵌套滚动容器同样成立——
+  // 列表内滚动会把哨兵带入视口)。回调属异步事件驱动,非 effect 同步体 setState。
+  useEffect(() => {
+    if (!open || !hasMore) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisibleCount((count) => Math.min(count + LOAD_STEP, filteredOptions.length));
+        }
+      },
+      { threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [open, hasMore, filteredOptions.length]);
 
   const handleSelect = useCallback(
     (selectedValue: string) => {
@@ -127,8 +181,16 @@ export function FontPicker({
     onChange(null);
   };
 
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      setOpen(next);
+      if (next) onOpen?.();
+    },
+    [onOpen],
+  );
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -144,7 +206,7 @@ export function FontPicker({
           )}
         >
           <span className="flex min-w-0 flex-1 items-center gap-2 truncate">
-            {loading && (
+            {(loading || (!options.length && open)) && (
               <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
             )}
             <span
@@ -192,7 +254,7 @@ export function FontPicker({
         <Command shouldFilter={false} loop>
           <CommandInput placeholder="搜索字体族…" value={query} onValueChange={setQuery} />
           <CommandList>
-            {loading ? (
+            {loading || (!options.length && Boolean(onOpen)) ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
                 <Loader2 className="size-3.5 animate-spin" />
                 正在读取系统字体列表…
@@ -201,7 +263,7 @@ export function FontPicker({
               <CommandEmpty>未找到匹配的字体族</CommandEmpty>
             ) : (
               <CommandGroup>
-                {filteredOptions.map((option) => {
+                {shownOptions.map((option) => {
                   // 默认项与"未选(value=null)"状态都视为选中默认项
                   const isChecked = option.isDefault
                     ? value === null || value === option.value
@@ -215,6 +277,8 @@ export function FontPicker({
                     />
                   );
                 })}
+                {/* 渐进渲染哨兵:滚到底部时追加下一批选项 */}
+                {hasMore && <div ref={sentinelRef} aria-hidden className="h-px w-full" />}
               </CommandGroup>
             )}
           </CommandList>

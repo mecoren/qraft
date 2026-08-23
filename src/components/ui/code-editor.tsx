@@ -20,17 +20,31 @@
  *   因此切换主题无需重挂载编辑器。
  */
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import Editor, { type BeforeMount, type Monaco, type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
-import { ClipboardPaste, FolderOpen, X } from 'lucide-react';
+import { Check, ClipboardPaste, FolderOpen, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { readClipboardText } from '@/lib/clipboard';
 import { readFileAsText } from '@/lib/file-utils';
+import { TEXT_ENCODINGS, encodingLabel } from '@/lib/text-encodings';
 import { defineThemeFor, defineVsCodeTheme, getThemeName, useMonacoTheme } from './monaco-theme';
-import { MonacoContextMenu, type MonacoEditor } from './monaco-context-menu';
+import {
+  MonacoContextMenu,
+  type MonacoEditor,
+  type MonacoMenuSection,
+} from './monaco-context-menu';
 import { attachFoldSummary, type FoldSummaryHandle } from './monaco-fold-summary';
+import { Popover, PopoverContent, PopoverTrigger } from './popover';
+import { Input } from './input';
 
 /**
  * 加载 Monaco 0.56 min 构建缺失的 codicon 基础样式。
@@ -189,6 +203,26 @@ export interface CodeEditorProps {
    * 默认 false,保持独立使用时的卡片外观(向后兼容)。
    */
   embedded?: boolean;
+  /**
+   * 文件编码标识(utf-8 / gb18030 等,见 lib/text-encodings.ts)。
+   * 提供时状态栏显示编码徽章(仿 VSCode 右下角),配合 onEncodingChange 可点击切换。
+   */
+  encoding?: string;
+  /**
+   * 编码切换回调。提供时编码徽章可点击弹出选择列表;
+   * 缺省时仅展示不可交互(由宿主决定是否开放切换)。
+   */
+  onEncodingChange?: (encodingId: string) => void;
+  /**
+   * 行尾序列切换回调(CRLF ↔ LF)。提供时状态栏 EOL 徽章可点击切换,
+   * 内容转换由宿主完成(如 value.replace(/\r\n/g, '\n'));缺省时徽章仅展示。
+   */
+  onToggleEol?: () => void;
+  /**
+   * 自定义右键菜单分组(按宿主页面定制):追加在内置菜单与折叠组之后,
+   * 每组前有分隔线。典型用法:JSON 工具注入「格式化/排序」,工作台注入命名风格切换。
+   */
+  contextMenuSections?: MonacoMenuSection[];
 }
 
 function ToolbarButton({
@@ -241,6 +275,10 @@ export function CodeEditor({
   onToggleWordWrap,
   embedded = false,
   onMount,
+  encoding,
+  onEncodingChange,
+  onToggleEol,
+  contextMenuSections,
 }: CodeEditorProps): ReactNode {
   const monacoRef = useRef<Monaco | null>(null);
   const editorRef = useRef<MonacoEditor | null>(null);
@@ -274,6 +312,46 @@ export function CodeEditor({
     column: 1,
   });
   const [selected, setSelected] = useState(0);
+
+  // —— 状态栏:行列跳转 popover(仿 VSCode 点击「行 x, 列 y」跳转)——
+  const [gotoOpen, setGotoOpen] = useState(false);
+  const [gotoLine, setGotoLine] = useState('1');
+  const [gotoColumn, setGotoColumn] = useState('1');
+
+  // —— 状态栏:缩进空格数展示(点击在 2/4/8 间循环,作用于当前编辑器模型)——
+  const [tabSize, setTabSize] = useState(2);
+
+  // 行尾序列:由内容推导(CRLF 存在即视为 CRLF),与 VSCode 展示一致
+  const eolLabel = value.includes('\r\n') ? 'CRLF' : 'LF';
+
+  /** 打开跳转弹层时用当前光标位置预填输入框 */
+  const openGotoPopover = useCallback((): void => {
+    setGotoLine(String(cursor.line));
+    setGotoColumn(String(cursor.column));
+    setGotoOpen(true);
+  }, [cursor.line, cursor.column]);
+
+  /** 应用跳转:夹取到有效范围后 setPosition + 居中显示 */
+  const applyGoto = useCallback((): void => {
+    const ed = editorRef.current;
+    const model = ed?.getModel();
+    if (!ed || !model) return;
+    const maxLine = model.getLineCount();
+    const line = Math.min(Math.max(Number.parseInt(gotoLine, 10) || 1, 1), maxLine);
+    const maxCol = model.getLineMaxColumn(line);
+    const column = Math.min(Math.max(Number.parseInt(gotoColumn, 10) || 1, 1), maxCol);
+    ed.setPosition({ lineNumber: line, column });
+    ed.revealLineInCenter(line);
+    ed.focus();
+    setGotoOpen(false);
+  }, [gotoLine, gotoColumn]);
+
+  /** 缩进循环切换:2 → 4 → 8 → 2 */
+  const cycleTabSize = useCallback((): void => {
+    const next = tabSize === 2 ? 4 : tabSize === 4 ? 8 : 2;
+    editorRef.current?.getModel()?.updateOptions({ tabSize: next });
+    setTabSize(next);
+  }, [tabSize]);
 
   // 按 Unicode 码点统计字符数(emoji / 生僻字等代理对计 1 个),与 TextAnalyzer 口径一致
   const charCount = Array.from(value).length;
@@ -314,6 +392,8 @@ export function CodeEditor({
       foldSummaryRef.current?.dispose();
       foldSummaryRef.current = attachFoldSummary(editor);
     }
+    // 初始化状态栏缩进展示(模型默认 tabSize)
+    setTabSize(editor.getModel()?.getOptions().tabSize ?? 2);
     updateStatus();
     // monaco 实例在 beforeMount 时注入;极端加载顺序下可能为 null,
     // 此时仍要触发 onMount(调用方可能依赖 editor 实例做全局注册)。
@@ -541,6 +621,7 @@ export function CodeEditor({
           readOnly={readOnly}
           wordWrapOn={wordWrapOn}
           onToggleWordWrap={toggleWordWrap}
+          sections={contextMenuSections}
           open={ctxOpen}
           position={ctxPos}
           onClose={() => setCtxOpen(false)}
@@ -584,12 +665,144 @@ export function CodeEditor({
                 (已选择{selected})
               </span>
             )}
-            <span
-              data-testid={dataTestId ? `${dataTestId}-status-pos` : undefined}
-              aria-label={`行 ${cursor.line}, 列 ${cursor.column}`}
+            {/* 行列跳转(仿 VSCode):点击弹出「转到行/列」弹层 */}
+            <Popover open={gotoOpen} onOpenChange={setGotoOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  data-testid={dataTestId ? `${dataTestId}-status-pos` : undefined}
+                  title="转到行/列"
+                  aria-label={`行 ${cursor.line}, 列 ${cursor.column},点击跳转指定行列`}
+                  onClick={openGotoPopover}
+                  className="whitespace-nowrap rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  行 {cursor.line}, 列 {cursor.column}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="w-56 p-3"
+                data-testid={`${dataTestId ?? 'editor'}-goto`}
+              >
+                <div className="mb-2 text-xs font-semibold">转到行/列</div>
+                <div className="flex items-center gap-2">
+                  <label className="flex flex-1 flex-col gap-1">
+                    <span className="text-[10px] text-muted-foreground">行号</span>
+                    <Input
+                      value={gotoLine}
+                      onChange={(e) => setGotoLine(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') applyGoto();
+                      }}
+                      inputMode="numeric"
+                      className="h-7 text-xs"
+                      data-testid={`${dataTestId ?? 'editor'}-goto-line`}
+                    />
+                  </label>
+                  <label className="flex flex-1 flex-col gap-1">
+                    <span className="text-[10px] text-muted-foreground">列号</span>
+                    <Input
+                      value={gotoColumn}
+                      onChange={(e) => setGotoColumn(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') applyGoto();
+                      }}
+                      inputMode="numeric"
+                      className="h-7 text-xs"
+                      data-testid={`${dataTestId ?? 'editor'}-goto-column`}
+                    />
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  onClick={applyGoto}
+                  data-testid={`${dataTestId ?? 'editor'}-goto-apply`}
+                  className="mt-2 w-full rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  跳转
+                </button>
+              </PopoverContent>
+            </Popover>
+            {/* 缩进空格数:点击在 2/4/8 间循环(VSCode「空格:N」样式) */}
+            <button
+              type="button"
+              data-testid={dataTestId ? `${dataTestId}-status-indent` : undefined}
+              title={`缩进:${tabSize} 空格,点击切换`}
+              onClick={cycleTabSize}
+              className="whitespace-nowrap rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
-              行 {cursor.line}, 列 {cursor.column}
-            </span>
+              空格:{tabSize}
+            </button>
+            {/* 文件编码:展示 + 可选切换(仿 VSCode 编码徽章);显示在右下角描述中 */}
+            {encoding !== undefined &&
+              (onEncodingChange ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      data-testid={dataTestId ? `${dataTestId}-status-encoding` : undefined}
+                      title="选择文件编码(保存时按该编码写回)"
+                      className="whitespace-nowrap rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      {encodingLabel(encoding)}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    className="w-52 p-1"
+                    data-testid={`${dataTestId ?? 'editor'}-encoding-picker`}
+                  >
+                    {TEXT_ENCODINGS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        data-testid={`${dataTestId ?? 'editor'}-encoding-${opt.id}`}
+                        onClick={() => onEncodingChange(opt.id)}
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors',
+                          opt.id === encoding
+                            ? 'bg-accent font-medium text-accent-foreground'
+                            : 'text-popover-foreground hover:bg-accent/60',
+                          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                        )}
+                      >
+                        <span className="flex size-3.5 shrink-0 items-center justify-center">
+                          {opt.id === encoding && (
+                            <Check aria-hidden className="size-3.5 text-primary" />
+                          )}
+                        </span>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <span
+                  data-testid={dataTestId ? `${dataTestId}-status-encoding` : undefined}
+                  title="文件编码"
+                  className="whitespace-nowrap px-1.5 py-0.5"
+                >
+                  {encodingLabel(encoding)}
+                </span>
+              ))}
+            {/* 行尾序列:CRLF/LF 展示,提供回调时可点击切换 */}
+            <button
+              type="button"
+              data-testid={dataTestId ? `${dataTestId}-status-eol` : undefined}
+              title={
+                onToggleEol
+                  ? `行尾序列:${eolLabel},点击切换为 ${eolLabel === 'CRLF' ? 'LF' : 'CRLF'}`
+                  : `行尾序列:${eolLabel}`
+              }
+              onClick={onToggleEol}
+              disabled={!onToggleEol}
+              className={cn(
+                'whitespace-nowrap rounded-sm px-1.5 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                onToggleEol && 'hover:bg-accent hover:text-accent-foreground',
+              )}
+            >
+              {eolLabel}
+            </button>
             {statusBarRight && <span className="ml-1 flex items-center">{statusBarRight}</span>}
           </span>
         </div>

@@ -42,6 +42,12 @@ export interface EditorTab {
    * 可选字段,缺省视为 true(与旧行为一致);随工作区持久化记忆。
    */
   wordWrap?: boolean;
+  /**
+   * 文件编码标识(utf-8 / utf-8-bom / gb18030 / big5 / shift_jis / euc-kr /
+   * windows-1252 / utf-16le / utf-16be,见 lib/text-encodings.ts)。
+   * 打开文件时由后端探测,保存时以该编码写回;可选字段缺省视为 utf-8。
+   */
+  encoding?: string;
 }
 
 /**
@@ -175,6 +181,8 @@ function sanitizeTab(raw: unknown): EditorTab | null {
   const autoTitle = typeof t.autoTitle === 'string' && t.autoTitle ? t.autoTitle : undefined;
   // 旧版本持久化数据无 wordWrap 字段:缺省视为开启(与历史行为一致)
   const wordWrap = typeof t.wordWrap === 'boolean' ? t.wordWrap : true;
+  // 旧版本持久化数据无 encoding 字段:缺省视为 utf-8(与历史行为一致)
+  const encoding = typeof t.encoding === 'string' && t.encoding ? t.encoding : undefined;
   return {
     id: t.id,
     title: t.title,
@@ -185,6 +193,7 @@ function sanitizeTab(raw: unknown): EditorTab | null {
     savedContent,
     pinned,
     wordWrap,
+    ...(encoding !== undefined ? { encoding } : {}),
   };
 }
 

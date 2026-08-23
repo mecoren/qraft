@@ -11,7 +11,15 @@ import type { EditorTab } from '@/tools/code-editor-workspace/schema';
 
 /** 构造最小合法 Tab */
 function makeTab(id: string, title: string, content: string): EditorTab {
-  return { id, title, path: null, language: 'plaintext', content, savedContent: content, pinned: false };
+  return {
+    id,
+    title,
+    path: null,
+    language: 'plaintext',
+    content,
+    savedContent: content,
+    pinned: false,
+  };
 }
 
 function setTabs(tabs: EditorTab[]) {
@@ -138,7 +146,10 @@ describe('SearchDialog 文本模式', () => {
   });
 
   it('文本模式展示按文件分组的匹配行,匹配片段高亮', async () => {
-    setTabs([makeTab('tab-a', 'notes.txt', 'hello world\nfind me'), makeTab('tab-b', 'code.ts', 'x')]);
+    setTabs([
+      makeTab('tab-a', 'notes.txt', 'hello world\nfind me'),
+      makeTab('tab-b', 'code.ts', 'x'),
+    ]);
     const user = userEvent.setup();
     render(<SearchDialog open onOpenChange={() => {}} />);
     await user.click(screen.getByRole('button', { name: '文本' }));

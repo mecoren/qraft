@@ -26,30 +26,34 @@ import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { MonacoContextMenu, type MonacoEditor } from '@/components/ui/monaco-context-menu';
 import { Button } from '@/components/ui/button';
-import { registerActiveEditor, unregisterActiveEditor } from './namingCaseCommand';
+import {
+  registerActiveEditor,
+  unregisterActiveEditor,
+  cycleNamingCaseShortcutHandler,
+  toggleCaseShortcutHandler,
+} from './namingCaseCommand';
 import { registerTabEditor, clearTabEditors } from '@/lib/editor-search-registry';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { defineThemeFor, getThemeName, useMonacoTheme } from '@/components/ui/monaco-theme';
+import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
 import { useShortcut } from '@/hooks/useShortcut';
 import { listen, safeInvoke, CommandError } from '@/lib/ipc';
 import { writeClipboardText } from '@/lib/clipboard';
 import type { ToolProps } from '@/tools/registry';
-import {
-  useEditorWorkspaceStore,
-  folderNameFromPath,
-} from './useEditorWorkspaceStore';
+import { useEditorWorkspaceStore, folderNameFromPath } from './useEditorWorkspaceStore';
 import { EditorTabsBar } from './EditorTabsBar';
 import { EditorLeftSidebar } from './EditorLeftSidebar';
 import { PathBreadcrumb } from './PathBreadcrumb';
 import { UnsavedDialog, type UnsavedMode } from './UnsavedDialog';
 import { EditorLanguagePicker } from './EditorLanguagePicker';
 import { LANGUAGE_LABELS, fileNameFromPath } from './languageMap';
+import { LanguageIcon } from './languageIcons';
 import {
   openTextFileDialog,
   openFolderDialog,
-  readTextFileChecked,
+  readTextFileEncoded,
   revealInExplorer,
-  saveToPath,
+  saveToPathEncoded,
   saveWithDialog,
   windowCloseReady,
 } from './fileOps';
@@ -180,15 +184,12 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   // 挂载时把编辑器实例注册到全局「激活编辑器」注册表,供 cycle_naming_case
   // 全局快捷键(useShortcut)使用;并按当前 tab 注册到 tabId→实例注册表,
   // 供全局搜索文本跳转定位高亮;卸载时同时注销。
-  const handleEditorMount = useCallback(
-    (editorInstance: editor.IStandaloneCodeEditor) => {
-      activeEditorRef.current = editorInstance;
-      registerActiveEditor(editorInstance);
-      const tabId = useEditorWorkspaceStore.getState().workspace.activeTabId;
-      if (tabId) registerTabEditor(tabId, editorInstance);
-    },
-    [],
-  );
+  const handleEditorMount = useCallback((editorInstance: editor.IStandaloneCodeEditor) => {
+    activeEditorRef.current = editorInstance;
+    registerActiveEditor(editorInstance);
+    const tabId = useEditorWorkspaceStore.getState().workspace.activeTabId;
+    if (tabId) registerTabEditor(tabId, editorInstance);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -212,12 +213,14 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     : null;
   const showCompare = Boolean(activeCompare && compareLeft && compareRight);
 
-  /** 打开本地文件对话框并载入(或激活已打开的同路径 Tab) */
+  /** 打开本地文件对话框并载入(或激活已打开的同路径 Tab);编码随文件探测结果记录 */
   const handleOpen = useCallback(async () => {
     try {
       const result = await openTextFileDialog();
       if (result) {
-        useEditorWorkspaceStore.getState().openLocalFile(result.path, result.content);
+        useEditorWorkspaceStore
+          .getState()
+          .openLocalFile(result.path, result.content, result.encoding);
         setActiveCompareId(null);
       }
     } catch (e) {
@@ -240,8 +243,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   /**
    * 点击文件夹树中的文件:
    * - 已有同路径 Tab → 直接激活(不重复读取)
-   * - 否则经 `fs_read_text_file_checked` 读取并载入;
-   *   二进制 / 非 UTF-8(ERR_FILE_UNSUPPORTED)→ 弹错误提示,
+   * - 否则经 `fs_read_text_file_encoded` 读取并载入(编码自动探测);
+   *   二进制(ERR_FILE_UNSUPPORTED)→ 弹错误提示,
    *   文件节点保留在树中(组件层不做剔除)
    */
   const handleOpenTreeFile = useCallback(async (path: string) => {
@@ -253,8 +256,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       return;
     }
     try {
-      const result = await readTextFileChecked(path);
-      state.openLocalFile(result.path, result.content);
+      const result = await readTextFileEncoded(path);
+      state.openLocalFile(result.path, result.content, result.encoding);
       setActiveCompareId(null);
     } catch (e) {
       const name = fileNameFromPath(path);
@@ -262,15 +265,13 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         toast.error(`无法在编辑器中打开「${name}」:可能是二进制或不受支持的格式`);
       } else {
         // 其余失败(未授权/不存在等):展示后端返回的真实错误信息
-        toast.error(
-          `打开「${name}」失败:${e instanceof Error ? e.message : '未知错误'}`,
-        );
+        toast.error(`打开「${name}」失败:${e instanceof Error ? e.message : '未知错误'}`);
       }
     }
   }, []);
 
   /**
-   * 保存指定 Tab:已绑定路径直接写回,untitled 弹「另存为」。
+   * 保存指定 Tab:已绑定路径直接写回(按 Tab 记录的编码),untitled 弹「另存为」。
    * 返回是否成功(用户取消另存为 / 保存失败返回 false,供「保存并关闭」判断)。
    */
   const saveTabById = useCallback(async (id: string): Promise<boolean> => {
@@ -279,7 +280,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     if (!tab) return false;
     try {
       if (tab.path) {
-        await saveToPath(tab.path, tab.content);
+        // 按 Tab 记录的编码写回(状态栏可切换;缺省 UTF-8)
+        await saveToPathEncoded(tab.path, tab.content, tab.encoding ?? 'utf-8');
         state.markSaved(id, tab.path);
         toast.success(`已保存 ${tab.title}`);
         return true;
@@ -683,6 +685,34 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   );
   useToolMenus(toolId, menus);
 
+  /**
+   * 右键菜单自定义分组(按页面定制显示):文本编辑器页注入
+   * 「切换字符命名风格 / 切换大小写」。动作复用全局快捷键处理器,
+   * 其内部作用于当前激活编辑器的选区(handleEditorMount 已注册)。
+   */
+  const editorMenuSections = useMemo<MonacoMenuSection[]>(
+    () => [
+      {
+        id: 'naming',
+        items: [
+          {
+            id: 'cycle-naming-case',
+            label: '切换字符命名风格',
+            shortcut: 'Ctrl+Shift+U',
+            onSelect: cycleNamingCaseShortcutHandler,
+          },
+          {
+            id: 'toggle-case',
+            label: '切换大小写',
+            shortcut: 'Ctrl+Shift+L',
+            onSelect: toggleCaseShortcutHandler,
+          },
+        ],
+      },
+    ],
+    [],
+  );
+
   /** 未保存对话框:保存并关闭(仅 close-tab;另存为被取消则保持打开) */
   const handleUnsavedSave = useCallback(() => {
     if (!unsaved || unsaved.mode !== 'close-tab' || !unsaved.tabId) return;
@@ -753,9 +783,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               onToggleDir={(dirPath) =>
                 useEditorWorkspaceStore.getState().toggleDirExpanded(dirPath)
               }
-              onCloseFolder={(rootPath) =>
-                useEditorWorkspaceStore.getState().closeFolder(rootPath)
-              }
+              onCloseFolder={(rootPath) => useEditorWorkspaceStore.getState().closeFolder(rootPath)}
               onOpenTreeFile={(path) => void handleOpenTreeFile(path)}
               onSelect={handleSelectTab}
               onSelectMany={handleSelectMany}
@@ -856,18 +884,36 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                   onToggleWordWrap={() => {
                     useEditorWorkspaceStore.getState().toggleTabWordWrap(activeTab.id);
                   }}
+                  // 文件编码:状态栏展示并可切换,保存时按该编码写回(仿 VSCode)
+                  encoding={activeTab.encoding ?? 'utf-8'}
+                  onEncodingChange={(enc) =>
+                    useEditorWorkspaceStore.getState().setTabEncoding(activeTab.id, enc)
+                  }
+                  // 行尾序列切换:CRLF ↔ LF(内容转换后标记未保存,由用户手动保存)
+                  onToggleEol={() => {
+                    const cur = useEditorWorkspaceStore.getState();
+                    const tab = cur.workspace.tabs.find((t) => t.id === activeTab.id);
+                    if (!tab) return;
+                    const next = tab.content.includes('\r\n')
+                      ? tab.content.replace(/\r\n/g, '\n')
+                      : tab.content.replace(/(?<!\r)\n/g, '\r\n');
+                    cur.setTabContent(activeTab.id, next);
+                  }}
+                  // 右键菜单按页面定制:命名风格切换 / 大小写转换(作用于当前编辑器选区)
+                  contextMenuSections={editorMenuSections}
                   minimap
                   onMount={handleEditorMount}
-                  // 右下角语言徽章(仿 VSCode):点击弹出「选择语言模式」对话框,
-                  // 切换该 Tab 的语言即 Monaco 高亮;展示当前语言的中文名
+                  // 右下角语言徽章(仿 VSCode):带语言图标 + 中文名,
+                  // 点击弹出「选择语言模式」对话框,切换该 Tab 的 Monaco 高亮
                   statusBarRight={
                     <button
                       type="button"
                       onClick={() => setLanguagePickerOpen(true)}
                       title="选择语言模式"
                       data-testid="editor-language-badge"
-                      className="whitespace-nowrap rounded-sm px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      className="flex items-center gap-1 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                     >
+                      <LanguageIcon language={activeTab.language} />
                       {LANGUAGE_LABELS[activeTab.language] ?? '纯文本'}
                     </button>
                   }

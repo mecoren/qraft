@@ -209,6 +209,67 @@ pub async fn fs_read_text_file_checked_inner(
         .map_err(|_| AppError::Unsupported("non-utf-8 content".into()))
 }
 
+// ============ 文件编码(编辑器编码切换;纯逻辑见 media::text_encoding)============
+
+use crate::media::text_encoding::{decode_text, detect_encoding, encode_text};
+
+/// 带编码信息的文本读取结果(`fs_read_text_file_encoded` 返回)
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EncodedTextContent {
+    pub content: String,
+    /// 探测到的编码标识(`detect_encoding` 输出,前端展示/保存用)
+    pub encoding: String,
+}
+
+/// 读取文本文件并自动探测编码(必须在授权范围内)
+///
+/// 与 `fs_read_text_file_checked` 的差异:
+/// - 不要求严格 UTF-8:GBK/Big5 等编码自动探测并解码
+/// - 返回内容 + 探测到的编码标识,供编辑器状态栏展示与「以该编码保存」复用
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+/// - 二进制内容时返回 `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
+pub async fn fs_read_text_file_encoded_inner(
+    path: &str,
+    authorized: &AuthorizedPaths,
+) -> Result<CommandResponse<EncodedTextContent>, AppError> {
+    validate_path(path, authorized)?;
+    let bytes = tokio::fs::read(path).await.map_err(AppError::from)?;
+    if !bytes_look_like_text(&bytes) {
+        return Err(AppError::Unsupported("binary content".into()));
+    }
+    let encoding = detect_encoding(&bytes);
+    Ok(CommandResponse::ok(EncodedTextContent {
+        content: decode_text(&bytes, encoding),
+        encoding: encoding.to_string(),
+    }))
+}
+
+/// 以指定编码把内容写入文件(路径必须已授权)
+///
+/// # Errors
+///
+/// - 编码不受支持时返回 `AppError::Unsupported`
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件写入失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+pub async fn fs_write_file_encoded_inner(
+    path: &str,
+    content: &str,
+    encoding_id: &str,
+    authorized: &AuthorizedPaths,
+) -> Result<CommandResponse<()>, AppError> {
+    validate_path(path, authorized)?;
+    let bytes = encode_text(content, encoding_id)?;
+    tokio::fs::write(path, bytes)
+        .await
+        .map_err(AppError::from)?;
+    Ok(CommandResponse::ok(()))
+}
+
 /// 校验文件扩展名与 MIME 的映射关系,返回规范扩展名(未匹配时返回 `bin`)
 #[must_use]
 pub fn extension_for_mime(mime: &str, fallback: &str) -> String {
@@ -320,12 +381,14 @@ pub fn fs_reveal_in_explorer(path: String) -> Result<CommandResponse<()>, AppErr
     fs_reveal_in_explorer_inner(&path)
 }
 
-/// 打开文件对话框的返回结果(路径 + 内容)
+/// 打开文件对话框的返回结果(路径 + 内容 + 探测到的编码)
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenFileResult {
     pub path: String,
     pub content: String,
+    /// 探测到的编码标识(如 utf-8 / gb18030),供编辑器状态栏展示与保存复用
+    pub encoding: String,
 }
 
 /// 打开文件夹对话框的返回结果(目录根路径)
@@ -344,7 +407,7 @@ pub struct DirEntryInfo {
     pub is_dir: bool,
 }
 
-/// 弹出打开文件对话框,读取选中文件的内容
+/// 弹出打开文件对话框,读取选中文件的内容(自动探测编码)
 ///
 /// 用户在打开对话框中显式选择的路径会被加入授权集合,此后可通过
 /// `fs_read_file` 重新读取或 `fs_write_file` 直接覆盖保存。
@@ -373,13 +436,16 @@ pub async fn fs_open_dialog(
         .map_err(|e| AppError::Unknown(format!("open path invalid: {e}")))?;
     let path_str = path_buf.to_string_lossy().into_owned();
     authorized.authorize(&path_str);
-    let resp = fs_read_file_inner(&path_str, &authorized).await?;
-    let content = resp
-        .data
-        .ok_or_else(|| AppError::Unknown("fs_open_dialog: empty response".into()))?;
+    let bytes = tokio::fs::read(&path_str).await.map_err(AppError::from)?;
+    if !bytes_look_like_text(&bytes) {
+        return Err(AppError::Unsupported("binary content".into()));
+    }
+    let encoding = detect_encoding(&bytes).to_string();
+    let content = decode_text(&bytes, &encoding);
     Ok(CommandResponse::ok(Some(OpenFileResult {
         path: path_str,
         content,
+        encoding,
     })))
 }
 
@@ -445,6 +511,38 @@ pub async fn fs_read_text_file_checked(
     authorized: tauri::State<'_, AuthorizedPaths>,
 ) -> Result<CommandResponse<String>, AppError> {
     fs_read_text_file_checked_inner(&path, &authorized).await
+}
+
+/// 读取文本文件并自动探测编码(GBK/Big5/Shift-JIS 等自动解码)
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+/// - 二进制内容时返回 `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
+#[tauri::command]
+pub async fn fs_read_text_file_encoded(
+    path: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<EncodedTextContent>, AppError> {
+    fs_read_text_file_encoded_inner(&path, &authorized).await
+}
+
+/// 以指定编码写入文本文件(utf-8-bom 自动补 BOM)
+///
+/// # Errors
+///
+/// - 编码不受支持时返回 `AppError::Unsupported`
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件写入失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+#[tauri::command]
+pub async fn fs_write_file_encoded(
+    path: String,
+    content: String,
+    encoding: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<()>, AppError> {
+    fs_write_file_encoded_inner(&path, &content, &encoding, &authorized).await
 }
 
 #[cfg(test)]

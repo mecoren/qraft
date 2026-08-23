@@ -8,13 +8,25 @@ import { useSearchStore } from '@/store/searchStore';
 import { useUiStore } from '@/store/uiStore';
 import { useToolStateStore } from '@/store/toolStateStore';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
-import { registerTabEditor, unregisterTabEditor, clearTabEditors } from '@/lib/editor-search-registry';
+import {
+  registerTabEditor,
+  unregisterTabEditor,
+  clearTabEditors,
+} from '@/lib/editor-search-registry';
 import type { EditorTab } from '@/tools/code-editor-workspace/schema';
 import type { editor } from 'monaco-editor';
 
 /** 构造最小合法 Tab */
 function makeTab(id: string, content = ''): EditorTab {
-  return { id, title: id, path: null, language: 'plaintext', content, savedContent: content, pinned: false };
+  return {
+    id,
+    title: id,
+    path: null,
+    language: 'plaintext',
+    content,
+    savedContent: content,
+    pinned: false,
+  };
 }
 
 /** 构造 fake Monaco 编辑器(供文本跳转分支测试) */

@@ -65,7 +65,9 @@ export function normalizeIpcError(e: unknown): ErrorInfo {
     return {
       code: kind ?? code ?? INTERNAL_ERROR.code,
       message:
-        rawMessage ?? (typeof detail === 'string' && detail ? detail : undefined) ?? INTERNAL_ERROR.message,
+        rawMessage ??
+        (typeof detail === 'string' && detail ? detail : undefined) ??
+        INTERNAL_ERROR.message,
       ...(detail !== undefined ? { details: detail } : {}),
     };
   }

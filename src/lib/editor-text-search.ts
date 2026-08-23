@@ -97,7 +97,13 @@ export function searchTabsText(tabs: readonly EditorTab[], query: string): TabGr
       });
     });
     if (matches.length > 0) {
-      groups.push({ tabId: tab.id, tabTitle: tab.title, path: tab.path, count: matches.length, matches });
+      groups.push({
+        tabId: tab.id,
+        tabTitle: tab.title,
+        path: tab.path,
+        count: matches.length,
+        matches,
+      });
     }
   }
   return groups;

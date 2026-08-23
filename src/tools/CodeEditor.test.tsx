@@ -75,6 +75,9 @@ vi.mock('@/components/ui/resizable', () => ({
 vi.mock('./code-editor-workspace/fileOps', () => ({
   openTextFileDialog: vi.fn(),
   saveToPath: vi.fn(),
+  saveToPathEncoded: vi.fn(),
+  readTextFileChecked: vi.fn(),
+  readTextFileEncoded: vi.fn(),
   saveWithDialog: vi.fn(),
   encodeTextToBase64: vi.fn((t: string) => `b64:${t}`),
   windowCloseReady: vi.fn(),
@@ -90,7 +93,11 @@ import { listen, safeInvoke } from '@/lib/ipc';
 import { CodeEditorTool } from './CodeEditor';
 import { useEditorWorkspaceStore } from './code-editor-workspace/useEditorWorkspaceStore';
 import { ToolMenuBar } from '@/components/layout/ToolMenuBar';
-import { openTextFileDialog, saveToPath, saveWithDialog } from './code-editor-workspace/fileOps';
+import {
+  openTextFileDialog,
+  saveToPathEncoded,
+  saveWithDialog,
+} from './code-editor-workspace/fileOps';
 import { DEFAULT_WORKSPACE } from './code-editor-workspace/schema';
 
 const safeInvokeMock = safeInvoke as unknown as Mock;
@@ -106,7 +113,7 @@ beforeEach(() => {
     error: null,
   });
   (openTextFileDialog as unknown as Mock).mockReset();
-  (saveToPath as unknown as Mock).mockReset();
+  (saveToPathEncoded as unknown as Mock).mockReset();
   (saveWithDialog as unknown as Mock).mockReset();
   (listen as unknown as Mock).mockReset();
   (listen as unknown as Mock).mockResolvedValue(() => {});
@@ -233,10 +240,10 @@ describe('CodeEditorTool workspace', () => {
     await waitFor(() => expect(screen.getByTestId('editor-tabs-dirty-a.txt')).toBeInTheDocument());
 
     // 保存 → dirty 消失
-    (saveToPath as unknown as Mock).mockResolvedValueOnce(true);
+    (saveToPathEncoded as unknown as Mock).mockResolvedValueOnce(true);
     await clickToolbarItem('toolbar-save');
     await waitFor(() => expect(screen.queryByTestId('editor-tabs-dirty-a.txt')).toBeNull());
-    expect(saveToPath).toHaveBeenCalledWith('/a.txt', 'hello world');
+    expect(saveToPathEncoded).toHaveBeenCalledWith('/a.txt', 'hello world', 'utf-8');
   });
 
   it('switches tabs and closes via the tabs bar close button', async () => {
@@ -368,7 +375,7 @@ describe('CodeEditorTool workspace', () => {
     fireEvent.mouseEnter(screen.getByTestId('editor-sidebar-item-a.txt'));
     fireEvent.click(screen.getByTestId('editor-sidebar-action-save-all'));
 
-    await waitFor(() => expect(saveToPath).toHaveBeenCalledWith('/a.txt', 'a!'));
+    await waitFor(() => expect(saveToPathEncoded).toHaveBeenCalledWith('/a.txt', 'a!', 'utf-8'));
     await waitFor(() => expect(screen.queryByTestId('editor-tabs-dirty-a.txt')).toBeNull());
   });
 
@@ -530,7 +537,7 @@ describe('CodeEditorTool workspace', () => {
       path: '/c.txt',
       content: 'x',
     });
-    (saveToPath as unknown as Mock).mockResolvedValueOnce(true);
+    (saveToPathEncoded as unknown as Mock).mockResolvedValueOnce(true);
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
@@ -543,7 +550,7 @@ describe('CodeEditorTool workspace', () => {
     await waitFor(() => expect(screen.getByTestId('unsaved-dialog')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('unsaved-dialog-save'));
 
-    await waitFor(() => expect(saveToPath).toHaveBeenCalledWith('/c.txt', 'xx'));
+    await waitFor(() => expect(saveToPathEncoded).toHaveBeenCalledWith('/c.txt', 'xx', 'utf-8'));
     await waitFor(() => expect(screen.queryByTestId('editor-tabs-tab-c.txt')).toBeNull());
   });
 

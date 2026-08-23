@@ -1,13 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
-import {
-  safeInvoke,
-  unwrapResponse,
-  listen,
-  invokeCommand,
-  CommandError,
-  AppError,
-} from './ipc';
+import { safeInvoke, unwrapResponse, listen, invokeCommand, CommandError, AppError } from './ipc';
 import type { CommandResponse } from '@/types/ipc';
 
 const invokeMock = invoke as unknown as ReturnType<typeof vi.fn>;

@@ -37,10 +37,7 @@ export function folderNameFromPath(rootPath: string): string {
 function isUnderDir(path: string, dir: string): boolean {
   if (path === dir) return true;
   const prefix = dir.endsWith('\\') || dir.endsWith('/') ? dir : `${dir}\\`;
-  return (
-    path.startsWith(prefix) ||
-    path.startsWith(`${dir}/`)
-  );
+  return path.startsWith(prefix) || path.startsWith(`${dir}/`);
 }
 
 /** 生成稳定唯一 id(Node 22 的 crypto.randomUUID,降级为时间戳+随机) */
@@ -101,8 +98,8 @@ interface WorkspaceState {
 
   /** 从 Rust config 还原工作区;已还原时再次调用为 no-op */
   hydrate: () => Promise<void>;
-  /** 打开本地文件:存在同路径 Tab 则激活,否则新建 */
-  openLocalFile: (path: string, content: string) => void;
+  /** 打开本地文件:存在同路径 Tab 则激活,否则新建(encoding 为探测到的编码标识) */
+  openLocalFile: (path: string, content: string, encoding?: string) => void;
   /** 打开拖入/粘贴的文本内容:以无路径 Tab 打开(标题为文件名,保存时另存为) */
   openDroppedText: (title: string, content: string) => void;
   /** 新建 untitled Tab 并激活 */
@@ -133,6 +130,8 @@ interface WorkspaceState {
   setTabContent: (id: string, content: string) => void;
   /** 更新 Tab 语言(语言选择器调用) */
   setTabLanguage: (id: string, language: EditorLanguage) => void;
+  /** 更新 Tab 文件编码(编码选择器调用;保存时按该编码写回) */
+  setTabEncoding: (id: string, encoding: string) => void;
   /**
    * 切换 Tab 的自动换行开关(右键菜单「自动换行」调用)。
    * 仅作用于该 Tab 对应的编辑器实例;缺省视为开启,切换后随工作区持久化。
@@ -176,7 +175,7 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }
   },
 
-  openLocalFile: (path, content) => {
+  openLocalFile: (path, content, encoding) => {
     const { workspace } = get();
     const existing = workspace.tabs.find((t) => t.path === path);
     if (existing) {
@@ -194,6 +193,7 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
       content,
       savedContent: content,
       pinned: false,
+      ...(encoding ? { encoding } : {}),
     };
     set({
       workspace: {
@@ -409,6 +409,12 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
   setTabLanguage: (id, language) => {
     const { workspace } = get();
     const tabs = workspace.tabs.map((t) => (t.id === id ? { ...t, language } : t));
+    set({ workspace: { ...workspace, tabs }, userTouched: true });
+  },
+
+  setTabEncoding: (id, encoding) => {
+    const { workspace } = get();
+    const tabs = workspace.tabs.map((t) => (t.id === id ? { ...t, encoding } : t));
     set({ workspace: { ...workspace, tabs }, userTouched: true });
   },
 

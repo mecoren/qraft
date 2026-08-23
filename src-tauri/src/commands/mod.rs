@@ -9,4 +9,5 @@ pub mod config;
 pub mod font;
 pub mod fs;
 pub mod history;
+pub mod image;
 pub mod tool;

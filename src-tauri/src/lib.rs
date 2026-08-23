@@ -16,6 +16,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
 pub mod core;
+pub mod media;
 pub mod store;
 pub mod tools;
 
@@ -68,9 +69,11 @@ pub fn run() -> anyhow::Result<()> {
     use crate::commands::font::list_system_fonts;
     use crate::commands::fs::{
         AuthorizedPaths, fs_open_dialog, fs_open_folder_dialog, fs_read_dir, fs_read_file,
-        fs_read_text_file_checked, fs_reveal_in_explorer, fs_save_bytes, fs_write_file,
+        fs_read_text_file_checked, fs_read_text_file_encoded, fs_reveal_in_explorer, fs_save_bytes,
+        fs_write_file, fs_write_file_encoded,
     };
     use crate::commands::history::{history_clear, history_list};
+    use crate::commands::image::png_compress;
     use crate::commands::tool::{
         tool_cancel, tool_execute, tool_execute_stream, tool_list, tool_metadata,
     };
@@ -227,7 +230,10 @@ pub fn run() -> anyhow::Result<()> {
             fs_open_folder_dialog,
             fs_read_dir,
             fs_read_text_file_checked,
+            fs_read_text_file_encoded,
+            fs_write_file_encoded,
             fs_reveal_in_explorer,
+            png_compress,
             app_open_external,
             app_version,
             app_quit,

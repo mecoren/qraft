@@ -149,8 +149,10 @@ export function FolderTreeSection({
     const isRoot = folders.some((f) => f.rootPath === entry.path);
     const expanded = expandedDirs.includes(entry.path);
     const name = isRoot
-      ? (folders.find((f) => f.rootPath === entry.path)?.rootPath.split(/[\\/]/).pop() ??
-        entry.name)
+      ? (folders
+          .find((f) => f.rootPath === entry.path)
+          ?.rootPath.split(/[\\/]/)
+          .pop() ?? entry.name)
       : entry.name;
     return (
       <button
@@ -274,14 +276,10 @@ export function FolderTreeSection({
         >
           <ul className="p-1.5 pt-1">
             {folders.map((f) => {
-              const rootName =
-                f.rootPath.split(/[\\/]/).pop() ?? f.rootPath;
+              const rootName = f.rootPath.split(/[\\/]/).pop() ?? f.rootPath;
               return (
                 <li key={f.rootPath}>
-                  {renderDirRow(
-                    { name: rootName, path: f.rootPath, isDir: true },
-                    0,
-                  )}
+                  {renderDirRow({ name: rootName, path: f.rootPath, isDir: true }, 0)}
                   {renderChildren(f.rootPath, 0)}
                 </li>
               );

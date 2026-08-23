@@ -44,6 +44,26 @@ import type { OnMount } from '@monaco-editor/react';
 /** Monaco 编辑器实例类型(onMount 回调的入参) */
 export type MonacoEditor = Parameters<OnMount>[0];
 
+/** 宿主自定义菜单项(按页面定制右键菜单) */
+export interface MonacoMenuAction {
+  /** 稳定唯一 id(组内) */
+  id: string;
+  /** 展示文案 */
+  label: string;
+  /** 可选快捷键提示(仅展示,不绑定按键) */
+  shortcut?: string;
+  /** 点击回调(不经过 editor.trigger,由宿主自行处理) */
+  onSelect: () => void;
+  /** 是否禁用,默认 false */
+  disabled?: boolean;
+}
+
+/** 宿主自定义菜单分组:每组渲染前插入分隔线 */
+export interface MonacoMenuSection {
+  id: string;
+  items: MonacoMenuAction[];
+}
+
 export interface MonacoContextMenuProps {
   /** 编辑器实例(由 onMount 传入) */
   editor: MonacoEditor | null;
@@ -65,6 +85,11 @@ export interface MonacoContextMenuProps {
    * 缺省时不注入(如 DiffEditor 对比视图等不开放该开关的场景)。
    */
   onToggleWordWrap?: () => void;
+  /**
+   * 宿主自定义菜单分组(按页面/工具定制):追加在内置项与折叠组之后,
+   * 每组前有分隔线;动作为本地回调,不经 editor.trigger。
+   */
+  sections?: MonacoMenuSection[];
   /** 菜单是否打开 */
   open: boolean;
   /** 右键坐标(client 坐标,fixed 定位用) */
@@ -133,6 +158,7 @@ export function MonacoContextMenu({
   folding = true,
   wordWrapOn,
   onToggleWordWrap,
+  sections,
   open,
   position,
   onClose,
@@ -146,7 +172,7 @@ export function MonacoContextMenu({
     // 折叠动作前置条件为 CONTEXT_FOLDING_ENABLED(即 options.folding),
     // 折叠关闭时不注入该菜单组,避免无效项。
     const baseDefs = folding ? [...MENU_DEFS, ...FOLDING_MENU_DEFS] : MENU_DEFS;
-    // 提供切换回调时,末尾追加「自动换行」开关组(仅作用于当前编辑器实例)
+    // 提供切换回调时,追加「自动换行」开关组(仅作用于当前编辑器实例)
     const defs: Omit<MenuEntry, 'disabled'>[] = onToggleWordWrap
       ? [
           ...baseDefs,
@@ -158,6 +184,17 @@ export function MonacoContextMenu({
           },
         ]
       : baseDefs;
+    // 宿主自定义分组:每组前插入分隔线;id 编码为 __custom__<sectionId>:<itemId>
+    for (const section of sections ?? []) {
+      defs.push({ id: `__sep__custom_${section.id}`, label: '' });
+      for (const item of section.items) {
+        defs.push({
+          id: `__custom__${section.id}:${item.id}`,
+          label: item.label,
+          shortcut: item.shortcut,
+        });
+      }
+    }
     return defs.map((def) => {
       if (def.id.startsWith('__sep__')) {
         return { ...def, disabled: false };
@@ -171,11 +208,16 @@ export function MonacoContextMenu({
       if (def.id === '__paste__') {
         return { ...def, disabled: readOnly };
       }
+      if (def.id.startsWith('__custom__')) {
+        const actionId = def.id.slice(def.id.indexOf(':') + 1);
+        const item = (sections ?? []).flatMap((s) => s.items).find((a) => a.id === actionId);
+        return { ...def, disabled: item?.disabled ?? false };
+      }
       return { ...def, disabled: false };
     });
     // open 依赖是故意的:菜单重新打开时需基于最新选区重算禁用状态
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-x/exhaustive-deps
-  }, [editor, open, readOnly, folding, wordWrapOn, onToggleWordWrap]);
+  }, [editor, open, readOnly, folding, wordWrapOn, onToggleWordWrap, sections]);
 
   // 浮层容器 ref:点击外部关闭 + 视口边界修正测量
   const menuRef = useRef<HTMLDivElement>(null);
@@ -284,6 +326,16 @@ export function MonacoContextMenu({
         onToggleWordWrap?.();
         return;
       }
+      // 宿主自定义项:分发到对应 action 的 onSelect 回调
+      if (id.startsWith('__custom__')) {
+        const actionId = id.slice(id.indexOf(':') + 1);
+        onClose();
+        (sections ?? [])
+          .flatMap((s) => s.items)
+          .find((a) => a.id === actionId)
+          ?.onSelect();
+        return;
+      }
       onClose();
       if (!editor) return;
       // editor.trigger 对 registerCommand 与 registerEditorAction 均有效,
@@ -295,7 +347,7 @@ export function MonacoContextMenu({
         editor.getAction(id)?.run();
       }
     },
-    [editor, onClose, handlePaste, onToggleWordWrap],
+    [editor, onClose, handlePaste, onToggleWordWrap, sections],
   );
 
   if (!open) return null;

@@ -215,11 +215,7 @@ export function App(): JSX.Element {
 
       {/* 全局搜索弹窗:由 Ctrl+Shift+F 唤起。
        * key 让每次打开时重挂载,查询输入自动清空(避免上次输入残留) */}
-      <SearchDialog
-        key={`search-${searchOpen}`}
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-      />
+      <SearchDialog key={`search-${searchOpen}`} open={searchOpen} onOpenChange={setSearchOpen} />
 
       {/* key 让每次打开时弹窗重挂载,initialRect() 重新按当前视口尺寸居中
        * 避免小屏→大屏窗口变化后,弹窗停留在原位置(被 resize clamp 在边缘)造成不居中。

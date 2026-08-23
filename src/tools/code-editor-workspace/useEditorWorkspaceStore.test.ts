@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  useEditorWorkspaceStore,
-  folderNameFromPath,
-} from './useEditorWorkspaceStore';
+import { useEditorWorkspaceStore, folderNameFromPath } from './useEditorWorkspaceStore';
 import { DEFAULT_WORKSPACE, WORKSPACE_CONFIG_KEY } from './schema';
 
 // mock IPC 层:store 的 hydrate/persist 通过 safeInvoke 走 config_get/config_set
@@ -651,9 +648,10 @@ describe('useEditorWorkspaceStore.openFolder / closeFolder / toggleDirExpanded',
     const s = useEditorWorkspaceStore.getState();
     s.openFolder('C:\\a');
     s.openFolder('C:\\b');
-    expect(
-      useEditorWorkspaceStore.getState().workspace.folders.map((f) => f.rootPath),
-    ).toEqual(['C:\\a', 'C:\\b']);
+    expect(useEditorWorkspaceStore.getState().workspace.folders.map((f) => f.rootPath)).toEqual([
+      'C:\\a',
+      'C:\\b',
+    ]);
   });
 
   it('closeFolder 移除该根并清理其子树的展开状态', () => {

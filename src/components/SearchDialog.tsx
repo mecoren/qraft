@@ -282,7 +282,12 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
                 </div>
               ) : (
                 tabGroups.map((g) => (
-                  <TextResultGroup key={g.tabId} group={g} query={debounced} onSelect={handleTextSelect} />
+                  <TextResultGroup
+                    key={g.tabId}
+                    group={g}
+                    query={debounced}
+                    onSelect={handleTextSelect}
+                  />
                 ))
               )
             ) : total === 0 ? (

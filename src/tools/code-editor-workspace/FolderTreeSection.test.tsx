@@ -120,18 +120,14 @@ describe('FolderTreeSection 展开/折叠交互', () => {
     expect(screen.getByText('src')).toBeInTheDocument();
     expect(readDirectoryMock).toHaveBeenCalledTimes(1);
 
-    rerender(
-      <FolderTreeSection {...baseProps()} expandedDirs={['C:\\proj']} />,
-    );
+    rerender(<FolderTreeSection {...baseProps()} expandedDirs={['C:\\proj']} />);
     expect(readDirectoryMock).toHaveBeenCalledTimes(1);
   });
 
   it('懒加载:同一目录会话内只调用一次 readDirectory', async () => {
     readDirectoryMock.mockResolvedValue(ROOT_CHILDREN);
     const props = baseProps();
-    const { rerender } = render(
-      <FolderTreeSection {...props} expandedDirs={['C:\\proj']} />,
-    );
+    const { rerender } = render(<FolderTreeSection {...props} expandedDirs={['C:\\proj']} />);
 
     await waitFor(() => expect(screen.getByText('src')).toBeInTheDocument());
     rerender(<FolderTreeSection {...props} expandedDirs={['C:\\proj']} />);
@@ -148,18 +144,14 @@ describe('FolderTreeSection 展开/折叠交互', () => {
     readDirectoryMock.mockRejectedValue(new Error('path not authorized'));
     const view = renderTree({ expandedDirs: ['C:\\proj'] });
 
-    await waitFor(() =>
-      expect(toastErrorMock).toHaveBeenCalledWith('path not authorized'),
-    );
+    await waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith('path not authorized'));
     // 失败不做剔除:根节点仍在
     expect(screen.getByText('proj')).toBeInTheDocument();
 
     // 重试路径:父层再次展开会传入新的 expandedDirs 引用,
     // effect 重新执行;失败时已清除「已加载」标记 → 允许重新发起读取
     readDirectoryMock.mockResolvedValue(ROOT_CHILDREN);
-    view.rerender(
-      <FolderTreeSection {...baseProps()} expandedDirs={['C:\\proj']} />,
-    );
+    view.rerender(<FolderTreeSection {...baseProps()} expandedDirs={['C:\\proj']} />);
     await waitFor(() => expect(screen.getByText('src')).toBeInTheDocument());
     expect(readDirectoryMock).toHaveBeenCalledTimes(2);
   });

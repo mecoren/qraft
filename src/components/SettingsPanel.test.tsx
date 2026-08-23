@@ -160,9 +160,7 @@ describe('UpdateSection 检查更新错误提示', () => {
     await user.click(installBtn);
 
     // 哨兵命中:打开 Releases 页兜底,不弹「安装更新失败」
-    await waitFor(() =>
-      expect(invokeMock).toHaveBeenCalledWith('app_open_release_page'),
-    );
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('app_open_release_page'));
     expect(toastErrorMock).not.toHaveBeenCalledWith(expect.stringContaining('安装更新失败'));
   });
 });

@@ -153,10 +153,7 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
       </ConfigSection>
 
       {/* 图片区 */}
-      <div
-        className="flex items-center justify-between"
-        data-search-anchor="image_converter:image"
-      >
+      <div className="flex items-center justify-between" data-search-anchor="image_converter:image">
         <h2 className="text-body-sm font-semibold">图片</h2>
         <div className="flex items-center gap-1">
           <Button

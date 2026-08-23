@@ -121,6 +121,9 @@ registerTool('color_blindness_simulator', () =>
 registerTool('image_converter', () =>
   import('./ImageConverter').then((m) => ({ default: m.ImageConverter })),
 );
+registerTool('png_compressor', () =>
+  import('./PngCompressor').then((m) => ({ default: m.PngCompressor })),
+);
 registerTool('text_compare', () =>
   import('./TextCompare').then((m) => ({ default: m.TextCompare })),
 );

@@ -152,10 +152,7 @@ export function defineThemeFor(monaco: Monaco, name: string): void {
         ? resolveColor('--popover', '#252526')
         : resolveColor('--muted', '#f5f5f5'),
       // 查找/替换框前景要足够亮:暗色下用近白,确保输入文字、图标、占位符清晰可读
-      'editorWidget.foreground': resolveColor(
-        '--card-foreground',
-        isDark ? '#f5f5f5' : '#1a1a1e',
-      ),
+      'editorWidget.foreground': resolveColor('--card-foreground', isDark ? '#f5f5f5' : '#1a1a1e'),
       'editorWidget.border': resolveColor('--border', isDark ? '#4a4a4a' : '#d0d0d6'),
       // 建议/悬浮小部件同理:亮色下用浅灰底 + 显式前景,保证文字清晰可读
       'editorSuggestWidget.background': isDark

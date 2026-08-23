@@ -480,7 +480,9 @@ describe('EditorLeftSidebar 文件夹树分组', () => {
     const section = screen.getByTestId('sidebar-folder-tree-folder-section');
     const tabsList = screen.getByTestId('sidebar-item-a.ts').closest('ul');
     // DOM 顺序:文件夹分组在文件列表之后(下方独立分组)
-    expect(tabsList!.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      tabsList!.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     // 根目录默认展开;子项为空(mock 返回 []),但树内交互链路可验证:
     // 展开根 → onToggleDir 分发

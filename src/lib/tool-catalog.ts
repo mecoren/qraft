@@ -321,6 +321,15 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
     icon: Image,
     keywords: ['image', 'png', 'jpeg', 'webp', '转换'],
   },
+  {
+    id: 'png_compressor',
+    name: 'PNG 压缩器',
+    description:
+      '压缩 PNG 图片:OxiPNG 无损优化与调色板量化有损压缩(参考 pngquant),展示前后体积对比',
+    category: 'graphic',
+    icon: Image,
+    keywords: ['png', 'compress', '压缩', '图片优化', 'oxipng', 'pngquant'],
+  },
 
   // —— 文本处理 ——
   {

@@ -1,23 +1,28 @@
 /**
  * 本地文件操作 —— 封装 Tauri fs IPC 命令
  *
- * - `openTextFileDialog`:弹出系统打开对话框,返回 `{ path, content }` 或 null(取消)。
- *   Rust 端 `fs_open_dialog` 已把所选路径加入授权集合,后续可直接 `fs_write_file`。
+ * - `openTextFileDialog`:弹出系统打开对话框,返回 `{ path, content, encoding }` 或 null(取消)。
+ *   Rust 端 `fs_open_dialog` 已把所选路径加入授权集合,后续可直接 `fs_write_file`;
+ *   内容按探测到的编码自动解码(UTF-8 / GB18030 / Big5 / Shift-JIS 等)。
  * - `openFolderDialog`:弹出「打开文件夹」对话框,返回目录根路径或 null(取消)。
  *   所选目录加入授权集合,其子树内文件可读写/枚举。
  * - `readDirectory`:枚举已授权目录的子项(目录在前、名称不分大小写升序)。
- * - `readTextFileChecked`:读取文本并校验可编辑性;二进制 / 非 UTF-8 抛
+ * - `readTextFileEncoded`:读取文本并自动探测编码;二进制抛
  *   code=`ERR_FILE_UNSUPPORTED` 的 CommandError,前端弹「格式不支持」提示。
- * - `saveToPath`:直接覆盖写回已授权路径(`fs_write_file`)。
+ * - `saveToPath`:直接覆盖写回已授权路径(`fs_write_file`,恒 UTF-8)。
+ * - `saveToPathEncoded`:以指定编码写回(`fs_write_file_encoded`)。
  * - `saveWithDialog`:弹「另存为」对话框(`fs_save_bytes`),保存后路径同样被授权。
  * - `encodeTextToBase64`:文本 → UTF-8 base64(`fs_save_bytes` 的输入格式)。
  */
 import { bytesToBase64 } from '@/lib/file-utils';
 import { invokeCommand, safeInvoke } from '@/lib/ipc';
+import { DEFAULT_ENCODING_ID } from '@/lib/text-encodings';
 
 export interface OpenFileResult {
   path: string;
   content: string;
+  /** 探测到的文件编码标识(Rust 端 detect_encoding 输出) */
+  encoding?: string;
 }
 
 /** 目录条目(fs_read_dir 返回) */
@@ -63,9 +68,32 @@ export async function readTextFileChecked(path: string): Promise<OpenFileResult>
   return { path, content };
 }
 
+/**
+ * 读取文本文件并自动探测编码(编辑器打开文件的推荐入口)。
+ * GB18030/Big5/Shift-JIS 等编码自动解码;二进制内容抛
+ * CommandError(code=`ERR_FILE_UNSUPPORTED`)。返回内容 + 探测到的编码标识。
+ */
+export async function readTextFileEncoded(path: string): Promise<OpenFileResult> {
+  const result = await invokeCommand<{ content: string; encoding: string }>(
+    'fs_read_text_file_encoded',
+    { path },
+  );
+  return { path, content: result.content, encoding: result.encoding };
+}
+
 /** 直接覆盖写入已授权路径;成功返回 true,失败抛 CommandError */
 export async function saveToPath(path: string, content: string): Promise<boolean> {
   await invokeCommand<boolean>('fs_write_file', { path, content });
+  return true;
+}
+
+/** 以指定编码写回已授权路径(utf-8-bom 自动补 BOM);失败抛 CommandError */
+export async function saveToPathEncoded(
+  path: string,
+  content: string,
+  encoding: string = DEFAULT_ENCODING_ID,
+): Promise<boolean> {
+  await invokeCommand<boolean>('fs_write_file_encoded', { path, content, encoding });
   return true;
 }
 

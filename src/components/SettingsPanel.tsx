@@ -1,7 +1,15 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type JSX } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type JSX,
+} from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, normalizeIpcError } from '@/lib/ipc';
 import { toast } from 'sonner';
@@ -381,21 +389,23 @@ export function FontSection() {
     getStoredMonoFontFamily(),
   );
 
+  /**
+   * 系统字体懒加载:打开设置面板时不再枚举全部系统字体(数百上千个
+   * DirectWrite 枚举 + 每项字体预览的排版开销会造成首次打开卡顿),
+   * 而是等用户首次展开任一字体下拉框时才触发一次,结果全会话复用。
+   */
   const [fonts, setFonts] = useState<FontInfo[]>([]);
-  const [fontsLoading, setFontsLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
+  const [fontsLoading, setFontsLoading] = useState(false);
+  const fontsLoadedRef = useRef(false);
+  const ensureFontsLoaded = useCallback(() => {
+    if (fontsLoadedRef.current) return;
+    fontsLoadedRef.current = true;
+    setFontsLoading(true);
     void (async () => {
       const list = await listSystemFonts();
-      if (!cancelled) {
-        setFonts(list);
-        setFontsLoading(false);
-      }
+      setFonts(list);
+      setFontsLoading(false);
     })();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const handleFontFamilyChange = (family: string | null) => {
@@ -490,6 +500,7 @@ export function FontSection() {
             options={uiFontOptions}
             placeholder="默认 UI 字体"
             loading={fontsLoading}
+            onOpen={ensureFontsLoaded}
             onChange={handleFontFamilyChange}
             aria-label="界面字体"
           />
@@ -505,6 +516,7 @@ export function FontSection() {
             options={monoFontOptions}
             placeholder="默认代码字体"
             loading={fontsLoading}
+            onOpen={ensureFontsLoaded}
             onChange={handleMonoFontFamilyChange}
             aria-label="代码字体"
           />
