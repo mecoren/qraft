@@ -241,15 +241,22 @@ export function FolderAnalyzer(_props: ToolProps) {
         </div>
       )}
 
-      {/* 结果面板仅在「结果所属模式」下渲染:报告结构互不兼容,切换 Tab 后不显示旧结果 */}
+      {/* 结果面板仅在「结果所属模式」下渲染:报告结构互不兼容,切换 Tab 后不显示旧结果。
+          min-h-0 flex-1 给 Monaco 等内容提供有界高度,内部自行滚动 */}
       {state.status === 'done' && resultMode === 'scan' && mode === 'scan' && (
-        <ScanResultsPanel report={state.result as ScanReport} />
+        <div className="min-h-0 flex-1">
+          <ScanResultsPanel report={state.result as ScanReport} />
+        </div>
       )}
       {state.status === 'done' && resultMode === 'search' && mode === 'search' && (
-        <SearchResultsPanel report={state.result as SearchReport} />
+        <div className="min-h-0 flex-1">
+          <SearchResultsPanel report={state.result as SearchReport} />
+        </div>
       )}
       {state.status === 'done' && resultMode === 'file' && mode === 'file' && (
-        <FileInspectPanel report={state.result as FileInspectReport} />
+        <div className="min-h-0 flex-1">
+          <FileInspectPanel report={state.result as FileInspectReport} />
+        </div>
       )}
     </div>
   );

@@ -146,7 +146,9 @@ describe('FolderAnalyzer orchestration', () => {
     expect(res).toEqual({ path: 'C:/dropped', kind: 'dir' });
   });
 
-  it('renders done results panel by mode', async () => {
+  it('hides stale result panel after switching mode and restores on switch back', async () => {
+    // 回归:scan 完成后切到 search/file,旧结果被强转成对应 Panel 导致 undefined.map 崩溃
+    const user = userEvent.setup();
     fakeState = {
       status: 'done',
       processed: 0,
@@ -154,7 +156,19 @@ describe('FolderAnalyzer orchestration', () => {
       result: { total_files: 1 },
       error: null,
     };
-    renderTool(); // 默认 scan 模式
-    expect(await screen.findByText('scan-panel')).toBeInTheDocument();
+    renderTool(); // scan 模式,先跑一次 scan 才有 resultMode
+    await user.click(screen.getByTestId('analyzer-pick-folder'));
+    await waitFor(() => expect(runMock).toHaveBeenCalled());
+    runMock.mockClear();
+    expect(screen.getByText('scan-panel')).toBeInTheDocument();
+
+    // 切到 search:不渲染旧 scan 结果(否则 SearchResultsPanel 取 results.map 崩溃)
+    await user.click(screen.getByTestId('analyzer-mode-search'));
+    expect(screen.queryByText('search-panel')).toBeNull();
+    expect(screen.queryByText('scan-panel')).toBeNull();
+
+    // 切回 scan:结果仍可查看
+    await user.click(screen.getByTestId('analyzer-mode-scan'));
+    expect(screen.getByText('scan-panel')).toBeInTheDocument();
   });
 });

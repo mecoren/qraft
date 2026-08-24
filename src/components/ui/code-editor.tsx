@@ -169,6 +169,11 @@ export interface CodeEditorProps {
   sizeBytes?: number;
   /** 是否在状态栏右侧显示字符统计(仅在未提供 statusBarRight 时生效),默认 true */
   showCharCount?: boolean;
+  /**
+   * 是否显示行号(默认 true)。合成文档(如搜索结果汇总)自带行号前缀时
+   * 可关闭,避免 Monaco gutter 行号与内容行号双重显示。
+   */
+  lineNumbers?: boolean;
   /** 测试用 data-testid */
   'data-testid'?: string;
   /** 全局搜索锚点(完整值 `${toolId}:${key}`),用于搜索跳转定位高亮 */
@@ -286,6 +291,7 @@ export function CodeEditor({
   onEncodingChange,
   onToggleEol,
   contextMenuSections,
+  lineNumbers = true,
 }: CodeEditorProps): ReactNode {
   const monacoRef = useRef<Monaco | null>(null);
   const editorRef = useRef<MonacoEditor | null>(null);
@@ -570,7 +576,7 @@ export function CodeEditor({
             fontLigatures: true,
             fontSize: 13,
             lineHeight: 20,
-            lineNumbers: 'on',
+            lineNumbers: lineNumbers ? 'on' : 'off',
             glyphMargin: false,
             // 代码折叠:gutter 单击折叠/展开 + 右键菜单折叠组(经 folding prop 可关)
             folding,
