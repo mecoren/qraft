@@ -103,9 +103,9 @@ mod tests {
         assert!(r.is_text);
         assert_eq!(r.encoding.as_deref(), Some("UTF-8"));
         assert_eq!(r.lines, Some(2));
-        // Task 2 口径:连续非空白序列计 1 词且 in_word 跨行延续
-        // → fn(1) main()(1) {}println!("hi");(末行首词与上一行末词合并)(1)
-        assert_eq!(r.words, Some(3));
+        // Task 2 口径:连续非空白序列计 1 词,换行(空白)重置分词
+        // 第 1 行:fn(1) main()(2) {}(3);第 2 行:println!("hi"); 无空白 = 1 词(4)
+        assert_eq!(r.words, Some(4));
         assert_eq!(r.preview.len(), 2);
         assert_eq!(r.sha256.len(), 64);
         assert!(r.sha256.chars().all(|c| c.is_ascii_hexdigit()));

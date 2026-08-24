@@ -61,8 +61,9 @@ pub fn count_metrics(text: &str) -> TextMetrics {
     let body = text.strip_suffix('\n').unwrap_or(text);
     let mut chars = 0u64;
     let mut words = 0u64;
-    let mut in_word = false;
     for raw in body.split('\n') {
+        // 换行是空白,必须重置分词状态,否则上一行末词会与下一行首词合并
+        let mut in_word = false;
         let line = raw.strip_suffix('\r').unwrap_or(raw);
         chars += line.chars().count() as u64;
         for ch in line.chars() {
@@ -107,6 +108,15 @@ mod tests {
     fn test_crlf() {
         let m = count_metrics("aa\r\nbb\r\n");
         assert_eq!((m.lines, m.chars), (2, 4));
+    }
+
+    #[test]
+    fn test_words_reset_across_lines() {
+        // 回归:换行必须重置分词,两行各 1 词
+        assert_eq!(count_metrics("a\nb").words, 2);
+        assert_eq!(count_metrics("abc\ndef\n").words, 2);
+        // 行尾非空白 + 下一行无空白:各自独立成词
+        assert_eq!(count_metrics("x{\ny};").words, 2);
     }
 
     #[test]
