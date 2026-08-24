@@ -182,6 +182,13 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const activeTab = workspace.tabs.find((t) => t.id === workspace.activeTabId) ?? null;
   const activeEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
+  // 状态栏文件大小:当前内容按 UTF-8 编码的字节长度,随编辑实时更新
+  // (非磁盘文件实际大小:编码为 GBK 等时与磁盘字节数有差异)
+  const activeContentSizeBytes = useMemo(() => {
+    if (!activeTab) return undefined;
+    return new TextEncoder().encode(activeTab.content).length;
+  }, [activeTab]);
+
   // 挂载时把编辑器实例注册到全局「激活编辑器」注册表,供 cycle_naming_case
   // 全局快捷键(useShortcut)使用;并按当前 tab 注册到 tabId→实例注册表,
   // 供全局搜索文本跳转定位高亮;卸载时同时注销。
@@ -887,6 +894,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                   }}
                   // 文件编码:状态栏展示并可切换,保存时按该编码写回(仿 VSCode)
                   encoding={activeTab.encoding ?? 'utf-8'}
+                  // 状态栏右下角文件大小(UTF-8 字节,B/KB/MB/GB)
+                  sizeBytes={activeContentSizeBytes}
                   onEncodingChange={(enc) =>
                     useEditorWorkspaceStore.getState().setTabEncoding(activeTab.id, enc)
                   }

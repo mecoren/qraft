@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // CodeEditor 内嵌 Monaco,jsdom 无法加载,替换为 textarea 替身。
-// 暴露 value / onChange / title / language / minimap / fixedTheme / statusBarRight,
+// 暴露 value / onChange / title / language / minimap / fixedTheme / statusBarRight / sizeBytes,
 // 便于断言工作区是否正确地把 props 传给编辑器。
 vi.mock('@/components/ui/code-editor', () => ({
   CodeEditor: ({
@@ -11,6 +11,7 @@ vi.mock('@/components/ui/code-editor', () => ({
     title,
     header,
     statusBarRight,
+    sizeBytes,
     minimap,
     language,
     fixedTheme,
@@ -21,6 +22,7 @@ vi.mock('@/components/ui/code-editor', () => ({
     title?: string;
     header?: React.ReactNode;
     statusBarRight?: React.ReactNode;
+    sizeBytes?: number;
     minimap?: boolean;
     language?: string;
     fixedTheme?: string;
@@ -35,6 +37,9 @@ vi.mock('@/components/ui/code-editor', () => ({
         )}
       </div>
       <span data-testid={testId ? `${testId}-language` : undefined}>{language}</span>
+      {sizeBytes !== undefined && (
+        <span data-testid={testId ? `${testId}-size` : undefined}>{sizeBytes}</span>
+      )}
       {fixedTheme && (
         <span data-testid={testId ? `${testId}-fixed-theme` : undefined}>{fixedTheme}</span>
       )}
@@ -188,6 +193,31 @@ describe('CodeEditorTool workspace', () => {
     expect(screen.getByTestId('editor-tabs-tab-untitled-1')).toBeInTheDocument();
     expect(screen.getByTestId('editor-sidebar-item-untitled-1')).toBeInTheDocument();
     expect(screen.getByTestId('editor-title').textContent).toBe('untitled-1');
+  });
+
+  it('passes UTF-8 byte size of current content to the editor status bar', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await clickToolbarItem('toolbar-new');
+    await screen.findByTestId('editor-textarea');
+
+    const tabId = useEditorWorkspaceStore.getState().workspace.tabs[0]?.id;
+    expect(tabId).toBeTruthy();
+
+    // 空内容 → 0 B
+    expect(screen.getByTestId('editor-size').textContent).toBe('0');
+
+    // ASCII:5 字节
+    act(() => useEditorWorkspaceStore.getState().setTabContent(tabId, 'hello'));
+    expect(screen.getByTestId('editor-size').textContent).toBe('5');
+
+    // 中文:每字 3 字节(UTF-8)
+    act(() => useEditorWorkspaceStore.getState().setTabContent(tabId, '你好'));
+    expect(screen.getByTestId('editor-size').textContent).toBe('6');
+
+    // 跨入 KB 区间
+    act(() => useEditorWorkspaceStore.getState().setTabContent(tabId, 'a'.repeat(2048)));
+    expect(screen.getByTestId('editor-size').textContent).toBe('2048');
   });
 
   it('opens a local file and infers language from extension', async () => {

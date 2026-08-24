@@ -34,7 +34,7 @@ import { Check, ClipboardPaste, FolderOpen, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { readClipboardText } from '@/lib/clipboard';
-import { readFileAsText } from '@/lib/file-utils';
+import { readFileAsText, formatBytes } from '@/lib/file-utils';
 import { TEXT_ENCODINGS, encodingLabel } from '@/lib/text-encodings';
 import { defineThemeFor, defineVsCodeTheme, getThemeName, useMonacoTheme } from './monaco-theme';
 import {
@@ -161,6 +161,12 @@ export interface CodeEditorProps {
   showStatusBar?: boolean;
   /** 追加到状态栏右侧的自定义内容;未提供时默认显示内置字符统计 */
   statusBarRight?: ReactNode;
+  /**
+   * 文件大小(字节数)。提供时在状态栏右下角展示(B/KB/MB/GB),
+   * 位于语言徽章左侧;缺省时不展示。字节口径由宿主决定
+   * (典型:当前内容按 UTF-8 编码的字节长度,随编辑实时更新)。
+   */
+  sizeBytes?: number;
   /** 是否在状态栏右侧显示字符统计(仅在未提供 statusBarRight 时生效),默认 true */
   showCharCount?: boolean;
   /** 测试用 data-testid */
@@ -267,6 +273,7 @@ export function CodeEditor({
   showClear = false,
   showStatusBar = true,
   statusBarRight,
+  sizeBytes,
   showCharCount = true,
   'data-testid': dataTestId,
   searchAnchor,
@@ -803,6 +810,17 @@ export function CodeEditor({
             >
               {eolLabel}
             </button>
+            {/* 文件大小(右下角,语言徽章左侧):B/KB/MB/GB,随内容实时更新 */}
+            {sizeBytes !== undefined && (
+              <span
+                data-testid={dataTestId ? `${dataTestId}-status-size` : undefined}
+                title="文件大小(按 UTF-8 编码估算,随编辑实时更新)"
+                aria-label={`文件大小 ${formatBytes(sizeBytes)}`}
+                className="whitespace-nowrap tabular-nums"
+              >
+                {formatBytes(sizeBytes)}
+              </span>
+            )}
             {statusBarRight && <span className="ml-1 flex items-center">{statusBarRight}</span>}
           </span>
         </div>
