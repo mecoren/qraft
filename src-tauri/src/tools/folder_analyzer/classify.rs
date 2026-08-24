@@ -3,7 +3,7 @@
 use serde::Serialize;
 
 /// 文件大类(按扩展名归类)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FileCategory {
     Code,
