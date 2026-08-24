@@ -728,10 +728,10 @@ mod tests {
         let resp = fs_read_dir_inner(dir.to_str().unwrap(), &paths)
             .await
             .unwrap();
-        let names: Vec<&str> = resp.data.unwrap().iter().map(|e| e.name.as_str()).collect();
+        let entries = resp.data.unwrap();
+        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(names, vec!["sub", "A.txt", "b.txt"]);
 
-        let entries = resp.data.unwrap();
         assert!(entries[0].is_dir);
         assert!(!entries[1].is_dir);
         assert_eq!(entries[1].name, "A.txt");

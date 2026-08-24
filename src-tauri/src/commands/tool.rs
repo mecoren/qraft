@@ -10,6 +10,7 @@ use serde_json::json;
 use tauri::Emitter;
 use tokio_util::sync::CancellationToken;
 
+use crate::commands::fs::AuthorizedPaths;
 use crate::core::context::ToolContext;
 use crate::core::error::ToolError;
 use crate::core::input::ToolInput;
@@ -20,6 +21,26 @@ use crate::shell::response::CommandResponse;
 use crate::shell::state::AppState;
 
 // ============ 内部函数(可测试) ============
+
+/// 校验 `file_path` 已经由 dialog 选择或拖放授权,未授权则拒绝。
+/// 同步(`tool_execute_inner`)与流式(`tool_execute_stream_inner`)
+/// 两条 IPC 路径共用的安全门。
+///
+/// # Errors
+///
+/// - 路径不在授权集合(及其授权目录子树)内时返回
+///   `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+pub fn ensure_file_path_authorized(
+    file_path: &str,
+    authorized: &AuthorizedPaths,
+) -> Result<(), AppError> {
+    if !authorized.is_path_allowed(file_path) {
+        return Err(AppError::Permission(format!(
+            "path not authorized, must be selected via dialog or drop: {file_path}"
+        )));
+    }
+    Ok(())
+}
 
 /// 列出所有已注册工具的元数据
 ///
@@ -52,13 +73,19 @@ pub fn tool_metadata_inner(
 ///
 /// # Errors
 ///
+/// - 当 `input.file_path` 存在但未经过 dialog/拖放授权时返回
+///   `AppError::Permission`(`ERR_PERMISSION_DENIED`)
 /// - 当 `tool_id` 未找到时返回 `AppError::Tool`(`ERR_TOOL_NOT_FOUND`)
 /// - 工具执行失败时返回对应的 `AppError::Tool`(`ERR_TOOL_*`)
 pub async fn tool_execute_inner(
     tool_id: &str,
     input: ToolInput,
     state: &AppState,
+    authorized: &AuthorizedPaths,
 ) -> Result<CommandResponse<ToolOutput>, AppError> {
+    if let Some(p) = input.file_path.as_deref() {
+        ensure_file_path_authorized(p, authorized)?;
+    }
     let cancel_token = CancellationToken::new();
     let history_sink = Arc::new(state.history_sink()) as Arc<dyn crate::core::context::HistorySink>;
 
@@ -82,19 +109,28 @@ pub async fn tool_execute_inner(
 ///
 /// # Errors
 ///
+/// - 当 `file_path` 未经过 dialog/拖放授权时返回
+///   `AppError::Permission`(`ERR_PERMISSION_DENIED`)
 /// - 当 `tool_id` 不支持流式执行时返回 `AppError::Tool`(`ERR_TOOL_NOT_FOUND`)
 pub fn tool_execute_stream_inner(
     tool_id: &str,
     file_path: &str,
+    text: Option<String>,
+    params: Option<std::collections::HashMap<String, serde_json::Value>>,
     state: &AppState,
     app_handle: &tauri::AppHandle,
+    authorized: &AuthorizedPaths,
 ) -> Result<CommandResponse<String>, AppError> {
+    // 授权校验必须在 spawn 之前同步完成:拒绝时直接返回错误给调用方,
+    // 不注册任务、不产生任何后台事件
+    ensure_file_path_authorized(file_path, authorized)?;
     let task_id = uuid::Uuid::new_v4().to_string();
     let cancel_token = state.streaming_tasks.register(&task_id);
 
     let input = ToolInput {
+        text,
         file_path: Some(file_path.to_string()),
-        ..Default::default()
+        params: params.unwrap_or_default(),
     };
 
     let history_sink = Arc::new(state.history_sink()) as Arc<dyn crate::core::context::HistorySink>;
@@ -224,30 +260,49 @@ pub async fn tool_metadata(
 ///
 /// # Errors
 ///
+/// - 当 `input.file_path` 未授权时返回 `AppError::Permission`
+///   (`ERR_PERMISSION_DENIED`)
 /// - 当 `tool_id` 未找到时返回 `AppError::Tool`(`ERR_TOOL_NOT_FOUND`)
 /// - 工具执行失败时返回对应的 `AppError::Tool`(`ERR_TOOL_*`)
 #[tauri::command]
 pub async fn tool_execute(
     tool_id: String,
     input: ToolInput,
+    authorized: tauri::State<'_, AuthorizedPaths>,
     state: tauri::State<'_, AppState>,
 ) -> Result<CommandResponse<ToolOutput>, AppError> {
-    tool_execute_inner(&tool_id, input, &state).await
+    tool_execute_inner(&tool_id, input, &state, &authorized).await
 }
 
 /// 启动流式工具执行,返回 `task_id`
 ///
+/// `text` / `params` 可选:Tauri V2 对 JS 侧缺省参数自动映射为 `None`,
+/// 旧调用 `{toolId, filePath}` 完全兼容。
+///
 /// # Errors
 ///
+/// - 当 `file_path` 未授权时返回 `AppError::Permission`
+///   (`ERR_PERMISSION_DENIED`)
 /// - 当 `tool_id` 不支持流式执行时返回 `AppError::Tool`(`ERR_TOOL_NOT_FOUND`)
 #[tauri::command]
 pub async fn tool_execute_stream(
     tool_id: String,
     file_path: String,
+    text: Option<String>,
+    params: Option<std::collections::HashMap<String, serde_json::Value>>,
+    authorized: tauri::State<'_, AuthorizedPaths>,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<CommandResponse<String>, AppError> {
-    tool_execute_stream_inner(&tool_id, &file_path, &state, &app_handle)
+    tool_execute_stream_inner(
+        &tool_id,
+        &file_path,
+        text,
+        params,
+        &state,
+        &app_handle,
+        &authorized,
+    )
 }
 
 /// 取消流式任务
@@ -340,14 +395,32 @@ mod tests {
     #[tokio::test]
     async fn test_tool_execute_not_found() {
         let state = make_state();
+        let authorized = AuthorizedPaths::new();
         let input = ToolInput {
             text: Some("hello".into()),
             ..Default::default()
         };
-        let result = tool_execute_inner("nonexistent_tool", input, &state).await;
+        let result = tool_execute_inner("nonexistent_tool", input, &state, &authorized).await;
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.code(), "ERR_TOOL_NOT_FOUND");
+    }
+
+    #[tokio::test]
+    async fn test_execute_rejects_unauthorized_file_path() {
+        let authorized = AuthorizedPaths::new();
+        let state = make_state();
+        let input = ToolInput {
+            file_path: Some("C:/definitely/not/authorized.txt".into()),
+            params: [("mode".to_string(), serde_json::json!("file"))]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        };
+        let err = tool_execute_inner("folder_analyzer", input, &state, &authorized)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AppError::Permission(_)));
     }
 
     #[tokio::test]
