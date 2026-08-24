@@ -13,8 +13,10 @@ export interface DroppedEntry {
   kind: 'dir' | 'file';
 }
 
-export function pickFolder(): Promise<string | null> {
-  return invokeCommand<string | null>('fs_open_folder_dialog', {});
+/** fs_open_folder_dialog 返回 { path } 对象(Rust OpenFolderResult);取消返回 null */
+export async function pickFolder(): Promise<string | null> {
+  const r = await invokeCommand<{ path: string } | null>('fs_open_folder_dialog', {});
+  return r?.path ?? null;
 }
 
 /** fs_open_dialog 返回对象含 path 字段;取消返回 null */

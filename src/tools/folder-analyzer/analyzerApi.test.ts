@@ -21,7 +21,12 @@ vi.mock('@tauri-apps/api/event', () => ({
   }),
 }));
 
-import { authorizeDropped, startAnalyzerTask, subscribeTaskEvents } from './analyzerApi';
+import {
+  authorizeDropped,
+  pickFolder,
+  startAnalyzerTask,
+  subscribeTaskEvents,
+} from './analyzerApi';
 
 function emit(event: string, payload: unknown) {
   for (const cb of listeners.get(event) ?? []) cb(payload);
@@ -31,6 +36,18 @@ describe('analyzerApi', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listeners.clear();
+  });
+
+  it('pickFolder extracts path from dialog result object', async () => {
+    // 回归:fs_open_folder_dialog 返回 { path } 而非字符串
+    invokeCommand.mockResolvedValue({ path: 'C:/proj' });
+    await expect(pickFolder()).resolves.toBe('C:/proj');
+    expect(invokeCommand).toHaveBeenCalledWith('fs_open_folder_dialog', {});
+  });
+
+  it('pickFolder returns null when dialog cancelled', async () => {
+    invokeCommand.mockResolvedValue(null);
+    await expect(pickFolder()).resolves.toBeNull();
   });
 
   it('authorizeDropped returns kinds from backend', async () => {
