@@ -10,6 +10,7 @@ vi.mock('@/components/ui/code-editor', () => ({
     onChange,
     title,
     header,
+    actions,
     statusBarRight,
     sizeBytes,
     minimap,
@@ -21,6 +22,7 @@ vi.mock('@/components/ui/code-editor', () => ({
     onChange?: (v: string) => void;
     title?: string;
     header?: React.ReactNode;
+    actions?: React.ReactNode;
     statusBarRight?: React.ReactNode;
     sizeBytes?: number;
     minimap?: boolean;
@@ -34,6 +36,9 @@ vi.mock('@/components/ui/code-editor', () => ({
           <div data-testid={testId ? `${testId}-header` : undefined}>{header}</div>
         ) : (
           title && <span data-testid={testId ? `${testId}-title` : undefined}>{title}</span>
+        )}
+        {actions && (
+          <span data-testid={testId ? `${testId}-actions` : undefined}>{actions}</span>
         )}
       </div>
       <span data-testid={testId ? `${testId}-language` : undefined}>{language}</span>
@@ -93,10 +98,23 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
+// MarkdownPreviewPane 依赖 markdown Worker,jsdom 无法加载;
+// 用轻量替身渲染 source,保留真实的 isMarkdownDocument 判定逻辑
+vi.mock('@/tools/markdown-preview-pane', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/tools/markdown-preview-pane')>();
+  return {
+    ...actual,
+    MarkdownPreviewPane: ({ source }: { source: string }) => (
+      <div data-testid="editor-md-preview">{source}</div>
+    ),
+  };
+});
+
 import userEvent from '@testing-library/user-event';
 import { listen, safeInvoke } from '@/lib/ipc';
 import { CodeEditorTool } from './CodeEditor';
 import { useEditorWorkspaceStore } from './code-editor-workspace/useEditorWorkspaceStore';
+import { useMarkdownPreviewStore } from './markdownPreviewStore';
 import { ToolMenuBar } from '@/components/layout/ToolMenuBar';
 import {
   openTextFileDialog,
@@ -117,6 +135,8 @@ beforeEach(() => {
     userTouched: false,
     error: null,
   });
+  // Markdown 视图模式回到默认(与工具页共享的 store,避免用例间串扰)
+  useMarkdownPreviewStore.setState({ viewMode: 'split' });
   (openTextFileDialog as unknown as Mock).mockReset();
   (saveToPathEncoded as unknown as Mock).mockReset();
   (saveWithDialog as unknown as Mock).mockReset();
@@ -238,6 +258,61 @@ describe('CodeEditorTool workspace', () => {
     expect(screen.getByTestId('editor-textarea')).toHaveValue('{"a":1}');
     // 左栏与 Tab 栏同步出现
     expect(screen.getByTestId('editor-sidebar-item-app.json')).toBeInTheDocument();
+  });
+
+  it('shows markdown view actions and split preview for .md files', async () => {
+    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
+      path: 'C:\\work\\README.md',
+      content: '# 标题\n\n正文',
+    });
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await clickToolbarItem('toolbar-open');
+    await waitFor(() =>
+      expect(screen.getByTestId('editor-header')).toHaveTextContent('README.md'),
+    );
+
+    // 右上角出现 视图切换按钮组(编辑/分屏/预览),默认分屏:编辑器与预览并存
+    expect(screen.getByTestId('editor-md-actions')).toBeInTheDocument();
+    expect(screen.getByTestId('editor-md-edit')).toBeInTheDocument();
+    expect(screen.getByTestId('editor-md-split')).toBeInTheDocument();
+    expect(screen.getByTestId('editor-md-preview-btn')).toBeInTheDocument();
+    expect(screen.getByTestId('editor-textarea')).toBeInTheDocument();
+    expect(screen.getByTestId('editor-md-preview')).toHaveTextContent('# 标题');
+  });
+
+  it('switches markdown view mode: preview hides editor, edit hides pane', async () => {
+    const user = userEvent.setup();
+    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
+      path: 'C:\\work\\notes.md',
+      content: '内容',
+    });
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await clickToolbarItem('toolbar-open');
+    await waitFor(() => expect(screen.getByTestId('editor-md-actions')).toBeInTheDocument());
+
+    // 预览:编辑器隐藏,仅剩预览面板
+    await user.click(screen.getByTestId('editor-md-preview-btn'));
+    expect(screen.queryByTestId('editor-textarea')).toBeNull();
+    expect(screen.getByTestId('editor-md-preview')).toBeInTheDocument();
+
+    // 编辑:预览面板隐藏,回到编辑器
+    await user.click(screen.getByTestId('editor-md-edit'));
+    expect(screen.getByTestId('editor-textarea')).toBeInTheDocument();
+    expect(screen.queryByTestId('editor-md-preview')).toBeNull();
+  });
+
+  it('does not show markdown actions for non-markdown files', async () => {
+    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
+      path: 'C:\\work\\app.json',
+      content: '{}',
+    });
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await clickToolbarItem('toolbar-open');
+    await waitFor(() => expect(screen.getByTestId('editor-textarea')).toBeInTheDocument());
+    expect(screen.queryByTestId('editor-md-actions')).toBeNull();
   });
 
   it('does not duplicate a tab when the same file is opened twice', async () => {

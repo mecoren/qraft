@@ -20,7 +20,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { DiffEditor, type Monaco, type MonacoDiffEditor } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
-import { FilePlus2, Folder, FolderOpen, GitCompareArrows } from 'lucide-react';
+import {
+  Columns2,
+  Eye,
+  FilePlus2,
+  Folder,
+  FolderOpen,
+  GitCompareArrows,
+  PenLine,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
@@ -40,6 +48,11 @@ import { useShortcut } from '@/hooks/useShortcut';
 import { listen, safeInvoke, CommandError } from '@/lib/ipc';
 import { writeClipboardText } from '@/lib/clipboard';
 import type { ToolProps } from '@/tools/registry';
+import {
+  MarkdownPreviewPane,
+  isMarkdownDocument,
+} from '@/tools/markdown-preview-pane';
+import { useMarkdownPreviewStore, type MdViewMode } from '@/tools/markdownPreviewStore';
 import { useEditorWorkspaceStore, folderNameFromPath } from './useEditorWorkspaceStore';
 import { EditorTabsBar } from './EditorTabsBar';
 import { EditorLeftSidebar } from './EditorLeftSidebar';
@@ -103,6 +116,10 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const [activeCompareId, setActiveCompareId] = useState<string | null>(null);
   /** 语言模式选择对话框(右下角语言徽章触发) */
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
+
+  // —— Markdown 视图模式(编辑/分屏/预览;仅 md 文档生效,与工具页共享偏好)——
+  const mdViewMode = useMarkdownPreviewStore((s) => s.viewMode);
+  const setMdViewMode = useMarkdownPreviewStore((s) => s.setViewMode);
 
   /**
    * 分隔条 hover / 拖拽中状态:
@@ -188,6 +205,40 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     if (!activeTab) return undefined;
     return new TextEncoder().encode(activeTab.content).length;
   }, [activeTab]);
+
+  // —— Markdown 分屏预览:md 文档(路径后缀或 untitled 切语言)显示视图切换 ——
+  const isMarkdownTab = activeTab
+    ? isMarkdownDocument(activeTab.path ?? '', activeTab.language)
+    : false;
+  const showMdPreview = isMarkdownTab && mdViewMode !== 'edit';
+
+  // 右上角视图切换按钮组(编辑/分屏/预览),仅 md 文档渲染
+  const mdViewActions = isMarkdownTab ? (
+    <div className="flex items-center gap-0.5" data-testid="editor-md-actions">
+      {(
+        [
+          ['edit', PenLine, '编辑'],
+          ['split', Columns2, '分屏'],
+          ['preview', Eye, '预览'],
+        ] as ReadonlyArray<[MdViewMode, typeof PenLine, string]>
+      ).map(([mode, Icon, label]) => (
+        <button
+          key={mode}
+          type="button"
+          onClick={() => setMdViewMode(mode)}
+          aria-pressed={mdViewMode === mode}
+          title={`${label}视图`}
+          data-testid={`editor-md-${mode}${mode === 'preview' ? '-btn' : ''}`}
+          className={cn(
+            'rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+            mdViewMode === mode && 'bg-accent text-accent-foreground',
+          )}
+        >
+          <Icon aria-hidden className="size-3.5" />
+        </button>
+      ))}
+    </div>
+  ) : undefined;
 
   // 挂载时把编辑器实例注册到全局「激活编辑器」注册表,供 cycle_naming_case
   // 全局快捷键(useShortcut)使用;并按当前 tab 注册到 tabId→实例注册表,
@@ -765,6 +816,73 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   // 移除原顶部工具栏:打开/新建/保存/关闭等操作已迁入 Titlebar 菜单栏。
   // 空状态仍保留「打开文件 / 新建」快捷按钮(无 Tab 时无菜单可用,作为兜底入口)。
 
+  // 主编辑器(单一实例定义,普通/分屏/预览布局按需复用)
+  const editorPane = activeTab ? (
+    <CodeEditor
+      key={activeTab.id}
+      data-testid="editor"
+      searchAnchor="text_editor:editor"
+      // 本地文件:工具栏展示路径面包屑(分段,末段为当前页);
+      // untitled 文件:仍展示文件名(untitled-1)纯文本
+      {...(activeTab.path
+        ? {
+            header: <PathBreadcrumb path={activeTab.path} data-testid="editor-path" />,
+          }
+        : { title: activeTab.title })}
+      language={activeTab.language}
+      value={activeTab.content}
+      onChange={(v) => useEditorWorkspaceStore.getState().setTabContent(activeTab.id, v)}
+      // 自动换行按 Tab 独立记忆(右键菜单「自动换行」切换),
+      // 只作用于当前编辑器;随工作区持久化
+      wordWrap={activeTab.wordWrap ?? true}
+      onToggleWordWrap={() => {
+        useEditorWorkspaceStore.getState().toggleTabWordWrap(activeTab.id);
+      }}
+      // 文件编码:状态栏展示并可切换,保存时按该编码写回(仿 VSCode)
+      encoding={activeTab.encoding ?? 'utf-8'}
+      // 状态栏右下角文件大小(UTF-8 字节,B/KB/MB/GB)
+      sizeBytes={activeContentSizeBytes}
+      onEncodingChange={(enc) =>
+        useEditorWorkspaceStore.getState().setTabEncoding(activeTab.id, enc)
+      }
+      // 行尾序列切换:CRLF ↔ LF(内容转换后标记未保存,由用户手动保存)
+      onToggleEol={() => {
+        const cur = useEditorWorkspaceStore.getState();
+        const tab = cur.workspace.tabs.find((t) => t.id === activeTab.id);
+        if (!tab) return;
+        const next = tab.content.includes('\r\n')
+          ? tab.content.replace(/\r\n/g, '\n')
+          : tab.content.replace(/(?<!\r)\n/g, '\r\n');
+        cur.setTabContent(activeTab.id, next);
+      }}
+      // 右键菜单按页面定制:命名风格切换 / 大小写转换(作用于当前编辑器选区)
+      contextMenuSections={editorMenuSections}
+      minimap
+      onMount={handleEditorMount}
+      // 右上角 Markdown 视图切换(编辑/分屏/预览),仅 md 文档渲染
+      actions={mdViewActions}
+      // 右下角语言徽章(仿 VSCode):带语言图标 + 中文名,
+      // 点击弹出「选择语言模式」对话框,切换该 Tab 的 Monaco 高亮
+      statusBarRight={
+        <button
+          type="button"
+          onClick={() => setLanguagePickerOpen(true)}
+          title="选择语言模式"
+          data-testid="editor-language-badge"
+          className="flex items-center gap-1 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          <LanguageIcon language={activeTab.language} />
+          {LANGUAGE_LABELS[activeTab.language] ?? '纯文本'}
+        </button>
+      }
+      // 嵌入模式:外层右侧主页面卡片已自带 rounded-lg + border,
+      // 此处关闭 CodeEditor 自身的圆角/边框,避免双层圆角嵌套与
+      // --border/--input 颜色不一致导致的"双线"视觉
+      embedded
+      className="h-full"
+    />
+  ) : null;
+
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex h-full flex-col bg-background-layer" data-testid="editor-workbench">
@@ -870,69 +988,26 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                   data-testid="compare-view"
                 />
               ) : activeTab ? (
-                <CodeEditor
-                  key={activeTab.id}
-                  data-testid="editor"
-                  searchAnchor="text_editor:editor"
-                  // 本地文件:工具栏展示路径面包屑(分段,末段为当前页);
-                  // untitled 文件:仍展示文件名(untitled-1)纯文本
-                  {...(activeTab.path
-                    ? {
-                        header: <PathBreadcrumb path={activeTab.path} data-testid="editor-path" />,
-                      }
-                    : { title: activeTab.title })}
-                  language={activeTab.language}
-                  value={activeTab.content}
-                  onChange={(v) =>
-                    useEditorWorkspaceStore.getState().setTabContent(activeTab.id, v)
-                  }
-                  // 自动换行按 Tab 独立记忆(右键菜单「自动换行」切换),
-                  // 只作用于当前编辑器;随工作区持久化
-                  wordWrap={activeTab.wordWrap ?? true}
-                  onToggleWordWrap={() => {
-                    useEditorWorkspaceStore.getState().toggleTabWordWrap(activeTab.id);
-                  }}
-                  // 文件编码:状态栏展示并可切换,保存时按该编码写回(仿 VSCode)
-                  encoding={activeTab.encoding ?? 'utf-8'}
-                  // 状态栏右下角文件大小(UTF-8 字节,B/KB/MB/GB)
-                  sizeBytes={activeContentSizeBytes}
-                  onEncodingChange={(enc) =>
-                    useEditorWorkspaceStore.getState().setTabEncoding(activeTab.id, enc)
-                  }
-                  // 行尾序列切换:CRLF ↔ LF(内容转换后标记未保存,由用户手动保存)
-                  onToggleEol={() => {
-                    const cur = useEditorWorkspaceStore.getState();
-                    const tab = cur.workspace.tabs.find((t) => t.id === activeTab.id);
-                    if (!tab) return;
-                    const next = tab.content.includes('\r\n')
-                      ? tab.content.replace(/\r\n/g, '\n')
-                      : tab.content.replace(/(?<!\r)\n/g, '\r\n');
-                    cur.setTabContent(activeTab.id, next);
-                  }}
-                  // 右键菜单按页面定制:命名风格切换 / 大小写转换(作用于当前编辑器选区)
-                  contextMenuSections={editorMenuSections}
-                  minimap
-                  onMount={handleEditorMount}
-                  // 右下角语言徽章(仿 VSCode):带语言图标 + 中文名,
-                  // 点击弹出「选择语言模式」对话框,切换该 Tab 的 Monaco 高亮
-                  statusBarRight={
-                    <button
-                      type="button"
-                      onClick={() => setLanguagePickerOpen(true)}
-                      title="选择语言模式"
-                      data-testid="editor-language-badge"
-                      className="flex items-center gap-1 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                    >
-                      <LanguageIcon language={activeTab.language} />
-                      {LANGUAGE_LABELS[activeTab.language] ?? '纯文本'}
-                    </button>
-                  }
-                  // 嵌入模式:外层右侧主页面卡片已自带 rounded-lg + border,
-                  // 此处关闭 CodeEditor 自身的圆角/边框,避免双层圆角嵌套与
-                  // --border/--input 颜色不一致导致的"双线"视觉
-                  embedded
-                  className="h-full"
-                />
+                showMdPreview ? (
+                  // Markdown 分屏/预览:左侧编辑器(预览模式下隐藏)+ 右侧渲染面板。
+                  // 预览模式下编辑器(连同其工具栏按钮)已卸载,
+                  // 故在面板右上角以浮层渲染同一组视图切换按钮,保证始终可切回
+                  <div className="flex h-full min-h-0" data-testid="editor-md-layout">
+                    {mdViewMode !== 'preview' && (
+                      <div className="min-w-0 flex-1">{editorPane}</div>
+                    )}
+                    <div className="relative min-w-0 flex-1 overflow-hidden border-l border-border">
+                      <MarkdownPreviewPane source={activeTab.content} className="h-full" />
+                      {mdViewMode === 'preview' && (
+                        <div className="absolute right-3 top-2 z-10 rounded-md border border-border bg-background/80 p-0.5 backdrop-blur-sm">
+                          {mdViewActions}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  editorPane
+                )
               ) : (
                 <div
                   data-testid="editor-empty"
