@@ -6,4 +6,5 @@
 
 pub mod classify;
 pub mod scanner;
+pub mod search;
 pub mod text_metrics;
