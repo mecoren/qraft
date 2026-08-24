@@ -148,6 +148,7 @@ use tokio::io::AsyncReadExt;
 impl StreamingTool for HashCalculator {
     /// 流式哈希:按 64KB 块读取文件,增量更新哈希状态,逐块回传进度。
     /// 适合超大文件(GB 级),内存占用恒定。
+    #[allow(clippy::too_many_lines)]
     fn execute_stream(
         &self,
         input: ToolInput,
@@ -182,6 +183,8 @@ impl StreamingTool for HashCalculator {
             yield Ok(StreamEvent::Progress {
                 percent: 0,
                 message: format!("Hashing {total} bytes with {algorithm}..."),
+                processed: 0,
+                total,
             });
 
             let mut file = match tokio::fs::File::open(&path).await {
@@ -237,6 +240,8 @@ impl StreamingTool for HashCalculator {
                 yield Ok(StreamEvent::Progress {
                     percent,
                     message: format!("{read_total}/{total} bytes"),
+                    processed: read_total,
+                    total,
                 });
             }
 

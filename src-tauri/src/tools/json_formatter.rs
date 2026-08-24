@@ -140,6 +140,8 @@ impl StreamingTool for JsonFormatter {
             yield Ok(StreamEvent::Progress {
                 percent: 10,
                 message: "Reading file...".to_string(),
+                processed: 0,
+                total: 0,
             });
 
             let bytes = match tokio::fs::read(&file_path).await {
@@ -149,10 +151,14 @@ impl StreamingTool for JsonFormatter {
                     return;
                 }
             };
+            // u64 上限远超单文件大小,try_from 失败不可能发生
+            let total_bytes = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
 
             yield Ok(StreamEvent::Progress {
                 percent: 50,
                 message: format!("Read {} bytes, parsing...", bytes.len()),
+                processed: total_bytes,
+                total: total_bytes,
             });
 
             let text = match String::from_utf8(bytes) {
@@ -174,6 +180,8 @@ impl StreamingTool for JsonFormatter {
                     yield Ok(StreamEvent::Progress {
                         percent: 90,
                         message: "Formatted.".to_string(),
+                        processed: total_bytes,
+                        total: total_bytes,
                     });
                     yield Ok(StreamEvent::Done { output });
                 }

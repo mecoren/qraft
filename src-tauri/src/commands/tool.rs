@@ -118,11 +118,13 @@ pub fn tool_execute_stream_inner(
                 let mut pinned = std::pin::pin!(stream);
                 while let Some(event_result) = pinned.next().await {
                     match event_result {
-                        Ok(StreamEvent::Progress { percent, message }) => {
+                        Ok(StreamEvent::Progress { percent, message, processed, total }) => {
                             let payload = json!({
                                 "taskId": &task_id_clone,
                                 "percent": percent,
                                 "message": message,
+                                "processed": processed,
+                                "total": total,
                             });
                             let _ = app_handle_clone.emit("tool_progress", &payload);
                         }

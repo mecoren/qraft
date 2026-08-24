@@ -189,15 +189,151 @@ static JSON_SCHEMA: serde_json::Value = serde_json::Value::Null;
 
 register_tool!(FolderAnalyzer, &METADATA);
 
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+
+use crate::core::tool::{StreamEvent, StreamingTool};
+use crate::register_stream_tool;
+
+/// 流式执行期间由 blocking 线程持续写入的实时计数器,
+/// 供 ~300ms 定时器读取并推送 Progress 事件
+struct LiveCounters {
+    files: AtomicU64,
+    dirs: AtomicU64,
+}
+
+#[async_trait]
+impl StreamingTool for FolderAnalyzer {
+    /// 流式执行:scan/search 在 blocking 线程运行,每 ~300ms 推送一次进度;
+    /// 取消令牌触发后作业提前收尾,Done 携带 cancelled 部分报告;file 模式不支持流式
+    fn execute_stream(
+        &self,
+        input: ToolInput,
+        ctx: &ToolContext,
+    ) -> futures::stream::BoxStream<'static, Result<StreamEvent, ToolError>> {
+        // 流必须 'static:先把取消令牌从 &ctx 中克隆出来再进入 stream 块
+        let cancel_token = ctx.cancel_token.clone();
+        Box::pin(async_stream::stream! {
+            let start = std::time::Instant::now();
+            let Ok(mode) = input.param::<String>("mode") else {
+                yield Err(ToolError::InvalidInput("missing param 'mode'".into()));
+                return;
+            };
+            let Ok(root) = input.file_path().map(str::to_string) else {
+                yield Err(ToolError::InvalidInput("streaming requires file_path".into()));
+                return;
+            };
+            if !matches!(mode.as_str(), "scan" | "search") {
+                yield Err(ToolError::InvalidInput(format!(
+                    "streaming supports scan/search only, got '{mode}'"
+                )));
+                return;
+            }
+
+            // root 随后 move 进闭包,input_bytes 先存下供 meta 使用
+            let input_bytes = root.len();
+            let counters = Arc::new(LiveCounters {
+                files: AtomicU64::new(0),
+                dirs: AtomicU64::new(0),
+            });
+            let cancel = cancel_token;
+            let counters_cb = Arc::clone(&counters);
+
+            enum Job { Scan(ScanReport), Search(SearchReport) }
+            let handle = if mode == "scan" {
+                let opts = scan_options_from(&input);
+                tokio::task::spawn_blocking(move || {
+                    let cb = move |f: u64, d: u64| {
+                        counters_cb.files.store(f, Ordering::Relaxed);
+                        counters_cb.dirs.store(d, Ordering::Relaxed);
+                    };
+                    Job::Scan(scan_folder(std::path::Path::new(&root), &opts, Some(&cancel), &cb))
+                })
+            } else {
+                let opts = match search_options_from(&input) {
+                    Ok(o) => o,
+                    Err(e) => { yield Err(e); return; }
+                };
+                let matcher = match build_matcher(&opts) {
+                    Ok(m) => m,
+                    Err(e) => { yield Err(e); return; }
+                };
+                tokio::task::spawn_blocking(move || {
+                    let cb = move |f: u64, _d: u64| {
+                        counters_cb.files.store(f, Ordering::Relaxed);
+                    };
+                    Job::Search(search_folder(
+                        std::path::Path::new(&root),
+                        &opts,
+                        &matcher,
+                        Some(&cancel),
+                        &cb,
+                    ))
+                })
+            };
+
+            let mut ticker = tokio::time::interval(std::time::Duration::from_millis(300));
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            let mut join = std::pin::pin!(handle);
+
+            let job = loop {
+                tokio::select! {
+                    _ = ticker.tick() => {
+                        let f = counters.files.load(Ordering::Relaxed);
+                        let d = counters.dirs.load(Ordering::Relaxed);
+                        yield Ok(StreamEvent::Progress {
+                            percent: 0,
+                            message: format!("已扫描 {f} 文件 · {d} 目录"),
+                            processed: f,
+                            total: 0,
+                        });
+                    }
+                    res = &mut join => break res.map_err(|e| ToolError::Internal(format!("join failed: {e}"))),
+                }
+            };
+
+            let Ok(job) = job else {
+                yield Err(ToolError::Internal("blocking task panicked".into()));
+                return;
+            };
+            let meta = OutputMeta {
+                duration_ms: u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                input_bytes,
+                output_bytes: 0,
+            };
+            let output = match job {
+                Job::Scan(r) => ToolOutput {
+                    text: summarize_scan(&r),
+                    extra: Some(json!(r)),
+                    meta: Some(meta),
+                    alerts: Vec::new(),
+                },
+                Job::Search(r) => ToolOutput {
+                    text: summarize_search(&r),
+                    extra: Some(json!(r)),
+                    meta: Some(meta),
+                    alerts: Vec::new(),
+                },
+            };
+            yield Ok(StreamEvent::Done { output });
+        })
+    }
+}
+
+register_stream_tool!(FolderAnalyzer, &METADATA);
+
 #[cfg(test)]
 mod tool_tests {
     use std::collections::HashMap;
 
+    use futures::StreamExt;
     use serde_json::json;
 
     use crate::core::input::ToolInput;
     use crate::core::registry::ToolRegistry;
     use crate::core::test_utils::mock_context;
+    use crate::core::tool::{StreamEvent, StreamingTool};
+    use crate::tools::folder_analyzer::FolderAnalyzer;
 
     fn input(path: &std::path::Path, mode: &str, extra: &[(&str, serde_json::Value)]) -> ToolInput {
         let mut params: HashMap<String, serde_json::Value> = HashMap::new();
@@ -271,5 +407,75 @@ mod tool_tests {
         let tool = (ToolRegistry::global().get("folder_analyzer").unwrap().ctor)();
         let err = tool.execute(input(tmp.path(), "wat", &[]), &mock_context()).await.unwrap_err();
         assert_eq!(err.code(), "ERR_INVALID_INPUT");
+    }
+
+    async fn collect(
+        events: futures::stream::BoxStream<'static, Result<StreamEvent, crate::core::error::ToolError>>,
+    ) -> Vec<StreamEvent> {
+        events.map(|r| r.unwrap()).collect::<Vec<_>>().await
+    }
+
+    #[tokio::test]
+    async fn test_stream_scan_emits_done_with_report() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("a.txt"), b"hi\n").unwrap();
+        let mut evs = collect(
+            FolderAnalyzer::new().execute_stream(input(tmp.path(), "scan", &[]), &mock_context()),
+        )
+        .await;
+        let last = evs.pop().unwrap();
+        match last {
+            StreamEvent::Done { output } => {
+                let extra = output.extra.unwrap();
+                assert_eq!(extra["total_files"], 1);
+            }
+            other => panic!("expected Done, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_stream_respects_cancellation_with_partial_done() {
+        let tmp = tempfile::tempdir().unwrap();
+        for i in 0..20 {
+            std::fs::write(tmp.path().join(format!("{i}.txt")), b"x\n").unwrap();
+        }
+        let c = mock_context();
+        c.cancel_token.cancel();
+        let mut evs =
+            collect(FolderAnalyzer::new().execute_stream(input(tmp.path(), "scan", &[]), &c)).await;
+        let last = evs.pop().unwrap();
+        match last {
+            StreamEvent::Done { output } => {
+                let extra = output.extra.unwrap();
+                assert_eq!(extra["cancelled"], true);
+                assert_eq!(extra["total_files"], 0);
+            }
+            other => panic!("expected partial Done, got {other:?}"),
+        }
+    }
+
+    // 计划中的 collect() 会对 Err 项 unwrap panic,故本用例直接收集 Result
+    #[tokio::test]
+    async fn test_stream_file_mode_rejected() {
+        let tmp = tempfile::tempdir().unwrap();
+        let f = tmp.path().join("a.md");
+        std::fs::write(&f, b"x\n").unwrap();
+        let mut evs: Vec<_> = FolderAnalyzer::new()
+            .execute_stream(input(&f, "file", &[]), &mock_context())
+            .collect::<Vec<_>>()
+            .await;
+        assert!(matches!(evs.pop().unwrap(), Err(crate::core::error::ToolError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn test_progress_event_has_processed_fields() {
+        // 编译期断言:构造带 processed/total 的 Progress(字段存在即通过)
+        let ev = StreamEvent::Progress {
+            percent: 0,
+            message: "x".into(),
+            processed: 1,
+            total: 0,
+        };
+        assert!(matches!(ev, StreamEvent::Progress { processed: 1, .. }));
     }
 }

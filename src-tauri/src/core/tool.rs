@@ -65,7 +65,14 @@ pub trait StreamingTool: Send + Sync {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum StreamEvent {
-    Progress { percent: u8, message: String },
+    Progress {
+        percent: u8,
+        message: String,
+        /// 已处理条目数(未知总量的任务持续累加)
+        processed: u64,
+        /// 总量估计;0 = 未知
+        total: u64,
+    },
     Chunk { text: String },
     Done { output: ToolOutput },
     Error { error: ToolError },
@@ -137,6 +144,8 @@ mod tests {
         let ev = StreamEvent::Progress {
             percent: 50,
             message: "half done".into(),
+            processed: 5,
+            total: 10,
         };
         let v = serde_json::to_value(&ev).unwrap();
         assert_eq!(v["type"], "progress");
