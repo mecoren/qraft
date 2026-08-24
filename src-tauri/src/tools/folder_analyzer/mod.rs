@@ -5,6 +5,7 @@
 // file: 单文件解析(魔数/编码/行字数/SHA-256)
 
 pub mod classify;
+pub mod inspect;
 pub mod scanner;
 pub mod search;
 pub mod text_metrics;
