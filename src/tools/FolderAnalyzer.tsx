@@ -25,12 +25,23 @@ import type {
 
 export function FolderAnalyzer(_props: ToolProps) {
   const [mode, setMode] = useState<AnalyzerMode>('scan');
+  // 已完成结果所属的模式:切换 Tab 时旧结果不渲染(三种报告结构互不兼容,强转会崩溃)
+  const [resultMode, setResultMode] = useState<AnalyzerMode | null>(null);
   const [target, setTarget] = useState<string | null>(null);
   const [includeHidden, setIncludeHidden] = useState(false);
   const [pattern, setPattern] = useState('');
   const [isRegex, setIsRegex] = useState(false);
   const [caseInsensitive, setCaseInsensitive] = useState(false);
   const { state, run, cancel } = useAnalyzerTask();
+
+  /** 记录本次运行的模式;面板仅在该模式下渲染 */
+  const runWithMode = useCallback(
+    (args: Parameters<typeof run>[0]) => {
+      setResultMode(args.mode);
+      return run(args);
+    },
+    [run],
+  );
 
   // Tauri 拦截了 HTML5 drop,必须用 webview 级拖放事件拿真实路径
   useEffect(() => {
@@ -44,14 +55,14 @@ export function FolderAnalyzer(_props: ToolProps) {
             setTarget(entry.path);
             if (entry.kind === 'dir') {
               setMode('scan');
-              void run({
+              void runWithMode({
                 filePath: entry.path,
                 mode: 'scan',
                 options: { include_hidden: includeHidden },
               });
             } else {
               setMode('file');
-              void run({ filePath: entry.path, mode: 'file' });
+              void runWithMode({ filePath: entry.path, mode: 'file' });
             }
           });
         }
@@ -77,7 +88,7 @@ export function FolderAnalyzer(_props: ToolProps) {
     }
     // 选中即分析(与 file 模式选中即解析一致);后续可调选项后再点"开始分析"
     if (mode === 'search') {
-      await run({
+      await runWithMode({
         filePath: p,
         mode: 'search',
         options: {
@@ -88,14 +99,14 @@ export function FolderAnalyzer(_props: ToolProps) {
         },
       });
     } else {
-      await run({ filePath: p, mode: 'scan', options: { include_hidden: includeHidden } });
+      await runWithMode({ filePath: p, mode: 'scan', options: { include_hidden: includeHidden } });
     }
-  }, [mode, pattern, isRegex, caseInsensitive, includeHidden, run]);
+  }, [mode, pattern, isRegex, caseInsensitive, includeHidden, runWithMode]);
 
   const handleRun = useCallback(async () => {
     if (!target) return;
     if (mode === 'search') {
-      await run({
+      await runWithMode({
         filePath: target,
         mode: 'search',
         options: {
@@ -106,18 +117,18 @@ export function FolderAnalyzer(_props: ToolProps) {
         },
       });
     } else if (mode === 'scan') {
-      await run({ filePath: target, mode: 'scan', options: { include_hidden: includeHidden } });
+      await runWithMode({ filePath: target, mode: 'scan', options: { include_hidden: includeHidden } });
     }
     // file 模式在选中文件后立即运行,无需 Run 按钮
-  }, [target, mode, pattern, isRegex, caseInsensitive, includeHidden, run]);
+  }, [target, mode, pattern, isRegex, caseInsensitive, includeHidden, runWithMode]);
 
   const handlePickFile = useCallback(async () => {
     const p = await pickFilePath();
     if (!p) return;
     setTarget(p);
     setMode('file');
-    await run({ filePath: p, mode: 'file' });
-  }, [run]);
+    await runWithMode({ filePath: p, mode: 'file' });
+  }, [runWithMode]);
 
   const canRun =
     !!target && state.status !== 'running' && (mode !== 'search' || pattern.trim().length > 0);
@@ -230,13 +241,14 @@ export function FolderAnalyzer(_props: ToolProps) {
         </div>
       )}
 
-      {state.status === 'done' && mode === 'scan' && (
+      {/* 结果面板仅在「结果所属模式」下渲染:报告结构互不兼容,切换 Tab 后不显示旧结果 */}
+      {state.status === 'done' && resultMode === 'scan' && mode === 'scan' && (
         <ScanResultsPanel report={state.result as ScanReport} />
       )}
-      {state.status === 'done' && mode === 'search' && (
+      {state.status === 'done' && resultMode === 'search' && mode === 'search' && (
         <SearchResultsPanel report={state.result as SearchReport} />
       )}
-      {state.status === 'done' && mode === 'file' && (
+      {state.status === 'done' && resultMode === 'file' && mode === 'file' && (
         <FileInspectPanel report={state.result as FileInspectReport} />
       )}
     </div>

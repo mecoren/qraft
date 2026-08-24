@@ -40,6 +40,33 @@ describe('useAnalyzerTask', () => {
     expect((result.current.state.result as { total_files: number }).total_files).toBe(3);
   });
 
+  it('runs file mode via sync tool_execute and lands done directly', async () => {
+    // 回归:file 模式曾被发往流式端点,而 Rust 端流式仅支持 scan/search
+    safeInvoke.mockResolvedValue({ ok: true, value: { text: 'a.md:文本', extra: { is_text: true } } });
+    const { result } = renderHook(() => useAnalyzerTask());
+
+    await act(async () => {
+      await result.current.run({ filePath: 'C:/a.md', mode: 'file' });
+    });
+
+    expect(safeInvoke).toHaveBeenCalledWith('tool_execute', {
+      toolId: 'folder_analyzer',
+      input: { file_path: 'C:/a.md', params: { mode: 'file' } },
+    });
+    expect(result.current.state.status).toBe('done');
+    expect((result.current.state.result as { is_text: boolean }).is_text).toBe(true);
+  });
+
+  it('surfaces file mode sync failure', async () => {
+    safeInvoke.mockResolvedValue({ ok: false, error: { code: 'ERR_FILE_IO', message: 'too large' } });
+    const { result } = renderHook(() => useAnalyzerTask());
+    await act(async () => {
+      await result.current.run({ filePath: 'C:/big.bin', mode: 'file' });
+    });
+    expect(result.current.state.status).toBe('failed');
+    expect(result.current.state.error).toContain('too large');
+  });
+
   it('ignores stale task events', async () => {
     safeInvoke.mockResolvedValue({ ok: true, value: 'task-a' });
     const { result } = renderHook(() => useAnalyzerTask());

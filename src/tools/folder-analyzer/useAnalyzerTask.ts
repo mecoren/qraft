@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   cancelAnalyzerTask,
+  runFileInspect,
   startAnalyzerTask,
   subscribeTaskEvents,
   type StartArgs,
@@ -40,6 +41,16 @@ export function useAnalyzerTask(): {
   const run = useCallback(async (args: StartArgs) => {
     disposeRef.current?.();
     setState({ ...INITIAL, status: 'running' });
+    // 单文件解析:同步 tool_execute 一次往返即完成,不走流式任务
+    if (args.mode === 'file') {
+      const r = await runFileInspect(args.filePath);
+      if (!r.ok) {
+        setState({ ...INITIAL, status: 'failed', error: `${r.error.code}: ${r.error.message}` });
+      } else {
+        setState({ ...INITIAL, status: 'done', result: r.value });
+      }
+      return;
+    }
     const r = await startAnalyzerTask(args);
     if (!r.ok) {
       setState({ ...INITIAL, status: 'failed', error: `${r.error.code}: ${r.error.message}` });

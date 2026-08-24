@@ -55,6 +55,20 @@ export function startAnalyzerTask(args: StartArgs): Promise<Result<string, Error
   });
 }
 
+/**
+ * 单文件解析走同步 tool_execute:
+ * 流式端点(tool_execute_stream)仅支持 scan/search,
+ * file 模式发过去会被 Rust 端以 InvalidInput 拒绝。
+ */
+export async function runFileInspect(filePath: string): Promise<Result<unknown, ErrorInfo>> {
+  const r = await safeInvoke<{ extra?: unknown } | null>('tool_execute', {
+    toolId: TOOL_ID,
+    input: { file_path: filePath, params: { mode: 'file' } },
+  });
+  if (!r.ok) return { ok: false, error: r.error };
+  return { ok: true, value: r.value?.extra ?? null };
+}
+
 export async function cancelAnalyzerTask(taskId: string): Promise<void> {
   await safeInvoke<boolean>('tool_cancel', { taskId });
 }
