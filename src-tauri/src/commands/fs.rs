@@ -502,6 +502,48 @@ pub async fn fs_read_dir(
     fs_read_dir_inner(&path, &authorized).await
 }
 
+/// 拖放条目类型
+#[derive(Debug, Serialize)]
+pub struct DroppedKind {
+    pub path: String,
+    /// "dir" | "file"
+    pub kind: String,
+}
+
+/// 将拖放进来的路径加入授权集合(用户显式拖放视同 dialog 选择);
+/// 不存在的路径跳过。返回实际授权成功的条目及类型。
+///
+/// # Errors
+///
+/// 当前恒成功;保留 Result 以对齐其他 fs 命令签名
+pub fn fs_authorize_dropped_paths_inner(
+    paths: Vec<String>,
+    authorized: &AuthorizedPaths,
+) -> Result<CommandResponse<Vec<DroppedKind>>, AppError> {
+    let mut kinds = Vec::with_capacity(paths.len());
+    for p in paths {
+        let Ok(meta) = std::fs::metadata(&p) else { continue };
+        let kind = if meta.is_dir() { "dir" } else { "file" }.to_string();
+        authorized.authorize(&p);
+        kinds.push(DroppedKind { path: p, kind });
+    }
+    Ok(CommandResponse::ok(kinds))
+}
+
+/// 将拖放条目加入授权集合并返回各条目类型(目录/文件)
+///
+/// # Errors
+///
+/// 当前恒成功;保留 Result 以对齐其他 fs 命令签名
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+pub fn fs_authorize_dropped_paths(
+    paths: Vec<String>,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<Vec<DroppedKind>>, AppError> {
+    fs_authorize_dropped_paths_inner(paths, &authorized)
+}
+
 /// 读取文本文件并校验可编辑性,供文件夹树点击文件时调用
 ///
 /// 二进制或非 UTF-8 内容返回 `ERR_FILE_UNSUPPORTED`,前端弹「格式不支持」提示。
@@ -792,5 +834,29 @@ mod tests {
         assert_eq!(resp.data.unwrap(), "hello folder");
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_authorize_dropped_paths_filters_missing() {
+        let inner_paths = AuthorizedPaths::new();
+        let tmp = tempfile::tempdir().unwrap();
+        let file = tmp.path().join("a.txt");
+        std::fs::write(&file, b"x").unwrap();
+        let out = fs_authorize_dropped_paths_inner(
+            vec![
+                file.to_string_lossy().into_owned(),
+                tmp.path().to_string_lossy().into_owned(),
+                "Z:/__no_such__/ghost.txt".to_string(),
+            ],
+            &inner_paths,
+        )
+        .unwrap()
+        .data
+        .unwrap();
+        assert_eq!(out.len(), 2);
+        assert!(out.iter().any(|d| d.kind == "dir"));
+        assert!(out.iter().any(|d| d.kind == "file"));
+        assert!(inner_paths.is_path_allowed(&file.to_string_lossy()));
+        assert!(!inner_paths.is_path_allowed("Z:/__no_such__/ghost.txt"));
     }
 }

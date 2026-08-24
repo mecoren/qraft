@@ -69,9 +69,9 @@ pub fn run() -> anyhow::Result<()> {
     use crate::commands::config::{config_get, config_get_all, config_reset, config_set};
     use crate::commands::font::list_system_fonts;
     use crate::commands::fs::{
-        AuthorizedPaths, fs_open_dialog, fs_open_folder_dialog, fs_read_dir, fs_read_file,
-        fs_read_text_file_checked, fs_read_text_file_encoded, fs_reveal_in_explorer, fs_save_bytes,
-        fs_write_file, fs_write_file_encoded,
+        AuthorizedPaths, fs_authorize_dropped_paths, fs_open_dialog, fs_open_folder_dialog,
+        fs_read_dir, fs_read_file, fs_read_text_file_checked, fs_read_text_file_encoded,
+        fs_reveal_in_explorer, fs_save_bytes, fs_write_file, fs_write_file_encoded,
     };
     use crate::commands::history::{history_clear, history_list};
     use crate::commands::image::png_compress;
@@ -226,6 +226,7 @@ pub fn run() -> anyhow::Result<()> {
             history_clear,
             clipboard_read_text,
             clipboard_write_text,
+            fs_authorize_dropped_paths,
             fs_read_file,
             fs_write_file,
             fs_save_bytes,

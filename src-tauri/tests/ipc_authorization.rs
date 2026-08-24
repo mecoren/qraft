@@ -21,7 +21,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use qraft_lib::commands::fs::AuthorizedPaths;
+use qraft_lib::commands::fs::{AuthorizedPaths, fs_authorize_dropped_paths_inner};
 use qraft_lib::commands::tool::ensure_file_path_authorized;
 
 #[test]
@@ -49,4 +49,32 @@ fn allows_path_inside_authorized_subtree() {
     let err =
         ensure_file_path_authorized("C:/allowed/root2/a.txt", &authorized).unwrap_err();
     assert!(matches!(err, qraft_lib::AppError::Permission(_)));
+}
+
+#[test]
+fn authorizes_existing_dropped_paths_and_skips_missing() {
+    // 拖放与 dialog 选择同级的授权手势:存在的路径全部授权并返回类型,
+    // 不存在的路径静默跳过(Task 9)
+    let authorized = AuthorizedPaths::new();
+    let tmp = tempfile::tempdir().unwrap();
+    let file = tmp.path().join("a.txt");
+    std::fs::write(&file, b"x").unwrap();
+
+    let out = fs_authorize_dropped_paths_inner(
+        vec![
+            file.to_string_lossy().into_owned(),
+            tmp.path().to_string_lossy().into_owned(),
+            "Z:/__no_such__/ghost.txt".to_string(),
+        ],
+        &authorized,
+    )
+    .unwrap()
+    .data
+    .unwrap();
+
+    assert_eq!(out.len(), 2);
+    assert!(out.iter().any(|d| d.kind == "dir"));
+    assert!(out.iter().any(|d| d.kind == "file"));
+    assert!(authorized.is_path_allowed(&file.to_string_lossy()));
+    assert!(!authorized.is_path_allowed("Z:/__no_such__/ghost.txt"));
 }
