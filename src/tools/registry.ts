@@ -134,3 +134,6 @@ registerTool('duplicate_detector', () =>
 registerTool('text_editor', () =>
   import('./CodeEditor').then((m) => ({ default: m.CodeEditorTool })),
 );
+registerTool('folder_analyzer', () =>
+  import('./FolderAnalyzer').then((m) => ({ default: m.FolderAnalyzer })),
+);

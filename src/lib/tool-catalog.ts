@@ -31,6 +31,7 @@ import {
   FileText,
   Fingerprint,
   FlaskConical,
+  FolderOpen,
   Hash,
   Image,
   KeyRound,
@@ -364,6 +365,15 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
     category: 'text',
     icon: ListChecks,
     keywords: ['duplicate', 'dedupe', '去重', '重复行', 'unique', '重复'],
+  },
+  {
+    id: 'folder_analyzer',
+    name: '文件夹分析器',
+    description: '统计文件夹类型分布、文本行数字数、内容搜索、单文件解析(只读)',
+    category: 'text',
+    icon: FolderOpen,
+    keywords: ['folder', 'file', 'stats', 'lines', 'words', 'grep', '分析', '统计', '搜索'],
+    backendId: 'folder_analyzer',
   },
   {
     id: 'text_editor',
