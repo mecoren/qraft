@@ -84,10 +84,20 @@ describe('SearchResultsPanel', () => {
 describe('FileInspectPanel', () => {
   it('renders details for text file', () => {
     const r: FileInspectReport = {
-      path: 'C:/x/a.md', file_name: 'a.md', ext: 'md', category: 'document',
-      magic: null, size_bytes: 7, is_text: true, encoding: 'UTF-8',
-      lines: 1, words: 2, chars: 6, sha256: 'ab'.repeat(32),
-      preview: ['你好 世界'], duration_ms: 1,
+      path: 'C:/x/a.md',
+      file_name: 'a.md',
+      ext: 'md',
+      category: 'document',
+      magic: null,
+      size_bytes: 7,
+      is_text: true,
+      encoding: 'UTF-8',
+      lines: 1,
+      words: 2,
+      chars: 6,
+      sha256: 'ab'.repeat(32),
+      preview: ['你好 世界'],
+      duration_ms: 1,
     };
     render(<FileInspectPanel report={r} />);
     expect(screen.getByText('UTF-8')).toBeInTheDocument();

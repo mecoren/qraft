@@ -103,6 +103,7 @@ Qraft 计划内置 34 个开发工具（P0=10 / P1=12 / P2=12），但一次性�
 | `json_path_tester` | JSONPath Tester | Parser | json + path expression | 匹配结果 |
 | `yaml_formatter` | YAML Formatter | Formatter | YAML 文本 | 格式化 YAML |
 | `toml_formatter` | TOML Formatter | Formatter | TOML 文本 | 格式化 TOML |
+| `folder_analyzer` | Folder Analyzer | Parser | 文件夹路径(file_path)+ mode(scan/search/file)+ options | 类型统计/文本行字数/内容搜索/单文件解析报告 | v2.0 前置交付;只读;流式+可取消 |
 
 ### 3.2 优先级划分
 

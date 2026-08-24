@@ -52,7 +52,11 @@ fn is_cjk(c: char) -> bool {
 #[allow(clippy::cast_possible_truncation)]
 pub fn count_metrics(text: &str) -> TextMetrics {
     if text.is_empty() {
-        return TextMetrics { lines: 0, words: 0, chars: 0 };
+        return TextMetrics {
+            lines: 0,
+            words: 0,
+            chars: 0,
+        };
     }
     let mut lines = text.matches('\n').count() as u64;
     if !text.ends_with('\n') {
@@ -78,7 +82,11 @@ pub fn count_metrics(text: &str) -> TextMetrics {
             }
         }
     }
-    TextMetrics { lines, words, chars }
+    TextMetrics {
+        lines,
+        words,
+        chars,
+    }
 }
 
 #[cfg(test)]
@@ -136,7 +144,7 @@ mod tests {
     #[test]
     fn test_decode_utf16le_bom() {
         let mut bytes = vec![0xff, 0xfe];
-        bytes.extend("你A".encode_utf16().flat_map(|u| u.to_le_bytes()));
+        bytes.extend("你A".encode_utf16().flat_map(u16::to_le_bytes));
         let (text, enc) = decode_best_effort(&bytes);
         assert_eq!(enc, "UTF-16LE");
         assert_eq!(text, "你A");

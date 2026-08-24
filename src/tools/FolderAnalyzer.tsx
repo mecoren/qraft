@@ -44,7 +44,11 @@ export function FolderAnalyzer(_props: ToolProps) {
             setTarget(entry.path);
             if (entry.kind === 'dir') {
               setMode('scan');
-              void run({ filePath: entry.path, mode: 'scan', options: { include_hidden: includeHidden } });
+              void run({
+                filePath: entry.path,
+                mode: 'scan',
+                options: { include_hidden: includeHidden },
+              });
             } else {
               setMode('file');
               void run({ filePath: entry.path, mode: 'file' });
@@ -76,7 +80,12 @@ export function FolderAnalyzer(_props: ToolProps) {
       await run({
         filePath: p,
         mode: 'search',
-        options: { pattern, is_regex: isRegex, case_insensitive: caseInsensitive, include_hidden: includeHidden },
+        options: {
+          pattern,
+          is_regex: isRegex,
+          case_insensitive: caseInsensitive,
+          include_hidden: includeHidden,
+        },
       });
     } else {
       await run({ filePath: p, mode: 'scan', options: { include_hidden: includeHidden } });
@@ -89,7 +98,12 @@ export function FolderAnalyzer(_props: ToolProps) {
       await run({
         filePath: target,
         mode: 'search',
-        options: { pattern, is_regex: isRegex, case_insensitive: caseInsensitive, include_hidden: includeHidden },
+        options: {
+          pattern,
+          is_regex: isRegex,
+          case_insensitive: caseInsensitive,
+          include_hidden: includeHidden,
+        },
       });
     } else if (mode === 'scan') {
       await run({ filePath: target, mode: 'scan', options: { include_hidden: includeHidden } });
@@ -106,17 +120,21 @@ export function FolderAnalyzer(_props: ToolProps) {
   }, [run]);
 
   const canRun =
-    !!target &&
-    state.status !== 'running' &&
-    (mode !== 'search' || pattern.trim().length > 0);
+    !!target && state.status !== 'running' && (mode !== 'search' || pattern.trim().length > 0);
 
   return (
     <div className="flex flex-col gap-4 h-full" data-testid="folder-analyzer">
       <Tabs value={mode} onValueChange={(v) => setMode(v as AnalyzerMode)}>
         <TabsList>
-          <TabsTrigger value="scan" data-testid="analyzer-mode-scan">文件夹统计</TabsTrigger>
-          <TabsTrigger value="search" data-testid="analyzer-mode-search">内容搜索</TabsTrigger>
-          <TabsTrigger value="file" data-testid="analyzer-mode-file">单文件解析</TabsTrigger>
+          <TabsTrigger value="scan" data-testid="analyzer-mode-scan">
+            文件夹统计
+          </TabsTrigger>
+          <TabsTrigger value="search" data-testid="analyzer-mode-search">
+            内容搜索
+          </TabsTrigger>
+          <TabsTrigger value="file" data-testid="analyzer-mode-file">
+            单文件解析
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -135,7 +153,9 @@ export function FolderAnalyzer(_props: ToolProps) {
         )}
         {mode === 'search' && (
           <div className="flex flex-col gap-1">
-            <Label htmlFor="analyzer-pattern-input" className="text-xs">搜索内容</Label>
+            <Label htmlFor="analyzer-pattern-input" className="text-xs">
+              搜索内容
+            </Label>
             <Input
               id="analyzer-pattern-input"
               value={pattern}
@@ -148,17 +168,27 @@ export function FolderAnalyzer(_props: ToolProps) {
         )}
         <div className="flex items-center gap-2 pb-1">
           <Switch id="hidden-switch" checked={includeHidden} onCheckedChange={setIncludeHidden} />
-          <Label htmlFor="hidden-switch" className="text-xs">包含隐藏文件</Label>
+          <Label htmlFor="hidden-switch" className="text-xs">
+            包含隐藏文件
+          </Label>
         </div>
         {mode === 'search' && (
           <>
             <div className="flex items-center gap-2 pb-1">
               <Switch id="regex-switch" checked={isRegex} onCheckedChange={setIsRegex} />
-              <Label htmlFor="regex-switch" className="text-xs">正则</Label>
+              <Label htmlFor="regex-switch" className="text-xs">
+                正则
+              </Label>
             </div>
             <div className="flex items-center gap-2 pb-1">
-              <Switch id="case-switch" checked={caseInsensitive} onCheckedChange={setCaseInsensitive} />
-              <Label htmlFor="case-switch" className="text-xs">忽略大小写</Label>
+              <Switch
+                id="case-switch"
+                checked={caseInsensitive}
+                onCheckedChange={setCaseInsensitive}
+              />
+              <Label htmlFor="case-switch" className="text-xs">
+                忽略大小写
+              </Label>
             </div>
           </>
         )}
@@ -180,19 +210,29 @@ export function FolderAnalyzer(_props: ToolProps) {
           <span className="text-xs text-muted-foreground" data-testid="analyzer-progress-message">
             {state.message}
           </span>
-          <Button variant="destructive" size="sm" onClick={() => void cancel()} data-testid="analyzer-cancel">
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => void cancel()}
+            data-testid="analyzer-cancel"
+          >
             取消
           </Button>
         </div>
       )}
 
       {state.error && (
-        <div role="alert" className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
+        >
           {state.error}
         </div>
       )}
 
-      {state.status === 'done' && mode === 'scan' && <ScanResultsPanel report={state.result as ScanReport} />}
+      {state.status === 'done' && mode === 'scan' && (
+        <ScanResultsPanel report={state.result as ScanReport} />
+      )}
       {state.status === 'done' && mode === 'search' && (
         <SearchResultsPanel report={state.result as SearchReport} />
       )}

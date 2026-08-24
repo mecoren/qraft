@@ -73,9 +73,15 @@ pub enum StreamEvent {
         /// 总量估计;0 = 未知
         total: u64,
     },
-    Chunk { text: String },
-    Done { output: ToolOutput },
-    Error { error: ToolError },
+    Chunk {
+        text: String,
+    },
+    Done {
+        output: ToolOutput,
+    },
+    Error {
+        error: ToolError,
+    },
 }
 
 #[cfg(test)]

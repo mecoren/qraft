@@ -9,7 +9,7 @@ use serde::Serialize;
 use tokio_util::sync::CancellationToken;
 
 use super::classify::{
-    bytes_look_binary, category_for_extension, extension_of, is_text_extension, FileCategory,
+    FileCategory, bytes_look_binary, category_for_extension, extension_of, is_text_extension,
 };
 use super::text_metrics::{count_metrics, decode_best_effort};
 
@@ -164,7 +164,9 @@ pub fn scan_folder(
             cancelled = true;
             break;
         }
-        let Ok(read) = std::fs::read_dir(&dir) else { continue };
+        let Ok(read) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in read.flatten() {
             visited += 1;
             if visited > opts.max_entries {
@@ -178,7 +180,9 @@ pub fn scan_folder(
                 }
                 on_progress(total_files, total_dirs);
             }
-            let Ok(file_type) = entry.file_type() else { continue };
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
             let name = entry.file_name().to_string_lossy().into_owned();
             if file_type.is_symlink() {
                 symlinks_skipped += 1;
@@ -257,8 +261,11 @@ pub fn scan_folder(
             bytes: *bytes,
         })
         .collect();
-    by_category
-        .sort_unstable_by(|a, b| b.files.cmp(&a.files).then_with(|| a.category.cmp(&b.category)));
+    by_category.sort_unstable_by(|a, b| {
+        b.files
+            .cmp(&a.files)
+            .then_with(|| a.category.cmp(&b.category))
+    });
 
     let mut by_extension: Vec<ExtStat> = acc
         .ext_files
@@ -272,7 +279,13 @@ pub fn scan_folder(
     let mut by_ext_text: Vec<ExtTextStat> = acc
         .ext_text
         .into_iter()
-        .map(|(ext, (files, lines, words, chars))| ExtTextStat { ext, files, lines, words, chars })
+        .map(|(ext, (files, lines, words, chars))| ExtTextStat {
+            ext,
+            files,
+            lines,
+            words,
+            chars,
+        })
         .collect();
     by_ext_text.sort_unstable_by(|a, b| b.files.cmp(&a.files).then_with(|| a.ext.cmp(&b.ext)));
     metrics.by_extension = by_ext_text;
@@ -295,7 +308,11 @@ pub fn scan_folder(
         elapsed_ms: u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX),
         by_category,
         by_extension,
-        text_metrics: if opts.analyze_text_metrics { Some(metrics) } else { None },
+        text_metrics: if opts.analyze_text_metrics {
+            Some(metrics)
+        } else {
+            None
+        },
         largest_files,
     }
 }
@@ -334,10 +351,18 @@ mod tests {
         assert_eq!(report.symlinks_skipped, 0);
         assert!(!report.truncated && !report.cancelled);
 
-        let code = report.by_category.iter().find(|c| c.category == FileCategory::Code).unwrap();
+        let code = report
+            .by_category
+            .iter()
+            .find(|c| c.category == FileCategory::Code)
+            .unwrap();
         assert_eq!((code.files, code.bytes), (1, 13));
         // txt 与 md 同属 Document(Task 1 的 DOC_TEXT_EXTS):a.txt(3B)+b.md(7B)=(2,10)
-        let doc = report.by_category.iter().find(|c| c.category == FileCategory::Document).unwrap();
+        let doc = report
+            .by_category
+            .iter()
+            .find(|c| c.category == FileCategory::Document)
+            .unwrap();
         assert_eq!((doc.files, doc.bytes), (2, 10));
     }
 
@@ -347,8 +372,13 @@ mod tests {
         setup_tree(tmp.path());
         let report = scan_folder(tmp.path(), &ScanOptions::default(), None, &noop_progress());
         assert!(report.by_extension.len() >= 3);
-        assert!(report.by_extension.windows(2).all(|w| w[0].files > w[1].files
-            || (w[0].files == w[1].files && w[0].ext < w[1].ext)));
+        assert!(
+            report
+                .by_extension
+                .windows(2)
+                .all(|w| w[0].files > w[1].files
+                    || (w[0].files == w[1].files && w[0].ext < w[1].ext))
+        );
     }
 
     #[test]
@@ -356,9 +386,16 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         setup_tree(tmp.path());
         let r1 = scan_folder(tmp.path(), &ScanOptions::default(), None, &noop_progress());
-        assert!(r1.by_extension.iter().all(|e| e.ext != "txt" || e.files == 1));
+        assert!(
+            r1.by_extension
+                .iter()
+                .all(|e| e.ext != "txt" || e.files == 1)
+        );
 
-        let opts = ScanOptions { include_hidden: true, ..ScanOptions::default() };
+        let opts = ScanOptions {
+            include_hidden: true,
+            ..ScanOptions::default()
+        };
         let r2 = scan_folder(tmp.path(), &opts, None, &noop_progress());
         assert_eq!(r2.total_files, 5);
         assert_eq!(r1.total_files, 4);
@@ -387,7 +424,10 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         fs::write(tmp.path().join("big.log"), b"a\n").unwrap();
         fs::write(tmp.path().join("huge.log"), vec![b'x'; 32]).unwrap();
-        let opts = ScanOptions { max_text_file_bytes: 16, ..ScanOptions::default() };
+        let opts = ScanOptions {
+            max_text_file_bytes: 16,
+            ..ScanOptions::default()
+        };
         let report = scan_folder(tmp.path(), &opts, None, &noop_progress());
         let tm = report.text_metrics.as_ref().unwrap();
         assert_eq!(tm.files_analyzed, 1);
@@ -411,7 +451,10 @@ mod tests {
         for i in 0..10 {
             fs::write(tmp.path().join(format!("f{i}.txt")), b"x\n").unwrap();
         }
-        let opts = ScanOptions { max_entries: 3, ..ScanOptions::default() };
+        let opts = ScanOptions {
+            max_entries: 3,
+            ..ScanOptions::default()
+        };
         let report = scan_folder(tmp.path(), &opts, None, &noop_progress());
         assert!(report.truncated);
         assert!(!report.cancelled);
@@ -426,8 +469,12 @@ mod tests {
         }
         let token = CancellationToken::new();
         token.cancel();
-        let report =
-            scan_folder(tmp.path(), &ScanOptions::default(), Some(&token), &noop_progress());
+        let report = scan_folder(
+            tmp.path(),
+            &ScanOptions::default(),
+            Some(&token),
+            &noop_progress(),
+        );
         assert!(report.cancelled);
         assert_eq!(report.total_files, 0);
     }
@@ -468,7 +515,10 @@ mod tests {
     fn test_metrics_disabled_when_opted_out() {
         let tmp = tempfile::tempdir().unwrap();
         setup_tree(tmp.path());
-        let opts = ScanOptions { analyze_text_metrics: false, ..ScanOptions::default() };
+        let opts = ScanOptions {
+            analyze_text_metrics: false,
+            ..ScanOptions::default()
+        };
         let report = scan_folder(tmp.path(), &opts, None, &noop_progress());
         assert_eq!(report.total_files, 4);
         assert!(report.text_metrics.is_none());

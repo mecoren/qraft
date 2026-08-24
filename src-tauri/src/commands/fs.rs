@@ -522,7 +522,9 @@ pub fn fs_authorize_dropped_paths_inner(
 ) -> Result<CommandResponse<Vec<DroppedKind>>, AppError> {
     let mut kinds = Vec::with_capacity(paths.len());
     for p in paths {
-        let Ok(meta) = std::fs::metadata(&p) else { continue };
+        let Ok(meta) = std::fs::metadata(&p) else {
+            continue;
+        };
         let kind = if meta.is_dir() { "dir" } else { "file" }.to_string();
         authorized.authorize(&p);
         kinds.push(DroppedKind { path: p, kind });

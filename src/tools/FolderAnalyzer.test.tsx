@@ -114,7 +114,13 @@ describe('FolderAnalyzer orchestration', () => {
   });
 
   it('shows running progress and enables cancel', () => {
-    fakeState = { status: 'running', processed: 42, message: '已扫描 42 文件', result: null, error: null };
+    fakeState = {
+      status: 'running',
+      processed: 42,
+      message: '已扫描 42 文件',
+      result: null,
+      error: null,
+    };
     renderTool();
     expect(screen.getByTestId('analyzer-progress-message')).toHaveTextContent('42');
     expect(screen.getByTestId('analyzer-cancel')).toBeEnabled();
@@ -122,7 +128,10 @@ describe('FolderAnalyzer orchestration', () => {
 
   it('shows failure alert', () => {
     fakeState = {
-      status: 'failed', processed: 0, message: '', result: null,
+      status: 'failed',
+      processed: 0,
+      message: '',
+      result: null,
       error: 'ERR_PERMISSION_DENIED: denied',
     };
     renderTool();
@@ -138,7 +147,13 @@ describe('FolderAnalyzer orchestration', () => {
   });
 
   it('renders done results panel by mode', async () => {
-    fakeState = { status: 'done', processed: 0, message: '', result: { total_files: 1 }, error: null };
+    fakeState = {
+      status: 'done',
+      processed: 0,
+      message: '',
+      result: { total_files: 1 },
+      error: null,
+    };
     renderTool(); // 默认 scan 模式
     expect(await screen.findByText('scan-panel')).toBeInTheDocument();
   });

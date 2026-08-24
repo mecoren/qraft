@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 新增「IP 地址解析器」纯前端工具(转换器分类):分析 IPv4 / IPv6 地址与 CIDR 记法(如 `192.168.1.130/26`),实时计算子网掩码、通配符掩码、CIDR 网络地址、广播地址、可用主机范围与数量、总地址数、二/十六进制与整数表示等网络信息;识别 RFC 1918 私网、环回、链路本地、CGNAT、组播等特殊地址段(RFC 6890)与 IPv4 传统 A-E 分类、IPv6 作用域(fc00::/7 唯一本地、2001:db8::/32 文档段等);全部计算在本地离线完成,不发起任何网络请求
   - 新增 `src/tools/ip-parser.ts`(BigInt 实现 128bit 解析,支持 `::` 压缩与内嵌 IPv4 尾部)、`src/tools/IpParser.tsx`(参考 iplocation.net Lookup Summary 的信息卡布局)与配套测试
   - 注册 UI 组件(`registry.ts`)、工具目录条目(`tool-catalog.ts`)与全局搜索锚点(`search-anchors.ts`)
+- 新增「文件夹分析器」工具(`folder_analyzer`):只读统计文件夹内文件数量、按扩展名/类别的数量与大小分布、文本文件行数/字数;支持跨文本文件内容搜索(普通串/正则/忽略大小写);支持拖入或选择单个文件解析(类型嗅探、编码识别、SHA-256)。流式进度可取消。
 
 ### Fixed
 

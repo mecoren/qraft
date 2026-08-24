@@ -7,9 +7,9 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use super::classify::{
-    bytes_look_binary, category_for_extension, extension_of, sniff_magic, FileCategory,
+    FileCategory, bytes_look_binary, category_for_extension, extension_of, sniff_magic,
 };
-use super::text_metrics::{count_metrics, decode_best_effort, TextMetrics};
+use super::text_metrics::{TextMetrics, count_metrics, decode_best_effort};
 use crate::core::error::ToolError;
 
 /// 单次解析读取上限
@@ -57,8 +57,11 @@ pub fn inspect_file(path: &Path) -> Result<FileInspectReport, ToolError> {
 
     let (encoding, metrics, preview) = if is_text {
         let (text, label) = decode_best_effort(&bytes);
-        let preview: Vec<String> =
-            text.lines().take(PREVIEW_LINES).map(str::to_string).collect();
+        let preview: Vec<String> = text
+            .lines()
+            .take(PREVIEW_LINES)
+            .map(str::to_string)
+            .collect();
         (Some(label.to_string()), Some(count_metrics(&text)), preview)
     } else {
         (None, None, Vec::new())

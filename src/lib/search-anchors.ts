@@ -433,6 +433,14 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       keywords: ['归属地', '地理', 'isp', '运营商', 'asn', '时区', '邮编', 'geo', '国家', '城市'],
     },
   ],
+  folder_analyzer: [
+    {
+      key: 'config',
+      title: '配置',
+      description: '统计 / 搜索 / 文件解析模式与选项',
+      keywords: ['文件夹', '目录', '统计', '内容搜索', '单文件解析', '模式'],
+    },
+  ],
   timestamp_converter: [
     {
       key: 'input',

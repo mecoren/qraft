@@ -14,7 +14,10 @@ export function FileInspectPanel({ report }: Props) {
     ...(report.is_text
       ? ([
           ['编码', report.encoding ?? '-'],
-          ['行数 / 词数 / 字符', `${report.lines ?? 0} / ${report.words ?? 0} / ${report.chars ?? 0}`],
+          [
+            '行数 / 词数 / 字符',
+            `${report.lines ?? 0} / ${report.words ?? 0} / ${report.chars ?? 0}`,
+          ],
         ] as Array<[string, string]>)
       : []),
     ['SHA-256', report.sha256],

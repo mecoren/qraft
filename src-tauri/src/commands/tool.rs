@@ -112,6 +112,7 @@ pub async fn tool_execute_inner(
 /// - 当 `file_path` 未经过 dialog/拖放授权时返回
 ///   `AppError::Permission`(`ERR_PERMISSION_DENIED`)
 /// - 当 `tool_id` 不支持流式执行时返回 `AppError::Tool`(`ERR_TOOL_NOT_FOUND`)
+#[allow(clippy::implicit_hasher)]
 pub fn tool_execute_stream_inner(
     tool_id: &str,
     file_path: &str,
@@ -154,7 +155,12 @@ pub fn tool_execute_stream_inner(
                 let mut pinned = std::pin::pin!(stream);
                 while let Some(event_result) = pinned.next().await {
                     match event_result {
-                        Ok(StreamEvent::Progress { percent, message, processed, total }) => {
+                        Ok(StreamEvent::Progress {
+                            percent,
+                            message,
+                            processed,
+                            total,
+                        }) => {
                             let payload = json!({
                                 "taskId": &task_id_clone,
                                 "percent": percent,
@@ -285,6 +291,7 @@ pub async fn tool_execute(
 ///   (`ERR_PERMISSION_DENIED`)
 /// - 当 `tool_id` 不支持流式执行时返回 `AppError::Tool`(`ERR_TOOL_NOT_FOUND`)
 #[tauri::command]
+#[allow(clippy::implicit_hasher)]
 pub async fn tool_execute_stream(
     tool_id: String,
     file_path: String,

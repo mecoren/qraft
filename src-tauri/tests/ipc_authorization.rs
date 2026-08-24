@@ -27,8 +27,8 @@ use qraft_lib::commands::tool::ensure_file_path_authorized;
 #[test]
 fn rejects_path_outside_authorization_set() {
     let authorized = AuthorizedPaths::new();
-    let err = ensure_file_path_authorized("C:/definitely/not/authorized.txt", &authorized)
-        .unwrap_err();
+    let err =
+        ensure_file_path_authorized("C:/definitely/not/authorized.txt", &authorized).unwrap_err();
     assert!(
         matches!(err, qraft_lib::AppError::Permission(_)),
         "expected permission error, got: {err:?}"
@@ -46,8 +46,7 @@ fn allows_path_inside_authorized_subtree() {
     ensure_file_path_authorized("C:/allowed/root/sub/a.txt", &authorized).unwrap();
 
     // 兄弟目录(组件级比较,不因前缀字符串相同而误放行)仍拒绝
-    let err =
-        ensure_file_path_authorized("C:/allowed/root2/a.txt", &authorized).unwrap_err();
+    let err = ensure_file_path_authorized("C:/allowed/root2/a.txt", &authorized).unwrap_err();
     assert!(matches!(err, qraft_lib::AppError::Permission(_)));
 }
 

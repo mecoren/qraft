@@ -57,8 +57,10 @@ fn scan_options_from(input: &ToolInput) -> ScanOptions {
 }
 
 fn search_options_from(input: &ToolInput) -> Result<SearchOptions, ToolError> {
-    let mut o =
-        SearchOptions { pattern: input.param::<String>("pattern")?, ..SearchOptions::default() };
+    let mut o = SearchOptions {
+        pattern: input.param::<String>("pattern")?,
+        ..SearchOptions::default()
+    };
     if let Ok(v) = input.param::<bool>("is_regex") {
         o.is_regex = v;
     }
@@ -89,7 +91,10 @@ pub fn summarize_scan(r: &ScanReport) -> String {
 /// search 结果一句话中文摘要
 #[must_use]
 pub fn summarize_search(r: &SearchReport) -> String {
-    format!("共 {} 处匹配,分布在 {} 个文件", r.total_matches, r.files_with_matches)
+    format!(
+        "共 {} 处匹配,分布在 {} 个文件",
+        r.total_matches, r.files_with_matches
+    )
 }
 
 #[async_trait]
@@ -110,7 +115,12 @@ impl Tool for FolderAnalyzer {
                 let opts = scan_options_from(&input);
                 let cancel = ctx.cancel_token.clone();
                 let report = tokio::task::spawn_blocking(move || {
-                    scan_folder(std::path::Path::new(&root), &opts, Some(&cancel), &|_, _| {})
+                    scan_folder(
+                        std::path::Path::new(&root),
+                        &opts,
+                        Some(&cancel),
+                        &|_, _| {},
+                    )
                 })
                 .await
                 .map_err(|e| ToolError::Internal(format!("join failed: {e}")))?;
@@ -136,17 +146,23 @@ impl Tool for FolderAnalyzer {
             }
             "file" => {
                 let path = input.file_path()?.to_string();
-                let report = tokio::task::spawn_blocking(move || {
-                    inspect_file(std::path::Path::new(&path))
-                })
-                .await
-                .map_err(|e| ToolError::Internal(format!("join failed: {e}")))??;
+                let report =
+                    tokio::task::spawn_blocking(move || inspect_file(std::path::Path::new(&path)))
+                        .await
+                        .map_err(|e| ToolError::Internal(format!("join failed: {e}")))??;
                 let summary = format!(
                     "{}:{}({} 字节){}",
                     report.file_name,
-                    if report.is_text { "文本" } else { "二进制" },
+                    if report.is_text {
+                        "文本"
+                    } else {
+                        "二进制"
+                    },
                     report.size_bytes,
-                    report.encoding.as_ref().map_or_else(String::new, |e| format!(",编码 {e}"))
+                    report
+                        .encoding
+                        .as_ref()
+                        .map_or_else(String::new, |e| format!(",编码 {e}"))
                 );
                 (summary, json!(report))
             }
@@ -189,8 +205,8 @@ static JSON_SCHEMA: serde_json::Value = serde_json::Value::Null;
 
 register_tool!(FolderAnalyzer, &METADATA);
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::core::tool::{StreamEvent, StreamingTool};
 use crate::register_stream_tool;
@@ -358,7 +374,10 @@ mod tool_tests {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::write(tmp.path().join("a.txt"), b"hi\n").unwrap();
         let tool = (ToolRegistry::global().get("folder_analyzer").unwrap().ctor)();
-        let out = tool.execute(input(tmp.path(), "scan", &[]), &mock_context()).await.unwrap();
+        let out = tool
+            .execute(input(tmp.path(), "scan", &[]), &mock_context())
+            .await
+            .unwrap();
         let extra = out.extra.unwrap();
         assert_eq!(extra["total_files"], 1);
         assert_eq!(extra["by_extension"][0]["ext"], "txt");
@@ -371,7 +390,10 @@ mod tool_tests {
         std::fs::write(tmp.path().join("x.md"), "findme here\n").unwrap();
         let tool = (ToolRegistry::global().get("folder_analyzer").unwrap().ctor)();
         let out = tool
-            .execute(input(tmp.path(), "search", &[("pattern", json!("findme"))]), &mock_context())
+            .execute(
+                input(tmp.path(), "search", &[("pattern", json!("findme"))]),
+                &mock_context(),
+            )
             .await
             .unwrap();
         let extra = out.extra.unwrap();
@@ -385,7 +407,10 @@ mod tool_tests {
         let f = tmp.path().join("note.md");
         std::fs::write(&f, "hello\n").unwrap();
         let tool = (ToolRegistry::global().get("folder_analyzer").unwrap().ctor)();
-        let out = tool.execute(input(&f, "file", &[]), &mock_context()).await.unwrap();
+        let out = tool
+            .execute(input(&f, "file", &[]), &mock_context())
+            .await
+            .unwrap();
         let extra = out.extra.unwrap();
         assert_eq!(extra["is_text"], true);
         assert_eq!(extra["lines"], 1);
@@ -395,7 +420,13 @@ mod tool_tests {
     async fn test_missing_mode_is_invalid_input() {
         let tool = (ToolRegistry::global().get("folder_analyzer").unwrap().ctor)();
         let err = tool
-            .execute(ToolInput { file_path: Some("/tmp".into()), ..Default::default() }, &mock_context())
+            .execute(
+                ToolInput {
+                    file_path: Some("/tmp".into()),
+                    ..Default::default()
+                },
+                &mock_context(),
+            )
             .await
             .unwrap_err();
         assert_eq!(err.code(), "ERR_INVALID_INPUT");
@@ -405,12 +436,18 @@ mod tool_tests {
     async fn test_bad_mode_is_invalid_input() {
         let tmp = tempfile::tempdir().unwrap();
         let tool = (ToolRegistry::global().get("folder_analyzer").unwrap().ctor)();
-        let err = tool.execute(input(tmp.path(), "wat", &[]), &mock_context()).await.unwrap_err();
+        let err = tool
+            .execute(input(tmp.path(), "wat", &[]), &mock_context())
+            .await
+            .unwrap_err();
         assert_eq!(err.code(), "ERR_INVALID_INPUT");
     }
 
     async fn collect(
-        events: futures::stream::BoxStream<'static, Result<StreamEvent, crate::core::error::ToolError>>,
+        events: futures::stream::BoxStream<
+            'static,
+            Result<StreamEvent, crate::core::error::ToolError>,
+        >,
     ) -> Vec<StreamEvent> {
         events.map(|r| r.unwrap()).collect::<Vec<_>>().await
     }
@@ -464,7 +501,10 @@ mod tool_tests {
             .execute_stream(input(&f, "file", &[]), &mock_context())
             .collect::<Vec<_>>()
             .await;
-        assert!(matches!(evs.pop().unwrap(), Err(crate::core::error::ToolError::InvalidInput(_))));
+        assert!(matches!(
+            evs.pop().unwrap(),
+            Err(crate::core::error::ToolError::InvalidInput(_))
+        ));
     }
 
     #[test]

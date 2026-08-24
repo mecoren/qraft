@@ -6,14 +6,7 @@
 export type AnalyzerMode = 'scan' | 'search' | 'file';
 
 export type FileCategory =
-  | 'code'
-  | 'document'
-  | 'image'
-  | 'video'
-  | 'audio'
-  | 'archive'
-  | 'binary'
-  | 'other';
+  'code' | 'document' | 'image' | 'video' | 'audio' | 'archive' | 'binary' | 'other';
 
 export interface CategoryStat {
   category: FileCategory;

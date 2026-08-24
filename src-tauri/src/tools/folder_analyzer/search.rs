@@ -1,4 +1,4 @@
-﻿// 跨文本文件内容搜索(同步阻塞实现;只读)
+// 跨文本文件内容搜索(同步阻塞实现;只读)
 
 use std::path::{Path, PathBuf};
 
@@ -124,7 +124,9 @@ fn collect_candidates(
             cancelled = true;
             break;
         }
-        let Ok(read) = std::fs::read_dir(&dir) else { continue };
+        let Ok(read) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in read.flatten() {
             visited += 1;
             if visited > max_entries {
@@ -191,12 +193,16 @@ pub fn search_folder(
         if !ext_selected(&ext, opts) {
             continue;
         }
-        let Ok(meta) = std::fs::metadata(&path) else { continue };
+        let Ok(meta) = std::fs::metadata(&path) else {
+            continue;
+        };
         if meta.len() > opts.max_file_bytes {
             report.files_skipped_large += 1;
             continue;
         }
-        let Ok(bytes) = std::fs::read(&path) else { continue };
+        let Ok(bytes) = std::fs::read(&path) else {
+            continue;
+        };
         if bytes_look_binary(&bytes[..bytes.len().min(8192)]) {
             continue;
         }
@@ -230,8 +236,7 @@ pub fn search_folder(
                     break;
                 }
             }
-            if report.truncated || file_result.match_count >= u64::from(opts.max_matches_per_file)
-            {
+            if report.truncated || file_result.match_count >= u64::from(opts.max_matches_per_file) {
                 break;
             }
         }
@@ -256,7 +261,10 @@ mod tests {
     }
 
     fn base_opts(pattern: &str) -> SearchOptions {
-        SearchOptions { pattern: pattern.to_string(), ..SearchOptions::default() }
+        SearchOptions {
+            pattern: pattern.to_string(),
+            ..SearchOptions::default()
+        }
     }
 
     fn setup(dir: &std::path::Path) {
@@ -290,7 +298,10 @@ mod tests {
     fn test_case_insensitive_hits_uppercase() {
         let tmp = tempfile::tempdir().unwrap();
         setup(tmp.path());
-        let opts = SearchOptions { case_insensitive: true, ..base_opts("foo") };
+        let opts = SearchOptions {
+            case_insensitive: true,
+            ..base_opts("foo")
+        };
         let matcher = build_matcher(&opts).unwrap();
         let r = search_folder(tmp.path(), &opts, &matcher, None, &noop());
         // a.rs:2(FOO、foo)+ b.md:2(Foo、foo)+ c.txt:1(FOO)= 5
@@ -303,12 +314,30 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         fs::write(tmp.path().join("x.txt"), "abc a.c axc\n").unwrap();
 
-        let lit = SearchOptions { is_regex: false, ..base_opts("a.c") };
-        let r1 = search_folder(tmp.path(), &lit, &build_matcher(&lit).unwrap(), None, &noop());
+        let lit = SearchOptions {
+            is_regex: false,
+            ..base_opts("a.c")
+        };
+        let r1 = search_folder(
+            tmp.path(),
+            &lit,
+            &build_matcher(&lit).unwrap(),
+            None,
+            &noop(),
+        );
         assert_eq!(r1.total_matches, 1); // 仅字面 "a.c"
 
-        let rex = SearchOptions { is_regex: true, ..base_opts("a.c") };
-        let r2 = search_folder(tmp.path(), &rex, &build_matcher(&rex).unwrap(), None, &noop());
+        let rex = SearchOptions {
+            is_regex: true,
+            ..base_opts("a.c")
+        };
+        let r2 = search_folder(
+            tmp.path(),
+            &rex,
+            &build_matcher(&rex).unwrap(),
+            None,
+            &noop(),
+        );
         assert_eq!(r2.total_matches, 3); // abc/a.c/axc
     }
 
@@ -321,7 +350,13 @@ mod tests {
             extensions: vec!["md".to_string()],
             ..base_opts("foo")
         };
-        let r = search_folder(tmp.path(), &opts, &build_matcher(&opts).unwrap(), None, &noop());
+        let r = search_folder(
+            tmp.path(),
+            &opts,
+            &build_matcher(&opts).unwrap(),
+            None,
+            &noop(),
+        );
         assert_eq!(r.files_with_matches, 1);
         assert!(r.results.iter().all(|f| f.ext == "md"));
     }
@@ -330,8 +365,17 @@ mod tests {
     fn test_per_file_cap() {
         let tmp = tempfile::tempdir().unwrap();
         fs::write(tmp.path().join("many.txt"), "foo\nfoo\nfoo\nfoo\n").unwrap();
-        let opts = SearchOptions { max_matches_per_file: 2, ..base_opts("foo") };
-        let r = search_folder(tmp.path(), &opts, &build_matcher(&opts).unwrap(), None, &noop());
+        let opts = SearchOptions {
+            max_matches_per_file: 2,
+            ..base_opts("foo")
+        };
+        let r = search_folder(
+            tmp.path(),
+            &opts,
+            &build_matcher(&opts).unwrap(),
+            None,
+            &noop(),
+        );
         let f = &r.results[0];
         assert_eq!(f.matches.len(), 2);
         assert_eq!(f.match_count, 2);
@@ -344,8 +388,17 @@ mod tests {
         for i in 0..3 {
             fs::write(tmp.path().join(format!("{i}.txt")), "foo\n").unwrap();
         }
-        let opts = SearchOptions { max_matches_total: 2, ..base_opts("foo") };
-        let r = search_folder(tmp.path(), &opts, &build_matcher(&opts).unwrap(), None, &noop());
+        let opts = SearchOptions {
+            max_matches_total: 2,
+            ..base_opts("foo")
+        };
+        let r = search_folder(
+            tmp.path(),
+            &opts,
+            &build_matcher(&opts).unwrap(),
+            None,
+            &noop(),
+        );
         assert_eq!(r.total_matches, 2);
         assert!(r.truncated);
     }
@@ -353,8 +406,14 @@ mod tests {
     #[test]
     fn test_invalid_regex_is_input_error() {
         // is_regex=false 时 pattern 会被 escape 成字面量,永远合法;须显式开启正则
-        let opts = SearchOptions { is_regex: true, ..base_opts("([unclosed") };
-        assert!(matches!(build_matcher(&opts), Err(ToolError::InvalidInput(_))));
+        let opts = SearchOptions {
+            is_regex: true,
+            ..base_opts("([unclosed")
+        };
+        assert!(matches!(
+            build_matcher(&opts),
+            Err(ToolError::InvalidInput(_))
+        ));
     }
 
     #[test]
@@ -363,7 +422,13 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         fs::write(tmp.path().join("long.txt"), long_line + "\n").unwrap();
         let opts = base_opts("needle");
-        let r = search_folder(tmp.path(), &opts, &build_matcher(&opts).unwrap(), None, &noop());
+        let r = search_folder(
+            tmp.path(),
+            &opts,
+            &build_matcher(&opts).unwrap(),
+            None,
+            &noop(),
+        );
         assert_eq!(r.results[0].matches[0].preview.chars().count(), 240);
         assert!(r.results[0].matches[0].preview.ends_with('…'));
     }
@@ -373,7 +438,13 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         fs::write(tmp.path().join("cjk.txt"), "中文 needle\n").unwrap();
         let opts = base_opts("needle");
-        let r = search_folder(tmp.path(), &opts, &build_matcher(&opts).unwrap(), None, &noop());
+        let r = search_folder(
+            tmp.path(),
+            &opts,
+            &build_matcher(&opts).unwrap(),
+            None,
+            &noop(),
+        );
         assert_eq!(r.results[0].matches[0].column, 3);
     }
 
@@ -381,9 +452,18 @@ mod tests {
     fn test_hidden_respects_option() {
         let tmp = tempfile::tempdir().unwrap();
         fs::write(tmp.path().join(".dot.md"), "needle\n").unwrap();
-        let r1 = search_folder(tmp.path(), &base_opts("needle"), &build_matcher(&base_opts("needle")).unwrap(), None, &noop());
+        let r1 = search_folder(
+            tmp.path(),
+            &base_opts("needle"),
+            &build_matcher(&base_opts("needle")).unwrap(),
+            None,
+            &noop(),
+        );
         assert_eq!(r1.files_with_matches, 0);
-        let o2 = SearchOptions { include_hidden: true, ..base_opts("needle") };
+        let o2 = SearchOptions {
+            include_hidden: true,
+            ..base_opts("needle")
+        };
         let r2 = search_folder(tmp.path(), &o2, &build_matcher(&o2).unwrap(), None, &noop());
         assert_eq!(r2.files_with_matches, 1);
     }

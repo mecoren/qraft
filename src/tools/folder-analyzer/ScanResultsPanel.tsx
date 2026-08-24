@@ -38,7 +38,9 @@ export function ScanResultsPanel({ report }: Props) {
             key={key}
             type="button"
             onClick={() => setTab(key)}
-            className={tab === key ? 'font-semibold underline underline-offset-4' : 'text-muted-foreground'}
+            className={
+              tab === key ? 'font-semibold underline underline-offset-4' : 'text-muted-foreground'
+            }
           >
             {label}
           </button>
@@ -47,7 +49,13 @@ export function ScanResultsPanel({ report }: Props) {
 
       {tab === 'ext' && (
         <table className="text-sm w-full">
-          <thead><tr><th className="text-left py-1">扩展名</th><th className="text-right">数量</th><th className="text-right">大小</th></tr></thead>
+          <thead>
+            <tr>
+              <th className="text-left py-1">扩展名</th>
+              <th className="text-right">数量</th>
+              <th className="text-right">大小</th>
+            </tr>
+          </thead>
           <tbody>
             {report.by_extension.map((e: ExtStat) => (
               <tr key={e.ext} data-testid={`scan-ext-row-${e.ext}`}>
@@ -62,7 +70,13 @@ export function ScanResultsPanel({ report }: Props) {
 
       {tab === 'category' && (
         <table className="text-sm w-full">
-          <thead><tr><th className="text-left py-1">类别</th><th className="text-right">数量</th><th className="text-right">大小</th></tr></thead>
+          <thead>
+            <tr>
+              <th className="text-left py-1">类别</th>
+              <th className="text-right">数量</th>
+              <th className="text-right">大小</th>
+            </tr>
+          </thead>
           <tbody>
             {report.by_category.map((c) => (
               <tr key={c.category} data-testid={`scan-cat-row-${c.category}`}>
@@ -79,11 +93,19 @@ export function ScanResultsPanel({ report }: Props) {
         <div className="flex flex-col gap-2 text-sm">
           <div className="flex gap-4 text-muted-foreground">
             <span>覆盖 {report.text_metrics.files_analyzed} 个文本文件</span>
-            <span>共 {report.text_metrics.lines} 行 · {report.text_metrics.words} 词 · {report.text_metrics.chars} 字符</span>
+            <span>
+              共 {report.text_metrics.lines} 行 · {report.text_metrics.words} 词 ·{' '}
+              {report.text_metrics.chars} 字符
+            </span>
           </div>
           <table className="text-sm w-full">
             <thead>
-              <tr><th className="text-left py-1">扩展名</th><th className="text-right">文件</th><th className="text-right">行数</th><th className="text-right">字数</th></tr>
+              <tr>
+                <th className="text-left py-1">扩展名</th>
+                <th className="text-right">文件</th>
+                <th className="text-right">行数</th>
+                <th className="text-right">字数</th>
+              </tr>
             </thead>
             <tbody>
               {report.text_metrics.by_extension.map((e) => (
@@ -103,7 +125,9 @@ export function ScanResultsPanel({ report }: Props) {
         <ul className="text-sm font-mono space-y-1">
           {report.largest_files.map((f) => (
             <li key={f.path} className="flex justify-between gap-4">
-              <span className="truncate" title={f.path}>{f.path}</span>
+              <span className="truncate" title={f.path}>
+                {f.path}
+              </span>
               <span>{humanBytes(f.bytes)}</span>
             </li>
           ))}
@@ -117,7 +141,9 @@ function Card({ label, value, testId }: { label: string; value: string; testId: 
   return (
     <div className="rounded-md border p-3">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-lg font-semibold" data-testid={testId}>{value}</div>
+      <div className="text-lg font-semibold" data-testid={testId}>
+        {value}
+      </div>
     </div>
   );
 }

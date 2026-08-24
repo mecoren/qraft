@@ -17,26 +17,88 @@ pub enum FileCategory {
 }
 
 const CODE_EXTS: &[&str] = &[
-    "js", "mjs", "cjs", "ts", "tsx", "jsx", "rs", "py", "go", "java", "kt", "kts", "swift", "c",
-    "h", "cpp", "hpp", "cc", "hh", "cs", "rb", "php", "sh", "bash", "zsh", "fish", "ps1", "bat",
-    "cmd", "sql", "css", "scss", "less", "html", "htm", "vue", "svelte", "json", "json5", "yaml",
-    "yml", "toml", "xml", "proto", "graphql", "ini", "cfg", "conf", "env", "gradle", "cmake",
-    "makefile", "dockerfile", "lock",
+    "js",
+    "mjs",
+    "cjs",
+    "ts",
+    "tsx",
+    "jsx",
+    "rs",
+    "py",
+    "go",
+    "java",
+    "kt",
+    "kts",
+    "swift",
+    "c",
+    "h",
+    "cpp",
+    "hpp",
+    "cc",
+    "hh",
+    "cs",
+    "rb",
+    "php",
+    "sh",
+    "bash",
+    "zsh",
+    "fish",
+    "ps1",
+    "bat",
+    "cmd",
+    "sql",
+    "css",
+    "scss",
+    "less",
+    "html",
+    "htm",
+    "vue",
+    "svelte",
+    "json",
+    "json5",
+    "yaml",
+    "yml",
+    "toml",
+    "xml",
+    "proto",
+    "graphql",
+    "ini",
+    "cfg",
+    "conf",
+    "env",
+    "gradle",
+    "cmake",
+    "makefile",
+    "dockerfile",
+    "lock",
 ];
 const DOC_TEXT_EXTS: &[&str] = &[
-    "txt", "md", "markdown", "rst", "adoc", "log", "csv", "tsv", "tex", "gitignore",
+    "txt",
+    "md",
+    "markdown",
+    "rst",
+    "adoc",
+    "log",
+    "csv",
+    "tsv",
+    "tex",
+    "gitignore",
     "editorconfig",
 ];
-const IMAGE_EXTS: &[&str] =
-    &["png", "jpg", "jpeg", "gif", "bmp", "webp", "svg", "ico", "tiff", "avif"];
+const IMAGE_EXTS: &[&str] = &[
+    "png", "jpg", "jpeg", "gif", "bmp", "webp", "svg", "ico", "tiff", "avif",
+];
 const VIDEO_EXTS: &[&str] = &["mp4", "mkv", "avi", "mov", "webm", "flv", "wmv", "m4v"];
 const AUDIO_EXTS: &[&str] = &["mp3", "wav", "flac", "aac", "ogg", "m4a", "wma"];
-const ARCHIVE_EXTS: &[&str] = &["zip", "gz", "tgz", "bz2", "xz", "7z", "rar", "tar", "zst", "jar"];
+const ARCHIVE_EXTS: &[&str] = &[
+    "zip", "gz", "tgz", "bz2", "xz", "7z", "rar", "tar", "zst", "jar",
+];
 const BINARY_EXTS: &[&str] = &[
     "exe", "dll", "so", "dylib", "bin", "o", "a", "lib", "wasm", "class", "pyc", "pdb",
 ];
-const DOC_BINARY_EXTS: &[&str] =
-    &["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "epub"];
+const DOC_BINARY_EXTS: &[&str] = &[
+    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "epub",
+];
 
 /// 取小写扩展名(不含点;无扩展名返回空串)
 #[must_use]
