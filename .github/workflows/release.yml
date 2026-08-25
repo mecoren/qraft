@@ -77,6 +77,11 @@ jobs:
             --ignore RUSTSEC-2026-0194 \
             --ignore RUSTSEC-2026-0195
 
+      - name: pnpm audit (生产依赖)
+        # 安全底线(prd/13-security.md):与 cargo audit 同级的强制门禁。
+        # --prod 只审计 dependencies;阈值 moderate 与 cargo audit 拦截口径对齐。
+        run: pnpm audit --prod --audit-level moderate
+
   build:
     name: Build ${{ matrix.platform }} (${{ matrix.arch }})
     needs: [audit]

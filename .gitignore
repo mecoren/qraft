@@ -41,5 +41,10 @@ desktop.ini
 npm-debug.log*
 pnpm-debug.log*
 
+# Temporary working files(调试脚本/手工解包/测试结果快照,不入库)
+temp-*
+temp-*/
+vitest-result.json
+
 # Testing
 coverage/
