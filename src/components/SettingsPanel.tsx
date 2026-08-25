@@ -62,9 +62,9 @@ const SHORTCUT_KEYS: Array<{
 }> = [
   { key: 'open_command_palette', label: '打开命令面板' },
   { key: 'toggle_sidebar', label: '切换侧栏' },
-  { key: 'execute_tool', label: '执行工具', pending: true },
-  { key: 'clear_input', label: '清空输入', pending: true },
-  { key: 'copy_output', label: '复制输出', pending: true },
+  { key: 'execute_tool', label: '执行工具' },
+  { key: 'clear_input', label: '清空输入' },
+  { key: 'copy_output', label: '复制输出' },
   { key: 'toggle_settings', label: '切换设置' },
   { key: 'switch_tool', label: '切换工具' },
   { key: 'open_history', label: '打开历史' },

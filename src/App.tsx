@@ -17,6 +17,7 @@ import { useHistoryStore, type BackendHistoryEntry } from '@/store/historyStore'
 import { useUiStore } from '@/store/uiStore';
 import { useShortcut } from '@/hooks/useShortcut';
 import { useSearchJump } from '@/hooks/useSearchJump';
+import { clearInputAction, copyOutputAction, executeToolAction } from '@/lib/tool-actions';
 import { listen } from '@/lib/ipc';
 import { cn } from '@/lib/utils';
 import { pullPendingOpenFiles, type PendingOpenFile } from '@/tools/code-editor-workspace/fileOps';
@@ -143,11 +144,14 @@ export function App(): JSX.Element {
   }, []);
 
   // —— 全局快捷键(导航类) ——
-  // 工具操作类快捷键(execute_tool/clear_input/copy_output/search)需工具组件
-  // 契约改造,标注 TODO(v1.1) 延后实现。
+  // 工具操作类(execute/clear/copy)经 lib/tool-actions 注册表触达当前激活工具,
+  // 由各工具经 useToolShortcutActions 注册(search 仍待与 Monaco 冲突方案,保持 pending)。
   // 切换字符命名风格:作用于当前激活的编辑器实例(编辑器工具打开时生效)。
   useShortcut('cycle_naming_case', () => cycleNamingCaseShortcutHandler(), []);
   useShortcut('toggle_case', () => toggleCaseShortcutHandler(), []);
+  useShortcut('execute_tool', () => executeToolAction(), []);
+  useShortcut('clear_input', () => clearInputAction(), []);
+  useShortcut('copy_output', () => copyOutputAction(), []);
   useShortcut('open_command_palette', () => setPaletteOpen((v) => !v), []);
   useShortcut('toggle_sidebar', () => useUiStore.getState().toggleSidebar(), []);
   useShortcut('toggle_settings', () => setView('settings'), [setView]);
