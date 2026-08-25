@@ -24,6 +24,8 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useConfigStore } from '@/store/configStore';
+import { useUiStore } from '@/store/uiStore';
+import { Switch } from '@/components/ui/switch';
 import type { ShortcutBinding } from '@/types/config';
 import {
   type PaletteId,
@@ -615,6 +617,9 @@ export function FontSection() {
 export function GeneralSection(): JSX.Element {
   const config = useConfigStore((s) => s.config);
   const setConfig = useConfigStore((s) => s.setConfig);
+  // Smart Detection 开关走 uiStore(会话偏好),不经 Rust 配置表单
+  const smartDetectionEnabled = useUiStore((s) => s.smartDetectionEnabled);
+  const toggleSmartDetection = useUiStore((s) => s.toggleSmartDetection);
 
   // mode: 'onChange' 让验证在输入时触发,便于即时反馈
   const form = useForm<GeneralFormValues>({
@@ -687,6 +692,19 @@ export function GeneralSection(): JSX.Element {
           >
             <input id="confirmOnClear" type="checkbox" {...form.register('confirmOnClear')} />
             <Label htmlFor="confirmOnClear">清空前确认</Label>
+          </div>
+
+          <div
+            className="flex items-start justify-between gap-4 rounded-lg border px-3 py-2"
+            data-search-anchor="settings:general:smart_detect"
+          >
+            <div className="flex flex-col gap-0.5">
+              <Label htmlFor="smartDetect">剪贴板智能检测</Label>
+              <p className="text-xs text-muted-foreground">
+                仅在本机:窗口聚焦时读取剪贴板做本地类型探测,Ctrl+K 面板顶部给出建议。默认关闭,不联网。
+              </p>
+            </div>
+            <Switch id="smartDetect" checked={smartDetectionEnabled} onCheckedChange={toggleSmartDetection} />
           </div>
         </CardContent>
       </Card>

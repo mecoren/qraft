@@ -31,6 +31,8 @@ export function CommandPalette({
   const clearHistory = useHistoryStore((s) => s.clearHistory);
   const openTool = useUiStore((s) => s.openTool);
   const goWelcome = useUiStore((s) => s.goWelcome);
+  // Smart Detection:剪贴板探测结果(仅在用户开启开关后有内容)
+  const detected = useUiStore((s) => s.detectedTools);
 
   // Esc 关闭由 Dialog 内部 Radix 处理,此处仅作冗余兜底
   useEffect(() => {
@@ -51,6 +53,28 @@ export function CommandPalette({
           <CommandInput placeholder="搜索工具或操作..." />
           <CommandList className="max-h-80">
             <CommandEmpty>无匹配项</CommandEmpty>
+            {detected.length > 0 && (
+              <CommandGroup heading="检测到剪贴板内容">
+                {detected.map((d) => {
+                  const entry = TOOL_CATALOG.find((c) => c.id === d.toolId);
+                  if (!entry) return null;
+                  return (
+                    <CommandItem
+                      key={`detect-${d.toolId}`}
+                      value={`${entry.name} ${entry.keywords.join(' ')} ${d.reason}`}
+                      onSelect={() => {
+                        openTool(d.toolId);
+                        onOpenChange(false);
+                      }}
+                    >
+                      <entry.icon aria-hidden className="h-4 w-4 opacity-50" />
+                      <span>{entry.name}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{d.reason}</span>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            )}
             <CommandGroup heading="工具">
               {TOOL_CATALOG.map((entry) => (
                 <CommandItem

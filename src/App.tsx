@@ -18,6 +18,8 @@ import { useUiStore } from '@/store/uiStore';
 import { useShortcut } from '@/hooks/useShortcut';
 import { useSearchJump } from '@/hooks/useSearchJump';
 import { clearInputAction, copyOutputAction, executeToolAction } from '@/lib/tool-actions';
+import { readClipboardText } from '@/lib/clipboard';
+import { detectClipboardTools } from '@/lib/clipboard-detect';
 import { listen } from '@/lib/ipc';
 import { cn } from '@/lib/utils';
 import { pullPendingOpenFiles, type PendingOpenFile } from '@/tools/code-editor-workspace/fileOps';
@@ -142,6 +144,27 @@ export function App(): JSX.Element {
       cancelled = true;
     };
   }, []);
+
+  // —— Smart Detection(opt-in):窗口聚焦时本地探测剪贴板,结果进命令面板 ——
+  // 安全不变量:smartDetectionEnabled 默认 false,关闭态全链路零剪贴板读取;
+  // 仅桌面壳内生效(web 预览无 __TAURI_INTERNALS__ 时短路),探测纯本地、零网络。
+  const smartDetectionEnabled = useUiStore((s) => s.smartDetectionEnabled);
+  useEffect(() => {
+    if (!smartDetectionEnabled || !('__TAURI_INTERNALS__' in window)) return;
+    let cancelled = false;
+    const detect = (): void => {
+      void readClipboardText().then((raw) => {
+        if (cancelled) return;
+        useUiStore.getState().setDetectedTools(detectClipboardTools(raw ?? ''));
+      });
+    };
+    detect();
+    window.addEventListener('focus', detect);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', detect);
+    };
+  }, [smartDetectionEnabled]);
 
   // —— 全局快捷键(导航类) ——
   // 工具操作类(execute/clear/copy)经 lib/tool-actions 注册表触达当前激活工具,

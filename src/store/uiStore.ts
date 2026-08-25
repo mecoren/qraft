@@ -17,6 +17,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useToolStateStore } from '@/store/toolStateStore';
 import type { CatalogCategoryId } from '@/lib/tool-catalog';
+import type { DetectionResult } from '@/lib/clipboard-detect';
 
 export type AppView = 'welcome' | 'tool' | 'settings' | 'extensions' | 'history' | 'about';
 
@@ -29,6 +30,10 @@ interface UiState {
   favorites: string[];
   recents: string[];
   expandedCategories: CatalogCategoryId[];
+  /** Smart Detection 开关(默认关闭;关闭时零剪贴板读取) */
+  smartDetectionEnabled: boolean;
+  /** 最近一次窗口聚焦的剪贴板探测结果(会话内,不持久化) */
+  detectedTools: DetectionResult[];
 
   setView: (view: AppView) => void;
   /** 打开工具:切换视图 + 选中工具 + 记录最近使用 */
@@ -36,6 +41,8 @@ interface UiState {
   /** 返回欢迎页 */
   goWelcome: () => void;
   toggleSidebar: () => void;
+  toggleSmartDetection: () => void;
+  setDetectedTools: (results: DetectionResult[]) => void;
   toggleFavorite: (toolId: string) => void;
   /** 调整收藏夹顺序(相邻交换);工具未收藏或目标越界时保持原状 */
   moveFavorite: (toolId: string, direction: 'up' | 'down') => void;
@@ -53,6 +60,8 @@ export const useUiStore = create<UiState>()(
       favorites: [],
       recents: [],
       expandedCategories: [],
+      smartDetectionEnabled: false,
+      detectedTools: [],
 
       setView: (view) => set({ view }),
 
@@ -70,6 +79,11 @@ export const useUiStore = create<UiState>()(
       },
 
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+
+      toggleSmartDetection: () =>
+        set((s) => ({ smartDetectionEnabled: !s.smartDetectionEnabled })),
+
+      setDetectedTools: (results) => set({ detectedTools: results }),
 
       toggleFavorite: (toolId) =>
         set((s) => ({
@@ -113,6 +127,7 @@ export const useUiStore = create<UiState>()(
         favorites: s.favorites,
         recents: s.recents,
         expandedCategories: s.expandedCategories,
+        smartDetectionEnabled: s.smartDetectionEnabled,
       }),
     },
   ),

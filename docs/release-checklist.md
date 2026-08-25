@@ -66,7 +66,7 @@
 - [ ] CSP 生效:DevTools Console 无 CSP 违规警告
 - [ ] 零网络请求:用 Wireshark 或系统防火墙监控,启动 + 使用 10 个工具过程中,除 updater 主动检查外无任何外网请求
 - [ ] 文件沙箱:尝试通过 UI 输入 `/etc/passwd` 或 `C:\Windows\System32\config\SAM` 路径,应被拒绝
-- [ ] 剪贴板:不主动读取剪贴板,仅在用户点击「粘贴」按钮时读取
+- [ ] 剪贴板:「剪贴板智能检测」默认关闭;关闭态启动 + 使用 10 个工具过程中无任何剪贴板读取。开启后仅在窗口聚焦时本地探测(Ctrl+K 面板顶部给出建议),仍无网络上传
 - [ ] 历史记录:历史文件位于应用专属目录(`directories::ProjectDirs`),不含其他应用数据
 - [ ] `cargo audit` 无漏洞(见 CI audit job)
 - [ ] `pnpm audit` 无 moderate 及以上漏洞(见 CI audit job)
