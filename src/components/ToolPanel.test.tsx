@@ -68,4 +68,38 @@ describe('ToolPanel', () => {
     const values = inputs.map((c) => c.querySelector('textarea')?.value ?? '');
     expect(values).toContain('keep me');
   });
+
+  it('evicts the least-recently-used tool beyond the keepalive cap', async () => {
+    const { rerender } = render(<ToolPanel toolId="base64_codec" />);
+    await screen.findByTestId('output', {}, { timeout: LAZY_TIMEOUT });
+    // 依次访问共 9 个工具(base64_codec + 8 个),触发容量上限淘汰 base64_codec。
+    // 注意逐个等待:visited 更新走 setTimeout(0),连续同步 rerender 会互相取消定时器
+    const tour = [
+      'url_codec',
+      'jwt_parser',
+      'uuid_generator',
+      'hash_calculator',
+      'timestamp_converter',
+      'color_converter',
+      'regex_tester',
+      'json_minifier',
+    ];
+    for (const id of tour) {
+      rerender(<ToolPanel toolId={id} />);
+      await waitFor(
+        () => expect(document.querySelector(`[data-tool-id="${id}"]`)).not.toBeNull(),
+        { timeout: LAZY_TIMEOUT },
+      );
+    }
+    // 最旧的 base64_codec 已被淘汰
+    expect(document.querySelector('[data-tool-id="base64_codec"]')).toBeNull();
+    // 最新访问的工具仍在
+    expect(document.querySelector('[data-tool-id="json_minifier"]')).not.toBeNull();
+    // 切回被淘汰的工具:重新走懒加载挂载而非恢复旧 DOM
+    rerender(<ToolPanel toolId="base64_codec" />);
+    await waitFor(
+      () => expect(document.querySelector('[data-tool-id="base64_codec"]')).not.toBeNull(),
+      { timeout: LAZY_TIMEOUT },
+    );
+  });
 });
