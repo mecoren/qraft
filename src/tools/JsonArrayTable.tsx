@@ -2,7 +2,7 @@
  * JSON 数组到表格 —— 对象数组渲染为表格,导出 CSV / TSV
  */
 
-import { useMemo, useState, type JSX } from 'react';
+import { useDeferredValue, useMemo, useState, type JSX } from 'react';
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/ui/code-editor';
@@ -70,15 +70,17 @@ export function tableToDelimited(table: TableData, sep: ',' | '\t'): string {
 
 export function JsonArrayTable(_props: ToolProps): JSX.Element {
   const [input, setInput] = useState('');
+  // 大数组建表开销大:defer 输入优先,建表低优先级追赶
+  const deferredInput = useDeferredValue(input);
 
   const result = useMemo((): { table: TableData | null; error: string | null } => {
-    if (!input.trim()) return { table: null, error: null };
+    if (!deferredInput.trim()) return { table: null, error: null };
     try {
-      return { table: jsonArrayToTable(input), error: null };
+      return { table: jsonArrayToTable(deferredInput), error: null };
     } catch (e) {
       return { table: null, error: e instanceof Error ? e.message : String(e) };
     }
-  }, [input]);
+  }, [deferredInput]);
 
   return (
     <div className="grid h-full min-h-0 grid-cols-2 gap-3" data-testid="json-array-table">

@@ -7,7 +7,7 @@
  *   根元素名匹配、已声明元素集合对照(未声明元素给出警告)
  */
 
-import { useMemo, type JSX } from 'react';
+import { useDeferredValue, useMemo, type JSX } from 'react';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -85,11 +85,13 @@ export function validateXmlAgainstXsd(
 export function XmlXsdTester(_props: ToolProps): JSX.Element {
   const [xsd, setXsd] = useState('');
   const [xml, setXml] = useState('');
+  // 校验需 DOM 解析 + 全树遍历:defer xml 输入,校验低优先级追赶
+  const deferredXml = useDeferredValue(xml);
 
   const verdict = useMemo(() => {
-    if (!xml.trim() || !xsd.trim()) return null;
-    return validateXmlAgainstXsd(xml, xsd);
-  }, [xml, xsd]);
+    if (!deferredXml.trim() || !xsd.trim()) return null;
+    return validateXmlAgainstXsd(deferredXml, xsd);
+  }, [deferredXml, xsd]);
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="xml-xsd-tester">

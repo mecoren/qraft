@@ -2,7 +2,7 @@
  * 列表比对器 —— 比对两个列表(按行),输出交集 / 并集 / 差集
  */
 
-import { useMemo, useState, type JSX } from 'react';
+import { useDeferredValue, useMemo, useState, type JSX } from 'react';
 import { CaseSensitive, ListChecks } from 'lucide-react';
 import {
   Select,
@@ -78,11 +78,14 @@ export function ListComparer(_props: ToolProps): JSX.Element {
   const [mode, setMode] = useState<CompareMode>('intersection');
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [trimItems, setTrimItems] = useState(true);
+  // 万级行对比(规范化 + 集合运算)开销随行数增长明显:defer 双侧输入
+  const deferredA = useDeferredValue(listA);
+  const deferredB = useDeferredValue(listB);
 
   const result = useMemo(() => {
-    if (!listA.trim() && !listB.trim()) return '';
-    return compareLists(listA, listB, mode, caseSensitive, trimItems).join('\n');
-  }, [listA, listB, mode, caseSensitive, trimItems]);
+    if (!deferredA.trim() && !deferredB.trim()) return '';
+    return compareLists(deferredA, deferredB, mode, caseSensitive, trimItems).join('\n');
+  }, [deferredA, deferredB, mode, caseSensitive, trimItems]);
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="list-comparer">

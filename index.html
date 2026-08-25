@@ -8,17 +8,17 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <!--
-     * Monaco 编辑器内置样式 (~350KB):Tauri AMD loader (`public/monaco/loader.js`)
-     * 只动态注入 `<script>` 标签,从不创建 `<style>` / `<link rel=stylesheet>`,
-     * Monaco 自身的 `editor.main.js` 也未引用 `.css`,因此需要此处静态 link。
-     *
-     * - dev 模式下,vite dev server 仍按需注入,与 Monaco mount 后内部隐式 link
-     *   在时序上恰好覆盖;prod 模式必须这里显式 link,否则编辑器完全无样式。
-     * - SPA route base 通过 vite `BASE` 变量决定 dev 子路径;此处写 root 即可,
-     *   Tauri 用 `tauri://localhost`/`tauri://` 静态根,`/monaco/...` 直接命中
-     *   dist/monaco/... 复制产物。
+     * Monaco 编辑器样式改为「非阻塞预取」:
+     * - editor.main.css(~342KB)与 codicon.css 仅编辑器类工具需要,若以
+     *   rel="stylesheet" 放这里会阻塞首屏渲染。rel="preload" as="style" 只提前
+     *   取文件(本地磁盘,近零成本)不应用不阻塞;真正的注入发生在
+     *   src/components/ui/code-editor.tsx 模块初始化(ensureMonacoStyles),
+     *   早于任何 Monaco 组件挂载,且命中 preload 缓存即时生效。
+     * - Tauri 用 tauri://localhost 静态根,/monaco/... 直接命中 dist/monaco/...
+     *   复制产物;dev 由 vite dev server 按 public/ 路径提供。
      -->
-    <link rel="stylesheet" href="/monaco/vs/editor/editor.main.css" />
+    <link rel="preload" href="/monaco/vs/editor/editor.main.css" as="style" />
+    <link rel="preload" href="/monaco/vs/base/browser/ui/codicons/codicon/codicon.css" as="style" />
     <!--
      * Monaco 中文本地化消息表(~41KB,由 scripts/copy-monaco.mjs 从
      * monaco-editor/min/vs/nls/lang/zh-cn.js 同步而来)。
@@ -35,17 +35,6 @@
      * - 404 时 localize 回退英文 fallback,不影响编辑器挂载。
      -->
     <script src="/monaco/vs/nls/lang/zh-cn.js"></script>
-    <!--
-     * Monaco 0.56 min 构建缺少 codicon 图标基础样式(`.codicon` 基类规则 + codicon 字体),
-     * 0.56 min/vs/editor/editor.main.css 只含 codicon 的 @font-face data URI,
-     * 没有 `.codicon` 类(font-family / 图标 content 规则),导致 gutter 折叠 / 展开
-     * 等图标显示为缺失字形占位(Windows 上为方框带 X)。
-     *
-     * 同步脚本 scripts/copy-monaco.mjs 会把 monaco-editor/esm/vs/base/.../codicon.css +
-     * codicon.ttf 拷到 public/monaco/vs/base/browser/ui/codicons/codicon/,
-     * 这里静态 link 即可让 prod 构建加载,无需等 component 模块副作用生效。
-     -->
-    <link rel="stylesheet" href="/monaco/vs/base/browser/ui/codicons/codicon/codicon.css" />
   </head>
   <body>
     <div id="root"></div>

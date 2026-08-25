@@ -4,7 +4,7 @@
  * 支持方言选择、缩进宽度、关键字大小写。
  */
 
-import { useMemo, useState, type JSX } from 'react';
+import { useDeferredValue, useMemo, useState, type JSX } from 'react';
 import { Database, IndentIncrease, CaseUpper } from 'lucide-react';
 import { format, type SqlLanguage } from 'sql-formatter';
 import {
@@ -36,11 +36,13 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
   const [dialect, setDialect] = useState<SqlLanguage>('sql');
   const [indent, setIndent] = useState('2');
   const [keywordCase, setKeywordCase] = useState<'upper' | 'lower' | 'preserve'>('upper');
+  // sql-formatter 对长 SQL 词法分析较重:defer 输入优先,格式化低优先级追赶
+  const deferredInput = useDeferredValue(input);
 
   const output = useMemo(() => {
-    if (!input.trim()) return '';
+    if (!deferredInput.trim()) return '';
     try {
-      return format(input, {
+      return format(deferredInput, {
         language: dialect,
         tabWidth: Number(indent),
         keywordCase,
@@ -48,7 +50,7 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
     } catch (e) {
       return `格式化失败: ${e instanceof Error ? e.message : String(e)}`;
     }
-  }, [input, dialect, indent, keywordCase]);
+  }, [deferredInput, dialect, indent, keywordCase]);
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="sql-formatter">

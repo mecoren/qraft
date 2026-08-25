@@ -81,6 +81,9 @@ import {
   type EditorTab,
 } from './schema';
 
+// Monaco loader 路径配置(import 即执行,保证任何 DiffEditor 挂载前就绪;详见模块内注释)
+import '@/lib/monaco-loader-config';
+
 /** 批量关闭意图:用于未保存确认通过后执行对应 store 动作 */
 type BatchCloseAction = 'close-others' | 'close-right' | 'close-all';
 

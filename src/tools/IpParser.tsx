@@ -8,7 +8,7 @@
  *   按钮联网获取(ip-api.com 白名单例外,见 src-tauri/src/net/ip_lookup.rs)
  */
 
-import { useCallback, useMemo, useState, type JSX, type ReactNode } from 'react';
+import { useCallback, useDeferredValue, useMemo, useState, type JSX, type ReactNode } from 'react';
 import { Globe2, Loader2, Network } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -156,16 +156,18 @@ type GeoState =
 export function IpParser(_props: ToolProps): JSX.Element {
   const [input, setInput] = useState('');
   const [geo, setGeo] = useState<GeoState>({ status: 'idle' });
+  // analyzeIp 对超长/畸形输入逐字符回溯:defer 输入,解析低优先级追赶
+  const deferredInput = useDeferredValue(input);
 
   const parsed = useMemo<{ result?: IpAnalysis; error?: string }>(() => {
-    const text = input.trim();
+    const text = deferredInput.trim();
     if (!text) return {};
     try {
       return { result: analyzeIp(text) };
     } catch (e) {
       return { error: e instanceof IpParseError ? e.message : String(e) };
     }
-  }, [input]);
+  }, [deferredInput]);
 
   const infoItems = parsed.result ? toInfoItems(parsed.result) : [];
 

@@ -2,7 +2,7 @@
  * JSON <> YAML 转换工具 —— yaml 库,双向实时转换
  */
 
-import { useMemo, useState, type JSX } from 'react';
+import { useDeferredValue, useMemo, useState, type JSX } from 'react';
 import { ArrowLeftRight, IndentIncrease } from 'lucide-react';
 import YAML from 'yaml';
 import {
@@ -33,15 +33,17 @@ export function JsonYamlConverter(_props: ToolProps): JSX.Element {
   const [input, setInput] = useState('');
   const [direction, setDirection] = useState<Direction>('json2yaml');
   const [indent, setIndent] = useState('2');
+  // 大文档 YAML/JSON 互转较慢:defer 输入优先,转换低优先级追赶
+  const deferredInput = useDeferredValue(input);
 
   const output = useMemo(() => {
-    if (!input.trim()) return '';
+    if (!deferredInput.trim()) return '';
     try {
-      return convertJsonYaml(input, direction, Number(indent));
+      return convertJsonYaml(deferredInput, direction, Number(indent));
     } catch (e) {
       return `转换失败: ${e instanceof Error ? e.message : String(e)}`;
     }
-  }, [input, direction, indent]);
+  }, [deferredInput, direction, indent]);
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="json-yaml-converter">

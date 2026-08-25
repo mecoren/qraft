@@ -46,34 +46,46 @@ import { attachFoldSummary, type FoldSummaryHandle } from './monaco-fold-summary
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { Input } from './input';
 
+// Monaco loader 路径配置(import 即执行,保证任何 Editor 挂载前就绪;详见模块内注释)
+import '@/lib/monaco-loader-config';
+
 /**
- * 加载 Monaco 0.56 min 构建缺失的 codicon 基础样式。
+ * Monaco 本地样式表注入(仅编辑器类工具需要)。
  *
- * 背景:min/vs/editor/editor.main.css 只包含 codicon 的 @font-face 数据 URI，
- * 没有 .codicon 基础类（font-family / 图标 content 规则）。这会导致 gutter 中的
- * 折叠/展开按钮等图标显示为缺失字形占位（Windows 上表现为方框中带 X）。
- * 同步脚本 copy-monaco.mjs 会把 esm 构建的 codicon.css + codicon.ttf 拷到
- * public/monaco/vs/base/browser/ui/codicons/codicon/。
+ * 背景:index.html 曾以 <link rel="stylesheet"> 阻塞式加载 editor.main.css
+ * (~342KB),但它只有编辑器工具用到,白白拖慢首屏。现改为:
+ * - index.html 用 rel="preload" as="style" 尽早预取(不应用、不阻塞);
+ * - 本模块初始化时在此注入真正的 stylesheet —— 早于任何 Monaco 组件挂载,
+ *   且命中 preload 缓存,编辑器首帧即为有样式状态。
  *
- * 主路径在 index.html 静态 link，这里保留幂等的兜底注入:
- * - 如果页面 head 已经存在该 CSS link（静态或先前注入），直接返回。
- * - 否则动态注入 `<link rel="stylesheet">`，避免 dev / SSR 等缺失静态 link 的场景
- *   也出现缺失字形 icon。
+ * 覆盖两份资源:
+ * - editor.main.css:Monaco 全部内置 UI 样式。Tauri 的 AMD loader
+ *   (public/monaco/loader.js)只动态注入 <script>,从不创建 <style>/<link>,
+ *   editor.main.js 也未引用 .css,因此必须自行注入(prod 缺失则编辑器完全无样式)。
+ * - codicon.css:Monaco 0.56 min 构建缺 .codicon 基础类(font-family/图标 content,
+ *   min 版 css 只含 @font-face data URI),缺失时 gutter 折叠按钮显示为方框叉。
+ *   copy-monaco.mjs 已把它拷到 public/monaco/vs/base/browser/ui/codicons/...。
+ *
+ * 幂等:已存在同 href(先前注入)则跳过;浏览器自动复用 HTTP 缓存。
+ * typeof document 守卫兼容 jsdom 之外的极端环境。
  */
-const MONACO_CODICON_HREF_SUFFIX = 'monaco/vs/base/browser/ui/codicons/codicon/codicon.css';
-function ensureMonacoCodiconStyle(): void {
+const MONACO_STYLE_SUFFIXES = [
+  'monaco/vs/editor/editor.main.css',
+  'monaco/vs/base/browser/ui/codicons/codicon/codicon.css',
+] as const;
+
+function ensureMonacoStyles(): void {
   if (typeof document === 'undefined') return;
-  // 已存在同 href（静态 link 或先前注入），无需重复 append;浏览器自动复用 HTTP 缓存
-  const existing = document.querySelector(
-    `link[rel="stylesheet"][href*="${MONACO_CODICON_HREF_SUFFIX}"]`,
-  );
-  if (existing) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = `${import.meta.env.BASE_URL}${MONACO_CODICON_HREF_SUFFIX}`;
-  document.head.appendChild(link);
+  for (const suffix of MONACO_STYLE_SUFFIXES) {
+    const existing = document.querySelector(`link[rel="stylesheet"][href*="${suffix}"]`);
+    if (existing) continue;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `${import.meta.env.BASE_URL}${suffix}`;
+    document.head.appendChild(link);
+  }
 }
-ensureMonacoCodiconStyle();
+ensureMonacoStyles();
 
 /** 编辑器支持的语言(未列出的语言会回退为 plaintext,不会报错) */
 export type EditorLanguage =

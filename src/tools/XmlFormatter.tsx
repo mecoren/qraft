@@ -4,7 +4,7 @@
  * 支持:缩进(2/4空格/Tab/压缩)、属性换行开关。
  */
 
-import { useMemo, useState, type JSX } from 'react';
+import { useDeferredValue, useMemo, useState, type JSX } from 'react';
 import { IndentIncrease, WrapText } from 'lucide-react';
 import {
   Select,
@@ -99,15 +99,17 @@ export function XmlFormatter(_props: ToolProps): JSX.Element {
   const [input, setInput] = useState('');
   const [mode, setMode] = useState<IndentMode>('2');
   const [attrNewLine, setAttrNewLine] = useState(false);
+  // DOMParser + 序列化对大 XML 较重:defer 输入优先,格式化低优先级追赶
+  const deferredInput = useDeferredValue(input);
 
   const output = useMemo(() => {
-    if (!input.trim()) return '';
+    if (!deferredInput.trim()) return '';
     try {
-      return formatXml(input, mode, attrNewLine);
+      return formatXml(deferredInput, mode, attrNewLine);
     } catch (e) {
       return `格式化失败: ${e instanceof Error ? e.message : String(e)}`;
     }
-  }, [input, mode, attrNewLine]);
+  }, [deferredInput, mode, attrNewLine]);
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="xml-formatter">

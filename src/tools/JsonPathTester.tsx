@@ -4,7 +4,7 @@
  * 输入 JSON + JSONPath 表达式,实时输出匹配结果数组。
  */
 
-import { useMemo, useState, type JSX } from 'react';
+import { useDeferredValue, useMemo, useState, type JSX } from 'react';
 import { Parentheses } from 'lucide-react';
 import { JSONPath } from 'jsonpath-plus';
 import { Input } from '@/components/ui/input';
@@ -16,12 +16,15 @@ import type { ToolProps } from './registry';
 export function JsonPathTester(_props: ToolProps): JSX.Element {
   const [json, setJson] = useState('');
   const [path, setPath] = useState('$.');
+  // 大文档下 JSON.parse + JSONPath 全量执行可达百毫秒级:defer 让输入框保持跟手,
+  // 重计算在低优先级渲染中追赶(useDeferredValue 项目既有模式,见 DuplicateDetector)
+  const deferredJson = useDeferredValue(json);
 
   const result = useMemo(() => {
-    if (!json.trim()) return '';
+    if (!deferredJson.trim()) return '';
     let data: unknown;
     try {
-      data = JSON.parse(json);
+      data = JSON.parse(deferredJson);
     } catch (e) {
       return `JSON 解析失败: ${e instanceof Error ? e.message : String(e)}`;
     }
@@ -32,7 +35,7 @@ export function JsonPathTester(_props: ToolProps): JSX.Element {
     } catch (e) {
       return `JSONPath 表达式错误: ${e instanceof Error ? e.message : String(e)}`;
     }
-  }, [json, path]);
+  }, [deferredJson, path]);
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="jsonpath-tester">

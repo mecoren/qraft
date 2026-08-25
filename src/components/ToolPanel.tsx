@@ -1,4 +1,5 @@
 import { createElement, Suspense, useEffect, useState, type ComponentType, type JSX } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -92,8 +93,10 @@ export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element 
                   fallback={
                     <div
                       role="status"
-                      className="flex h-full items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground"
+                      className="flex h-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border text-sm text-muted-foreground"
                     >
+                      {/* 与 font-picker / IpParser 的加载态同一视觉语言:Loader2 + animate-spin */}
+                      <Loader2 aria-hidden className="size-4 animate-spin" />
                       加载工具…
                     </div>
                   }

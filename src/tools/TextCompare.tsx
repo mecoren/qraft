@@ -35,6 +35,9 @@ import { readClipboardText } from '@/lib/clipboard';
 import { readFileAsText } from '@/lib/file-utils';
 import type { ToolProps } from './registry';
 
+// Monaco loader 路径配置(import 即执行,保证任何 DiffEditor 挂载前就绪;详见模块内注释)
+import '@/lib/monaco-loader-config';
+
 type DiffTarget = 'original' | 'modified';
 
 interface DiffStats {
