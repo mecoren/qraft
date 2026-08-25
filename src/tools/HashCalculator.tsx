@@ -22,6 +22,8 @@ import { ConfigRow, ConfigSection, HeaderAction } from '@/components/config-card
 import { CopyAction } from '@/components/copy-action';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { invokeCommand, CommandError } from '@/lib/ipc';
+import { copyTextWithFeedback } from '@/lib/toast-alert';
+import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import type { ToolProps } from './registry';
 import type { ToolOutput } from '@/types/tool';
 
@@ -63,6 +65,17 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
       setLoading(false);
     }
   }
+
+  // 全局快捷键契约:与主按钮同一套 loading/空输入防护;清空同时复位输出与错误
+  useToolShortcutActions(toolId, {
+    execute: loading || !text ? undefined : () => void handleCompute(),
+    clearInput: () => {
+      setText('');
+      setOutput(null);
+      setError(null);
+    },
+    copyOutput: output?.text ? () => void copyTextWithFeedback(output.text) : undefined,
+  });
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="hash-calculator">
