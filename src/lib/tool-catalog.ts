@@ -432,6 +432,14 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
     keywords: ['cron', 'schedule', '定时', '计划'],
   },
   {
+    id: 'ipv4_subnet_calculator',
+    name: 'IPv4 子网计算器',
+    description: '由 IP/CIDR 计算网络地址、掩码、广播地址与可用主机范围(离线本地计算)',
+    category: 'converter',
+    icon: Network,
+    keywords: ['subnet', 'cidr', 'netmask', '子网掩码', '广播地址'],
+  },
+  {
     id: 'ip_parser',
     name: 'IP 地址解析器',
     description:

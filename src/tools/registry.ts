@@ -140,6 +140,9 @@ registerTool('ulid_generator', () =>
 registerTool('basic_auth_generator', () =>
   import('./BasicAuthGenerator').then((m) => ({ default: m.BasicAuthGenerator })),
 );
+registerTool('ipv4_subnet_calculator', () =>
+  import('./Ipv4SubnetCalculator').then((m) => ({ default: m.Ipv4SubnetCalculator })),
+);
 registerTool('text_editor', () =>
   import('./CodeEditor').then((m) => ({ default: m.CodeEditorTool })),
 );

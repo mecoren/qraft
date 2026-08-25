@@ -432,6 +432,20 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       keywords: ['计划', '结果', '下次执行'],
     },
   ],
+  ipv4_subnet_calculator: [
+    {
+      key: 'config',
+      title: 'CIDR 输入',
+      description: 'IP 与前缀长度',
+      keywords: ['cidr', '子网', '掩码'],
+    },
+    {
+      key: 'output',
+      title: '子网详情',
+      description: '网络/掩码/广播/主机范围',
+      keywords: ['网络地址', '广播', '可用主机'],
+    },
+  ],
   ip_parser: [
     {
       key: 'summary',
