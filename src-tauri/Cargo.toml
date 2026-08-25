@@ -108,4 +108,11 @@ print_stdout = "deny"
 panic = "unwind"
 
 [profile.release]
+# catch_unwind panic 隔离(executor 三重保护)要求 unwind,不可改为 abort
 panic = "unwind"
+# 体积与运行性能优化:thin LTO + 单 codegen unit + 符号剥离。
+# 安装包体积目标(<30MB)由前端 dist 与 Rust 二进制共同决定,
+# 未优化 profile 会让二进制多出数 MB;编译时间上升是可接受代价
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

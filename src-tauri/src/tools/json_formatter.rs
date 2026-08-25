@@ -32,7 +32,11 @@ impl Tool for JsonFormatter {
         &METADATA
     }
 
-    async fn execute(&self, input: ToolInput, _ctx: &ToolContext) -> Result<ToolOutput, ToolError> {
+    async fn execute(
+        &self,
+        mut input: ToolInput,
+        _ctx: &ToolContext,
+    ) -> Result<ToolOutput, ToolError> {
         let text = input.text()?;
         let input_bytes = text.len();
         if input_bytes > MAX_INPUT_BYTES {
@@ -46,34 +50,57 @@ impl Tool for JsonFormatter {
         let indent: u32 = input.param::<u32>("indent").unwrap_or(2);
         let sort_keys: bool = input.param::<bool>("sort_keys").unwrap_or(false);
 
+        // 解析 + 序列化是纯 CPU 密集工作,10MB 级输入会占用 tokio worker 数百 ms;
+        // 移交 spawn_blocking 执行避免阻塞异步运行时。校验通过后 text 必为 Some,
+        // take 出所有权转移进闭包(避免整串克隆)。executor 的超时/取消仍作用于本 future。
+        let text_owned = input.text.take().unwrap_or_default();
         let start = Instant::now();
-        let value: serde_json::Value =
-            serde_json::from_str(text).map_err(|e| ToolError::ParseFailed(e.to_string()))?;
-
-        let final_value = if sort_keys { sort_value(value) } else { value };
-
-        let indent_str = " ".repeat(indent as usize);
-        let formatter = serde_json::ser::PrettyFormatter::with_indent(indent_str.as_bytes());
-        let mut buf = Vec::new();
-        let mut ser = serde_json::Serializer::with_formatter(&mut buf, formatter);
-        serde::Serialize::serialize(&final_value, &mut ser)
-            .map_err(|e| ToolError::Internal(e.to_string()))?;
-        let out_text = String::from_utf8(buf).map_err(|e| ToolError::Internal(e.to_string()))?;
-        let output_bytes = out_text.len();
-
-        Ok(ToolOutput {
-            text: out_text,
-            extra: None,
-            meta: Some(OutputMeta {
-                // u128 → u64 截断:实际耗时不会超过 u64 范围,允许截断
-                #[allow(clippy::cast_possible_truncation)]
-                duration_ms: start.elapsed().as_millis() as u64,
-                input_bytes,
-                output_bytes,
-            }),
-            alerts: Vec::new(),
+        let mut output = tokio::task::spawn_blocking(move || {
+            format_core(&text_owned, indent, sort_keys, input_bytes)
         })
+        .await
+        .map_err(|e| ToolError::Internal(format!("format worker failed: {e}")))??;
+        if let Some(meta) = output.meta.as_mut() {
+            // u128 → u64 截断:实际耗时不会超过 u64 范围,允许截断
+            #[allow(clippy::cast_possible_truncation)]
+            let elapsed = start.elapsed().as_millis() as u64;
+            meta.duration_ms = elapsed;
+        }
+        Ok(output)
     }
+}
+
+/// 同步格式化核心:纯 CPU 工作(解析 / 键排序 / 序列化),调用方须经 `spawn_blocking` 执行。
+/// `meta.duration_ms` 恒为 0,由异步包装方按真实耗时回填;`output_bytes` 在此如实统计。
+fn format_core(
+    text: &str,
+    indent: u32,
+    sort_keys: bool,
+    input_bytes: usize,
+) -> Result<ToolOutput, ToolError> {
+    let value: serde_json::Value =
+        serde_json::from_str(text).map_err(|e| ToolError::ParseFailed(e.to_string()))?;
+    let final_value = if sort_keys { sort_value(value) } else { value };
+
+    let indent_str = " ".repeat(indent as usize);
+    let formatter = serde_json::ser::PrettyFormatter::with_indent(indent_str.as_bytes());
+    let mut buf = Vec::new();
+    let mut ser = serde_json::Serializer::with_formatter(&mut buf, formatter);
+    serde::Serialize::serialize(&final_value, &mut ser)
+        .map_err(|e| ToolError::Internal(e.to_string()))?;
+    let out_text = String::from_utf8(buf).map_err(|e| ToolError::Internal(e.to_string()))?;
+    let output_bytes = out_text.len();
+
+    Ok(ToolOutput {
+        text: out_text,
+        extra: None,
+        meta: Some(OutputMeta {
+            duration_ms: 0,
+            input_bytes,
+            output_bytes,
+        }),
+        alerts: Vec::new(),
+    })
 }
 
 /// 递归对 JSON 对象的键做字典序排序,保持数组顺序与基本类型不变。
@@ -173,8 +200,9 @@ impl StreamingTool for JsonFormatter {
             new_input.text = Some(text);
             new_input.file_path = None;
 
-            // 复用同步 execute 的核心逻辑,绕过 InputTooLarge(流式不受 10MB 限制)
-            let result = format_internal(&new_input);
+            // 复用同步 execute 的核心逻辑,绕过 InputTooLarge(流式不受 10MB 限制);
+            // 同样经 spawn_blocking 执行 CPU 密集核心,不阻塞流式任务所在的 worker
+            let result = format_internal(new_input).await;
             match result {
                 Ok(output) => {
                     yield Ok(StreamEvent::Progress {
@@ -191,34 +219,18 @@ impl StreamingTool for JsonFormatter {
     }
 }
 
-/// 流式路径专用的格式化函数,不做 `InputTooLarge` 检查。
-fn format_internal(input: &ToolInput) -> Result<ToolOutput, ToolError> {
+/// 流式路径专用的格式化函数:不做 `InputTooLarge` 检查,
+/// CPU 密集核心与同步路径一致走 `spawn_blocking`。
+async fn format_internal(mut input: ToolInput) -> Result<ToolOutput, ToolError> {
     let text = input.text()?;
+    let input_bytes = text.len();
     let indent: u32 = input.param::<u32>("indent").unwrap_or(2);
     let sort_keys: bool = input.param::<bool>("sort_keys").unwrap_or(false);
+    let text_owned = input.text.take().unwrap_or_default();
 
-    let value: serde_json::Value =
-        serde_json::from_str(text).map_err(|e| ToolError::ParseFailed(e.to_string()))?;
-    let final_value = if sort_keys { sort_value(value) } else { value };
-
-    let indent_str = " ".repeat(indent as usize);
-    let formatter = serde_json::ser::PrettyFormatter::with_indent(indent_str.as_bytes());
-    let mut buf = Vec::new();
-    let mut ser = serde_json::Serializer::with_formatter(&mut buf, formatter);
-    serde::Serialize::serialize(&final_value, &mut ser)
-        .map_err(|e| ToolError::Internal(e.to_string()))?;
-    let out_text = String::from_utf8(buf).map_err(|e| ToolError::Internal(e.to_string()))?;
-
-    Ok(ToolOutput {
-        text: out_text,
-        extra: None,
-        meta: Some(OutputMeta {
-            duration_ms: 0,
-            input_bytes: text.len(),
-            output_bytes: 0,
-        }),
-        alerts: Vec::new(),
-    })
+    tokio::task::spawn_blocking(move || format_core(&text_owned, indent, sort_keys, input_bytes))
+        .await
+        .map_err(|e| ToolError::Internal(format!("format worker failed: {e}")))?
 }
 
 #[cfg(test)]

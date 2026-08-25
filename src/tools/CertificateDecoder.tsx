@@ -4,6 +4,10 @@
  * 输出:主题、颁发者、有效期、序列号、指纹(SHA-1/SHA-256)、公钥算法、扩展等。
  */
 
+// reflect-metadata 是 @peculiar/x509 依赖注入的运行时前提(必须先于其加载)。
+// 全仓唯一消费方是本工具(懒加载 chunk),因此在此引入而非 main.tsx,
+// 避免把 ~100KB 的 polyfill 拖进首屏依赖图
+import 'reflect-metadata';
 import { useEffect, useState, type JSX } from 'react';
 import { X509Certificate } from '@peculiar/x509';
 import { CodeEditor } from '@/components/ui/code-editor';

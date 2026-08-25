@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -69,6 +70,13 @@ import { JsonTreeView } from './JsonTreeView';
 
 type QuickAction = 'minify' | 'entity';
 type OutputViewMode = 'text' | 'tree';
+
+/** 按载荷规模自适应的持久化防抖窗口(ms):载荷越大合并越久,降低全量重写的 IO 放大 */
+function persistDelayFor(totalChars: number): number {
+  if (totalChars > 1024 * 1024) return 5000;
+  if (totalChars > 256 * 1024) return 2000;
+  return 500;
+}
 
 /** 输出语言映射:实体类生成后输出编辑器切换到对应语言高亮 */
 const ENTITY_OUTPUT_LANGUAGE: Record<EntityLanguage, EditorLanguage> = {
@@ -267,9 +275,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
    * 前端格式化阈值:低于该字节数直接在前端用 JSON.stringify 格式化(秒级响应,省 IPC 往返);
    * 超过阈值才走后端 Rust(保留其对超大输入的资源隔离与 10MB 拦截)。
    */
-  const FRONTEND_FORMAT_LIMIT = 200 * 1024; // 200KB
-
-  // 启动时从 Rust config 还原文档与历史(hydrate 内部幂等)
+  const FRONTEND_FORMAT_LIMIT = 200 * 1024; // 200KB  // 启动时从 Rust config 还原文档与历史(hydrate 内部幂等)
   useEffect(() => {
     void useJsonFormatterStore.getState().hydrate();
   }, []);
@@ -285,17 +291,30 @@ export function JsonFormatter({ toolId }: ToolProps) {
     }
   }, [ready, switchDoc]);
 
-  // 文档变更防抖持久化(hydrate 前不写,避免用默认空态覆盖已存数据)
+  // 文档/历史变更防抖持久化(hydrate 前不写,避免用默认空态覆盖已存数据)。
+  // 防抖窗口按总载荷自适应:文档区为全量重写,KB 级 500ms 快速落盘,
+  // MB 级拉长到 5s 把连续编辑合并为一次磁盘写,显著降低大文档的写放大
+  // (代价是极端情况下最多丢失一个窗口内的编辑,对工具输入可接受)。
   useEffect(() => {
     if (!ready || !userTouched) return;
-    const t = setTimeout(() => void useJsonFormatterStore.getState().persistDocs(), 500);
+    let total = 0;
+    for (const d of docs) total += d.content.length;
+    const t = setTimeout(
+      () => void useJsonFormatterStore.getState().persistDocs(),
+      persistDelayFor(total),
+    );
     return () => clearTimeout(t);
   }, [docs, ready, userTouched]);
 
-  // 历史变更防抖持久化
+  // 历史变更防抖持久化(单条上限 256K × 50 条,同样按载荷自适应)
   useEffect(() => {
     if (!ready || !userTouched) return;
-    const t = setTimeout(() => void useJsonFormatterStore.getState().persistHistory(), 500);
+    let total = 0;
+    for (const h of history) total += h.content.length;
+    const t = setTimeout(
+      () => void useJsonFormatterStore.getState().persistHistory(),
+      persistDelayFor(total),
+    );
     return () => clearTimeout(t);
   }, [history, ready, userTouched]);
 
@@ -498,15 +517,23 @@ export function JsonFormatter({ toolId }: ToolProps) {
     }
   }
 
-  /** 树结构视图数据:解析当前输出(空串与解析失败共用 ok=false,由 UI 区分文案) */
+  /**
+   * 树结构视图数据:仅在树视图激活时解析输出,并经 useDeferredValue 降优先级。
+   * 此前 useMemo 依赖 output,文本视图下每次输出变化也会同步 parseSmart 整个
+   * 输出(10MB 级阻塞主线程数百 ms 至秒级);现在非树视图不解析,切到树视图时
+   * 先渲染「正在构建」提示,解析在低优先级渲染中完成后再展示。
+   */
+  const wantsTreeParse = viewMode === 'tree';
+  const deferredTreeOutput = useDeferredValue(wantsTreeParse ? output : '');
+  const treeParsing = wantsTreeParse && deferredTreeOutput !== output;
   const treeValue = useMemo<{ ok: boolean; value: unknown }>(() => {
-    if (!output.trim()) return { ok: false, value: undefined };
+    if (!deferredTreeOutput.trim()) return { ok: false, value: undefined };
     try {
-      return { ok: true, value: parseSmart(output) };
+      return { ok: true, value: parseSmart(deferredTreeOutput) };
     } catch {
       return { ok: false, value: undefined };
     }
-  }, [output]);
+  }, [deferredTreeOutput]);
 
   const disabled = loading || !text;
 
@@ -848,6 +875,13 @@ export function JsonFormatter({ toolId }: ToolProps) {
               {!output.trim() ? (
                 <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
                   暂无输出内容
+                </div>
+              ) : treeParsing ? (
+                <div
+                  className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground"
+                  role="status"
+                >
+                  正在构建树视图…
                 </div>
               ) : treeValue.ok ? (
                 <JsonTreeView
