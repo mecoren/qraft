@@ -30,6 +30,8 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CopyAction } from '@/components/copy-action';
 import { invokeCommand, CommandError } from '@/lib/ipc';
+import { copyTextWithFeedback } from '@/lib/toast-alert';
+import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import { cn } from '@/lib/utils';
 import {
   ArrowDownAZ,
@@ -396,6 +398,16 @@ export function JsonFormatter({ toolId }: ToolProps) {
     // formatOnFrontend 为组件内纯函数,仅依赖 indent(已含于依赖数组)
     [toolId, text, indent, recordHistory],
   );
+
+  // 全局快捷键契约:Ctrl+Enter 执行 / Ctrl+L 清空当前文档 / Ctrl+Shift+C 复制输出。
+  // 输入为空时不注册 execute(避免空跑);输出非空才注册复制,保证降级提示准确。
+  useToolShortcutActions(toolId, {
+    execute: text.trim() ? () => void runFormat(false) : undefined,
+    clearInput: () => {
+      if (activeDocId) setDocContent(activeDocId, '');
+    },
+    copyOutput: output ? () => void copyTextWithFeedback(output) : undefined,
+  });
 
   // 输入或缩进变化后自动格式化到右侧输出(防抖,避免每次按键都调用)
   useEffect(() => {
