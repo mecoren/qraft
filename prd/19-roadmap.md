@@ -87,7 +87,7 @@ Qraft 是一个有长期愿景的项目，不可能一蹴而就。如果没有�
 **P0 工具（10 个）**：
 
 - [x] json_formatter
-- [x] json_minifier
+- [x] json_minifier（能力并入：Rust 层 json_formatter 承接压缩 + UI 槽位改造为 TextProcessor 文本处理工具，独立 Rust 模块不再单列，见 prd/07-tool-catalog.md）
 - [x] base64_codec
 - [x] url_codec
 - [x] jwt_parser
@@ -109,17 +109,17 @@ Qraft 是一个有长期愿景的项目，不可能一蹴而就。如果没有�
 **分发**：
 
 - [x] Windows NSIS 安装包
-- [x] macOS DMG（Universal Binary）
+- [ ] macOS DMG（Universal Binary）——实况：x64/arm64 分别构建（无 universal-apple-darwin 目标），分发另受代码签名阻塞
 - [x] Linux AppImage + deb
-- [x] 代码签名与公证
-- [x] Tauri Updater 自动更新
+- [ ] 代码签名与公证——实况：Windows 未签名（SmartScreen 警告）；macOS ad-hoc 签名（signingIdentity "-"）；updater 签名私钥未配置，为发布阻断项（docs/release-readiness-assessment.md S1）
+- [ ] Tauri Updater 自动更新——客户端插件与事件链路已就绪，缺服务端签名工件，端到端暂不可用
 
 **质量**：
 
-- [x] 单元测试覆盖率 ≥80%
-- [x] 三平台 E2E 测试
+- [ ] 单元测试覆盖率 ≥80%——实况：前端 800 + Rust 300 用例全绿，但未接入 @vitest/coverage-* / llvm-cov，覆盖率未度量
+- [ ] 三平台 E2E 测试——实况：仓库无 E2E 框架，仅人工冒烟清单（docs/release-checklist.md）
 - [x] CI/CD 流水线
-- [x] `cargo audit` 通过
+- [x] `cargo audit` 通过（并已增配 `pnpm audit --prod --audit-level moderate` 门禁）
 
 #### 不在 MVP 范围
 
