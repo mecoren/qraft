@@ -115,6 +115,9 @@ export function useShortcut(key: ShortcutKey, handler: () => void, deps: readonl
     if (!parsed) return;
 
     const onKey = (e: KeyboardEvent) => {
+      // 长按产生的自动重复事件全部忽略:现有绑定均为离散动作(开关面板/执行/复制),
+      // 连发只会造成误触。若未来出现需要长按连发的绑定,应单独豁免。
+      if (e.repeat) return;
       if (matchesShortcut(e, parsed)) {
         e.preventDefault();
         e.stopPropagation();
