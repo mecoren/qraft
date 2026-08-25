@@ -16,7 +16,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useToolStateStore } from '@/store/toolStateStore';
-import type { CatalogCategoryId } from '@/lib/tool-catalog';
+import { DEFAULT_TOOL_ID, type CatalogCategoryId } from '@/lib/tool-catalog';
 import type { DetectionResult } from '@/lib/clipboard-detect';
 
 export type AppView = 'welcome' | 'tool' | 'settings' | 'extensions' | 'history' | 'about';
@@ -80,17 +80,20 @@ export const useUiStore = create<UiState>()(
 
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
-      toggleSmartDetection: () =>
-        set((s) => ({ smartDetectionEnabled: !s.smartDetectionEnabled })),
+      toggleSmartDetection: () => set((s) => ({ smartDetectionEnabled: !s.smartDetectionEnabled })),
 
       setDetectedTools: (results) => set({ detectedTools: results }),
 
       toggleFavorite: (toolId) =>
-        set((s) => ({
-          favorites: s.favorites.includes(toolId)
-            ? s.favorites.filter((id) => id !== toolId)
-            : [...s.favorites, toolId],
-        })),
+        set((s) => {
+          // 固定的「文本编辑器」始终展示在侧栏顶部,不支持收藏(旧数据中已收藏的仍可移除)
+          if (toolId === DEFAULT_TOOL_ID && !s.favorites.includes(toolId)) return s;
+          return {
+            favorites: s.favorites.includes(toolId)
+              ? s.favorites.filter((id) => id !== toolId)
+              : [...s.favorites, toolId],
+          };
+        }),
 
       moveFavorite: (toolId, direction) =>
         set((s) => {
@@ -121,6 +124,16 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'qraft_ui_v1',
+      // 旧版本持久化数据可能收藏过「文本编辑器」:该工具已固定展示且不可收藏,
+      // 水合合并时清除残留,避免侧栏/欢迎页重复渲染
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<UiState>;
+        const merged = { ...current, ...p };
+        return {
+          ...merged,
+          favorites: (merged.favorites ?? []).filter((id) => id !== DEFAULT_TOOL_ID),
+        };
+      },
       // 仅持久化用户数据;视图与展开态在会话内有效即可
       partialize: (s) => ({
         sidebarCollapsed: s.sidebarCollapsed,

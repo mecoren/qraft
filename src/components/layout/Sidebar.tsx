@@ -2,14 +2,16 @@
  * 应用侧边栏 —— DevToys 风格可折叠导航
  *
  * 两种形态:
- * - 展开(224px):汉堡按钮 + 搜索框;所有工具 / 文本编辑器(固定) / 收藏夹(可展开) /
- *   7 个分类分组(可展开);底部 管理扩展 + 设置
+ * - 展开(224px):汉堡按钮 + 搜索框;所有工具 / 文本编辑器(固定) /
+ *   收藏的工具(平铺,无分组标题) / 分类分组(可展开);底部 管理扩展 + 设置
  * - 折叠(56px 图标栏):汉堡 / 所有工具 / 文本编辑器(固定) / 分类图标 /
  *   底部设置;点击分类图标会展开侧栏并展开对应分类
  *
  * 交互:
  * - 搜索时切换为扁平过滤列表(匹配名称/描述/关键词)
  * - 当前工具 / 当前视图高亮,激活项左侧带 primary 指示条
+ * - 固定的「文本编辑器」始终排第一且不可收藏(右键无菜单);
+ *   「文本编辑器」分类仅含该工具,不再重复渲染分组
  */
 
 import { useMemo, useState, type JSX } from 'react';
@@ -21,7 +23,6 @@ import {
   Puzzle,
   Search,
   Settings,
-  Star,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -48,6 +49,12 @@ import { ICON_STROKE_WIDTH } from '@/lib/icon-constants';
 
 /** 固定展示在「所有工具」正下方的默认工具(文本编辑器);目录中不存在时降级为不渲染 */
 const defaultEditorEntry = getCatalogEntry(DEFAULT_TOOL_ID);
+
+/**
+ * 侧栏分类分组:排除「文本编辑器」分类 —— 该分类仅含固定的文本编辑器一个工具,
+ * 已固定展示在「所有工具」正下方,展开态与折叠栏均不再重复渲染该分组。
+ */
+const SIDEBAR_CATEGORIES = CATALOG_CATEGORIES.filter((c) => c.id !== 'editor');
 
 // ============================================================
 // 通用导航项
@@ -115,7 +122,10 @@ function NavItem({
   return button;
 }
 
-/** 工具条目右键菜单内容:收藏/取消收藏 + 已收藏时追加排序(上移/下移) */
+/**
+ * 工具条目右键菜单内容:收藏/取消收藏 + 已收藏时追加排序(上移/下移)。
+ * 固定的「文本编辑器」始终排第一且位置固定,不提供收藏/排序,右键无菜单。
+ */
 function ToolContextMenuContent({ entry }: { entry: CatalogEntry }): JSX.Element {
   const favorites = useUiStore((s) => s.favorites);
   const toggleFavorite = useUiStore((s) => s.toggleFavorite);
@@ -146,7 +156,13 @@ function ToolContextMenuContent({ entry }: { entry: CatalogEntry }): JSX.Element
   );
 }
 
-/** 可展开分组(收藏夹 / 分类) */
+/** 工具右键菜单统一入口:固定文本编辑器与应用内特殊页面(设置/管理扩展)不挂菜单 */
+function toolContextMenuFor(entry: CatalogEntry): JSX.Element | undefined {
+  if (entry.special || entry.id === DEFAULT_TOOL_ID) return undefined;
+  return <ToolContextMenuContent entry={entry} />;
+}
+
+/** 可展开分组(分类) */
 interface NavGroupProps {
   icon: LucideIcon;
   label: string;
@@ -261,14 +277,21 @@ export function Sidebar(): JSX.Element {
   const currentToolId = useToolStateStore((s) => s.currentToolId);
 
   const [query, setQuery] = useState('');
-  const [favoritesExpanded, setFavoritesExpanded] = useState(true);
 
   const searching = query.trim().length > 0;
   const searchResults = useMemo(() => (searching ? searchCatalog(query) : []), [query, searching]);
 
-  /** 收藏夹条目 */
+  /**
+   * 收藏的工具条目(平铺在固定文本编辑器下方,无「收藏夹」分组标题)。
+   * 过滤 DEFAULT_TOOL_ID:旧版本持久化数据可能收藏过文本编辑器,
+   * 该工具已固定展示且不可收藏,避免重复渲染。
+   */
   const favoriteEntries = useMemo(
-    () => favorites.map((id) => getCatalogEntry(id)).filter((e): e is CatalogEntry => e !== null),
+    () =>
+      favorites
+        .filter((id) => id !== DEFAULT_TOOL_ID)
+        .map((id) => getCatalogEntry(id))
+        .filter((e): e is CatalogEntry => e !== null),
     [favorites],
   );
 
@@ -308,7 +331,7 @@ export function Sidebar(): JSX.Element {
         <div aria-hidden className="my-1 h-px w-6 bg-sidebar-border" />
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex flex-col items-center gap-1 px-1.5">
-            {CATALOG_CATEGORIES.map((c) => (
+            {SIDEBAR_CATEGORIES.map((c) => (
               <RailButton
                 key={c.id}
                 icon={c.icon}
@@ -390,14 +413,12 @@ export function Sidebar(): JSX.Element {
                   label={entry.name}
                   active={!entry.special && isToolActive(entry.id)}
                   onClick={() => openEntry(entry)}
-                  contextMenu={
-                    !entry.special ? <ToolContextMenuContent entry={entry} /> : undefined
-                  }
+                  contextMenu={toolContextMenuFor(entry)}
                 />
               ))
             )
           ) : (
-            // —— 常态:所有工具 / 文本编辑器(固定) / 收藏夹 / 分类树 ——
+            // —— 常态:所有工具 / 文本编辑器(固定) / 收藏的工具(平铺) / 分类树 ——
             <>
               <NavItem
                 icon={Home}
@@ -407,6 +428,7 @@ export function Sidebar(): JSX.Element {
                 testId="nav-all-tools"
               />
 
+              {/* 固定的文本编辑器:始终第一,右键无菜单(不支持收藏/排序) */}
               {defaultEditorEntry && (
                 <NavItem
                   icon={defaultEditorEntry.icon}
@@ -414,39 +436,23 @@ export function Sidebar(): JSX.Element {
                   active={isToolActive(DEFAULT_TOOL_ID)}
                   onClick={() => openTool(DEFAULT_TOOL_ID)}
                   testId="nav-text-editor"
-                  contextMenu={<ToolContextMenuContent entry={defaultEditorEntry} />}
+                  contextMenu={toolContextMenuFor(defaultEditorEntry)}
                 />
               )}
 
-              <NavGroup
-                icon={Star}
-                label="收藏夹"
-                expanded={favoritesExpanded}
-                onToggle={() => setFavoritesExpanded((v) => !v)}
-                testId="nav-favorites"
-              >
-                {favoriteEntries.length === 0 ? (
-                  <p className="px-7 py-1 text-xs text-muted-foreground">
-                    右键点击侧栏中的工具即可收藏
-                  </p>
-                ) : (
-                  favoriteEntries.map((entry) => (
-                    <NavItem
-                      key={entry.id}
-                      icon={entry.icon}
-                      label={entry.name}
-                      depth={1}
-                      active={!entry.special && isToolActive(entry.id)}
-                      onClick={() => openEntry(entry)}
-                      contextMenu={
-                        !entry.special ? <ToolContextMenuContent entry={entry} /> : undefined
-                      }
-                    />
-                  ))
-                )}
-              </NavGroup>
+              {/* 收藏的工具:直接平铺在固定的文本编辑器下方(无「收藏夹」分组标题) */}
+              {favoriteEntries.map((entry) => (
+                <NavItem
+                  key={entry.id}
+                  icon={entry.icon}
+                  label={entry.name}
+                  active={!entry.special && isToolActive(entry.id)}
+                  onClick={() => openEntry(entry)}
+                  contextMenu={toolContextMenuFor(entry)}
+                />
+              ))}
 
-              {CATALOG_CATEGORIES.map((cat) => {
+              {SIDEBAR_CATEGORIES.map((cat) => {
                 const entries = CATALOG_BY_CATEGORY.get(cat.id) ?? [];
                 if (entries.length === 0) return null;
                 return (
@@ -466,7 +472,7 @@ export function Sidebar(): JSX.Element {
                         depth={1}
                         active={isToolActive(entry.id)}
                         onClick={() => openTool(entry.id)}
-                        contextMenu={<ToolContextMenuContent entry={entry} />}
+                        contextMenu={toolContextMenuFor(entry)}
                       />
                     ))}
                   </NavGroup>

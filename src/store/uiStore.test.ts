@@ -42,3 +42,21 @@ describe('uiStore.moveFavorite', () => {
     expect(useUiStore.getState().favorites).toEqual(['a', 'b']);
   });
 });
+
+describe('uiStore.toggleFavorite', () => {
+  it('收藏普通工具与取消收藏', () => {
+    useUiStore.getState().toggleFavorite('base64_codec');
+    expect(useUiStore.getState().favorites).toEqual(['base64_codec']);
+    useUiStore.getState().toggleFavorite('base64_codec');
+    expect(useUiStore.getState().favorites).toEqual([]);
+  });
+
+  it('固定的文本编辑器不可收藏', () => {
+    useUiStore.getState().toggleFavorite('text_editor');
+    expect(useUiStore.getState().favorites).toEqual([]);
+    // 已在收藏列表中(旧数据)时同样可被移除
+    useUiStore.setState({ favorites: ['text_editor'] });
+    useUiStore.getState().toggleFavorite('text_editor');
+    expect(useUiStore.getState().favorites).toEqual([]);
+  });
+});
