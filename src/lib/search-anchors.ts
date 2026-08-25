@@ -649,6 +649,12 @@ export const SETTING_FIELDS: readonly SettingField[] = [
     keywords: ['剪贴板', '智能检测', 'smart detection'],
     menuId: 'general',
   },
+  {
+    key: 'language',
+    title: '界面语言',
+    keywords: ['language', '语言', '中英', 'english'],
+    menuId: 'general',
+  },
   // 文本编辑器
   {
     key: 'enabled_styles',

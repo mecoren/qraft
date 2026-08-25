@@ -26,6 +26,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useConfigStore } from '@/store/configStore';
 import { useUiStore } from '@/store/uiStore';
 import { Switch } from '@/components/ui/switch';
+import { changeLocale } from '@/i18n';
 import type { ShortcutBinding } from '@/types/config';
 import {
   type PaletteId,
@@ -82,6 +83,7 @@ const generalSchema = z.object({
   maxHistory: z.number().int().min(0).max(10000),
   jsonIndent: z.number().int().min(0).max(8),
   confirmOnClear: z.boolean(),
+  language: z.enum(['zh-CN', 'en-US']),
 });
 
 const shortcutSchema = z.object({
@@ -629,6 +631,7 @@ export function GeneralSection(): JSX.Element {
       maxHistory: 100,
       jsonIndent: 2,
       confirmOnClear: true,
+      language: 'zh-CN',
     },
   });
 
@@ -641,12 +644,17 @@ export function GeneralSection(): JSX.Element {
       // 用可选链保护 toolPrefs 本身,防止旧配置缺少该字段时崩溃
       jsonIndent: (config.toolPrefs?.['json_formatter']?.values?.indent as number | undefined) ?? 2,
       confirmOnClear: config.general.confirmOnClear,
+      language:
+        config.general.language === 'en-US' || config.general.language === 'zh-CN'
+          ? config.general.language
+          : 'zh-CN',
     });
   }, [config, form]);
 
   const onSubmit = async (values: GeneralFormValues) => {
     await setConfig('general.max_history', values.maxHistory);
     await setConfig('general.confirm_on_clear', values.confirmOnClear);
+    await setConfig('general.language', values.language);
     await setConfig('toolPrefs.json_formatter.values.indent', values.jsonIndent);
     toast.success('设置已保存');
   };
@@ -692,6 +700,24 @@ export function GeneralSection(): JSX.Element {
           >
             <input id="confirmOnClear" type="checkbox" {...form.register('confirmOnClear')} />
             <Label htmlFor="confirmOnClear">清空前确认</Label>
+          </div>
+
+          <div className="flex flex-col gap-2" data-search-anchor="settings:general:language">
+            <Label htmlFor="language">界面语言 / Language</Label>
+            {/* onChange 即时预览(切 i18n locale);持久化仍走表单统一保存 */}
+            <select
+              id="language"
+              {...form.register('language', {
+                onChange: (e) => {
+                  const v = e.target.value;
+                  if (v === 'en-US' || v === 'zh-CN') changeLocale(v);
+                },
+              })}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="zh-CN">简体中文</option>
+              <option value="en-US">English</option>
+            </select>
           </div>
 
           <div
