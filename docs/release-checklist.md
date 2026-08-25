@@ -54,6 +54,8 @@
 
 ## 3. 性能验证(参考 PRD 19-roadmap.md §3.2 成功标准)
 
+- [ ] Windows 冷启动/内存基线:`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/perf-baseline.ps1 -ExePath "<安装产物>"`(需先退出已运行的 Qraft 实例,single-instance 会拦截第二个进程),数值回填 `docs/performance-baseline.md`
+- [ ] Rust 基准无 >10% 退化:`cargo bench --bench json_formatter`,对比 `docs/performance-baseline.md`
 - [ ] 冷启动时间 <500ms(用秒表或 `time ./Qraft` 测量,从启动到窗口可见)
 - [ ] 空闲内存 <150MB(任务管理器/活动监视器查看 Qraft 进程 RSS)
 - [ ] 10MB JSON 文件通过 `json_formatter` 处理 <500ms(用文件输入计时)

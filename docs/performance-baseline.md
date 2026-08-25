@@ -12,6 +12,8 @@
 
 ## 应用级(冷启动 / 内存)
 
+> 测量前置条件:必须先退出所有已运行的 Qraft 实例 —— single-instance 插件会让第二个进程静默退出,产生无效数据(scripts/perf-baseline.ps1 已内置预检)。
+
 | 日期 | 平台 | 冷启动(到主窗口) | 主进程峰值 WorkingSet | WebView2 子进程合计 | 脚本 |
 |---|---|---|---|---|---|
 | 待测 | Windows | 待测 | 待测 | 待测 | scripts/perf-baseline.ps1 |
