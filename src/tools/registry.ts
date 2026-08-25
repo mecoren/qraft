@@ -137,6 +137,9 @@ registerTool('text_statistics', () =>
 registerTool('ulid_generator', () =>
   import('./UlidGenerator').then((m) => ({ default: m.UlidGenerator })),
 );
+registerTool('basic_auth_generator', () =>
+  import('./BasicAuthGenerator').then((m) => ({ default: m.BasicAuthGenerator })),
+);
 registerTool('text_editor', () =>
   import('./CodeEditor').then((m) => ({ default: m.CodeEditorTool })),
 );

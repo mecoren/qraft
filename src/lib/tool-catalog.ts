@@ -175,6 +175,14 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
     backendId: 'jwt_parser',
   },
   {
+    id: 'basic_auth_generator',
+    name: 'Basic Auth 生成器',
+    description: '由用户名密码生成 Authorization 请求头(UTF-8 安全)',
+    category: 'encoder',
+    icon: KeyRound,
+    keywords: ['basic auth', 'authorization', '认证', '请求头'],
+  },
+  {
     id: 'url_codec',
     name: 'URL 编码/解码工具',
     description: '将所有适用的字符编码或解码为对应的URL输出',

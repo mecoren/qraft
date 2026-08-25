@@ -125,6 +125,15 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
     { key: 'payload', title: '载荷', description: 'Payload', keywords: ['payload', '载荷'] },
     { key: 'signature', title: '签名', description: 'Signature', keywords: ['signature', '签名'] },
   ],
+  basic_auth_generator: [
+    {
+      key: 'config',
+      title: '凭据',
+      description: '用户名与密码',
+      keywords: ['用户名', '密码', '认证'],
+    },
+    { key: 'output', title: 'Authorization 头', keywords: ['basic auth', '请求头', '结果'] },
+  ],
   url_codec: [
     {
       key: 'config',
