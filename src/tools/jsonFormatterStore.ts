@@ -25,8 +25,11 @@ export interface JsonDoc {
    * 自动命名的原始标题(json-N)。仅自动命名 Tab 使用:
    * 输入内容后 title 改为首行派生文本,清空内容时回退到该名,
    * 同时保证新 Tab 的序号分配不因改名而重复。
+   * 手动重命名后清除,后续内容变化不再派生标题。
    */
   autoTitle?: string;
+  /** 固定 Tab:始终排在 Tab 栏最前(与编辑器工作区 pinned 语义一致) */
+  pinned: boolean;
   /** 当前输入文本 */
   content: string;
 }
@@ -65,6 +68,11 @@ export const COALESCE_WINDOW_MS = 8000;
 
 /** 未命名 Tab 标题的最大显示长度(超出截断加省略号) */
 const TITLE_MAX = 32;
+/**
+ * 内容派生标题的门槛:首个非空行需超过 3 个字符才会放到 Tab 名位置。
+ * 按首行而非全文判断,避免「{ + 多行内容」这类输入把单个 `{` 变成 Tab 名。
+ */
+const TITLE_MIN_CHARS = 3;
 
 /** 生成稳定唯一 id(Node 22 的 crypto.randomUUID,降级为时间戳+随机) */
 function createId(): string {
@@ -76,12 +84,14 @@ function createId(): string {
 
 /**
  * 由内容推导标题:取首个非空行并去除首尾空白,超长截断加省略号。
- * 内容为空或全空白时返回 null(回退到自动命名)。
+ * 首行为空、全空白或未超过 3 个字符时返回 null(回退到自动命名占位)。
  */
 export function deriveTitleFromContent(content: string): string | null {
   for (const line of content.split('\n')) {
     const trimmed = line.trim();
     if (trimmed) {
+      // 首行未超过 3 个字符不派生:避免输入一两个字符就把 Tab 名从 json-N 换成碎片文本
+      if (trimmed.length <= TITLE_MIN_CHARS) return null;
       return trimmed.length > TITLE_MAX ? `${trimmed.slice(0, TITLE_MAX)}…` : trimmed;
     }
   }
@@ -110,11 +120,14 @@ function sanitizeDoc(raw: unknown): JsonDoc | null {
   if (typeof t.id !== 'string' || !t.id) return null;
   if (typeof t.title !== 'string' || !t.title) return null;
   const autoTitle = typeof t.autoTitle === 'string' && t.autoTitle ? t.autoTitle : undefined;
+  // 旧版本持久化数据无 pinned 字段,回退 false 保证兼容
+  const pinned = t.pinned === true;
   const content = typeof t.content === 'string' ? t.content : '';
   return {
     id: t.id,
     title: t.title,
     ...(autoTitle !== undefined ? { autoTitle } : {}),
+    pinned,
     content,
   };
 }
@@ -177,6 +190,10 @@ interface JsonFormatterWorkspaceState {
   closeDoc: (id: string) => void;
   /** 切换激活文档 */
   switchDoc: (id: string) => void;
+  /** 重命名文档 Tab:清除 autoTitle,后续内容变化不再派生标题 */
+  renameDoc: (id: string, title: string) => void;
+  /** 切换文档 Tab 固定状态(固定 Tab 恒排 Tab 栏最前) */
+  togglePinDoc: (id: string) => void;
   /** 更新文档内容(编辑器 onChange 调用);自动命名 Tab 随内容派生标题 */
   setDocContent: (id: string, content: string) => void;
   /**
@@ -199,7 +216,9 @@ export const DEFAULT_DOC_ID = 'default';
 
 function createDefaultDocs(): FormatterDocs {
   return {
-    docs: [{ id: DEFAULT_DOC_ID, title: 'json-1', autoTitle: 'json-1', content: '' }],
+    docs: [
+      { id: DEFAULT_DOC_ID, title: 'json-1', autoTitle: 'json-1', pinned: false, content: '' },
+    ],
     activeDocId: DEFAULT_DOC_ID,
   };
 }
@@ -242,6 +261,7 @@ export const useJsonFormatterStore = create<JsonFormatterWorkspaceState>((set, g
       id: createId(),
       title: derived ?? `json-${nextAutoNumber(docs)}`,
       ...(derived ? {} : { autoTitle: `json-${nextAutoNumber(docs)}` }),
+      pinned: false,
       content,
     };
     set((s) => ({
@@ -265,6 +285,22 @@ export const useJsonFormatterStore = create<JsonFormatterWorkspaceState>((set, g
     const { docs } = get();
     if (!docs.some((d) => d.id === id)) return;
     set({ activeDocId: id });
+  },
+
+  renameDoc: (id, title) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    set((s) => ({
+      docs: s.docs.map((d) => (d.id === id ? { ...d, title: trimmed, autoTitle: undefined } : d)),
+      userTouched: true,
+    }));
+  },
+
+  togglePinDoc: (id) => {
+    set((s) => ({
+      docs: s.docs.map((d) => (d.id === id ? { ...d, pinned: !d.pinned } : d)),
+      userTouched: true,
+    }));
   },
 
   setDocContent: (id, content) => {

@@ -285,6 +285,30 @@ describe('useEditorWorkspaceStore content & dirty', () => {
       expect(tab.autoTitle).toBe('untitled-1');
     });
 
+    it('keeps the untitled-N placeholder until the first line exceeds three characters', () => {
+      const s = useEditorWorkspaceStore.getState();
+      s.newBlankTab();
+      const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+      s.setTabContent(id, '{');
+      let tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
+      expect(tab.title).toBe('untitled-1');
+
+      s.setTabContent(id, 'abc');
+      tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
+      expect(tab.title).toBe('untitled-1');
+
+      // 多行内容按首行判断:首行 `{` 过短,即使全文超长也不派生
+      s.setTabContent(id, '{\n  "name": "qraft"\n}');
+      tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
+      expect(tab.title).toBe('untitled-1');
+
+      // 首行超过 3 个字符后内容首行才成为标题
+      s.setTabContent(id, 'abcd');
+      tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
+      expect(tab.title).toBe('abcd');
+    });
+
     it('truncates a long first line with an ellipsis', () => {
       const s = useEditorWorkspaceStore.getState();
       s.newBlankTab();
@@ -516,6 +540,45 @@ describe('useEditorWorkspaceStore.pinned tabs', () => {
     const state = useEditorWorkspaceStore.getState();
     expect(state.workspace.tabs.map((t) => t.id)).toEqual([tabs[0].id]);
     expect(state.workspace.activeTabId).toBe(tabs[0].id);
+  });
+});
+
+describe('useEditorWorkspaceStore.renameTab', () => {
+  it('renames an untitled tab and stops content-derived titles', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.newBlankTab(); // untitled-1
+    const id = useEditorWorkspaceStore.getState().workspace.tabs[0].id;
+
+    useEditorWorkspaceStore.getState().renameTab(id, '  我的笔记  ');
+    let tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab.title).toBe('我的笔记');
+    // autoTitle 清除:后续输入/清空内容不再派生或回退标题
+    expect(tab.autoTitle).toBeUndefined();
+
+    useEditorWorkspaceStore.getState().setTabContent(id, 'first line\nsecond');
+    tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab.title).toBe('我的笔记');
+  });
+
+  it('renames a file-backed tab display title without touching the path', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.openLocalFile('/project/readme.md', '# hello');
+    const id = useEditorWorkspaceStore.getState().workspace.tabs[0].id;
+
+    useEditorWorkspaceStore.getState().renameTab(id, '自述文件');
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab.title).toBe('自述文件');
+    expect(tab.path).toBe('/project/readme.md');
+  });
+
+  it('ignores blank names and unknown ids', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.newBlankTab();
+    const before = useEditorWorkspaceStore.getState().workspace.tabs;
+
+    useEditorWorkspaceStore.getState().renameTab(before[0].id, '   ');
+    useEditorWorkspaceStore.getState().renameTab('missing', 'nope');
+    expect(useEditorWorkspaceStore.getState().workspace.tabs).toEqual(before);
   });
 });
 

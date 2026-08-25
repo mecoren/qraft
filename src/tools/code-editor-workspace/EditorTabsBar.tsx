@@ -47,6 +47,8 @@ export interface EditorTabsBarProps {
   onCloseAll?: () => void;
   /** 切换固定状态 */
   onTogglePin?: (id: string) => void;
+  /** 重命名 Tab(仅改显示名) */
+  onRename?: (id: string) => void;
   /** 拖拽排序:将 dragId 的 Tab 移到 beforeTabId 之前(null 表示移到末尾);固定 Tab 恒在最前 */
   onReorder?: (dragId: string, beforeTabId: string | null) => void;
   /** 保存指定 Tab */
@@ -73,6 +75,7 @@ export function EditorTabsBar({
   onCloseSaved,
   onCloseAll,
   onTogglePin,
+  onRename,
   onReorder,
   onSave,
   onRevealInExplorer,
@@ -333,6 +336,7 @@ export function EditorTabsBar({
                   <TabContextMenu
                     key={tab.id}
                     tab={tab}
+                    onRename={onRename ? () => onRename(tab.id) : undefined}
                     onClose={() => onClose(tab.id)}
                     onCloseOthers={() => onCloseOthers?.(tab.id)}
                     onCloseRight={() => onCloseRight?.(tab.id)}

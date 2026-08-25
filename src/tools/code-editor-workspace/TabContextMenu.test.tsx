@@ -28,6 +28,7 @@ const baseTab: EditorTab = {
 
 function setup(props: Partial<TabContextMenuProps> = {}) {
   const handlers = {
+    onRename: vi.fn(),
     onClose: vi.fn(),
     onCloseOthers: vi.fn(),
     onCloseRight: vi.fn(),
@@ -64,6 +65,7 @@ describe('TabContextMenu', () => {
     setup();
     await openMenu();
 
+    expect(screen.getByTestId('ctx-rename')).toHaveTextContent('重命名');
     expect(screen.getByTestId('ctx-close')).toHaveTextContent('关闭');
     expect(screen.getByTestId('ctx-close-others')).toHaveTextContent('关闭其他');
     expect(screen.getByTestId('ctx-close-right')).toHaveTextContent('关闭右侧');
@@ -74,6 +76,20 @@ describe('TabContextMenu', () => {
     expect(screen.getByTestId('ctx-copy-path')).toHaveTextContent('复制路径');
     expect(screen.getByTestId('ctx-copy-relative-path')).toHaveTextContent('复制相对路径');
     expect(screen.getByTestId('ctx-save')).toHaveTextContent('保存');
+  });
+
+  it('点击「重命名」分发 onRename', async () => {
+    const handlers = setup();
+    await openMenu();
+    await screen.getByTestId('ctx-rename').click();
+    expect(handlers.onRename).toHaveBeenCalledTimes(1);
+  });
+
+  it('未提供 onRename 时不显示「重命名」项', async () => {
+    setup({ onRename: undefined });
+    await openMenu();
+
+    expect(screen.queryByTestId('ctx-rename')).not.toBeInTheDocument();
   });
 
   it('点击「关闭」分发 onClose', async () => {

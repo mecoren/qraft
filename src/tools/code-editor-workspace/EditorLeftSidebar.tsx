@@ -88,6 +88,8 @@ export interface EditorLeftSidebarProps {
   onCloseSaved?: () => void;
   /** 右键菜单:切换固定状态 */
   onTogglePin?: (id: string) => void;
+  /** 右键菜单:重命名 Tab(仅改显示名) */
+  onRename?: (id: string) => void;
   /** 右键菜单:保存指定 Tab */
   onSave?: (id: string) => void;
   /** 右键菜单:在文件资源管理器中显示 */
@@ -139,6 +141,7 @@ export function EditorLeftSidebar({
   onCloseRight,
   onCloseSaved,
   onTogglePin,
+  onRename,
   onSave,
   onRevealInExplorer,
   onCopyPath,
@@ -452,6 +455,7 @@ export function EditorLeftSidebar({
                   <li key={tab.id}>
                     <TabContextMenu
                       tab={tab}
+                      onRename={onRename ? () => onRename(tab.id) : undefined}
                       onCompareSelected={onCompareSelected}
                       // 选中数 = selectedTabIds ∪ {activeTabId} 去重后的大小
                       //(激活 Tab 可能已在 selectedTabIds 中,避免重复计数)

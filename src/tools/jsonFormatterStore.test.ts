@@ -20,7 +20,7 @@ const invokeMock = invoke as unknown as ReturnType<typeof vi.fn>;
 /** 重置为「单个空白文档」初始态(zustand 模块级单例,避免用例间污染) */
 function resetStore(): void {
   useJsonFormatterStore.setState({
-    docs: [{ id: 'default', title: 'json-1', autoTitle: 'json-1', content: '' }],
+    docs: [{ id: 'default', title: 'json-1', autoTitle: 'json-1', pinned: false, content: '' }],
     activeDocId: 'default',
     history: [],
     ready: false,
@@ -46,6 +46,18 @@ describe('deriveTitleFromContent', () => {
   it('returns null for blank content', () => {
     expect(deriveTitleFromContent('')).toBeNull();
     expect(deriveTitleFromContent('  \n\t ')).toBeNull();
+  });
+
+  it('returns null until the first line exceeds three characters', () => {
+    // 首行未超过 3 个字符:不派生,保持原始自动名占位
+    expect(deriveTitleFromContent('{')).toBeNull();
+    expect(deriveTitleFromContent('ab')).toBeNull();
+    expect(deriveTitleFromContent('abc')).toBeNull();
+    expect(deriveTitleFromContent('  ab  ')).toBeNull();
+    // 多行内容按首行判断:首行 `{` 过短,即使全文超长也不派生
+    expect(deriveTitleFromContent('{\n  "a": 1,\n  "b": 2\n}')).toBeNull();
+    // 首行超过 3 个字符即派生
+    expect(deriveTitleFromContent('abcd')).toBe('abcd');
   });
 });
 
@@ -75,6 +87,8 @@ describe('normalizeDocs / normalizeHistory', () => {
     });
     expect(w.docs.map((d) => d.id)).toEqual(['d1']);
     expect(w.activeDocId).toBeNull();
+    // 旧版本持久化数据无 pinned 字段 → 回退 false
+    expect(w.docs[0].pinned).toBe(false);
   });
 
   it('filters broken history entries and fills defaults', () => {
@@ -109,6 +123,27 @@ describe('document tabs', () => {
     expect(s.docs[1].title).toBe('json-2');
   });
 
+  it('keeps the json-N placeholder while the first line is three characters or fewer', () => {
+    const s0 = useJsonFormatterStore.getState();
+    s0.setDocContent('default', '{"');
+    let s = useJsonFormatterStore.getState();
+    expect(s.docs[0].title).toBe('json-1');
+
+    s.setDocContent('default', 'abc');
+    s = useJsonFormatterStore.getState();
+    expect(s.docs[0].title).toBe('json-1');
+
+    // 多行内容按首行判断:首行 `{` 过短,即使全文超长也不派生
+    s.setDocContent('default', '{\n  "a": 1,\n  "b": 2\n}');
+    s = useJsonFormatterStore.getState();
+    expect(s.docs[0].title).toBe('json-1');
+
+    // 首行超过 3 个字符后内容首行才成为标题
+    s.setDocContent('default', '{"a":1}');
+    s = useJsonFormatterStore.getState();
+    expect(s.docs[0].title).toBe('{"a":1}');
+  });
+
   it('closeDoc activates the right neighbor first, then left; last close clears activation', () => {
     const s0 = useJsonFormatterStore.getState();
     s0.newDoc();
@@ -132,6 +167,36 @@ describe('document tabs', () => {
     const s = useJsonFormatterStore.getState();
     s.switchDoc('nope');
     expect(useJsonFormatterStore.getState().activeDocId).toBe('default');
+  });
+
+  it('renameDoc sets a custom title and stops content-derived renaming', () => {
+    const s0 = useJsonFormatterStore.getState();
+    s0.renameDoc('default', '  我的接口  ');
+    let s = useJsonFormatterStore.getState();
+    expect(s.docs[0].title).toBe('我的接口');
+    // autoTitle 被清除:输入内容不再派生标题,清空也不回退
+    expect(s.docs[0].autoTitle).toBeUndefined();
+    s.setDocContent('default', '{"typed":true}');
+    s = useJsonFormatterStore.getState();
+    expect(s.docs[0].title).toBe('我的接口');
+  });
+
+  it('renameDoc ignores blank names and unknown ids', () => {
+    const s0 = useJsonFormatterStore.getState();
+    s0.renameDoc('default', '   ');
+    s0.renameDoc('missing', 'nope');
+    const s = useJsonFormatterStore.getState();
+    expect(s.docs[0].title).toBe('json-1');
+    expect(s.docs[0].autoTitle).toBe('json-1');
+  });
+
+  it('togglePinDoc toggles the pinned flag', () => {
+    const s = useJsonFormatterStore.getState();
+    expect(s.docs[0].pinned).toBe(false);
+    s.togglePinDoc('default');
+    expect(useJsonFormatterStore.getState().docs[0].pinned).toBe(true);
+    s.togglePinDoc('default');
+    expect(useJsonFormatterStore.getState().docs[0].pinned).toBe(false);
   });
 });
 
@@ -247,7 +312,7 @@ describe('hydrate / persist', () => {
   it('keeps user changes when touched before hydrate completes', async () => {
     useJsonFormatterStore.setState({
       userTouched: true,
-      docs: [{ id: 'u1', title: 'mine', content: 'user-typed' }],
+      docs: [{ id: 'u1', title: 'mine', pinned: false, content: 'user-typed' }],
       activeDocId: 'u1',
     });
     invokeMock.mockResolvedValue({ success: true, data: { docs: [], activeDocId: null } });
@@ -283,7 +348,7 @@ describe('hydrate / persist', () => {
     expect(invokeMock).toHaveBeenCalledWith('config_set', {
       key: DOCS_CONFIG_KEY,
       value: {
-        docs: [{ id: 'default', title: 'json-1', autoTitle: 'json-1', content: '' }],
+        docs: [{ id: 'default', title: 'json-1', autoTitle: 'json-1', pinned: false, content: '' }],
         activeDocId: 'default',
       },
     });

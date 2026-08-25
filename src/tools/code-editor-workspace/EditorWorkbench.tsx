@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { MonacoContextMenu, type MonacoEditor } from '@/components/ui/monaco-context-menu';
 import { Button } from '@/components/ui/button';
+import { RenameDialog } from '@/components/RenameDialog';
 import {
   registerActiveEditor,
   unregisterActiveEditor,
@@ -49,10 +50,7 @@ import { useEditorFontSize } from '@/hooks/useEditorFontSize';
 import { listen, safeInvoke, CommandError } from '@/lib/ipc';
 import { writeClipboardText } from '@/lib/clipboard';
 import type { ToolProps } from '@/tools/registry';
-import {
-  MarkdownPreviewPane,
-  isMarkdownDocument,
-} from '@/tools/markdown-preview-pane';
+import { MarkdownPreviewPane, isMarkdownDocument } from '@/tools/markdown-preview-pane';
 import { useMarkdownPreviewStore, type MdViewMode } from '@/tools/markdownPreviewStore';
 import { useEditorWorkspaceStore, folderNameFromPath } from './useEditorWorkspaceStore';
 import { EditorTabsBar } from './EditorTabsBar';
@@ -109,6 +107,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     tabId?: string;
     batchAction?: BatchCloseAction;
   } | null>(null);
+  /** 重命名对话框目标(null = 关闭);打开时预填该 Tab 当前显示名 */
+  const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
   /**
    * 左栏 Ctrl+多选选中的文件(id 集合,不含激活 Tab 自身)。
    * 存储层不落盘(纯会话内 UI 状态),关闭文件时同步剔除失效 id。
@@ -447,6 +447,13 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   /** 切换固定状态 */
   const handleTogglePin = useCallback((id: string) => {
     useEditorWorkspaceStore.getState().togglePinTab(id);
+  }, []);
+
+  /** 请求重命名 Tab:打开预填当前显示名的重命名对话框 */
+  const handleRenameRequest = useCallback((id: string) => {
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id);
+    if (!tab) return;
+    setRenaming({ id: tab.id, title: tab.title });
   }, []);
 
   /** 复制 Tab 路径到剪贴板 */
@@ -928,6 +935,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               onCloseRight={(id) => requestCloseBatch('close-right', id)}
               onCloseSaved={requestCloseSaved}
               onTogglePin={handleTogglePin}
+              onRename={handleRenameRequest}
               onSave={(id) => void saveTabById(id)}
               onRevealInExplorer={handleRevealInExplorer}
               onCopyPath={handleCopyPath}
@@ -964,6 +972,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               onCloseSaved={requestCloseSaved}
               onCloseAll={requestCloseAll}
               onTogglePin={handleTogglePin}
+              onRename={handleRenameRequest}
               onReorder={(dragId, beforeTabId) =>
                 useEditorWorkspaceStore.getState().reorderTabs(dragId, beforeTabId)
               }
@@ -997,9 +1006,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                   // 预览模式下编辑器(连同其工具栏按钮)已卸载,
                   // 故在面板右上角以浮层渲染同一组视图切换按钮,保证始终可切回
                   <div className="flex h-full min-h-0" data-testid="editor-md-layout">
-                    {mdViewMode !== 'preview' && (
-                      <div className="min-w-0 flex-1">{editorPane}</div>
-                    )}
+                    {mdViewMode !== 'preview' && <div className="min-w-0 flex-1">{editorPane}</div>}
                     <div className="relative min-w-0 flex-1 overflow-hidden border-l border-border">
                       <MarkdownPreviewPane source={activeTab.content} className="h-full" />
                       {mdViewMode === 'preview' && (
@@ -1068,6 +1075,21 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
           onCancel={handleUnsavedCancel}
           data-testid="unsaved-dialog"
         />
+
+        {/* 重命名对话框(条件渲染:关闭即卸载,每次打开预填当前显示名) */}
+        {renaming && (
+          <RenameDialog
+            open
+            title="重命名"
+            initialValue={renaming.title}
+            onConfirm={(name) => {
+              useEditorWorkspaceStore.getState().renameTab(renaming.id, name);
+              setRenaming(null);
+            }}
+            onCancel={() => setRenaming(null)}
+            data-testid="tab-rename-dialog"
+          />
+        )}
 
         {/* 语言模式选择对话框(右下角语言徽章触发):切换当前 Tab 的 Monaco 高亮语言 */}
         {activeTab && (

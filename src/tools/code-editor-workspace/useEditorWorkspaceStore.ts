@@ -50,18 +50,25 @@ function createId(): string {
 
 /** 未命名 Tab 标题的最大显示长度(超出截断加省略号) */
 const UNTITLED_TITLE_MAX = 32;
+/**
+ * 内容派生标题的门槛:首个非空行需超过 3 个字符才会放到 Tab 名位置。
+ * 按首行而非全文判断,避免「{ + 多行内容」这类输入把单个 `{` 变成 Tab 名。
+ */
+const UNTITLED_TITLE_MIN_CHARS = 3;
 
 /**
  * 由未命名 Tab 的内容推导标题(参考 VSCode:未命名缓冲区以首行文字
  * 作为保存建议名,此处实时用于 Tab 显示名):
  * - 取首个非空行并去除首尾空白(跳过开头的空行)
  * - 超长截断加省略号,避免超长首行撑爆 Tab / 列表
- * - 内容为空或全空白时返回 null(回退到自动命名)
+ * - 首行为空、全空白或未超过 3 个字符时返回 null(回退到自动命名占位)
  */
 function deriveTitleFromContent(content: string): string | null {
   for (const line of content.split('\n')) {
     const trimmed = line.trim();
     if (trimmed) {
+      // 首行未超过 3 个字符不派生:避免输入一两个字符就把 Tab 名从 untitled-N 换成碎片文本
+      if (trimmed.length <= UNTITLED_TITLE_MIN_CHARS) return null;
       return trimmed.length > UNTITLED_TITLE_MAX
         ? `${trimmed.slice(0, UNTITLED_TITLE_MAX)}…`
         : trimmed;
@@ -108,6 +115,11 @@ interface WorkspaceState {
   closeTab: (id: string) => void;
   /** 切换 Tab 固定状态(固定 Tab 不被批量关闭) */
   togglePinTab: (id: string) => void;
+  /**
+   * 重命名 Tab(仅改显示名):untitled Tab 同时清除自动名,
+   * 后续输入不再派生标题;已绑定路径的 Tab 保存后仍会同步为真实文件名。
+   */
+  renameTab: (id: string, title: string) => void;
   /** 拖拽排序:将 dragId 的 Tab 移到 beforeTabId 之前(null 表示移到末尾);固定 Tab 恒在最前 */
   reorderTabs: (dragId: string, beforeTabId: string | null) => void;
   /** 关闭除目标 Tab 以外的全部非固定 Tab */
@@ -318,6 +330,16 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
   togglePinTab: (id) => {
     const { workspace } = get();
     const tabs = workspace.tabs.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t));
+    set({ workspace: { ...workspace, tabs }, userTouched: true });
+  },
+
+  renameTab: (id, title) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    const { workspace } = get();
+    const tabs = workspace.tabs.map((t) =>
+      t.id === id ? { ...t, title: trimmed, autoTitle: undefined } : t,
+    );
     set({ workspace: { ...workspace, tabs }, userTouched: true });
   },
 

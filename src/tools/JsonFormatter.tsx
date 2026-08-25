@@ -28,6 +28,24 @@ import {
 } from '@/components/ui/select';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { RenameDialog } from '@/components/RenameDialog';
 import { CopyAction } from '@/components/copy-action';
 import { invokeCommand, CommandError } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
@@ -38,6 +56,7 @@ import { cn } from '@/lib/utils';
 import {
   ArrowDownAZ,
   ArrowUpDown,
+  Check,
   ChevronDown,
   FileCode2,
   FileJson,
@@ -45,6 +64,7 @@ import {
   History,
   ListTree,
   Minimize2,
+  Pin,
   Plus,
   Save,
   Trash2,
@@ -68,6 +88,7 @@ import {
 import {
   MAX_HISTORY_ITEMS,
   useJsonFormatterStore,
+  type JsonDoc,
   type JsonHistoryItem,
 } from './jsonFormatterStore';
 import { JsonTreeView } from './JsonTreeView';
@@ -249,12 +270,22 @@ export function JsonFormatter({ toolId }: ToolProps) {
   const newDoc = useJsonFormatterStore((s) => s.newDoc);
   const closeDoc = useJsonFormatterStore((s) => s.closeDoc);
   const switchDoc = useJsonFormatterStore((s) => s.switchDoc);
+  const renameDoc = useJsonFormatterStore((s) => s.renameDoc);
+  const togglePinDoc = useJsonFormatterStore((s) => s.togglePinDoc);
   const setDocContent = useJsonFormatterStore((s) => s.setDocContent);
   const recordHistory = useJsonFormatterStore((s) => s.recordHistory);
 
   const activeDoc = useMemo(
     () => docs.find((d) => d.id === activeDocId) ?? null,
     [docs, activeDocId],
+  );
+  /** Tab 栏展示顺序:固定 Tab 恒排最前(稳定排序,不改变同组内相对顺序) */
+  const sortedDocs = useMemo(
+    () =>
+      docs.some((d) => d.pinned)
+        ? [...docs].sort((a, b) => Number(b.pinned) - Number(a.pinned))
+        : docs,
+    [docs],
   );
   const text = activeDoc?.content ?? '';
   const setText = useCallback(
@@ -271,6 +302,10 @@ export function JsonFormatter({ toolId }: ToolProps) {
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<OutputViewMode>('text');
   const [historyOpen, setHistoryOpen] = useState(false);
+  /** 待确认关闭的文档(null = 无);仅非空内容文档关闭前弹确认 */
+  const [closeTarget, setCloseTarget] = useState<JsonDoc | null>(null);
+  /** 待重命名的文档(null = 关闭重命名对话框) */
+  const [renameTarget, setRenameTarget] = useState<JsonDoc | null>(null);
 
   const isXmlInput = useMemo(() => text.trim().startsWith('<'), [text]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -333,11 +368,22 @@ export function JsonFormatter({ toolId }: ToolProps) {
     setViewMode('text');
   }
 
-  /** 关闭文档:先把非空内容快照进历史(最近文档语义),再关闭 */
-  function handleCloseDoc(id: string) {
+  /**
+   * 请求关闭文档:一律先弹确认框防误关(非空内容确认后会快照进历史,
+   * 可从「历史」恢复),用户确认后才真正关闭。
+   */
+  function requestCloseDoc(id: string) {
     const target = docs.find((d) => d.id === id);
-    if (target && target.content.trim()) recordHistory(target.content);
-    closeDoc(id);
+    if (!target) return;
+    setCloseTarget(target);
+  }
+
+  /** 确认关闭:先把非空内容快照进历史(最近文档语义),再关闭 */
+  function confirmCloseDoc() {
+    if (!closeTarget) return;
+    if (closeTarget.content.trim()) recordHistory(closeTarget.content);
+    closeDoc(closeTarget.id);
+    setCloseTarget(null);
   }
 
   /** 从历史还原:当前文档为空则填入当前文档,否则新开 Tab 承载,避免覆盖未保存内容 */
@@ -598,48 +644,91 @@ export function JsonFormatter({ toolId }: ToolProps) {
           aria-label="JSON 文档"
           className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
         >
-          {docs.map((doc) => {
+          {sortedDocs.map((doc) => {
             const active = doc.id === activeDocId;
             return (
-              <div
-                key={doc.id}
-                role="tab"
-                aria-selected={active}
-                tabIndex={0}
-                data-testid="doc-tab"
-                onClick={() => switchDoc(doc.id)}
-                onKeyDown={(e) => handleTabKeyDown(e, doc.id)}
-                onMouseDown={(e) => {
-                  // 中键关闭(仿 VSCode):preventDefault 抑制浏览器自动滚动
-                  if (e.button === 1) {
-                    e.preventDefault();
-                    handleCloseDoc(doc.id);
-                  }
-                }}
-                className={cn(
-                  'group flex min-w-0 max-w-[200px] shrink-0 cursor-pointer items-center gap-1 rounded border border-transparent px-2 py-1 text-xs outline-none transition-colors',
-                  'focus-visible:ring-1 focus-visible:ring-ring',
-                  active
-                    ? 'border-border bg-accent text-accent-foreground'
-                    : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
-                )}
-              >
-                <FileJson aria-hidden className="size-3.5 shrink-0" />
-                <span className="truncate">{doc.title}</span>
-                <button
-                  type="button"
-                  aria-label={`关闭 ${doc.title}`}
-                  title="关闭"
-                  data-testid="doc-tab-close"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCloseDoc(doc.id);
-                  }}
-                  className="rounded p-0.5 opacity-0 transition-opacity hover:bg-background group-hover:opacity-100 focus-visible:opacity-100"
-                >
-                  <X aria-hidden className="size-3" />
-                </button>
-              </div>
+              <ContextMenu key={doc.id}>
+                <ContextMenuTrigger asChild>
+                  <div
+                    role="tab"
+                    aria-selected={active}
+                    tabIndex={0}
+                    data-testid="doc-tab"
+                    data-doc-id={doc.id}
+                    data-pinned={doc.pinned ? 'true' : undefined}
+                    onClick={() => switchDoc(doc.id)}
+                    onKeyDown={(e) => handleTabKeyDown(e, doc.id)}
+                    onMouseDown={(e) => {
+                      // 中键关闭(仿 VSCode):preventDefault 抑制浏览器自动滚动
+                      if (e.button === 1) {
+                        e.preventDefault();
+                        requestCloseDoc(doc.id);
+                      }
+                    }}
+                    className={cn(
+                      'group flex min-w-0 max-w-[200px] shrink-0 cursor-pointer items-center gap-1 rounded border border-transparent px-2 py-1 text-xs outline-none transition-colors',
+                      'focus-visible:ring-1 focus-visible:ring-ring',
+                      active
+                        ? 'border-border bg-accent text-accent-foreground'
+                        : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
+                    )}
+                  >
+                    {/* 固定 Tab 用 Pin 图标替代 JSON 图标(与编辑器 Tab 语义一致) */}
+                    {doc.pinned ? (
+                      <Pin
+                        aria-label="已固定"
+                        data-testid="doc-tab-pin"
+                        className="size-3.5 shrink-0 text-primary"
+                      />
+                    ) : (
+                      <FileJson aria-hidden className="size-3.5 shrink-0" />
+                    )}
+                    <span className="truncate">{doc.title}</span>
+                    <button
+                      type="button"
+                      aria-label={`关闭 ${doc.title}`}
+                      title="关闭"
+                      data-testid="doc-tab-close"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        requestCloseDoc(doc.id);
+                      }}
+                      className="rounded p-0.5 opacity-0 transition-opacity hover:bg-background group-hover:opacity-100 focus-visible:opacity-100"
+                    >
+                      <X aria-hidden className="size-3" />
+                    </button>
+                  </div>
+                </ContextMenuTrigger>
+                {/* Tab 右键菜单:重命名 / 固定 / 关闭 */}
+                <ContextMenuContent className="w-48" data-testid="doc-tab-context-menu">
+                  <ContextMenuItem
+                    onSelect={() => setRenameTarget(doc)}
+                    data-testid="ctx-doc-rename"
+                  >
+                    重命名
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() => togglePinDoc(doc.id)}
+                    data-testid="ctx-doc-toggle-pin"
+                  >
+                    固定
+                    {doc.pinned && (
+                      <Check
+                        aria-label="已固定"
+                        data-testid="ctx-doc-pin-check"
+                        className="ml-auto size-3.5 text-primary"
+                      />
+                    )}
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    onSelect={() => requestCloseDoc(doc.id)}
+                    data-testid="ctx-doc-close"
+                  >
+                    关闭
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
             );
           })}
           <button
@@ -940,6 +1029,51 @@ export function JsonFormatter({ toolId }: ToolProps) {
           )}
         </ResizablePanel>
       </ResizablePanelGroup>
+
+      {/* —— 关闭确认(所有 Tab):确认后非空内容快照进历史再关闭 —— */}
+      <AlertDialog
+        open={closeTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setCloseTarget(null);
+        }}
+      >
+        <AlertDialogContent size="sm" data-testid="doc-close-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{`确定要关闭 "${closeTarget?.title ?? ''}" 吗?`}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {closeTarget?.content.trim()
+                ? '关闭前会自动保存一条历史快照,可随时在「历史」中恢复。'
+                : '该 Tab 内容为空,关闭后可用「+」新建。'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={confirmCloseDoc} data-testid="doc-close-dialog-confirm">
+              关闭
+            </AlertDialogAction>
+            <AlertDialogCancel
+              onClick={() => setCloseTarget(null)}
+              data-testid="doc-close-dialog-cancel"
+            >
+              取消
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* —— 重命名对话框(条件渲染:关闭即卸载,每次打开取最新标题) —— */}
+      {renameTarget && (
+        <RenameDialog
+          open
+          title="重命名 Tab"
+          initialValue={renameTarget.title}
+          onConfirm={(name) => {
+            renameDoc(renameTarget.id, name);
+            setRenameTarget(null);
+          }}
+          onCancel={() => setRenameTarget(null)}
+          data-testid="doc-rename-dialog"
+        />
+      )}
     </div>
   );
 }

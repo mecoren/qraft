@@ -5,6 +5,7 @@
  * 作用于被右键的目标 Tab(与当前激活 Tab 无关)。
  *
  * 菜单项(对齐 VSCode 截图 + MVP 范围):
+ * - 重命名(仅改 Tab 显示名;未提供 onRename 时不显示该菜单项)
  * - 比较所选内容(仅在左栏多选 ≥2 个文件时显示,见 onCompareSelectedCount)
  * - 关闭 / 关闭其他 / 关闭右侧 / 关闭已保存 / 全部关闭
  * - 固定(与其它菜单项左对齐;pinned 时在右侧以 ✓ 标记勾选态)
@@ -30,6 +31,8 @@ import type { EditorTab } from './schema';
 export interface TabContextMenuProps {
   /** 被右键的目标 Tab */
   tab: EditorTab;
+  /** 重命名(仅改显示名;缺省则不显示该菜单项) */
+  onRename?: () => void;
   onClose: () => void;
   onCloseOthers: () => void;
   onCloseRight: () => void;
@@ -49,6 +52,7 @@ export interface TabContextMenuProps {
 
 export function TabContextMenu({
   tab,
+  onRename,
   onClose,
   onCloseOthers,
   onCloseRight,
@@ -69,6 +73,14 @@ export function TabContextMenu({
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
       <ContextMenuContent className="w-56" data-testid="tab-context-menu">
+        {typeof onRename === 'function' && (
+          <>
+            <ContextMenuItem onSelect={onRename} data-testid="ctx-rename">
+              重命名
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+          </>
+        )}
         {canCompare && (
           <>
             <ContextMenuItem onSelect={onCompareSelected} data-testid="ctx-compare-selected">

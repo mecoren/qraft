@@ -34,7 +34,7 @@ describe('JsonFormatter', () => {
     vi.clearAllMocks();
     // zustand 模块级单例:每个用例重置为「单个空白文档」初始态,避免跨用例污染
     useJsonFormatterStore.setState({
-      docs: [{ id: 'default', title: 'json-1', autoTitle: 'json-1', content: '' }],
+      docs: [{ id: 'default', title: 'json-1', autoTitle: 'json-1', pinned: false, content: '' }],
       activeDocId: 'default',
       history: [],
       ready: false,
@@ -242,15 +242,134 @@ describe('JsonFormatter', () => {
     });
   });
 
-  it('snapshots non-empty content into local history when its tab is closed', async () => {
+  it('snapshots non-empty content into local history when its tab is closed after confirmation', async () => {
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
     await waitFor(() => expect(screen.getAllByTestId('doc-tab')).toHaveLength(1));
     fireEvent.change(getInputEditor(), { target: { value: '{"snap":true}' } });
+    // 非空内容文档:先弹关闭确认框
     fireEvent.click(screen.getAllByTestId('doc-tab-close')[0]);
+    expect(await screen.findByTestId('doc-close-dialog')).toBeInTheDocument();
+    // 确认后才真正关闭并快照进历史
+    fireEvent.click(screen.getByTestId('doc-close-dialog-confirm'));
 
     await waitFor(() => {
       const { history } = useJsonFormatterStore.getState();
       expect(history.map((h) => h.content)).toContain('{"snap":true}');
+    });
+  });
+
+  it('prompts even when an empty tab is closed, and closes after confirmation', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    await waitFor(() => expect(screen.getAllByTestId('doc-tab')).toHaveLength(1));
+    // 空文档同样弹关闭确认
+    fireEvent.click(screen.getAllByTestId('doc-tab-close')[0]);
+    expect(await screen.findByTestId('doc-close-dialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('doc-close-dialog-confirm'));
+
+    await waitFor(() => {
+      expect(useJsonFormatterStore.getState().docs).toHaveLength(0);
+    });
+    // 空内容不产生历史快照
+    expect(useJsonFormatterStore.getState().history).toHaveLength(0);
+  });
+
+  it('keeps the tab when the close confirmation is cancelled', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    await waitFor(() => expect(screen.getAllByTestId('doc-tab')).toHaveLength(1));
+    fireEvent.change(getInputEditor(), { target: { value: '{"keep":1}' } });
+    fireEvent.click(screen.getAllByTestId('doc-tab-close')[0]);
+    fireEvent.click(await screen.findByTestId('doc-close-dialog-cancel'));
+
+    expect(screen.queryByTestId('doc-close-dialog')).not.toBeInTheDocument();
+    expect(useJsonFormatterStore.getState().docs).toHaveLength(1);
+  });
+
+  it('renames a tab via the context menu and keeps the custom title on further edits', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    await waitFor(() => expect(screen.getAllByTestId('doc-tab')).toHaveLength(1));
+
+    // 右键 Tab → 重命名
+    fireEvent.contextMenu(screen.getAllByTestId('doc-tab')[0]);
+    fireEvent.click(await screen.findByTestId('ctx-doc-rename'));
+    const input = await screen.findByTestId('doc-rename-dialog-input');
+    expect(input).toHaveValue('json-1');
+    fireEvent.change(input, { target: { value: '  用户接口  ' } });
+    fireEvent.click(screen.getByTestId('doc-rename-dialog-confirm'));
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('doc-tab')[0]).toHaveTextContent('用户接口');
+    });
+    const s = useJsonFormatterStore.getState();
+    expect(s.docs[0].title).toBe('用户接口');
+    expect(s.docs[0].autoTitle).toBeUndefined();
+
+    // 改名后输入内容:标题不再被内容派生覆盖
+    fireEvent.change(getInputEditor(), { target: { value: '{"typed":1}' } });
+    await waitFor(() => {
+      expect(useJsonFormatterStore.getState().docs[0].title).toBe('用户接口');
+    });
+  });
+
+  it('pins a tab via the context menu and sorts it first', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    await waitFor(() => expect(screen.getAllByTestId('doc-tab')).toHaveLength(1));
+    // 新建第二个 Tab
+    fireEvent.click(screen.getByTestId('doc-add'));
+    await waitFor(() => expect(screen.getAllByTestId('doc-tab')).toHaveLength(2));
+    const secondId = useJsonFormatterStore.getState().docs[1].id;
+
+    // 右键第二个 Tab → 固定
+    const tabs = screen.getAllByTestId('doc-tab');
+    fireEvent.contextMenu(tabs[1]);
+    fireEvent.click(await screen.findByTestId('ctx-doc-toggle-pin'));
+
+    await waitFor(() => {
+      expect(useJsonFormatterStore.getState().docs[1].pinned).toBe(true);
+    });
+    // 固定 Tab 恒排最前,并显示 Pin 图标
+    await waitFor(() => {
+      expect(screen.getAllByTestId('doc-tab')[0].getAttribute('data-doc-id')).toBe(secondId);
+    });
+    expect(
+      screen.getAllByTestId('doc-tab')[0].querySelector('[data-testid="doc-tab-pin"]'),
+    ).toBeInTheDocument();
+
+    // 再次点击取消固定(菜单项带 ✓ 勾选态)
+    fireEvent.contextMenu(screen.getAllByTestId('doc-tab')[0]);
+    expect(await screen.findByTestId('ctx-doc-pin-check')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('ctx-doc-toggle-pin'));
+    await waitFor(() => {
+      expect(useJsonFormatterStore.getState().docs[1].pinned).toBe(false);
+    });
+  });
+
+  it('closes a tab via the context menu with confirmation', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    await waitFor(() => expect(screen.getAllByTestId('doc-tab')).toHaveLength(1));
+    fireEvent.change(getInputEditor(), { target: { value: '{"ctx":1}' } });
+    fireEvent.contextMenu(screen.getAllByTestId('doc-tab')[0]);
+    fireEvent.click(await screen.findByTestId('ctx-doc-close'));
+    fireEvent.click(await screen.findByTestId('doc-close-dialog-confirm'));
+
+    await waitFor(() => {
+      const s = useJsonFormatterStore.getState();
+      expect(s.docs).toHaveLength(0);
+      expect(s.history.map((h) => h.content)).toContain('{"ctx":1}');
+    });
+  });
+
+  it('closes a tab via middle click after snapshotting content into history', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    await waitFor(() => expect(screen.getAllByTestId('doc-tab')).toHaveLength(1));
+    fireEvent.change(getInputEditor(), { target: { value: '{"middle":1}' } });
+    // 中键(button=1)点击 Tab 本体 → 弹确认 → 确认关闭
+    fireEvent.mouseDown(screen.getAllByTestId('doc-tab')[0], { button: 1 });
+    fireEvent.click(await screen.findByTestId('doc-close-dialog-confirm'));
+
+    await waitFor(() => {
+      const s = useJsonFormatterStore.getState();
+      expect(s.docs).toHaveLength(0);
+      expect(s.history.map((h) => h.content)).toContain('{"middle":1}');
     });
   });
 
@@ -274,20 +393,6 @@ describe('JsonFormatter', () => {
     fireEvent.click(screen.getByTestId('btn-format'));
     await waitFor(() => expect(getOutputValue()).toMatch(/格式化失败/));
     expect(useJsonFormatterStore.getState().history).toHaveLength(0);
-  });
-
-  it('closes a tab via middle click after snapshotting content into history', async () => {
-    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
-    await waitFor(() => expect(screen.getAllByTestId('doc-tab')).toHaveLength(1));
-    fireEvent.change(getInputEditor(), { target: { value: '{"middle":1}' } });
-    // 中键(button=1)点击 Tab 本体关闭
-    fireEvent.mouseDown(screen.getAllByTestId('doc-tab')[0], { button: 1 });
-
-    await waitFor(() => {
-      const s = useJsonFormatterStore.getState();
-      expect(s.docs).toHaveLength(0);
-      expect(s.history.map((h) => h.content)).toContain('{"middle":1}');
-    });
   });
 
   it('records history on manual format and restores it from the history popover', async () => {
