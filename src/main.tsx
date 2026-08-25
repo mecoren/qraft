@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { initThemeOnStartup, initFontSettingsOnStartup } from './lib/theme';
 import { applyPlatformClass } from './lib/platform';
+import { scheduleIdlePrefetch } from './lib/idle-prefetch';
 import './styles/globals.css';
 
 // 应用启动:在 React 渲染前应用主题与字体设置,避免 FOUC(闪烁)
@@ -29,3 +30,10 @@ if (!rootEl) {
 }
 
 createRoot(rootEl).render(<App />);
+
+// 空闲预取重型懒加载链(Markdown 工具 → mermaid/katex/worker),
+// 消除首次进入该工具时的磁盘读取尖峰;dev 与冷启动零影响。
+scheduleIdlePrefetch({
+  dev: import.meta.env.DEV,
+  loaders: [() => import('./tools/MarkdownPreview')],
+});
