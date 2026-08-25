@@ -1,0 +1,27 @@
+{
+  "chrome": {
+    "app": { "name": "Qraft" },
+    "sidebar": {
+      "tools": "All tools",
+      "favorites": "Favorites",
+      "recents": "Recent",
+      "collapse": "Collapse sidebar",
+      "expand": "Expand sidebar"
+    },
+    "palette": {
+      "placeholder": "Search tools or actions...",
+      "group_tools": "Tools",
+      "group_actions": "Actions",
+      "detect_clipboard": "Detected clipboard content"
+    },
+    "welcome": { "hero_title": "Local-first developer toolbox", "open_tool": "Open tool" },
+    "toast": {
+      "copied": "Copied to clipboard",
+      "copy_failed": "Copy failed",
+      "copied_with_preview": "Copied: {{preview}}"
+    }
+  },
+  "catalog": {
+    "categories": {}
+  }
+}

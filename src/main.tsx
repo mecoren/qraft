@@ -3,6 +3,9 @@ import { App } from './App';
 import { initThemeOnStartup, initFontSettingsOnStartup } from './lib/theme';
 import { applyPlatformClass } from './lib/platform';
 import { scheduleIdlePrefetch } from './lib/idle-prefetch';
+// i18n 实例在模块导入时初始化(默认 zh-CN);
+// general.language 的启动同步由 configStore hydrate 后执行(见 store 层)。
+import '@/i18n';
 import './styles/globals.css';
 
 // 应用启动:在 React 渲染前应用主题与字体设置,避免 FOUC(闪烁)

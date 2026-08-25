@@ -1,0 +1,36 @@
+{
+  "chrome": {
+    "app": { "name": "Qraft" },
+    "sidebar": {
+      "tools": "所有工具",
+      "favorites": "收藏",
+      "recents": "最近使用",
+      "collapse": "折叠侧栏",
+      "expand": "展开侧栏"
+    },
+    "palette": {
+      "placeholder": "搜索工具或操作...",
+      "group_tools": "工具",
+      "group_actions": "操作",
+      "detect_clipboard": "检测到剪贴板内容"
+    },
+    "welcome": { "hero_title": "本地优先的开发者工具箱", "open_tool": "打开工具" },
+    "toast": {
+      "copied": "已复制到剪贴板",
+      "copy_failed": "复制失败",
+      "copied_with_preview": "已复制到剪贴板:{{preview}}"
+    }
+  },
+  "catalog": {
+    "categories": {
+      "encoder": "编解码器",
+      "tester": "测试工具",
+      "formatter": "格式化工具",
+      "generator": "生成器",
+      "graphic": "图像处理",
+      "editor": "文本编辑器",
+      "text": "文本处理",
+      "converter": "转换器"
+    }
+  }
+}
