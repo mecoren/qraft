@@ -44,6 +44,7 @@ import {
   QrCode,
   Regex,
   Settings,
+  Sigma,
   Table,
   Type,
   Wand2,
@@ -365,6 +366,14 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
     category: 'text',
     icon: ListChecks,
     keywords: ['duplicate', 'dedupe', '去重', '重复行', 'unique', '重复'],
+  },
+  {
+    id: 'text_statistics',
+    name: '文本统计',
+    description: '统计字符、词数、行数与 UTF-8 字节数',
+    category: 'text',
+    icon: Sigma,
+    keywords: ['word count', '字数统计', 'lines', 'bytes', '统计'],
   },
   {
     id: 'folder_analyzer',

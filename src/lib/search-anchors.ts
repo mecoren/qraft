@@ -364,6 +364,21 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       keywords: ['去重', '重复行', '总计', '不重复'],
     },
   ],
+  text_statistics: [
+    {
+      key: 'config',
+      title: '说明',
+      description: '即时统计说明',
+      keywords: ['统计', '字数'],
+    },
+    { key: 'input', title: '输入', keywords: ['文本'] },
+    {
+      key: 'output',
+      title: '统计结果',
+      description: '字符/词数/行数/字节',
+      keywords: ['字符数', '词数', '行数', '字节'],
+    },
+  ],
   text_editor: [
     {
       key: 'sidebar',

@@ -131,6 +131,9 @@ registerTool('text_compare', () =>
 registerTool('duplicate_detector', () =>
   import('./DuplicateDetector').then((m) => ({ default: m.DuplicateDetector })),
 );
+registerTool('text_statistics', () =>
+  import('./TextStatistics').then((m) => ({ default: m.TextStatistics })),
+);
 registerTool('text_editor', () =>
   import('./CodeEditor').then((m) => ({ default: m.CodeEditorTool })),
 );
