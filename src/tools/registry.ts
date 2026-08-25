@@ -134,6 +134,9 @@ registerTool('duplicate_detector', () =>
 registerTool('text_statistics', () =>
   import('./TextStatistics').then((m) => ({ default: m.TextStatistics })),
 );
+registerTool('ulid_generator', () =>
+  import('./UlidGenerator').then((m) => ({ default: m.UlidGenerator })),
+);
 registerTool('text_editor', () =>
   import('./CodeEditor').then((m) => ({ default: m.CodeEditorTool })),
 );

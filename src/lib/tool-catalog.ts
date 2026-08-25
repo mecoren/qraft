@@ -303,8 +303,16 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
     description: '生成版本为 1、4(GUID)和 7 的 UUID',
     category: 'generator',
     icon: Hash,
-    keywords: ['uuid', 'guid', 'ulid'],
+    keywords: ['uuid', 'guid'],
     backendId: 'uuid_generator',
+  },
+  {
+    id: 'ulid_generator',
+    name: 'ULID 生成器',
+    description: '生成按时间排序的 26 位 ULID 标识符',
+    category: 'generator',
+    icon: Fingerprint,
+    keywords: ['ulid', 'sortable id', '标识符', '有序 id'],
   },
 
   // —— 图像处理 ——

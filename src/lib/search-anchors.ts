@@ -256,9 +256,18 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       key: 'config',
       title: '生成选项',
       description: '版本 / 数量 / 格式',
-      keywords: ['版本', '数量', '大写', '连字符', 'guid', 'ulid'],
+      keywords: ['版本', '数量', '大写', '连字符', 'guid'],
     },
     { key: 'output', title: '生成结果', keywords: ['uuid', '结果'] },
+  ],
+  ulid_generator: [
+    {
+      key: 'config',
+      title: '生成选项',
+      description: '生成数量',
+      keywords: ['数量', 'ulid'],
+    },
+    { key: 'output', title: '生成结果', keywords: ['ulid', '标识符'] },
   ],
   color_blindness_simulator: [
     {
