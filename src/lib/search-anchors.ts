@@ -586,6 +586,12 @@ export const SETTING_FIELDS: readonly SettingField[] = [
   { key: 'max_history', title: '最大历史数', keywords: ['历史', '条数'], menuId: 'general' },
   { key: 'json_indent', title: 'JSON 默认缩进', keywords: ['json', '缩进'], menuId: 'general' },
   { key: 'confirm_clear', title: '清空前确认', keywords: ['清空', '确认'], menuId: 'general' },
+  {
+    key: 'smart_detect',
+    title: '剪贴板智能检测',
+    keywords: ['剪贴板', '智能检测', 'smart detection'],
+    menuId: 'general',
+  },
   // 文本编辑器
   {
     key: 'enabled_styles',
