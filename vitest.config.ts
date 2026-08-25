@@ -18,6 +18,10 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
     css: false,
+    // 全量并行时 jsdom worker 争抢 CPU,重交互用例(搜索/keepalive)在默认
+    // 5s 下偶发超时抖动;放宽到 10s,真实挂死仍会被拦截。
+    testTimeout: 10_000,
+    hookTimeout: 10_000,
   },
   resolve: {
     alias: {

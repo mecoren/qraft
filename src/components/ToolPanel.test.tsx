@@ -5,7 +5,7 @@ import { useToolStateStore } from '@/store/toolStateStore';
 
 // 工具组件为懒加载(React.lazy),全量测试并行时动态 import + 渲染可能超时,
 // 因此所有异步等待统一使用较宽的超时窗口。
-const LAZY_TIMEOUT = 5000;
+const LAZY_TIMEOUT = 10_000;
 
 beforeEach(() => {
   // ToolPanel 从静态目录(getCatalogEntry)取元数据并挂载注册表组件,不依赖 store 的工具列表
