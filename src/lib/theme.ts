@@ -127,24 +127,39 @@ export const FONT_SIZE_STORAGE_KEY = 'font_size_level';
 export const DEFAULT_FONT_SIZE_LEVEL = 1;
 
 /**
- * 将字号级别应用到 <html> 根元素
- *
- * 通过设置 root font-size 实现 rem 单位缩放。
+ * 字号档位变更事件:applyFontSizeLevel 每次应用后派发。
+ * Monaco 编辑器等以绝对 px 布局的消费方无法跟随 root rem 缩放,
+ * 通过监听本事件同步自身字号(见 useEditorFontSize)。
  */
+export const FONT_SIZE_CHANGED_EVENT = 'qraft:font-size-changed';
+
+/** 应用将字号应用到根元素,并广播 FONT_SIZE_CHANGED_EVENT */
 export function applyFontSizeLevel(level: number) {
   const clamped = Math.max(0, Math.min(FONT_SIZE_LEVELS.length - 1, level));
   const scale = FONT_SIZE_LEVELS[clamped].scale;
   document.documentElement.style.fontSize = `${16 * scale}px`;
+  window.dispatchEvent(new CustomEvent(FONT_SIZE_CHANGED_EVENT, { detail: { level: clamped } }));
 }
 
-/**
- * 读取持久化的字号级别
- */
+/** 读取持久化的字号级别(夹取到有效范围) */
 export function getStoredFontSizeLevel(): number {
   const stored = localStorage.getItem(FONT_SIZE_STORAGE_KEY);
   if (stored === null) return DEFAULT_FONT_SIZE_LEVEL;
   const n = parseInt(stored, 10);
   return Number.isNaN(n) ? DEFAULT_FONT_SIZE_LEVEL : n;
+}
+
+/**
+ * 计算 Monaco 编辑器应使用的字号(px),随字号档位等比缩放。
+ *
+ * Monaco 以绝对 px 布局(不走 rem),此前写死 13px 导致设置中的
+ * 字号档位对代码编辑区无效;此处以「标准档 13px」为基准等比换算,
+ * 行高维持 13px 档的 20px 比例(≈1.54)同步缩放。
+ */
+export function getEditorFontSize(): { fontSize: number; lineHeight: number } {
+  const scale = FONT_SIZE_LEVELS[Math.max(0, Math.min(FONT_SIZE_LEVELS.length - 1, getStoredFontSizeLevel()))].scale;
+  const fontSize = Math.round(13 * scale);
+  return { fontSize, lineHeight: Math.round((fontSize * 20) / 13) };
 }
 
 // ── 字重级别 ──

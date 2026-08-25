@@ -33,6 +33,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { defineThemeFor, getThemeName, useMonacoTheme } from '@/components/ui/monaco-theme';
 import { readClipboardText } from '@/lib/clipboard';
 import { readFileAsText } from '@/lib/file-utils';
+import { useEditorFontSize } from '@/hooks/useEditorFontSize';
 import type { ToolProps } from './registry';
 
 // Monaco loader 路径配置(import 即执行,保证任何 DiffEditor 挂载前就绪;详见模块内注释)
@@ -204,7 +205,8 @@ export function TextCompare(_props: ToolProps): JSX.Element {
 
   const hasDiff = stats.added > 0 || stats.removed > 0 || stats.modified > 0;
 
-  /** 与 CodeEditor 保持一致的展示优化 options */
+  /** 与 CodeEditor 保持一致的展示优化 options(字号随设置档位缩放) */
+  const editorFontSize = useEditorFontSize();
   const diffOptions = useMemo<editor.IDiffEditorConstructionOptions>(
     () => ({
       originalEditable: true,
@@ -216,8 +218,8 @@ export function TextCompare(_props: ToolProps): JSX.Element {
       fontFamily:
         "var(--app-mono-font-family, 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace)",
       fontLigatures: true,
-      fontSize: 13,
-      lineHeight: 20,
+      fontSize: editorFontSize.fontSize,
+      lineHeight: editorFontSize.lineHeight,
       lineNumbers: 'on',
       glyphMargin: false,
       folding: false,
@@ -254,7 +256,7 @@ export function TextCompare(_props: ToolProps): JSX.Element {
       // 不折叠未变更区域,保持与旧版一致的"全量并排"观感
       hideUnchangedRegions: { enabled: false },
     }),
-    [inlineMode],
+    [inlineMode, editorFontSize],
   );
 
   const renderActionGroup = (label: string, target: DiffTarget) => (

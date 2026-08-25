@@ -45,6 +45,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { defineThemeFor, getThemeName, useMonacoTheme } from '@/components/ui/monaco-theme';
 import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
 import { useShortcut } from '@/hooks/useShortcut';
+import { useEditorFontSize } from '@/hooks/useEditorFontSize';
 import { listen, safeInvoke, CommandError } from '@/lib/ipc';
 import { writeClipboardText } from '@/lib/clipboard';
 import type { ToolProps } from '@/tools/registry';
@@ -1086,8 +1087,9 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   );
 }
 
-/** 对比差异视图的 Monaco DiffEditor 配置(与文本比较工具一致,两侧均可编辑) */
-const diffOptions: editor.IDiffEditorConstructionOptions = {
+/** 对比差异视图的 Monaco DiffEditor 基础配置(与文本比较工具一致,两侧均可编辑)。
+ * 字号不在此处写死:由 FileCompareView 内经 useEditorFontSize 随设置档位注入 */
+const diffBaseOptions: editor.IDiffEditorConstructionOptions = {
   originalEditable: true,
   readOnly: false,
   renderSideBySide: true,
@@ -1095,8 +1097,6 @@ const diffOptions: editor.IDiffEditorConstructionOptions = {
   fontFamily:
     "var(--app-mono-font-family, 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace)",
   fontLigatures: true,
-  fontSize: 13,
-  lineHeight: 20,
   lineNumbers: 'on',
   glyphMargin: false,
   // 与 CodeEditor 保持一致:启用代码折叠,对比视图两侧 gutter 可折叠,
@@ -1161,6 +1161,16 @@ function FileCompareView({
 }): JSX.Element {
   const themeName = useMonacoTheme();
   const monacoRef = useRef<Monaco | null>(null);
+  // 字号随设置档位缩放;options 变化时 @monaco-editor/react 会热更新已挂载实例
+  const editorFontSize = useEditorFontSize();
+  const diffOptions = useMemo<editor.IDiffEditorConstructionOptions>(
+    () => ({
+      ...diffBaseOptions,
+      fontSize: editorFontSize.fontSize,
+      lineHeight: editorFontSize.lineHeight,
+    }),
+    [editorFontSize],
+  );
   // 挂载时的初始内容快照(仅在首次挂载时写入编辑器)
   const initialRef = useRef({ left: left.content, right: right.content });
   // 对比视图右键菜单:DiffEditor 的 options.contextmenu: false 关闭了原生

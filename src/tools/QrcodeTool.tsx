@@ -136,7 +136,13 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
           className="min-h-0 flex-1"
           searchAnchor="qrcode_tool:input"
         />
-        <div className="flex w-80 shrink-0 flex-col gap-2" data-search-anchor="qrcode_tool:image">
+        {/* 预览板宽度取 min(320px, 38%):宽窗口维持 320px 舒适尺寸,
+            窄窗口(800px 最小宽 + 侧栏展开)按比例收缩,避免左侧编辑器被挤到不可用;
+            min-w 保证二维码预览的可用下限,极端情况下允许横向滚动 */}
+        <div
+          className="flex w-[min(20rem,38%)] min-w-44 flex-col gap-2"
+          data-search-anchor="qrcode_tool:image"
+        >
           <div className="flex items-center justify-between">
             <h2 className="text-body-sm font-semibold">二维码</h2>
             <div className="flex gap-1">

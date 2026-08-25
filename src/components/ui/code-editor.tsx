@@ -23,6 +23,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -36,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { readClipboardText } from '@/lib/clipboard';
 import { readFileAsText, formatBytes } from '@/lib/file-utils';
 import { TEXT_ENCODINGS, encodingLabel } from '@/lib/text-encodings';
+import { useEditorFontSize } from '@/hooks/useEditorFontSize';
 import { defineThemeFor, defineVsCodeTheme, getThemeName, useMonacoTheme } from './monaco-theme';
 import {
   MonacoContextMenu,
@@ -349,6 +351,11 @@ export function CodeEditor({
   // 行尾序列:由内容推导(CRLF 存在即视为 CRLF),与 VSCode 展示一致
   const eolLabel = value.includes('\r\n') ? 'CRLF' : 'LF';
 
+  // 编辑器字号:跟随设置中的字号档位等比缩放(标准档 13px,见 theme.ts)。
+  // options 对象随渲染重建,@monaco-editor/react 检测到变化后会自动
+  // updateOptions 热更新已挂载实例,无需重挂载编辑器
+  const editorFontSize = useEditorFontSize();
+
   /** 打开跳转弹层时用当前光标位置预填输入框 */
   const openGotoPopover = useCallback((): void => {
     setGotoLine(String(cursor.line));
@@ -378,8 +385,10 @@ export function CodeEditor({
     setTabSize(next);
   }, [tabSize]);
 
-  // 按 Unicode 码点统计字符数(emoji / 生僻字等代理对计 1 个),与 TextAnalyzer 口径一致
-  const charCount = Array.from(value).length;
+  // 按 Unicode 码点统计字符数(emoji / 生僻字等代理对计 1 个),与 TextAnalyzer 口径一致。
+  // useMemo 隔离重算:大输入下 Array.from 会物化百万级码点数组,
+  // 若在函数体每轮渲染执行,将成为输入卡顿的直接来源
+  const charCount = useMemo(() => Array.from(value).length, [value]);
 
   const updateStatus = (): void => {
     const editor = editorRef.current;
@@ -586,8 +595,8 @@ export function CodeEditor({
             fontFamily:
               "var(--app-mono-font-family, 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace)",
             fontLigatures: true,
-            fontSize: 13,
-            lineHeight: 20,
+            fontSize: editorFontSize.fontSize,
+            lineHeight: editorFontSize.lineHeight,
             lineNumbers: lineNumbers ? 'on' : 'off',
             glyphMargin: false,
             // 代码折叠:gutter 单击折叠/展开 + 右键菜单折叠组(经 folding prop 可关)
