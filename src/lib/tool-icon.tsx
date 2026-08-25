@@ -7,7 +7,7 @@
  * 设计说明:
  * - ToolMetadata.icon 为 lucide-react 的 PascalCase 图标名(如 "Braces"、"Hash")
  * - lucide-react 导出 `icons` 对象(名称 → 组件),用于按名动态解析
- * - 该模块供 SideNav / ToolPanel 复用,避免重复解析逻辑
+ * - 该模块供 Sidebar / ToolPanel 复用,避免重复解析逻辑
  *
  * ToolIcon 组件:封装 resolveToolIcon 为声明式组件,避免在父组件 render 中
  * 通过 `const Comp = resolveToolIcon(...)` 创建组件变量(触发 react-x/static-components)。

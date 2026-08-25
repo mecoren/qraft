@@ -68,7 +68,7 @@ beforeEach(() => {
 });
 
 describe('App', () => {
-  it('renders SideNav with tool groups after mount', async () => {
+  it('renders sidebar with tool groups after mount', async () => {
     setupHappyPath();
     await act(async () => {
       render(<App />);

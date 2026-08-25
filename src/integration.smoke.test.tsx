@@ -95,7 +95,7 @@ beforeEach(() => {
   useConfigStore.setState({ config: null, loading: false, error: null });
 });
 
-describe('smoke: SideNav 显示工具分组', () => {
+describe('smoke: 侧栏显示工具分组', () => {
   it('渲染工具分类分组标题', async () => {
     setupHappyPath();
     await act(async () => {
