@@ -1,8 +1,16 @@
-import { useState } from 'react';
+/**
+ * 颜色转换器 —— 新代统一布局
+ *
+ * 结构(与 Base64Codec / JsonFormatter 一致):
+ * - 顶部「配置」卡片:颜色值输入 + 输入格式(HEX/RGB/HSL)+ 执行按钮
+ * - 下方结果区:左侧色样预览与三种格式取值(逐项复制),右侧完整输出编辑器
+ *
+ * 错误处理遵循新代约定:工具内联 alert 展示。
+ */
+import { useState, type JSX } from 'react';
+import { Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -10,6 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { CodeEditor } from '@/components/ui/code-editor';
+import { ConfigRow, ConfigSection } from '@/components/config-card';
+import { CopyAction } from '@/components/copy-action';
 import { invokeCommand, CommandError } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import type { ToolProps } from './registry';
@@ -25,9 +36,11 @@ interface ColorExtra {
   hsl: string;
 }
 
-export function ColorConverter({ toolId }: ToolProps) {
+type ColorFormat = 'hex' | 'rgb' | 'hsl';
+
+export function ColorConverter({ toolId }: ToolProps): JSX.Element {
   const [text, setText] = useState('');
-  const [fromFormat, setFromFormat] = useState<'hex' | 'rgb' | 'hsl'>('hex');
+  const [fromFormat, setFromFormat] = useState<ColorFormat>('hex');
   const [output, setOutput] = useState<ToolOutput | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -43,11 +56,8 @@ export function ColorConverter({ toolId }: ToolProps) {
       });
       setOutput(result);
     } catch (e) {
-      if (e instanceof CommandError) {
-        setError(`${e.code}: ${e.message}`);
-      } else {
-        setError(String(e));
-      }
+      setOutput(null);
+      setError(formatError(e));
     } finally {
       setLoading(false);
     }
@@ -55,35 +65,27 @@ export function ColorConverter({ toolId }: ToolProps) {
 
   const extra = output?.extra as ColorExtra | undefined;
 
-  async function handleCopy(value: string) {
-    await copyTextWithFeedback(value);
-  }
-
   return (
-    <div className="flex flex-col gap-4 h-full">
-      <div className="flex items-end gap-4">
-        <div className="flex flex-col gap-1 flex-1" data-search-anchor="color_converter:input">
-          <Label htmlFor="color-input" className="text-xs">
-            颜色值
-          </Label>
+    <div className="flex h-full flex-col gap-3" data-testid="color-converter">
+      <ConfigSection title="" searchAnchor="color_converter:config">
+        <ConfigRow
+          icon={Palette}
+          label="颜色值"
+          hint="如 #ff5733 / rgb(255,87,51) / hsl(11,100%,60%)"
+          searchAnchor="color_converter:input"
+        >
           <Input
             id="color-input"
             placeholder="输入颜色值..."
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="font-mono text-sm"
+            className="w-72 font-mono text-sm"
             data-testid="input"
           />
-        </div>
-        <div className="flex flex-col gap-1" data-search-anchor="color_converter:config">
-          <Label htmlFor="format-select" className="text-xs">
-            输入格式
-          </Label>
-          <Select
-            value={fromFormat}
-            onValueChange={(v) => setFromFormat(v as 'hex' | 'rgb' | 'hsl')}
-          >
-            <SelectTrigger id="format-select" className="w-32">
+        </ConfigRow>
+        <ConfigRow icon={Palette} label="输入格式" hint="解析输入所用的颜色格式">
+          <Select value={fromFormat} onValueChange={(v) => setFromFormat(v as ColorFormat)}>
+            <SelectTrigger className="w-32" aria-label="输入格式">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -92,11 +94,12 @@ export function ColorConverter({ toolId }: ToolProps) {
               <SelectItem value="hsl">HSL</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-        <Button onClick={handleConvert} disabled={loading || !text}>
-          {loading ? '转换中...' : '转换'}
-        </Button>
-      </div>
+          <span className="h-4 w-px bg-border" aria-hidden />
+          <Button onClick={() => void handleConvert()} disabled={loading || !text} size="sm">
+            {loading ? '转换中...' : '转换'}
+          </Button>
+        </ConfigRow>
+      </ConfigSection>
 
       {error && (
         <div
@@ -107,53 +110,72 @@ export function ColorConverter({ toolId }: ToolProps) {
         </div>
       )}
 
-      {extra && (
-        <div
-          className="grid grid-cols-2 gap-4 flex-1"
-          data-testid="output"
-          data-search-anchor="color_converter:result"
-        >
-          <div className="flex flex-col gap-3">
-            <div className="rounded-md border p-3">
-              <div className="text-xs font-semibold text-muted-foreground">预览</div>
-              <div
-                className="mt-2 h-24 rounded-md border"
-                style={{ backgroundColor: extra.hex }}
-                aria-label={`颜色样本 ${extra.hex}`}
-              />
-            </div>
-            <div className="rounded-md border p-3 text-sm">
-              <div className="grid grid-cols-[60px_1fr_auto] gap-x-3 gap-y-2">
-                <span className="font-semibold">HEX</span>
-                <code className="font-mono">{extra.hex}</code>
-                <button
-                  className="text-xs text-primary hover:underline"
-                  onClick={() => handleCopy(extra.hex)}
-                >
-                  复制
-                </button>
-                <span className="font-semibold">RGB</span>
-                <code className="font-mono">{extra.rgb}</code>
-                <button
-                  className="text-xs text-primary hover:underline"
-                  onClick={() => handleCopy(extra.rgb)}
-                >
-                  复制
-                </button>
-                <span className="font-semibold">HSL</span>
-                <code className="font-mono">{extra.hsl}</code>
-                <button
-                  className="text-xs text-primary hover:underline"
-                  onClick={() => handleCopy(extra.hsl)}
-                >
-                  复制
-                </button>
-              </div>
+      {/* 结果区:左预览/取值 + 右输出编辑器;锚点保持 color_converter:result */}
+      <div
+        className="grid min-h-0 flex-1 grid-cols-2 gap-3"
+        data-testid="output"
+        data-search-anchor="color_converter:result"
+      >
+        <div className="flex min-h-0 flex-col gap-3">
+          <div className="rounded-lg border p-3 shadow-card">
+            <div className="text-xs font-semibold text-muted-foreground">预览</div>
+            <div
+              className="mt-2 h-24 rounded-md border"
+              style={{ backgroundColor: extra?.hex }}
+              aria-label={extra ? `颜色样本 ${extra.hex}` : '暂无颜色样本'}
+            />
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto rounded-lg border p-3 text-sm shadow-card">
+            <div className="grid grid-cols-[60px_1fr_auto] gap-x-3 gap-y-2">
+              <span className="font-semibold">HEX</span>
+              <code className="break-all font-mono">{extra?.hex ?? '—'}</code>
+              <CopyButton value={extra?.hex} />
+              <span className="font-semibold">RGB</span>
+              <code className="break-all font-mono">{extra?.rgb ?? '—'}</code>
+              <CopyButton value={extra?.rgb} />
+              <span className="font-semibold">HSL</span>
+              <code className="break-all font-mono">{extra?.hsl ?? '—'}</code>
+              <CopyButton value={extra?.hsl} />
             </div>
           </div>
-          <Textarea readOnly value={output?.text ?? ''} className="flex-1 font-mono text-sm" />
         </div>
-      )}
+        <CodeEditor
+          readOnly
+          title="转换结果"
+          language="plaintext"
+          value={output?.text ?? ''}
+          placeholder="输入颜色值后点击「转换」查看全部格式输出"
+          className="min-h-0"
+          data-testid="output-editor"
+          searchAnchor="color_converter:output"
+          actions={
+            output?.text ? <CopyAction text={output.text} testId="output-copy" /> : undefined
+          }
+        />
+      </div>
     </div>
   );
+}
+
+/** 取值行复制按钮:值为空时渲染占位,保持网格对齐 */
+function CopyButton({ value }: { value?: string }): JSX.Element {
+  if (!value) return <span />;
+  return (
+    <button
+      type="button"
+      className="text-xs text-primary hover:underline"
+      onClick={() => void copyTextWithFeedback(value)}
+    >
+      复制
+    </button>
+  );
+}
+
+/** 把任意异常格式化为可显示的错误文本(CommandError 附带错误码便于排障) */
+function formatError(e: unknown): string {
+  if (e instanceof CommandError) {
+    return e.code ? `${e.code}: ${e.message}` : e.message;
+  }
+  if (e instanceof Error) return e.message;
+  return String(e);
 }

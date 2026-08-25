@@ -64,3 +64,32 @@ export function ConfigRow({
     </div>
   );
 }
+
+/**
+ * 标题栏内动作按钮,与 CodeEditor 工具栏风格一致。
+ * 用途:编辑器工具栏中的「执行 / 生成 / 测试」等主操作按钮
+ * (参考 Base64Codec / JsonFormatter 的同名本地实现,收敛于此共享)。
+ */
+export function HeaderAction({
+  onClick,
+  disabled,
+  testId,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  testId?: string;
+  children: ReactNode;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      onClick={onClick}
+      disabled={disabled}
+      className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+    >
+      {children}
+    </button>
+  );
+}

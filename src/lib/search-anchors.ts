@@ -504,6 +504,12 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       description: '各格式结果与预览',
       keywords: ['预览', '结果', '复制'],
     },
+    {
+      key: 'output',
+      title: '完整输出',
+      description: '全部格式转换结果文本',
+      keywords: ['输出', '文本'],
+    },
   ],
 };
 

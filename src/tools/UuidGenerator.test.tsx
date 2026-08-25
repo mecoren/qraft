@@ -53,9 +53,11 @@ describe('UuidGenerator', () => {
     fireEvent.click(screen.getByRole('button', { name: /生成/ }));
 
     await waitFor(() => {
-      expect(screen.getByText(/uuid1/)).toBeInTheDocument();
-      expect(screen.getByText(/uuid2/)).toBeInTheDocument();
-      expect(screen.getByText(/uuid3/)).toBeInTheDocument();
+      // 新代布局:结果在 CodeEditor(测试 mock 为受控 textarea)中展示
+      const output = screen.getByTestId('output').querySelector('textarea')!;
+      expect(output.value).toContain('uuid1');
+      expect(output.value).toContain('uuid2');
+      expect(output.value).toContain('uuid3');
     });
   });
 });

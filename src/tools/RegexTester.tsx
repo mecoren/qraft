@@ -1,9 +1,20 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+/**
+ * 正则表达式测试工具 —— 新代统一布局
+ *
+ * 结构(与 Base64Codec / JsonFormatter 一致):
+ * - 顶部「配置」卡片:正则表达式 + 标志位
+ * - 下方 ResizablePanelGroup 双栏工作区:
+ *   左 = 测试文本编辑器(「测试」动作在工具栏);右 = 匹配结果列表
+ *
+ * 错误处理遵循新代约定:工具内联 alert 展示于结果区。
+ */
+import { useState, type JSX } from 'react';
+import { ListChecks, Play, Regex } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { CodeEditor } from '@/components/ui/code-editor';
-import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { CodeEditor } from '@/components/ui/code-editor';
+import { ConfigRow, ConfigSection, HeaderAction } from '@/components/config-card';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { invokeCommand, CommandError } from '@/lib/ipc';
 import type { ToolProps } from './registry';
 import type { ToolOutput } from '@/types/tool';
@@ -24,7 +35,7 @@ interface RegexExtra {
   match_count: number;
 }
 
-export function RegexTester({ toolId }: ToolProps) {
+export function RegexTester({ toolId }: ToolProps): JSX.Element {
   const [text, setText] = useState('');
   const [pattern, setPattern] = useState('');
   const [flags, setFlags] = useState('g');
@@ -43,11 +54,8 @@ export function RegexTester({ toolId }: ToolProps) {
       });
       setOutput(result);
     } catch (e) {
-      if (e instanceof CommandError) {
-        setError(`${e.code}: ${e.message}`);
-      } else {
-        setError(String(e));
-      }
+      setOutput(null);
+      setError(formatError(e));
     } finally {
       setLoading(false);
     }
@@ -56,111 +64,121 @@ export function RegexTester({ toolId }: ToolProps) {
   const extra = output?.extra as RegexExtra | undefined;
 
   return (
-    <div className="flex flex-col gap-4 h-full">
-      <div
-        className="grid grid-cols-[1fr_120px_auto] gap-3 items-end"
-        data-search-anchor="regex_tester:config"
-      >
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="pattern-input" className="text-xs">
-            正则表达式
-          </Label>
+    <div className="flex h-full flex-col gap-3" data-testid="regex-tester">
+      <ConfigSection title="" searchAnchor="regex_tester:config">
+        <ConfigRow icon={Regex} label="正则表达式" hint="Rust regex 语法">
           <Input
             id="pattern-input"
             placeholder="输入正则表达式..."
             value={pattern}
             onChange={(e) => setPattern(e.target.value)}
-            className="font-mono text-sm"
+            className="w-80 font-mono text-sm"
             data-testid="pattern"
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="flags-input" className="text-xs">
-            标志位
-          </Label>
+        </ConfigRow>
+        <ConfigRow icon={ListChecks} label="标志位" hint="g / i / m / s / x;点击左栏工具栏「测试」执行">
           <Input
             id="flags-input"
             placeholder="标志位"
             value={flags}
             onChange={(e) => setFlags(e.target.value)}
-            className="font-mono text-sm"
+            className="w-24 font-mono text-sm"
           />
-        </div>
-        <Button onClick={handleTest} disabled={loading || !pattern || !text}>
-          {loading ? '测试中...' : '测试'}
-        </Button>
-      </div>
+        </ConfigRow>
+      </ConfigSection>
 
-      <div className="grid grid-cols-2 gap-4 flex-1">
-        <div className="flex flex-col gap-2">
-          <Label>测试文本</Label>
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+        {/* 左区:测试文本(「测试」动作在工具栏) */}
+        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
+            title="测试文本"
             placeholder="输入测试文本..."
             value={text}
             onChange={setText}
             language="plaintext"
-            className="flex-1"
+            className="h-full"
             data-testid="input"
             searchAnchor="regex_tester:input"
+            actions={
+              <HeaderAction onClick={() => void handleTest()} disabled={loading || !pattern || !text}>
+                <Play aria-hidden className="size-3.5" />
+                {loading ? '测试中' : '测试'}
+              </HeaderAction>
+            }
           />
-        </div>
+        </ResizablePanel>
 
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <Label>匹配结果</Label>
-            {extra && (
-              <span className="text-xs text-muted-foreground">{extra.match_count} 个匹配</span>
+        <ResizableHandle withHandle />
+
+        {/* 右区:匹配结果(内联错误 / 列表 / 空态) */}
+        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+          <div
+            className="flex h-full flex-col overflow-hidden rounded-md border border-input bg-card"
+            data-testid="output"
+            data-search-anchor="regex_tester:output"
+          >
+            <div className="flex items-center justify-between border-b border-input px-2 py-0.5">
+              <span className="pl-1 text-xs font-medium">匹配结果</span>
+              {extra && (
+                <span className="pr-1 text-xs text-muted-foreground">
+                  {extra.match_count} 个匹配
+                </span>
+              )}
+            </div>
+            {error ? (
+              <div
+                role="alert"
+                className="m-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
+              >
+                {error}
+              </div>
+            ) : extra ? (
+              <ScrollArea className="min-h-0 flex-1" data-testid="output-list">
+                <ul className="space-y-2 p-3 text-sm">
+                  {extra.matches.map((m, i) => (
+                    <li key={i} className="border-b pb-2 last:border-b-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-muted-foreground">
+                          #{i + 1} @{m.index}
+                        </span>
+                        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">
+                          {m.match}
+                        </code>
+                      </div>
+                      {m.groups.length > 0 && (
+                        <div className="mt-1 pl-4 text-xs text-muted-foreground">
+                          分组:{' '}
+                          {m.groups.map((g, gi) => (
+                            <span key={gi} className="font-mono">
+                              [{gi + 1}]={g ?? '<无>'}{' '}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                  {extra.matches.length === 0 && (
+                    <li className="text-sm text-muted-foreground">未找到匹配项。</li>
+                  )}
+                </ul>
+              </ScrollArea>
+            ) : (
+              <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+                输入正则与测试文本后点击「测试」
+              </div>
             )}
           </div>
-          {error ? (
-            <div
-              role="alert"
-              className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
-            >
-              {error}
-            </div>
-          ) : extra ? (
-            <ScrollArea className="flex-1 rounded-md border p-3" data-testid="output">
-              <ul className="space-y-2 text-sm">
-                {extra.matches.map((m, i) => (
-                  <li key={i} className="border-b pb-2 last:border-b-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-muted-foreground">
-                        #{i + 1} @{m.index}
-                      </span>
-                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">
-                        {m.match}
-                      </code>
-                    </div>
-                    {m.groups.length > 0 && (
-                      <div className="mt-1 pl-4 text-xs text-muted-foreground">
-                        分组:{' '}
-                        {m.groups.map((g, gi) => (
-                          <span key={gi} className="font-mono">
-                            [{gi + 1}]={g ?? '<无>'}{' '}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </li>
-                ))}
-                {extra.matches.length === 0 && (
-                  <li className="text-sm text-muted-foreground">未找到匹配项。</li>
-                )}
-              </ul>
-            </ScrollArea>
-          ) : (
-            <CodeEditor
-              readOnly
-              value=""
-              language="plaintext"
-              className="flex-1"
-              data-testid="output"
-              searchAnchor="regex_tester:output"
-            />
-          )}
-        </div>
-      </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
+}
+
+/** 把任意异常格式化为可显示的错误文本(CommandError 附带错误码便于排障) */
+function formatError(e: unknown): string {
+  if (e instanceof CommandError) {
+    return e.code ? `${e.code}: ${e.message}` : e.message;
+  }
+  if (e instanceof Error) return e.message;
+  return String(e);
 }

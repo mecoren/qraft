@@ -1,7 +1,16 @@
-import { useState } from 'react';
+/**
+ * 日期/时间戳转换器 —— 新代统一布局
+ *
+ * 结构(与 Base64Codec / JsonFormatter 一致):
+ * - 顶部「配置」卡片:输入(Unix 秒 / 毫秒 / 日期字符串)+ 时区 + 执行按钮
+ * - 下方结果区:带标题栏的卡片,字段逐行展示并支持单独复制
+ *
+ * 错误处理遵循新代约定:工具内联 alert 展示。
+ */
+import { useState, type JSX } from 'react';
+import { CalendarClock, Globe2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
@@ -10,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { invokeCommand, CommandError } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import type { ToolProps } from './registry';
@@ -37,9 +47,36 @@ const COMMON_TIMEZONES = [
   'America/New_York',
   'America/Los_Angeles',
   'Australia/Sydney',
-];
+] as const;
 
-export function TimestampConverter({ toolId }: ToolProps) {
+/** 结果行:值 + 独立复制按钮 */
+function ResultRow({
+  label,
+  value,
+  mono = true,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}): JSX.Element {
+  return (
+    <>
+      <dt className="font-semibold">{label}</dt>
+      <dd className={mono ? 'break-all font-mono' : ''}>{value}</dd>
+      <dd>
+        <button
+          type="button"
+          className="text-xs text-primary hover:underline"
+          onClick={() => void copyTextWithFeedback(value)}
+        >
+          复制
+        </button>
+      </dd>
+    </>
+  );
+}
+
+export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
   const [text, setText] = useState('');
   const [timezone, setTimezone] = useState('UTC');
   const [output, setOutput] = useState<ToolOutput | null>(null);
@@ -57,11 +94,8 @@ export function TimestampConverter({ toolId }: ToolProps) {
       });
       setOutput(result);
     } catch (e) {
-      if (e instanceof CommandError) {
-        setError(`${e.code}: ${e.message}`);
-      } else {
-        setError(String(e));
-      }
+      setOutput(null);
+      setError(formatError(e));
     } finally {
       setLoading(false);
     }
@@ -69,32 +103,27 @@ export function TimestampConverter({ toolId }: ToolProps) {
 
   const extra = output?.extra as TimestampExtra | undefined;
 
-  async function handleCopy(value: string) {
-    await copyTextWithFeedback(value);
-  }
-
   return (
-    <div className="flex flex-col gap-4 h-full">
-      <div className="flex items-end gap-4">
-        <div className="flex flex-col gap-1 flex-1" data-search-anchor="timestamp_converter:input">
-          <Label htmlFor="ts-input" className="text-xs">
-            输入(Unix 秒 / 毫秒 / 日期字符串)
-          </Label>
+    <div className="flex h-full flex-col gap-3" data-testid="timestamp-converter">
+      <ConfigSection title="" searchAnchor="timestamp_converter:config">
+        <ConfigRow
+          icon={CalendarClock}
+          label="输入"
+          hint="Unix 秒 / 毫秒 / 日期字符串"
+          searchAnchor="timestamp_converter:input"
+        >
           <Input
             id="ts-input"
             placeholder="输入时间戳或日期字符串..."
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="font-mono text-sm"
+            className="w-72 font-mono text-sm"
             data-testid="input"
           />
-        </div>
-        <div className="flex flex-col gap-1" data-search-anchor="timestamp_converter:config">
-          <Label htmlFor="tz-select" className="text-xs">
-            时区
-          </Label>
+        </ConfigRow>
+        <ConfigRow icon={Globe2} label="时区" hint="本地时间展示所用时区">
           <Select value={timezone} onValueChange={setTimezone}>
-            <SelectTrigger id="tz-select" className="w-48">
+            <SelectTrigger className="w-48" aria-label="时区">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -105,11 +134,11 @@ export function TimestampConverter({ toolId }: ToolProps) {
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <Button onClick={handleConvert} disabled={loading || !text}>
-          {loading ? '转换中...' : '转换'}
-        </Button>
-      </div>
+          <Button onClick={() => void handleConvert()} disabled={loading || !text} size="sm">
+            {loading ? '转换中...' : '转换'}
+          </Button>
+        </ConfigRow>
+      </ConfigSection>
 
       {error && (
         <div
@@ -120,63 +149,47 @@ export function TimestampConverter({ toolId }: ToolProps) {
         </div>
       )}
 
-      {extra && (
-        <ScrollArea
-          className="flex-1 rounded-md border p-4"
-          data-testid="output"
-          data-search-anchor="timestamp_converter:result"
-        >
-          <dl className="grid grid-cols-[180px_1fr_auto] gap-x-4 gap-y-3 text-sm">
-            <dt className="font-semibold">Unix(秒)</dt>
-            <dd className="font-mono">{extra.unix_seconds}</dd>
-            <dd>
-              <button
-                className="text-xs text-primary hover:underline"
-                onClick={() => handleCopy(String(extra.unix_seconds))}
-              >
-                复制
-              </button>
-            </dd>
-
-            <dt className="font-semibold">Unix(毫秒)</dt>
-            <dd className="font-mono">{extra.unix_millis}</dd>
-            <dd>
-              <button
-                className="text-xs text-primary hover:underline"
-                onClick={() => handleCopy(String(extra.unix_millis))}
-              >
-                复制
-              </button>
-            </dd>
-
-            <dt className="font-semibold">ISO 8601</dt>
-            <dd className="font-mono break-all">{extra.iso8601}</dd>
-            <dd>
-              <button
-                className="text-xs text-primary hover:underline"
-                onClick={() => handleCopy(extra.iso8601)}
-              >
-                复制
-              </button>
-            </dd>
-
-            <dt className="font-semibold">本地时间({timezone})</dt>
-            <dd className="font-mono break-all">{extra.local}</dd>
-            <dd>
-              <button
-                className="text-xs text-primary hover:underline"
-                onClick={() => handleCopy(extra.local)}
-              >
-                复制
-              </button>
-            </dd>
-
-            <dt className="font-semibold">相对时间</dt>
-            <dd className="font-mono">{extra.relative}</dd>
-            <dd />
-          </dl>
+      {/* 结果区:常驻卡片承载,空态给引导文案;锚点保持 timestamp_converter:result */}
+      <div
+        className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border shadow-card"
+        data-testid="output"
+        data-search-anchor="timestamp_converter:result"
+      >
+        <div className="flex items-center justify-between border-b px-3 py-1.5">
+          <span className="pl-1 text-xs font-medium">转换结果</span>
+          {output?.meta && (
+            <span className="text-xs text-muted-foreground">
+              {output.meta.input_bytes} 字节 · {output.meta.duration_ms}ms
+            </span>
+          )}
+        </div>
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="p-4">
+            {extra ? (
+              <dl className="grid grid-cols-[180px_1fr_auto] gap-x-4 gap-y-3 text-sm">
+                <ResultRow label="Unix(秒)" value={String(extra.unix_seconds)} />
+                <ResultRow label="Unix(毫秒)" value={String(extra.unix_millis)} />
+                <ResultRow label="ISO 8601" value={extra.iso8601} />
+                <ResultRow label={`本地时间(${timezone})`} value={extra.local} />
+                <ResultRow label="相对时间" value={extra.relative} mono={false} />
+              </dl>
+            ) : (
+              <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+                输入时间戳后点击「转换」查看各格式结果
+              </div>
+            )}
+          </div>
         </ScrollArea>
-      )}
+      </div>
     </div>
   );
+}
+
+/** 把任意异常格式化为可显示的错误文本(CommandError 附带错误码便于排障) */
+function formatError(e: unknown): string {
+  if (e instanceof CommandError) {
+    return e.code ? `${e.code}: ${e.message}` : e.message;
+  }
+  if (e instanceof Error) return e.message;
+  return String(e);
 }

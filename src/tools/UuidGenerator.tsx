@@ -1,9 +1,17 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+/**
+ * UUID 生成器 —— 新代统一布局
+ *
+ * 结构(与 Base64Codec / JsonFormatter 一致):
+ * - 顶部「配置」卡片:版本 / 数量 / 格式(大写·连字符)三行
+ * - 下方全高输出编辑器:「生成」动作在编辑器工具栏,结果区带「全部复制」
+ *
+ * 错误处理遵循新代约定:执行失败信息直接写入输出编辑器。
+ */
+import { useState, type JSX } from 'react';
+import { Fingerprint, Hash, Play, Type } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -11,8 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { CodeEditor } from '@/components/ui/code-editor';
+import { ConfigRow, ConfigSection, HeaderAction } from '@/components/config-card';
+import { CopyAction } from '@/components/copy-action';
 import { invokeCommand, CommandError } from '@/lib/ipc';
-import { copyTextWithFeedback } from '@/lib/toast-alert';
 import type { ToolProps } from './registry';
 import type { ToolOutput } from '@/types/tool';
 
@@ -23,47 +33,36 @@ interface UuidParams {
   hyphens: boolean;
 }
 
-export function UuidGenerator({ toolId }: ToolProps) {
+export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
   const [version, setVersion] = useState<'v4' | 'v7'>('v4');
   const [count, setCount] = useState(1);
   const [uppercase, setUppercase] = useState(false);
   const [hyphens, setHyphens] = useState(true);
-  const [output, setOutput] = useState<ToolOutput | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleGenerate() {
     setLoading(true);
-    setError(null);
     try {
       const params: UuidParams = { version, count, uppercase, hyphens };
       const result = await invokeCommand<ToolOutput>('tool_execute', {
         toolId,
         input: { text: undefined, params },
       });
-      setOutput(result);
+      setOutput(result.text ?? '');
     } catch (e) {
-      if (e instanceof CommandError) {
-        setError(`${e.code}: ${e.message}`);
-      } else {
-        setError(String(e));
-      }
+      setOutput(formatError(e));
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleCopyAll() {
-    if (output?.text) await copyTextWithFeedback(output.text);
-  }
-
   return (
-    <div className="flex flex-col gap-4 h-full">
-      <div className="flex items-end gap-4" data-search-anchor="uuid_generator:config">
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs">版本</Label>
+    <div className="flex h-full flex-col gap-3" data-testid="uuid-generator">
+      <ConfigSection title="" searchAnchor="uuid_generator:config">
+        <ConfigRow icon={Fingerprint} label="版本" hint="v4 随机 / v7 时间有序">
           <Select value={version} onValueChange={(v) => setVersion(v as 'v4' | 'v7')}>
-            <SelectTrigger className="w-24">
+            <SelectTrigger className="w-24" aria-label="版本">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -71,11 +70,8 @@ export function UuidGenerator({ toolId }: ToolProps) {
               <SelectItem value="v7">v7</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="count-input" className="text-xs">
-            数量
-          </Label>
+        </ConfigRow>
+        <ConfigRow icon={Hash} label="数量" hint="1 ~ 1000">
           <Input
             id="count-input"
             type="number"
@@ -84,46 +80,54 @@ export function UuidGenerator({ toolId }: ToolProps) {
             value={count}
             onChange={(e) => setCount(Number(e.target.value))}
             className="w-24"
+            aria-label="数量"
           />
-        </div>
-        <div className="flex items-center gap-2">
-          <Switch id="uppercase" checked={uppercase} onCheckedChange={setUppercase} />
-          <Label htmlFor="uppercase" className="text-xs">
-            大写
-          </Label>
-        </div>
-        <div className="flex items-center gap-2">
-          <Switch id="hyphens" checked={hyphens} onCheckedChange={setHyphens} />
-          <Label htmlFor="hyphens" className="text-xs">
-            连字符
-          </Label>
-        </div>
-        <Button onClick={handleGenerate} disabled={loading}>
-          {loading ? '生成中...' : '生成'}
-        </Button>
-        {output?.text && (
-          <Button variant="secondary" onClick={handleCopyAll}>
-            全部复制
-          </Button>
-        )}
-      </div>
+        </ConfigRow>
+        <ConfigRow icon={Type} label="格式" hint="大小写与连字符样式">
+          <div className="flex items-center gap-2">
+            <Switch id="uppercase" checked={uppercase} onCheckedChange={setUppercase} />
+            <Label htmlFor="uppercase" className="text-xs">
+              大写
+            </Label>
+          </div>
+          <span className="h-4 w-px bg-border" aria-hidden />
+          <div className="flex items-center gap-2">
+            <Switch id="hyphens" checked={hyphens} onCheckedChange={setHyphens} />
+            <Label htmlFor="hyphens" className="text-xs">
+              连字符
+            </Label>
+          </div>
+        </ConfigRow>
+      </ConfigSection>
 
-      {error && (
-        <div
-          role="alert"
-          className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
-        >
-          {error}
-        </div>
-      )}
-
-      <ScrollArea
-        className="flex-1 rounded-md border p-3 font-mono text-sm"
+      <CodeEditor
+        readOnly
+        title="生成结果"
+        language="plaintext"
+        value={output}
+        placeholder="点击上方「生成」按钮创建 UUID"
+        className="min-h-0 flex-1"
         data-testid="output"
-        data-search-anchor="uuid_generator:output"
-      >
-        <pre className="whitespace-pre-wrap">{output?.text ?? ''}</pre>
-      </ScrollArea>
+        searchAnchor="uuid_generator:output"
+        actions={
+          <>
+            <HeaderAction onClick={() => void handleGenerate()} disabled={loading}>
+              <Play aria-hidden className="size-3.5" />
+              {loading ? '生成中' : '生成'}
+            </HeaderAction>
+            {output && <CopyAction text={output} testId="copy-all" />}
+          </>
+        }
+      />
     </div>
   );
+}
+
+/** 把任意异常格式化为输出框可显示的错误文本(与其他新代工具一致) */
+function formatError(e: unknown): string {
+  if (e instanceof CommandError) {
+    return e.code ? `${e.code}: ${e.message}` : e.message;
+  }
+  if (e instanceof Error) return e.message;
+  return String(e);
 }
