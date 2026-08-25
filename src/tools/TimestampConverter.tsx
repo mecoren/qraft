@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { invokeCommand, CommandError } from '@/lib/ipc';
+import { copyTextWithFeedback } from '@/lib/toast-alert';
 import type { ToolProps } from './registry';
 import type { ToolOutput } from '@/types/tool';
 
@@ -69,7 +70,7 @@ export function TimestampConverter({ toolId }: ToolProps) {
   const extra = output?.extra as TimestampExtra | undefined;
 
   async function handleCopy(value: string) {
-    await navigator.clipboard.writeText(value);
+    await copyTextWithFeedback(value);
   }
 
   return (

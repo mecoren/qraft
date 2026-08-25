@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { invokeCommand, CommandError } from '@/lib/ipc';
+import { copyTextWithFeedback } from '@/lib/toast-alert';
 import type { ToolProps } from './registry';
 import type { ToolOutput } from '@/types/tool';
 
@@ -53,9 +54,7 @@ export function UuidGenerator({ toolId }: ToolProps) {
   }
 
   async function handleCopyAll() {
-    if (output?.text) {
-      await navigator.clipboard.writeText(output.text);
-    }
+    if (output?.text) await copyTextWithFeedback(output.text);
   }
 
   return (

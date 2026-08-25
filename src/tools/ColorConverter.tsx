@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { invokeCommand, CommandError } from '@/lib/ipc';
+import { copyTextWithFeedback } from '@/lib/toast-alert';
 import type { ToolProps } from './registry';
 import type { ToolOutput } from '@/types/tool';
 
@@ -55,7 +56,7 @@ export function ColorConverter({ toolId }: ToolProps) {
   const extra = output?.extra as ColorExtra | undefined;
 
   async function handleCopy(value: string) {
-    await navigator.clipboard.writeText(value);
+    await copyTextWithFeedback(value);
   }
 
   return (

@@ -18,7 +18,13 @@ vi.mock('@/lib/ipc', () => {
   };
 });
 
+// 统一复制反馈经 sonner 弹出;组件测试不挂载 <Toaster>,改以 mock 断言文案
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
+}));
+
 import { HashCalculator } from './HashCalculator';
+import { toast } from 'sonner';
 
 describe('HashCalculator', () => {
   beforeEach(() => {
@@ -69,5 +75,30 @@ describe('HashCalculator', () => {
     await waitFor(() => {
       expect(screen.getByText(/INVALID_INPUT/i)).toBeInTheDocument();
     });
+  });
+
+  it('copies hash result with unified feedback', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const { invokeCommand } = await import('@/lib/ipc');
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824',
+      meta: { input_bytes: 5, output_bytes: 64, duration_ms: 0 },
+    });
+
+    render(<HashCalculator toolId="hash_calculator" metadata={null as never} />);
+    const editor = screen.getByTestId('input').querySelector('textarea')!;
+    fireEvent.change(editor, { target: { value: 'hello' } });
+    fireEvent.click(screen.getByRole('button', { name: /计算/ }));
+
+    // 输出编辑器工具栏出现复制按钮(哈希是最典型的待复制内容)
+    fireEvent.click(await screen.findByTestId('copy-hash'));
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/^[0-9a-f]{64}$/));
+    });
+    expect(toast.success).toHaveBeenCalledWith(
+      '已复制到剪贴板',
+      expect.objectContaining({ description: expect.any(String) }),
+    );
   });
 });

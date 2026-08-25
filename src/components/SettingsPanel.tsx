@@ -31,7 +31,7 @@ import {
   getStoredCustomAccent,
   setPalette,
 } from '@/lib/color-theme';
-import { PRESET_PALETTES } from '@/lib/design-tokens';
+import { PRESET_PALETTES, parseHexColor } from '@/lib/design-tokens';
 import {
   applyFontFamily,
   applyFontSizeLevel,
@@ -295,6 +295,7 @@ export function ThemeSection() {
   const [customAccent, setCustomAccent] = useState<string>(
     () => getStoredCustomAccent() ?? '#4E8CFF',
   );
+  const [accentInvalid, setAccentInvalid] = useState(false);
 
   const handleSelectPalette = (id: PaletteId) => {
     setPalette(id, id === 'custom' ? customAccent : undefined);
@@ -303,7 +304,11 @@ export function ThemeSection() {
 
   const handleCustomAccentChange = (hex: string) => {
     setCustomAccent(hex);
-    if (paletteId === 'custom') {
+    // HEX 手输校验:type=color 拾取器恒合法,仅手输可能产生非法中间态;
+    // 非法输入不落库不应用,避免半输入状态污染主题
+    const valid = parseHexColor(hex) !== null;
+    setAccentInvalid(!valid);
+    if (valid && paletteId === 'custom') {
       setPalette('custom', hex);
     }
   };
@@ -368,8 +373,15 @@ export function ThemeSection() {
               className="w-32 font-mono"
               placeholder="#RRGGBB"
               aria-label="Hex 色值"
+              aria-invalid={accentInvalid}
             />
-            <p className="text-xs text-muted-foreground">实时预览,修改后自动持久化</p>
+            {accentInvalid ? (
+              <p className="text-xs text-destructive" role="alert">
+                无效的 HEX 色值,请使用 #RRGGBB 格式
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">实时预览,修改后自动持久化</p>
+            )}
           </div>
         )}
       </CardContent>

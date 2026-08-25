@@ -33,6 +33,7 @@ import { Input } from '@/components/ui/input';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { toast } from 'sonner';
+import { copyTextWithFeedback } from '@/lib/toast-alert';
 import type { ToolProps } from './registry';
 
 // ============================================================
@@ -295,10 +296,8 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
       toast.info('暂无重复行可复制');
       return;
     }
-    void navigator.clipboard.writeText(tableText).then(
-      () => toast.success('已复制结果到剪贴板'),
-      () => toast.error('复制失败,请手动选择文本复制'),
-    );
+    // 统一复制反馈(成功 toast + 预览/失败报错),与 CopyAction 同一范式
+    void copyTextWithFeedback(tableText);
   };
 
   return (

@@ -266,6 +266,46 @@ export const PRESET_PALETTES: readonly ColorPalette[] = [
 /** 应用启动默认主题 ID(亮色 daylight,符合用户预期) */
 export const DEFAULT_PALETTE_ID = 'daylight';
 
+/** 解析 #RGB/#RRGGBB 十六进制颜色为 [r,g,b](0-255);非法返回 null */
+export function parseHexColor(hex: string): [number, number, number] | null {
+  const m = /^#([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(hex.trim());
+  if (!m) return null;
+  const s = m[1];
+  const full = s.length === 3 ? s.split('').map((c) => c + c).join('') : s;
+  return [
+    parseInt(full.slice(0, 2), 16),
+    parseInt(full.slice(2, 4), 16),
+    parseInt(full.slice(4, 6), 16),
+  ];
+}
+
+/** sRGB 通道 → 线性值(WCAG 2.x 相对亮度公式) */
+function linearize(channel: number): number {
+  const s = channel / 255;
+  return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+}
+
+/** 近白前景 oklch(0.99 0 0) ≈ #fbfbfb 的相对亮度 */
+const FG_LIGHT_LUM = 0.961;
+
+/**
+ * 按 WCAG 对比度选择 accent 色之上的可读前景色。
+ *
+ * 背景:自定义主题的 primaryForeground 原为恒白,用户选浅色 accent(如黄色)时
+ * 主按钮「白字浅底」不可读。阈值取 3:1(WCAG 1.4.11 非文本/UI 组件下限):
+ * 白字对比不足 3:1 即切换近黑,否则维持近白以保持现有按钮视觉习惯。
+ * 非法输入回退近白(与历史行为一致;上游 SettingsPanel 负责格式校验提示)。
+ */
+export function pickAccentForeground(accentHex: string): string {
+  const rgb = parseHexColor(accentHex);
+  if (!rgb) return 'oklch(0.99 0 0)';
+  const lum =
+    0.2126 * linearize(rgb[0]) + 0.7152 * linearize(rgb[1]) + 0.0722 * linearize(rgb[2]);
+  // 近黑前景的对比度必然随亮度升高而下降,白字不足 3:1 时近黑必然更优,无需再算
+  const contrastOnLight = (FG_LIGHT_LUM + 0.05) / (lum + 0.05);
+  return contrastOnLight >= 3 ? 'oklch(0.99 0 0)' : 'oklch(0.15 0 0)';
+}
+
 /**
  * 由 accent 色派生自定义主题
  *
@@ -276,6 +316,7 @@ export const DEFAULT_PALETTE_ID = 'daylight';
  * - primary = accent(直接使用)
  * - ring = accent(直接使用)
  * - sidebarPrimary = accent
+ * - primaryForeground / sidebarPrimaryForeground = 按 accent 亮度自动选近白/近黑
  * - sidebarAccent = color-mix(accent 20% transparent)(半透明高亮)
  * - accentBg = color-mix(accent 15% transparent)(hover 背景)
  * - 其余字段使用与 obsidian 一致的深色基底
@@ -296,7 +337,7 @@ export function deriveCustomPalette(accent: string): ColorPalette {
     popover: 'oklch(0.21 0 0)',
     popoverForeground: 'oklch(0.96 0 0)',
     primary: accent,
-    primaryForeground: 'oklch(0.99 0 0)',
+    primaryForeground: pickAccentForeground(accent),
     secondary: 'oklch(0.27 0 0)',
     secondaryForeground: 'oklch(0.96 0 0)',
     muted: 'oklch(0.24 0 0)',
@@ -314,7 +355,7 @@ export function deriveCustomPalette(accent: string): ColorPalette {
     sidebar: 'oklch(0.18 0 0)',
     sidebarForeground: 'oklch(0.96 0 0)',
     sidebarPrimary: accent,
-    sidebarPrimaryForeground: 'oklch(0.99 0 0)',
+    sidebarPrimaryForeground: pickAccentForeground(accent),
     sidebarAccent: `color-mix(in srgb, ${accent} 20%, transparent)`,
     sidebarAccentForeground: 'oklch(0.96 0 0)',
     sidebarBorder: 'oklch(1 0 0 / 10%)',

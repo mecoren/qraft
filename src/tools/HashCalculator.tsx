@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/ui/code-editor';
+import { CopyAction } from '@/components/copy-action';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -113,6 +114,9 @@ export function HashCalculator({ toolId }: ToolProps) {
               className="flex-1"
               data-testid="output"
               searchAnchor="hash_calculator:output"
+              actions={
+                output?.text ? <CopyAction text={output.text} testId="copy-hash" /> : undefined
+              }
             />
           )}
           {output?.meta && (
