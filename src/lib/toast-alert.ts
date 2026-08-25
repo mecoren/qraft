@@ -7,6 +7,7 @@
  */
 import { toast } from 'sonner';
 import { writeClipboardText } from '@/lib/clipboard';
+import { t } from '@/i18n';
 
 export type AlertVariant = 'default' | 'info' | 'success' | 'warning' | 'destructive';
 
@@ -53,11 +54,11 @@ export async function copyTextWithFeedback(text: string): Promise<boolean> {
   if (ok) {
     showAlert({
       variant: 'success',
-      title: '已复制到剪贴板',
+      title: t('chrome.toast.copied'),
       description: text.length > 80 ? `${text.slice(0, 80)}…` : text,
     });
   } else {
-    showAlert({ variant: 'destructive', title: '复制失败' });
+    showAlert({ variant: 'destructive', title: t('chrome.toast.copy_failed') });
   }
   return ok;
 }

@@ -15,6 +15,7 @@
  */
 
 import { useMemo, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ChevronRight,
   Home,
@@ -127,6 +128,7 @@ function NavItem({
  * 固定的「文本编辑器」始终排第一且位置固定,不提供收藏/排序,右键无菜单。
  */
 function ToolContextMenuContent({ entry }: { entry: CatalogEntry }): JSX.Element {
+  const { t } = useTranslation();
   const favorites = useUiStore((s) => s.favorites);
   const toggleFavorite = useUiStore((s) => s.toggleFavorite);
   const moveFavorite = useUiStore((s) => s.moveFavorite);
@@ -136,19 +138,19 @@ function ToolContextMenuContent({ entry }: { entry: CatalogEntry }): JSX.Element
   return (
     <>
       <ContextMenuItem onSelect={() => toggleFavorite(entry.id)}>
-        {isFavorite ? '取消收藏' : '收藏'}
+        {isFavorite ? t('chrome.sidebar.unfavorite') : t('chrome.sidebar.favorite')}
       </ContextMenuItem>
       {isFavorite && (
         <>
           <ContextMenuSeparator />
           <ContextMenuItem disabled={index <= 0} onSelect={() => moveFavorite(entry.id, 'up')}>
-            上移
+            {t('chrome.sidebar.move_up')}
           </ContextMenuItem>
           <ContextMenuItem
             disabled={index >= favorites.length - 1}
             onSelect={() => moveFavorite(entry.id, 'down')}
           >
-            下移
+            {t('chrome.sidebar.move_down')}
           </ContextMenuItem>
         </>
       )}
@@ -264,6 +266,7 @@ function RailButton({
 // ============================================================
 
 export function Sidebar(): JSX.Element {
+  const { t } = useTranslation();
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const view = useUiStore((s) => s.view);
@@ -311,10 +314,10 @@ export function Sidebar(): JSX.Element {
         data-testid="sidebar-rail"
         className="flex h-full w-14 shrink-0 flex-col items-center gap-1 border-r border-sidebar-border bg-sidebar-layer py-2 text-sidebar-foreground"
       >
-        <RailButton icon={Menu} label="展开侧栏" onClick={toggleSidebar} testId="rail-expand" />
+        <RailButton icon={Menu} label={t('chrome.sidebar.expand')} onClick={toggleSidebar} testId="rail-expand" />
         <RailButton
           icon={Home}
-          label="所有工具"
+          label={t('chrome.sidebar.tools')}
           active={view === 'welcome'}
           onClick={goWelcome}
           testId="rail-home"
@@ -375,7 +378,7 @@ export function Sidebar(): JSX.Element {
         <button
           type="button"
           data-testid="sidebar-collapse"
-          aria-label="折叠侧栏"
+          aria-label={t('chrome.sidebar.collapse')}
           onClick={toggleSidebar}
           className="flex size-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-sidebar-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >
@@ -390,8 +393,8 @@ export function Sidebar(): JSX.Element {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="输入以搜索工具..."
-            aria-label="搜索工具"
+            placeholder={t('chrome.sidebar.search_placeholder')}
+            aria-label={t('chrome.sidebar.search_label')}
             className="h-8 border-sidebar-border bg-background pl-8 text-sm focus-visible:ring-2 focus-visible:ring-sidebar-ring/60"
           />
         </div>
@@ -403,7 +406,7 @@ export function Sidebar(): JSX.Element {
             // —— 搜索态:扁平结果 ——
             searchResults.length === 0 ? (
               <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-                未找到匹配「{query.trim()}」的工具
+                {t('chrome.sidebar.search_empty', { query: query.trim() })}
               </p>
             ) : (
               searchResults.map((entry) => (
@@ -422,7 +425,7 @@ export function Sidebar(): JSX.Element {
             <>
               <NavItem
                 icon={Home}
-                label="所有工具"
+                label={t('chrome.sidebar.tools')}
                 active={view === 'welcome'}
                 onClick={goWelcome}
                 testId="nav-all-tools"

@@ -6,13 +6,25 @@
       "favorites": "Favorites",
       "recents": "Recent",
       "collapse": "Collapse sidebar",
-      "expand": "Expand sidebar"
+      "expand": "Expand sidebar",
+      "favorite": "Favorite",
+      "unfavorite": "Unfavorite",
+      "move_up": "Move up",
+      "move_down": "Move down",
+      "search_placeholder": "Type to search tools...",
+      "search_label": "Search tools",
+      "search_empty": "No tools matching \"{{query}}\""
     },
     "palette": {
       "placeholder": "Search tools or actions...",
+      "description": "Search tools or actions, press Enter to run",
       "group_tools": "Tools",
       "group_actions": "Actions",
-      "detect_clipboard": "Detected clipboard content"
+      "detect_clipboard": "Detected clipboard content",
+      "back_home": "Back to all tools",
+      "open_settings": "Open settings",
+      "open_history": "Open history",
+      "clear_history": "Clear history"
     },
     "welcome": { "hero_title": "Local-first developer toolbox", "open_tool": "Open tool" },
     "toast": {

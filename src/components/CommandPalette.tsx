@@ -1,4 +1,5 @@
 import { useEffect, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Command,
   CommandEmpty,
@@ -33,6 +34,7 @@ export function CommandPalette({
   const goWelcome = useUiStore((s) => s.goWelcome);
   // Smart Detection:剪贴板探测结果(仅在用户开启开关后有内容)
   const detected = useUiStore((s) => s.detectedTools);
+  const { t } = useTranslation();
 
   // Esc 关闭由 Dialog 内部 Radix 处理,此处仅作冗余兜底
   useEffect(() => {
@@ -47,14 +49,14 @@ export function CommandPalette({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl overflow-hidden p-0">
-        <DialogTitle className="sr-only">命令面板</DialogTitle>
-        <DialogDescription className="sr-only">搜索工具或操作,回车执行</DialogDescription>
+        <DialogTitle className="sr-only">{t('chrome.app.name')}</DialogTitle>
+        <DialogDescription className="sr-only">{t('chrome.palette.description')}</DialogDescription>
         <Command shouldFilter={true}>
-          <CommandInput placeholder="搜索工具或操作..." />
+          <CommandInput placeholder={t('chrome.palette.placeholder')} />
           <CommandList className="max-h-80">
             <CommandEmpty>无匹配项</CommandEmpty>
             {detected.length > 0 && (
-              <CommandGroup heading="检测到剪贴板内容">
+              <CommandGroup heading={t('chrome.palette.detect_clipboard')}>
                 {detected.map((d) => {
                   const entry = TOOL_CATALOG.find((c) => c.id === d.toolId);
                   if (!entry) return null;
@@ -75,7 +77,7 @@ export function CommandPalette({
                 })}
               </CommandGroup>
             )}
-            <CommandGroup heading="工具">
+            <CommandGroup heading={t('chrome.palette.group_tools')}>
               {TOOL_CATALOG.map((entry) => (
                 <CommandItem
                   key={entry.id}
@@ -98,16 +100,16 @@ export function CommandPalette({
                 </CommandItem>
               ))}
             </CommandGroup>
-            <CommandGroup heading="操作">
+            <CommandGroup heading={t('chrome.palette.group_actions')}>
               <CommandItem
-                value="home welcome 所有工具 首页"
+                value="home welcome 所有工具 首页 all tools home"
                 onSelect={() => {
                   goWelcome();
                   onOpenChange(false);
                 }}
               >
                 <Home aria-hidden className="h-4 w-4 opacity-50" />
-                <span>返回所有工具</span>
+                <span>{t('chrome.palette.back_home')}</span>
               </CommandItem>
               <CommandItem
                 value="settings open settings 打开设置"
@@ -117,7 +119,7 @@ export function CommandPalette({
                 }}
               >
                 <Settings aria-hidden className="h-4 w-4 opacity-50" />
-                <span>打开设置</span>
+                <span>{t('chrome.palette.open_settings')}</span>
               </CommandItem>
               <CommandItem
                 value="history open history 打开历史"
@@ -127,17 +129,17 @@ export function CommandPalette({
                 }}
               >
                 <History aria-hidden className="h-4 w-4 opacity-50" />
-                <span>打开历史</span>
+                <span>{t('chrome.palette.open_history')}</span>
               </CommandItem>
               <CommandItem
-                value="clear history 清空历史"
+                value="clear history 清空历史 clear"
                 onSelect={async () => {
                   await clearHistory();
                   onOpenChange(false);
                 }}
               >
                 <Trash2 aria-hidden className="h-4 w-4 opacity-50" />
-                <span>清空历史</span>
+                <span>{t('chrome.palette.clear_history')}</span>
               </CommandItem>
             </CommandGroup>
           </CommandList>

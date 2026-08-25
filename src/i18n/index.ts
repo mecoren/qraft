@@ -8,6 +8,7 @@
  * - locale 的持久化走既有 general.language 配置管道(configStore,见 store 层)。
  */
 import i18next, { type i18n as I18n } from 'i18next';
+import { initReactI18next } from 'react-i18next';
 import zhCN from './locales/zh-CN.json';
 import enUS from './locales/en-US.json';
 
@@ -19,7 +20,9 @@ let currentLocale: Locale = FALLBACK_LOCALE;
 
 const instance: I18n = i18next.createInstance();
 
-void instance.init({
+// 注册 react-i18next:useTranslation 在未包 Provider 的场景(如直接渲染组件的
+// 单测)也能命中全局实例,避免 90+ 组件测试各自包 Provider
+void instance.use(initReactI18next).init({
   lng: currentLocale,
   fallbackLng: FALLBACK_LOCALE,
   defaultNS: 'translation',
