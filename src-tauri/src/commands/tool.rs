@@ -11,7 +11,7 @@ use tauri::Emitter;
 use tokio_util::sync::CancellationToken;
 
 use crate::commands::fs::AuthorizedPaths;
-use crate::core::context::ToolContext;
+use crate::core::context::{HistoryEntry, ToolContext};
 use crate::core::error::ToolError;
 use crate::core::input::ToolInput;
 use crate::core::output::ToolOutput;
@@ -21,6 +21,40 @@ use crate::shell::response::CommandResponse;
 use crate::shell::state::AppState;
 
 // ============ 内部函数(可测试) ============
+
+/// 历史条目摘要截断上限(字符):历史仅存预览,避免携带超大输入/输出载荷
+const HISTORY_PREVIEW_CHARS: usize = 200;
+
+/// 按 Unicode 码点截断预览文本,避免多字节字符被切出无效 UTF-8 边界
+fn text_preview(s: &str) -> String {
+    s.chars().take(HISTORY_PREVIEW_CHARS).collect()
+}
+
+/// 当前 Unix 时间(毫秒);系统时钟早于 1970 时回退 0
+fn unix_millis() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
+}
+
+/// 成功执行后落一条历史并向前端广播 `history_added`(经 `HistorySink`)。
+/// 历史是旁路数据:写入失败不阻断工具结果的返回。
+async fn record_history(
+    sink: &dyn crate::core::context::HistorySink,
+    tool_id: &str,
+    input_preview: &str,
+    output_text: &str,
+    elapsed_ms: u64,
+) {
+    let entry = HistoryEntry {
+        tool_id: tool_id.to_string(),
+        input_summary: input_preview.to_string(),
+        output_summary: text_preview(output_text),
+        timestamp: unix_millis(),
+        duration_ms: elapsed_ms,
+    };
+    let _ = sink.write(entry).await;
+}
 
 /// 校验 `file_path` 已经由 dialog 选择或拖放授权,未授权则拒绝。
 /// 同步(`tool_execute_inner`)与流式(`tool_execute_stream_inner`)
@@ -92,10 +126,22 @@ pub async fn tool_execute_inner(
     let ctx = ToolContext {
         cancel_token,
         config: serde_json::Value::Null,
-        history_sink,
+        history_sink: history_sink.clone(),
     };
 
+    // 在 input 被 move 进执行器之前捕获输入摘要(历史条目仅存预览)
+    let input_preview = text_preview(input.text.as_deref().unwrap_or_default());
+    let started = std::time::Instant::now();
+
     let output = state.executor.execute(tool_id, input, ctx).await?;
+    record_history(
+        history_sink.as_ref(),
+        tool_id,
+        &input_preview,
+        &output.text,
+        u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+    )
+    .await;
     Ok(CommandResponse::ok(output))
 }
 
@@ -133,6 +179,10 @@ pub fn tool_execute_stream_inner(
         file_path: Some(file_path.to_string()),
         params: params.unwrap_or_default(),
     };
+
+    // 在 input 被 move 进后台任务之前捕获输入摘要(历史条目仅存预览)
+    let input_preview = text_preview(input.text.as_deref().unwrap_or_default());
+    let started = std::time::Instant::now();
 
     let history_sink = Arc::new(state.history_sink()) as Arc<dyn crate::core::context::HistorySink>;
     let ctx = ToolContext {
@@ -183,6 +233,15 @@ pub fn tool_execute_stream_inner(
                                 "output": output,
                             });
                             let _ = app_handle_clone.emit("tool_completed", &payload);
+                            // 与同步路径一致:流式成功完成也落一条历史并广播
+                            record_history(
+                                ctx.history_sink.as_ref(),
+                                &tool_id_owned,
+                                &input_preview,
+                                &output.text,
+                                u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                            )
+                            .await;
                             break;
                         }
                         Ok(StreamEvent::Error { error }) => {
@@ -329,12 +388,14 @@ pub async fn tool_cancel(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::context::HistoryEntry;
     use crate::core::executor::ToolExecutor;
     use crate::core::registry::ToolRegistry;
     use crate::shell::state::AppState;
     use crate::store::config::{ConfigStore, UserConfig};
     use crate::store::history::HistoryStore;
     use async_trait::async_trait;
+    use parking_lot::Mutex as ParkingMutex;
     use serde_json::Value;
 
     struct MockConfigStore;
@@ -354,31 +415,44 @@ mod tests {
         }
     }
 
-    struct MockHistoryStore;
+    /// 可读取的历史存储 Mock:记录 add 写入的条目供断言
+    struct MockHistoryStore {
+        entries: ParkingMutex<Vec<HistoryEntry>>,
+    }
+    impl MockHistoryStore {
+        fn new() -> Self {
+            Self {
+                entries: ParkingMutex::new(Vec::new()),
+            }
+        }
+    }
     #[async_trait]
     impl HistoryStore for MockHistoryStore {
-        async fn add(&self, _entry: crate::core::context::HistoryEntry) -> Result<(), ToolError> {
+        async fn add(&self, entry: HistoryEntry) -> Result<(), ToolError> {
+            self.entries.lock().push(entry);
             Ok(())
         }
-        async fn list(
-            &self,
-            _limit: usize,
-        ) -> Result<Vec<crate::core::context::HistoryEntry>, ToolError> {
-            Ok(vec![])
+        async fn list(&self, limit: usize) -> Result<Vec<HistoryEntry>, ToolError> {
+            Ok(self.entries.lock().iter().take(limit).cloned().collect())
         }
         async fn clear(&self) -> Result<(), ToolError> {
+            self.entries.lock().clear();
             Ok(())
         }
     }
 
-    fn make_state() -> AppState {
+    fn make_state_with(history_store: Arc<dyn HistoryStore>) -> AppState {
         let registry = ToolRegistry::global();
         let executor = Arc::new(ToolExecutor::new(registry));
         AppState::new(
             executor,
             Arc::new(MockConfigStore) as Arc<dyn ConfigStore>,
-            Arc::new(MockHistoryStore) as Arc<dyn HistoryStore>,
+            history_store,
         )
+    }
+
+    fn make_state() -> AppState {
+        make_state_with(Arc::new(MockHistoryStore::new()))
     }
 
     #[tokio::test]
@@ -411,6 +485,42 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.code(), "ERR_TOOL_NOT_FOUND");
+    }
+
+    #[tokio::test]
+    async fn test_tool_execute_records_history_on_success() {
+        let mock = Arc::new(MockHistoryStore::new());
+        let state = make_state_with(mock.clone() as Arc<dyn HistoryStore>);
+        let authorized = AuthorizedPaths::new();
+        let input = ToolInput {
+            text: Some("hello".into()),
+            ..Default::default()
+        };
+        let resp = tool_execute_inner("base64_codec", input, &state, &authorized)
+            .await
+            .unwrap();
+        assert!(resp.success);
+        let entries = mock.entries.lock();
+        assert_eq!(entries.len(), 1, "成功执行后应恰好写入一条历史");
+        assert_eq!(entries[0].tool_id, "base64_codec");
+        // 输入摘要为原文预览;输出摘要非空且耗时为合理量级
+        assert_eq!(entries[0].input_summary, "hello");
+        assert!(!entries[0].output_summary.is_empty());
+        assert!(entries[0].duration_ms <= 5_000);
+    }
+
+    #[tokio::test]
+    async fn test_tool_execute_failure_does_not_record_history() {
+        let mock = Arc::new(MockHistoryStore::new());
+        let state = make_state_with(mock.clone() as Arc<dyn HistoryStore>);
+        let authorized = AuthorizedPaths::new();
+        let input = ToolInput {
+            text: Some("hello".into()),
+            ..Default::default()
+        };
+        let result = tool_execute_inner("nonexistent_tool", input, &state, &authorized).await;
+        assert!(result.is_err());
+        assert_eq!(mock.entries.lock().len(), 0, "失败执行不应写入历史");
     }
 
     #[tokio::test]

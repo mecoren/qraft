@@ -13,7 +13,7 @@ import { WelcomePage } from '@/pages/WelcomePage';
 import { ExtensionsPage } from '@/pages/ExtensionsPage';
 import { useConfigStore } from '@/store/configStore';
 import { useToolStateStore } from '@/store/toolStateStore';
-import { useHistoryStore } from '@/store/historyStore';
+import { useHistoryStore, type BackendHistoryEntry } from '@/store/historyStore';
 import { useUiStore } from '@/store/uiStore';
 import { useShortcut } from '@/hooks/useShortcut';
 import { useSearchJump } from '@/hooks/useSearchJump';
@@ -73,7 +73,13 @@ export function App(): JSX.Element {
       unlisteners.push(
         await listen<ConfigChangedPayload>('config_changed', (p) => applyConfigChanged(p)),
       );
-      unlisteners.push(await listen<HistoryEntry>('history_added', (e) => applyHistoryAdded(e)));
+      // 后端在历史落库成功后广播 history_added;payload 为 snake_case 简化结构,
+      // 由 store 内 normalizeHistoryEntry 统一适配(lib/ipc 的 listen 已解包事件对象)
+      unlisteners.push(
+        await listen<HistoryEntry | BackendHistoryEntry>('history_added', (payload) =>
+          applyHistoryAdded(payload),
+        ),
+      );
       unlisteners.push(
         await listen<ToolProgressPayload>('tool_progress', (p) => applyToolProgress(p)),
       );

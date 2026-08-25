@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use async_trait::async_trait;
+use tauri::Emitter;
 use tokio_util::sync::CancellationToken;
 
 use crate::core::context::{HistoryEntry, HistorySink};
@@ -84,15 +85,17 @@ impl Default for StreamingTaskRegistry {
 
 /// `HistorySink` 的 Shell 层实现
 ///
-/// 将 `HistoryEntry` 通过 `tokio::spawn` 异步写入 `HistoryStore`,
-/// 不阻塞工具执行返回(满足"历史写入异步"约束)。
+/// 将 `HistoryEntry` 异步写入 `HistoryStore`,不阻塞工具执行返回;
+/// 写入成功后向前端广播 `history_added` 事件,驱动 `HistoryPanel` 实时刷新。
 pub struct HistorySinkImpl {
     store: Arc<dyn HistoryStore>,
+    /// 运行时注入的 AppHandle(单元测试场景为 None):仅用于事件广播
+    app_handle: Option<tauri::AppHandle>,
 }
 
 impl HistorySinkImpl {
-    pub fn new(store: Arc<dyn HistoryStore>) -> Self {
-        Self { store }
+    pub fn new(store: Arc<dyn HistoryStore>, app_handle: Option<tauri::AppHandle>) -> Self {
+        Self { store, app_handle }
     }
 }
 
@@ -101,7 +104,12 @@ impl HistorySink for HistorySinkImpl {
     async fn write(&self, entry: HistoryEntry) -> Result<(), ToolError> {
         // 内部直接 await,调用方(tokio::spawn)负责异步化
         // 若需进一步解耦,可在 ToolContext 注入时包一层 spawn
-        self.store.add(entry).await
+        self.store.add(entry.clone()).await?;
+        // 持久化成功后才广播;前端未就绪/无订阅者时 emit 失败无害,静默忽略
+        if let Some(handle) = &self.app_handle {
+            let _ = handle.emit("history_added", &entry);
+        }
+        Ok(())
     }
 }
 
@@ -150,9 +158,9 @@ impl AppState {
         self.app_handle.get()
     }
 
-    /// 构造 HistorySink(用于 `ToolContext`)
+    /// 构造 `HistorySink`(用于 `ToolContext`),携带 `app_handle` 以广播 `history_added`
     pub fn history_sink(&self) -> HistorySinkImpl {
-        HistorySinkImpl::new(self.history_store.clone())
+        HistorySinkImpl::new(self.history_store.clone(), self.app_handle().cloned())
     }
 }
 
@@ -277,7 +285,7 @@ mod tests {
     #[tokio::test]
     async fn test_history_sink_impl_writes_to_store() {
         let store: Arc<dyn HistoryStore> = Arc::new(MockHistoryStore::new());
-        let sink = HistorySinkImpl::new(store.clone());
+        let sink = HistorySinkImpl::new(store.clone(), None);
         let entry = HistoryEntry {
             tool_id: "test".into(),
             input_summary: "in".into(),
