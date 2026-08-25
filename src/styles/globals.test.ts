@@ -46,4 +46,9 @@ describe('globals.css 主题系统(Tailwind v4 + OKLCH + data-palette)', () => {
     expect(css).toMatch(/--radius:\s*0\.5rem/);
     expect(css).toMatch(/--app-font-family/);
   });
+
+  it('尊重系统减少动态效果偏好(prefers-reduced-motion)', () => {
+    const css = readFileSync(resolve(__dirname, 'globals.css'), 'utf-8');
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+  });
 });

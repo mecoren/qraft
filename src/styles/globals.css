@@ -1942,3 +1942,20 @@
   color: inherit;
   padding: 0;
 }
+
+/* ============================================================
+ * 无障碍:尊重系统「减少动态效果」偏好(WCAG 2.3.3)
+ *
+ * 系统开启减弱动态效果时,压缩装饰性动画与过渡时长并禁用平滑滚动;
+ * 仅影响动效表现,不改变布局与配色。
+ * ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
