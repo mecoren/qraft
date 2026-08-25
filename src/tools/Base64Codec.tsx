@@ -42,6 +42,8 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { invokeCommand, CommandError } from '@/lib/ipc';
+import { copyTextWithFeedback } from '@/lib/toast-alert';
+import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import { formatBytes, readFileAsDataUrl, stripDataUrlPrefix } from '@/lib/file-utils';
 import {
   getMode,
@@ -477,6 +479,21 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
     },
     [toolId, text, urlSafe],
   );
+
+  // 全局快捷键契约:text 模式执行编码/解码,file 解码执行二进制解析,
+  // file 编码模式(需要文件选择器交互)不注册 execute。清空输入同时复位输出与预览。
+  useToolShortcutActions(toolId, {
+    execute: isTextMode
+      ? () => void runTextExecute(false)
+      : isFileDecode
+        ? () => void runBinaryExecute(false)
+        : undefined,
+    clearInput: () => {
+      setText('');
+      resetWorkspace();
+    },
+    copyOutput: output ? () => void copyTextWithFeedback(output) : undefined,
+  });
 
   // 文本类:输入 / 配置变化后防抖自动执行(参考 JsonFormatter)
   useEffect(() => {
