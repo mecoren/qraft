@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
 import { DEFAULT_EDITOR_CONFIG, DEFAULT_USER_CONFIG, type UserConfig } from '@/types/config';
 import type { ConfigChangedPayload, ErrorInfo } from '@/types/ipc';
+import { changeLocale } from '@/i18n';
 
 /**
  * 用默认值回填持久化配置中缺失的字段。
@@ -88,7 +89,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ loading: true, error: null });
     const r = await safeInvoke<UserConfig>('config_get_all');
     if (r.ok) {
-      set({ config: normalizeConfig(r.value), loading: false });
+      const normalized = normalizeConfig(r.value);
+      set({ config: normalized, loading: false });
+      // 启动同步:配置中的界面语言驱动 i18n(缺省/非法值保持 zh-CN 不变)
+      const lang = normalized.general?.language;
+      if (lang === 'en-US' || lang === 'zh-CN') changeLocale(lang);
     } else {
       set({ loading: false, error: r.error.message });
     }
@@ -112,6 +117,10 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       };
       setByPath(next as unknown as Record<string, unknown>, key, value);
       set({ config: next });
+      // 语言切换即时生效(i18n),持久化紧随其后
+      if (key === 'general.language' && (value === 'en-US' || value === 'zh-CN')) {
+        changeLocale(value);
+      }
     }
     const r = await safeInvoke<boolean>('config_set', { key, value });
     return r;

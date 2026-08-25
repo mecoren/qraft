@@ -102,7 +102,8 @@ export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
 export const DEFAULT_USER_CONFIG: UserConfig = {
   version: 1,
   general: {
-    language: 'en',
+    // 现状为中文优先应用;早期 PRD「MVP 仅英文」口径已演进,见 docs/i18n 计划
+    language: 'zh-CN',
     fontSize: 14,
     maxHistory: 100,
     confirmOnClear: true,

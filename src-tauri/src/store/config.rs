@@ -54,7 +54,7 @@ pub struct NamingConventionConfig {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct GeneralConfig {
-    #[serde(default)]
+    #[serde(default = "default_language")]
     pub language: String,
     #[serde(default)]
     pub font_size: u32,
@@ -62,6 +62,11 @@ pub struct GeneralConfig {
     pub max_history: usize,
     #[serde(default)]
     pub confirm_on_clear: bool,
+}
+
+/// 界面语言默认值:与前端 DEFAULT_USER_CONFIG 对齐(zh-CN 优先现状)
+fn default_language() -> String {
+    "zh-CN".to_string()
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
