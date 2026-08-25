@@ -446,6 +446,16 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       keywords: ['网络地址', '广播', '可用主机'],
     },
   ],
+  json_csv_converter: [
+    {
+      key: 'config',
+      title: '转换方向',
+      description: 'JSON → CSV 或 CSV → JSON',
+      keywords: ['方向', 'csv', 'json', '表格'],
+    },
+    { key: 'input', title: '输入', keywords: ['文本'] },
+    { key: 'output', title: '输出', keywords: ['结果'] },
+  ],
   ip_parser: [
     {
       key: 'summary',

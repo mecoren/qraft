@@ -440,6 +440,14 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
     keywords: ['subnet', 'cidr', 'netmask', '子网掩码', '广播地址'],
   },
   {
+    id: 'json_csv_converter',
+    name: 'JSON ↔ CSV 转换器',
+    description: 'JSON 数组与 CSV 表格双向转换(RFC 4180,支持引号转义)',
+    category: 'converter',
+    icon: Table,
+    keywords: ['csv', 'excel', '表格', 'tsv', '逗号分隔'],
+  },
+  {
     id: 'ip_parser',
     name: 'IP 地址解析器',
     description:

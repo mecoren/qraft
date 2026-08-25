@@ -143,6 +143,9 @@ registerTool('basic_auth_generator', () =>
 registerTool('ipv4_subnet_calculator', () =>
   import('./Ipv4SubnetCalculator').then((m) => ({ default: m.Ipv4SubnetCalculator })),
 );
+registerTool('json_csv_converter', () =>
+  import('./JsonCsvConverter').then((m) => ({ default: m.JsonCsvConverter })),
+);
 registerTool('text_editor', () =>
   import('./CodeEditor').then((m) => ({ default: m.CodeEditorTool })),
 );
