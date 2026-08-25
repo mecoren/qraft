@@ -1,7 +1,11 @@
 import 'reflect-metadata';
 import '@testing-library/jest-dom/vitest';
-import { vi, afterEach } from 'vitest';
+import { vi, afterEach, beforeAll } from 'vitest';
 import React from 'react';
+
+// i18n 测试桩:全量测试固定 zh-CN,存量中文断言在迁移期不受语言切换影响
+import { changeLocale } from '@/i18n';
+beforeAll(() => changeLocale('zh-CN'));
 import { cleanup } from '@testing-library/react';
 
 // jsdom 在 about:blank URL 下不提供 localStorage,且 Node 22+ 的实验性 localStorage

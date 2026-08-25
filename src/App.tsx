@@ -1,5 +1,7 @@
 import { useEffect, useState, type JSX } from 'react';
 import { toast, Toaster } from 'sonner';
+import { I18nextProvider } from 'react-i18next';
+import { getI18nInstance } from '@/i18n';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Titlebar } from '@/components/layout/Titlebar';
@@ -206,7 +208,8 @@ export function App(): JSX.Element {
   };
 
   return (
-    <ErrorBoundary>
+    <I18nextProvider i18n={getI18nInstance()}>
+      <ErrorBoundary>
       {/* 顶层:flex-col 让 Titlebar 固定顶部,下方为侧栏 + 主区水平布局
        * h-screen 撑满视口;overflow-hidden 防止 Mica 透明时溢出滚动 */}
       <div className="flex h-screen w-screen flex-col overflow-hidden">
@@ -271,7 +274,8 @@ export function App(): JSX.Element {
       />
 
       <Toaster position="bottom-right" />
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </I18nextProvider>
   );
 }
 
