@@ -44,6 +44,8 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { invokeCommand, CommandError } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
+import { useToolHandoff } from '@/hooks/useToolHandoff';
+import { SendToMenu } from '@/components/send-to-menu';
 import { formatBytes, readFileAsDataUrl, stripDataUrlPrefix } from '@/lib/file-utils';
 import {
   getMode,
@@ -495,6 +497,9 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
     copyOutput: output ? () => void copyTextWithFeedback(output) : undefined,
   });
 
+  // 「发送到…」接收端
+  useToolHandoff(toolId, (incoming) => setText(incoming));
+
   // 文本类:输入 / 配置变化后防抖自动执行(参考 JsonFormatter)
   useEffect(() => {
     if (!isTextMode) return;
@@ -699,6 +704,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
                     </span>
                   )}
                   <CopyAction text={output} testId="output-copy" />
+                  {output ? <SendToMenu text={output} currentToolId={toolId} testId="output-send" /> : null}
                 </>
               }
             />

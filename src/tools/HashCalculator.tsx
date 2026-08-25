@@ -24,6 +24,8 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { invokeCommand, CommandError } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
+import { useToolHandoff } from '@/hooks/useToolHandoff';
+import { SendToMenu } from '@/components/send-to-menu';
 import type { ToolProps } from './registry';
 import type { ToolOutput } from '@/types/tool';
 
@@ -76,6 +78,9 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
     },
     copyOutput: output?.text ? () => void copyTextWithFeedback(output.text) : undefined,
   });
+
+  // 「发送到…」接收端
+  useToolHandoff(toolId, (incoming) => setText(incoming));
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="hash-calculator">
@@ -151,7 +156,12 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
                         {output.meta.input_bytes} 字节 · {output.meta.duration_ms}ms
                       </span>
                     )}
-                    {output?.text && <CopyAction text={output.text} testId="copy-hash" />}
+                    {output?.text && (
+                <>
+                  <CopyAction text={output.text} testId="copy-hash" />
+                  <SendToMenu text={output.text} currentToolId={toolId} testId="output-send" />
+                </>
+              )}
                   </>
                 }
               />

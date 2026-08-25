@@ -32,6 +32,8 @@ import { CopyAction } from '@/components/copy-action';
 import { invokeCommand, CommandError } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
+import { useToolHandoff } from '@/hooks/useToolHandoff';
+import { SendToMenu } from '@/components/send-to-menu';
 import { cn } from '@/lib/utils';
 import {
   ArrowDownAZ,
@@ -407,6 +409,11 @@ export function JsonFormatter({ toolId }: ToolProps) {
       if (activeDocId) setDocContent(activeDocId, '');
     },
     copyOutput: output ? () => void copyTextWithFeedback(output) : undefined,
+  });
+
+  // 「发送到…」接收端:成为激活工具时注入当前文档
+  useToolHandoff(toolId, (incoming) => {
+    if (activeDocId) setDocContent(activeDocId, incoming);
   });
 
   // 输入或缩进变化后自动格式化到右侧输出(防抖,避免每次按键都调用)
@@ -883,6 +890,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                 )}
                 <OutputViewToggle mode={viewMode} onChange={setViewMode} />
                 <CopyAction text={output} testId="output-copy-tree" />
+                <SendToMenu text={output} currentToolId={toolId} testId="output-send-tree" />
               </div>
               {!output.trim() ? (
                 <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
@@ -925,6 +933,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                     </span>
                   )}
                   <CopyAction text={output} testId="output-copy" />
+                  <SendToMenu text={output} currentToolId={toolId} testId="output-send" />
                 </>
               }
             />
