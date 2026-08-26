@@ -48,7 +48,8 @@
       "toggle_fold": "切换折叠",
       "fold_all": "全部折叠",
       "unfold_all": "全部展开",
-      "word_wrap": "自动换行"
+      "word_wrap": "自动换行",
+      "enabled_aria": "{{label}}已开启"
     }
   },
   "catalog": {

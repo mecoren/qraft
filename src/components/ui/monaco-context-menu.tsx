@@ -426,7 +426,7 @@ export function MonacoContextMenu({
             <span className="flex-1 truncate text-left">{entry.label}</span>
             {entry.checked && (
               <Check
-                aria-label={`${entry.label}已开启`}
+                aria-label={t('chrome.editor_menu.enabled_aria', { label: entry.label })}
                 data-testid={`${dataTestId ?? 'monaco-ctx'}-${entry.id.split('.').pop()}-check`}
                 className="ml-auto size-3.5 shrink-0 text-primary"
               />

@@ -48,7 +48,8 @@
       "toggle_fold": "Toggle Fold",
       "fold_all": "Fold All",
       "unfold_all": "Unfold All",
-      "word_wrap": "Word Wrap"
+      "word_wrap": "Word Wrap",
+      "enabled_aria": "{{label}} enabled"
     }
   },
   "catalog": {
