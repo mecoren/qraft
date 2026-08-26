@@ -28,6 +28,7 @@
  */
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { ChevronDown, FilePlus2, GitCompareArrows, Pin, Save, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FileIcon } from './FileIcon';
@@ -154,6 +155,7 @@ export function EditorLeftSidebar({
   actionsForced = false,
   'data-testid': dataTestId,
 }: EditorLeftSidebarProps): JSX.Element {
+  const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
   /** 「对比差异」分组是否折叠(独立于上方的文件列表折叠) */
   const [compareCollapsed, setCompareCollapsed] = useState(false);
@@ -320,7 +322,7 @@ export function EditorLeftSidebar({
   return (
     <aside
       data-testid={dataTestId}
-      aria-label="打开的编辑器"
+      aria-label={t('tools.text_editor.open_editors')}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className="flex h-full min-w-0 w-full flex-col overflow-hidden text-sidebar-foreground"
@@ -350,7 +352,7 @@ export function EditorLeftSidebar({
           )}
         />
         {/* 标题:占满中间空间 */}
-        <h2 className="min-w-0 flex-1 truncate">打开的编辑器</h2>
+        <h2 className="min-w-0 flex-1 truncate">{t('tools.text_editor.open_editors')}</h2>
 
         {/* dirty 徽章:始终显示在标题右侧;悬浮区域时按钮组在最右展开,把徽章挤到左侧 */}
         {dirtyCount > 0 && (
@@ -359,7 +361,7 @@ export function EditorLeftSidebar({
             className="shrink-0 overflow-hidden whitespace-nowrap"
           >
             <span className="inline-block rounded bg-sidebar-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-sidebar-primary">
-              {dirtyCount} 个未保存
+              {t('tools.text_editor.dirty_badge', { num: dirtyCount })}
             </span>
           </span>
         )}
@@ -381,8 +383,8 @@ export function EditorLeftSidebar({
               e.stopPropagation();
               onNewTab?.();
             }}
-            title="新建空白文件"
-            aria-label="新建空白文件"
+            title={t('tools.text_editor.new_blank_file')}
+            aria-label={t('tools.text_editor.new_blank_file')}
             className="flex size-5 items-center justify-center rounded-sm hover:bg-sidebar-accent/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <FilePlus2 aria-hidden className="size-3.5" />
@@ -395,8 +397,8 @@ export function EditorLeftSidebar({
               onSaveAll?.();
             }}
             disabled={saveAllDisabled}
-            title="全部保存"
-            aria-label="全部保存"
+            title={t('tools.text_editor.save_all')}
+            aria-label={t('tools.text_editor.save_all')}
             className="flex size-5 items-center justify-center rounded-sm hover:bg-sidebar-accent/70 disabled:cursor-not-allowed disabled:opacity-30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <Save aria-hidden className="size-3.5" />
@@ -409,8 +411,8 @@ export function EditorLeftSidebar({
               onCloseAll?.();
             }}
             disabled={closeAllDisabled}
-            title="全部关闭"
-            aria-label="全部关闭"
+            title={t('tools.text_editor.close_all')}
+            aria-label={t('tools.text_editor.close_all')}
             className="flex size-5 items-center justify-center rounded-sm hover:bg-sidebar-accent/70 disabled:cursor-not-allowed disabled:opacity-30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <X aria-hidden className="size-3.5" />
@@ -430,7 +432,7 @@ export function EditorLeftSidebar({
                 data-testid={`${dataTestId}-empty`}
                 className="px-2 py-3 text-center text-xs text-muted-foreground"
               >
-                暂无打开的文件
+                {t('tools.text_editor.list_empty')}
               </li>
             ) : (
               tabs.map((tab, index) => {
@@ -554,7 +556,7 @@ export function EditorLeftSidebar({
                         <span className="flex w-3.5 shrink-0 items-center justify-center transition-opacity group-hover:opacity-0">
                           {dirty && (
                             <span
-                              aria-label="未保存"
+                              aria-label={t('tools.text_editor.unsaved_aria')}
                               data-testid={`${dataTestId}-dirty-${tab.title}`}
                               className="size-2 rounded-full bg-primary"
                             />
@@ -578,7 +580,7 @@ export function EditorLeftSidebar({
                             随侧边栏宽度变化而移动位置 */}
                         {tab.pinned && (
                           <Pin
-                            aria-label="已固定"
+                            aria-label={t('tools.text_editor.pinned_aria')}
                             data-testid={`${dataTestId}-pin-${tab.title}`}
                             className={cn(
                               'ml-auto size-3 shrink-0',
@@ -588,7 +590,7 @@ export function EditorLeftSidebar({
                         )}
                         {/* 关闭按钮:hover 时在圆点位置出现,替代圆点(通过负 margin 定位到圆点槽位) */}
                         <X
-                          aria-label="关闭"
+                          aria-label={t('tools.text_editor.close')}
                           role="button"
                           data-testid={`${dataTestId}-close-${tab.title}`}
                           // 关闭按钮按下拖动不应触发列表项拖拽(配合 handleDragStart 守卫)
@@ -632,7 +634,7 @@ export function EditorLeftSidebar({
            - 标题栏数量徽章 + 悬浮关闭键拥有独立布局空间,窄侧栏下完整显示不被裁切 */}
       {compares.length > 0 && (
         <section
-          aria-label="对比差异"
+          aria-label={t('tools.text_editor.compare_section')}
           data-testid={`${dataTestId}-compare-section`}
           className="flex min-h-0 flex-initial flex-col border-t border-sidebar-border"
         >
@@ -661,7 +663,7 @@ export function EditorLeftSidebar({
               )}
             />
             {/* 标题:占满中间空间,窄栏时 truncate 收缩 */}
-            <h2 className="min-w-0 flex-1 truncate">对比差异</h2>
+            <h2 className="min-w-0 flex-1 truncate">{t('tools.text_editor.compare_section')}</h2>
             {/* 数量徽章:始终显示在标题右侧,与「打开的编辑器」未保存徽章一致;
                     hover 时被右侧 ml-auto 按钮组自然挤到左侧(位置由 flex 自动重排) */}
             <span
@@ -687,8 +689,8 @@ export function EditorLeftSidebar({
                   e.stopPropagation();
                   onCloseAllCompares?.();
                 }}
-                title="关闭对比差异"
-                aria-label="关闭对比差异"
+                title={t('tools.text_editor.compare_close_all')}
+                aria-label={t('tools.text_editor.compare_close_all')}
                 className="flex size-4 items-center justify-center rounded-sm hover:bg-sidebar-accent/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <X aria-hidden className="size-3" />
@@ -753,7 +755,7 @@ export function EditorLeftSidebar({
                             <span className="min-w-0 flex-1 truncate">{label}</span>
                             {/* 关闭按钮:hover 时显示在 (8, 22) 空槽位,替代对比图标(对齐「打开的编辑器」X ↔ dirty 圆点的覆盖关系) */}
                             <X
-                              aria-label="关闭对比"
+                              aria-label={t('tools.text_editor.compare_item_close_aria')}
                               role="button"
                               data-testid={`${dataTestId}-compare-close-${cp.id}`}
                               onClick={(e) => {
@@ -769,14 +771,14 @@ export function EditorLeftSidebar({
                             onSelect={() => onCloseCompare?.(cp.id)}
                             data-testid="ctx-compare-close"
                           >
-                            关闭
+                            {t('tools.text_editor.close')}
                           </ContextMenuItem>
                           <ContextMenuSeparator />
                           <ContextMenuItem
                             onSelect={() => onCloseAllCompares?.()}
                             data-testid="ctx-compare-close-all"
                           >
-                            关闭全部
+                            {t('tools.text_editor.compare_menu_close_all')}
                           </ContextMenuItem>
                         </ContextMenuContent>
                       </ContextMenu>
