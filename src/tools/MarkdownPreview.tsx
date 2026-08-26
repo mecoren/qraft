@@ -21,6 +21,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import type { Monaco } from '@monaco-editor/react';
 import { useStore } from 'zustand';
@@ -43,6 +44,7 @@ import {
   Table,
 } from 'lucide-react';
 import 'katex/dist/katex.min.css';
+import { t as translate } from '@/i18n';
 import { CodeEditor } from '@/components/ui/code-editor';
 import {
   DropdownMenu,
@@ -70,8 +72,8 @@ import { buildSyncAnchors, mapAcrossAnchors } from './markdown-scroll';
 import { buildStandaloneHtml, saveStandaloneHtml } from './markdown-export';
 import {
   DRAFT_STORAGE_KEY,
-  SAMPLE_MARKDOWN,
   THEME_ITEMS,
+  getSampleMarkdown,
   mdLiveStore,
   setMdActiveHeading,
   setMdCursor,
@@ -90,12 +92,12 @@ function escapeSelector(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
 }
 
-/** 读取初始草稿:无历史草稿时返回示例文档 */
+/** 读取初始草稿:无历史草稿时返回当前语言的示例文档 */
 function loadInitialDraft(): string {
   try {
-    return localStorage.getItem(DRAFT_STORAGE_KEY) ?? SAMPLE_MARKDOWN;
+    return localStorage.getItem(DRAFT_STORAGE_KEY) ?? getSampleMarkdown();
   } catch {
-    return SAMPLE_MARKDOWN;
+    return getSampleMarkdown();
   }
 }
 
@@ -104,6 +106,7 @@ function loadInitialDraft(): string {
 // ============================================================
 
 function MdStatusBar({ stats }: { stats: DocStats }): JSX.Element {
+  const { t } = useTranslation();
   const cursor = useStore(mdLiveStore, (s) => s.cursor);
   const selection = useStore(mdLiveStore, (s) => s.selection);
   return (
@@ -112,16 +115,29 @@ function MdStatusBar({ stats }: { stats: DocStats }): JSX.Element {
       data-testid="md-statusbar"
     >
       <span data-testid="md-cursor">
-        行 {cursor.line}, 列 {cursor.column}
+        {t('tools.markdown_preview.status_cursor', {
+          line: cursor.line,
+          column: cursor.column,
+        })}
       </span>
       <span data-testid="md-stats">
         {selection && (
           <span data-testid="md-selection-stats">
-            已选 {selection.words} 词 / {selection.chars} 字符 ·{' '}
+            {t('tools.markdown_preview.status_selection', {
+              words: selection.words,
+              chars: selection.chars,
+            })}{' '}
+            ·{' '}
           </span>
         )}
-        {stats.words} 词 · {stats.chars} 字符 · {stats.lines} 行
-        {stats.readingMinutes > 0 ? ` · 约 ${stats.readingMinutes} 分钟` : ''}
+        {t('tools.markdown_preview.status_summary', {
+          words: stats.words,
+          chars: stats.chars,
+          lines: stats.lines,
+        })}
+        {stats.readingMinutes > 0
+          ? ` · ${t('tools.markdown_preview.reading_time', { minutes: stats.readingMinutes })}`
+          : ''}
       </span>
     </footer>
   );
@@ -133,6 +149,7 @@ interface MdOutlinePanelProps {
 }
 
 function MdOutlinePanel({ outline, onJump }: MdOutlinePanelProps): JSX.Element {
+  const { t } = useTranslation();
   const activeHeadingId = useStore(mdLiveStore, (s) => s.activeHeadingId);
   return (
     <aside
@@ -141,11 +158,11 @@ function MdOutlinePanel({ outline, onJump }: MdOutlinePanelProps): JSX.Element {
       data-search-anchor="markdown_preview:outline"
     >
       <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        大纲
+        {t('tools.markdown_preview.outline_title')}
       </p>
       {outline.length === 0 ? (
         <p className="px-3 py-2 text-xs text-muted-foreground" data-testid="outline-empty">
-          暂无标题 · 使用 # 编写标题后展示
+          {t('tools.markdown_preview.outline_empty')}
         </p>
       ) : (
         <ul className="space-y-0.5 px-1.5">
@@ -212,6 +229,7 @@ function MdFormatButton({
 // ============================================================
 
 export function MarkdownPreview(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const themeId = useMarkdownPreviewStore((s) => s.themeId);
   const viewMode = useMarkdownPreviewStore((s) => s.viewMode);
   const outlineOpen = useMarkdownPreviewStore((s) => s.outlineOpen);
@@ -428,6 +446,9 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
     if (!ed || !model || !position) return;
     ed.focus();
     const eol = model.getLineMaxColumn(position.lineNumber);
+    const colA = t('tools.markdown_preview.table_col_a');
+    const colB = t('tools.markdown_preview.table_col_b');
+    const cell = t('tools.markdown_preview.table_cell');
     ed.executeEdits('md-format', [
       {
         range: {
@@ -436,11 +457,11 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
           endLineNumber: position.lineNumber,
           endColumn: eol,
         },
-        text: '\n| 列 A | 列 B |\n| --- | --- |\n| 内容 | 内容 |\n',
+        text: `\n| ${colA} | ${colB} |\n| --- | --- |\n| ${cell} | ${cell} |\n`,
         forceMoveMarkers: true,
       },
     ]);
-  }, []);
+  }, [t]);
 
   /** 插入链接:[选中文字](https://),并选中 URL 段便于直接输入 */
   const insertLink = useCallback((): void => {
@@ -450,7 +471,7 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
     if (!ed || !model || !selection) return;
     ed.focus();
     const selected = model.getValueInRange(selection);
-    const label = selected || '链接文字';
+    const label = selected || t('tools.markdown_preview.link_text');
     const startOffset = model.getOffsetAt({
       lineNumber: selection.startLineNumber,
       column: selection.startColumn,
@@ -465,7 +486,7 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
       endLineNumber: urlStart.lineNumber,
       endColumn: urlStart.column + 'https://'.length,
     });
-  }, []);
+  }, [t]);
 
   /** 在当前选区位置插入文本(替换选区) */
   const insertRawText = useCallback((text: string): void => {
@@ -496,17 +517,20 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
     const markdown = html ? htmlToMarkdown(html) : '';
     if (markdown) {
       insertRawText(markdown);
-      showAlert({ variant: 'success', title: '已粘贴为 Markdown' });
+      showAlert({ variant: 'success', title: t('tools.markdown_preview.toast_pasted') });
       return;
     }
     // 无 HTML 可转:回退纯文本直接插入
     const text = await readClipboardText().catch(() => '');
     if (!text.trim()) {
-      showAlert({ variant: 'info', title: '剪贴板没有可粘贴的内容' });
+      showAlert({
+        variant: 'info',
+        title: t('tools.markdown_preview.toast_clipboard_empty'),
+      });
       return;
     }
     insertRawText(text);
-  }, [insertRawText]);
+  }, [insertRawText, t]);
 
   /** CodeEditor onMount:捕获实例与 monaco 命名空间,挂监听并注册快捷键 */
   const handleEditorMount = useCallback(
@@ -544,13 +568,21 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
       });
 
       // —— 快捷键(KeyMod/KeyCode 取自运行时命名空间,避免引入 monaco 值包)——
+      // 占位文案在触发时经全局 translate 即时翻译(命令只注册一次,
+      // 捕获 hook 的 t 会固化注册时的语言)
       const KeyMod = monacoNs.KeyMod;
       const KeyCode = monacoNs.KeyCode;
-      instance.addCommand(KeyMod.CtrlCmd | KeyCode.KeyB, () => applyInline('**', '**', '加粗文字'));
-      instance.addCommand(KeyMod.CtrlCmd | KeyCode.KeyI, () => applyInline('*', '*', '斜体文字'));
-      instance.addCommand(KeyMod.CtrlCmd | KeyCode.KeyE, () => applyInline('`', '`', '代码'));
+      instance.addCommand(KeyMod.CtrlCmd | KeyCode.KeyB, () =>
+        applyInline('**', '**', translate('tools.markdown_preview.ph_bold')),
+      );
+      instance.addCommand(KeyMod.CtrlCmd | KeyCode.KeyI, () =>
+        applyInline('*', '*', translate('tools.markdown_preview.ph_italic')),
+      );
+      instance.addCommand(KeyMod.CtrlCmd | KeyCode.KeyE, () =>
+        applyInline('`', '`', translate('tools.markdown_preview.ph_code')),
+      );
       instance.addCommand(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyX, () =>
-        applyInline('~~', '~~', '删除线'),
+        applyInline('~~', '~~', translate('tools.markdown_preview.ph_strike')),
       );
       instance.addCommand(KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.Digit1, () =>
         applyLinePrefix('h1'),
@@ -587,13 +619,13 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
         ok
           ? {
               variant: 'success',
-              title: '已复制富文本',
-              description: '可直接粘贴到邮件或文档编辑器',
+              title: t('tools.markdown_preview.toast_rich_ok'),
+              description: t('tools.markdown_preview.toast_rich_hint'),
             }
-          : { variant: 'destructive', title: '复制失败' },
+          : { variant: 'destructive', title: t('tools.markdown_preview.toast_copy_failed') },
       );
     });
-  }, []);
+  }, [t]);
 
   /** 复制 HTML 源码 */
   const handleCopyHtmlSource = useCallback(() => {
@@ -602,22 +634,26 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
     void writeClipboardText(html).then((ok) => {
       showAlert(
         ok
-          ? { variant: 'success', title: '已复制 HTML 源码' }
-          : { variant: 'destructive', title: '复制失败' },
+          ? { variant: 'success', title: t('tools.markdown_preview.toast_html_ok') }
+          : { variant: 'destructive', title: t('tools.markdown_preview.toast_copy_failed') },
       );
     });
-  }, []);
+  }, [t]);
 
   /** 另存为独立 HTML 文件(内嵌排版样式与公式字体;Night 固定深色外观) */
   const handleExportHtml = useCallback(async () => {
     const html = articleRef.current?.innerHTML ?? '';
     if (!html) return;
-    const firstHeading = outline[0]?.text ?? '未命名文档';
+    const firstHeading = outline[0]?.text ?? t('tools.markdown_preview.untitled_doc');
     const standalone = await buildStandaloneHtml(html, firstHeading, effectiveDark);
     const fileName = `${firstHeading.slice(0, 40).replace(/[\\/:*?"<>|]/g, '') || 'document'}.html`;
     const ok = await saveStandaloneHtml(standalone, fileName);
-    if (ok) showAlert({ variant: 'success', title: `已导出 ${fileName}` });
-  }, [effectiveDark, outline]);
+    if (ok)
+      showAlert({
+        variant: 'success',
+        title: t('tools.markdown_preview.toast_exported', { name: fileName }),
+      });
+  }, [effectiveDark, outline, t]);
 
   const showEditor = viewMode !== 'preview';
   const showPreview = viewMode !== 'edit';
@@ -631,34 +667,52 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
       >
         <div
           role="group"
-          aria-label="视图模式"
+          aria-label={t('tools.markdown_preview.view_group_aria')}
           className="flex overflow-hidden rounded border border-border"
         >
           {(
             [
-              { id: 'edit', label: '编辑', icon: PenLine, testId: 'mode-edit' },
-              { id: 'split', label: '分屏', icon: Columns2, testId: 'mode-split' },
-              { id: 'preview', label: '预览', icon: Eye, testId: 'mode-preview' },
-            ] as ReadonlyArray<{ id: MdViewMode; label: string; icon: typeof Eye; testId: string }>
-          ).map(({ id, label, icon: Icon, testId }) => (
-            <button
-              key={id}
-              type="button"
-              data-testid={testId}
-              aria-pressed={viewMode === id}
-              title={`${label}模式`}
-              onClick={() => setViewMode(id)}
-              className={cn(
-                'flex items-center gap-1 px-2 py-0.5 text-xs transition-colors',
-                viewMode === id
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
-              )}
-            >
-              <Icon aria-hidden className="size-3.5" />
-              {label}
-            </button>
-          ))}
+              {
+                id: 'edit',
+                labelKey: 'tools.markdown_preview.view_edit',
+                icon: PenLine,
+                testId: 'mode-edit',
+              },
+              {
+                id: 'split',
+                labelKey: 'tools.markdown_preview.view_split',
+                icon: Columns2,
+                testId: 'mode-split',
+              },
+              {
+                id: 'preview',
+                labelKey: 'tools.markdown_preview.view_preview',
+                icon: Eye,
+                testId: 'mode-preview',
+              },
+            ] as ReadonlyArray<{ id: MdViewMode; labelKey: string; icon: typeof Eye; testId: string }>
+          ).map(({ id, labelKey, icon: Icon, testId }) => {
+            const label = t(labelKey);
+            return (
+              <button
+                key={id}
+                type="button"
+                data-testid={testId}
+                aria-pressed={viewMode === id}
+                title={t('tools.markdown_preview.view_mode_title', { label })}
+                onClick={() => setViewMode(id)}
+                className={cn(
+                  'flex items-center gap-1 px-2 py-0.5 text-xs transition-colors',
+                  viewMode === id
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
+                )}
+              >
+                <Icon aria-hidden className="size-3.5" />
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         <button
@@ -674,25 +728,25 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
           )}
         >
           <ListTree aria-hidden className="size-3.5" />
-          大纲
+          {t('tools.markdown_preview.outline_toggle')}
         </button>
 
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          打字机
+          {t('tools.markdown_preview.typewriter')}
           <Switch
             checked={typewriterMode}
             onCheckedChange={setTypewriterMode}
-            aria-label="打字机模式"
+            aria-label={t('tools.markdown_preview.typewriter_aria')}
             data-testid="md-typewriter"
           />
         </label>
 
         <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-          同步滚动
+          {t('tools.markdown_preview.sync_scroll')}
           <Switch
             checked={syncScroll}
             onCheckedChange={setSyncScroll}
-            aria-label="滚动同步"
+            aria-label={t('tools.markdown_preview.sync_scroll_aria')}
             data-testid="md-sync-scroll"
           />
         </label>
@@ -712,7 +766,7 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
                     language="markdown"
                     value={input}
                     onChange={setInput}
-                    placeholder="# 开始编写 Markdown…"
+                    placeholder={t('tools.markdown_preview.editor_placeholder')}
                     data-testid="md-input"
                     className="h-full"
                     searchAnchor="markdown_preview:input"
@@ -727,75 +781,75 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
                         {/* —— 格式工具栏(Typora 常用插入;快捷键见 addCommand)—— */}
                         <MdFormatButton
                           icon={Bold}
-                          title="加粗 (Ctrl+B)"
+                          title={t('tools.markdown_preview.fmt_bold')}
                           testId="fmt-bold"
-                          onClick={() => applyInline('**', '**', '加粗文字')}
+                          onClick={() => applyInline('**', '**', t('tools.markdown_preview.ph_bold'))}
                         />
                         <MdFormatButton
                           icon={Italic}
-                          title="斜体 (Ctrl+I)"
+                          title={t('tools.markdown_preview.fmt_italic')}
                           testId="fmt-italic"
-                          onClick={() => applyInline('*', '*', '斜体文字')}
+                          onClick={() => applyInline('*', '*', t('tools.markdown_preview.ph_italic'))}
                         />
                         <MdFormatButton
                           icon={Strikethrough}
-                          title="删除线 (Ctrl+Shift+X)"
+                          title={t('tools.markdown_preview.fmt_strike')}
                           testId="fmt-strike"
-                          onClick={() => applyInline('~~', '~~', '删除线')}
+                          onClick={() => applyInline('~~', '~~', t('tools.markdown_preview.ph_strike'))}
                         />
                         <MdFormatButton
                           icon={Code}
-                          title="行内代码 (Ctrl+E)"
+                          title={t('tools.markdown_preview.fmt_inline_code')}
                           testId="fmt-code"
-                          onClick={() => applyInline('`', '`', '代码')}
+                          onClick={() => applyInline('`', '`', t('tools.markdown_preview.ph_code'))}
                         />
                         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
                         <MdFormatButton
                           text="H1"
-                          title="一级标题 (Ctrl+Alt+1)"
+                          title={t('tools.markdown_preview.fmt_h1')}
                           testId="fmt-h1"
                           onClick={() => applyLinePrefix('h1')}
                         />
                         <MdFormatButton
                           text="H2"
-                          title="二级标题 (Ctrl+Alt+2)"
+                          title={t('tools.markdown_preview.fmt_h2')}
                           testId="fmt-h2"
                           onClick={() => applyLinePrefix('h2')}
                         />
                         <MdFormatButton
                           icon={Quote}
-                          title="引用"
+                          title={t('tools.markdown_preview.fmt_quote')}
                           testId="fmt-quote"
                           onClick={() => applyLinePrefix('quote')}
                         />
                         <MdFormatButton
                           icon={List}
-                          title="无序列表"
+                          title={t('tools.markdown_preview.fmt_bullet')}
                           testId="fmt-bullet"
                           onClick={() => applyLinePrefix('bullet')}
                         />
                         <MdFormatButton
                           icon={ListTodo}
-                          title="任务列表"
+                          title={t('tools.markdown_preview.fmt_task')}
                           testId="fmt-task"
                           onClick={() => applyLinePrefix('task')}
                         />
                         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
                         <MdFormatButton
                           icon={Table}
-                          title="插入表格"
+                          title={t('tools.markdown_preview.fmt_table')}
                           testId="fmt-table"
                           onClick={insertTableTemplate}
                         />
                         <MdFormatButton
                           icon={Link2}
-                          title="插入链接"
+                          title={t('tools.markdown_preview.fmt_link')}
                           testId="fmt-link"
                           onClick={insertLink}
                         />
                         <MdFormatButton
                           icon={ClipboardPaste}
-                          title="粘贴为 Markdown (Ctrl+Shift+V)"
+                          title={t('tools.markdown_preview.fmt_paste_md')}
                           testId="fmt-paste-md"
                           onClick={() => void pasteAsMarkdown()}
                         />
@@ -819,10 +873,12 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
                 >
                   {/* 预览工具条:主题 / 复制 / 导出(打印隐藏) */}
                   <div className="flex items-center gap-1.5 border-b border-border px-2 py-1 print:hidden">
-                    <span className="text-xs font-medium text-muted-foreground">预览</span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t('tools.markdown_preview.preview_label')}
+                    </span>
                     <Select value={themeId} onValueChange={(v) => setThemeId(v as typeof themeId)}>
                       <SelectTrigger
-                        aria-label="排版主题"
+                        aria-label={t('tools.markdown_preview.theme_select_aria')}
                         data-testid="md-theme-select"
                         className="h-7 w-28 px-2 text-xs"
                       >
@@ -835,7 +891,7 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
                             value={item.id}
                             data-testid={`theme-${item.id}`}
                           >
-                            {item.label}
+                            {t(item.labelKey)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -847,18 +903,18 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
                         onClick={handleCopyRichText}
                         className="rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                       >
-                        复制富文本
+                        {t('tools.markdown_preview.copy_rich')}
                       </button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
                             data-testid="btn-export"
-                            title="导出"
+                            title={t('tools.markdown_preview.export')}
                             className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                           >
                             <Download aria-hidden className="size-3.5" />
-                            导出
+                            {t('tools.markdown_preview.export')}
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -867,14 +923,14 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
                             onSelect={() => void handleExportHtml()}
                           >
                             <Download aria-hidden className="mr-2 size-3.5 opacity-60" />
-                            另存为 HTML 文件
+                            {t('tools.markdown_preview.export_html')}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             data-testid="copy-html-source"
                             onSelect={handleCopyHtmlSource}
                           >
                             <FileCode2 aria-hidden className="mr-2 size-3.5 opacity-60" />
-                            复制 HTML 源码
+                            {t('tools.markdown_preview.copy_html_source')}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

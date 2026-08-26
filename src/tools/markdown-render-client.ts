@@ -10,8 +10,18 @@
  * 结果契约:resolve 的 RenderResult 均已消毒,可直接注入 DOM。
  */
 
+import { t } from '@/i18n';
 import { renderMarkdown, sanitizeMarkdownHtml, type RenderResult } from './markdown-render';
-import { loadExtendedLanguages } from './markdown-core';
+import { loadExtendedLanguages, type MdRenderLabels } from './markdown-core';
+
+/** 主线程按当前语言解析渲染产出内嵌文案,随任务下发 Worker(避免 Worker 打包 i18n) */
+function resolveRenderLabels(): MdRenderLabels {
+  return {
+    copyCode: t('tools.markdown_preview.core_copy_code'),
+    headingAnchor: t('tools.markdown_preview.core_heading_anchor'),
+    backref: t('tools.markdown_preview.core_backref'),
+  };
+}
 
 interface WorkerEnvelope {
   id: number;
@@ -127,6 +137,6 @@ export function renderMarkdownAsync(source: string, fastHighlight = false): Prom
       }
     });
 
-    instance.postMessage({ id, source, fastHighlight });
+    instance.postMessage({ id, source, fastHighlight, labels: resolveRenderLabels() });
   });
 }

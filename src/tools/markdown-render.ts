@@ -12,6 +12,7 @@
  */
 
 import DOMPurify from 'dompurify';
+import { t } from '@/i18n';
 import {
   renderMarkdownCore,
   computeDocStats,
@@ -71,7 +72,15 @@ export interface RenderResult {
 
 /** 同步渲染 + 消毒(Worker 不可用时的回退路径 / 组件首帧) */
 export function renderMarkdown(source: string, options: RenderOptions = {}): RenderResult {
-  const core: RenderCoreResult = renderMarkdownCore(source, options);
+  const core: RenderCoreResult = renderMarkdownCore(source, {
+    ...options,
+    labels:
+      options.labels ?? {
+        copyCode: t('tools.markdown_preview.core_copy_code'),
+        headingAnchor: t('tools.markdown_preview.core_heading_anchor'),
+        backref: t('tools.markdown_preview.core_backref'),
+      },
+  });
   return {
     html: core.html ? sanitizeMarkdownHtml(core.html) : '',
     outline: core.outline,

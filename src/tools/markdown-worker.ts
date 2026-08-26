@@ -7,17 +7,19 @@
  * - 返回未消毒 HTML;DOMPurify 消毒由主线程统一完成(其依赖 window)
  *
  * 协议:
- *   入站  { id: number; source: string; fastHighlight?: boolean }
+ *   入站  { id: number; source: string; fastHighlight?: boolean; labels?: MdRenderLabels }
  *   出站  { id: number; ok: true; raw: RenderCoreResult }
  *        | { id: number; ok: false }
  */
 
-import { renderMarkdownCore } from './markdown-core';
+import { renderMarkdownCore, type MdRenderLabels } from './markdown-core';
 
 export interface WorkerRequest {
   id: number;
   source: string;
   fastHighlight?: boolean;
+  /** 渲染产出内嵌文案(主线程按当前语言翻译后注入) */
+  labels?: MdRenderLabels;
 }
 
 export interface WorkerResponse {
@@ -27,9 +29,9 @@ export interface WorkerResponse {
 }
 
 self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
-  const { id, source, fastHighlight } = event.data ?? { id: -1, source: '' };
+  const { id, source, fastHighlight, labels } = event.data ?? { id: -1, source: '' };
   try {
-    const result = renderMarkdownCore(source, { fastHighlight });
+    const result = renderMarkdownCore(source, { fastHighlight, labels });
     const response: WorkerResponse = { id, ok: true, raw: result };
     (self as unknown as Worker).postMessage(response);
   } catch {

@@ -21,6 +21,7 @@ import {
   type JSX,
   type MouseEvent,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { writeClipboardText } from '@/lib/clipboard';
 import { openExternal } from '@/lib/open-external';
@@ -83,13 +84,16 @@ export interface MarkdownPreviewPaneProps {
 export function MarkdownPreviewPane({
   source,
   className,
-  emptyHint = '在左侧输入 Markdown 内容开始预览',
+  emptyHint,
   onRendered,
   onScroller,
   onArticle,
   onScroll,
 }: MarkdownPreviewPaneProps): JSX.Element {
+  const { t } = useTranslation();
   const themeId = useMarkdownPreviewStore((s) => s.themeId);
+  /** 空文档提示:宿主未提供时按当前语言取默认文案(语言切换即重算) */
+  const resolvedEmptyHint = emptyHint ?? t('tools.markdown_preview.empty_hint');
 
   // 首帧直接渲染初始内容(同步路径),避免空窗;后续更新经 Worker 异步推进
   const initialRendered = useMemo(() => renderMarkdown(source), [source]);
@@ -159,48 +163,51 @@ export function MarkdownPreviewPane({
   }, [lightboxSrc]);
 
   /** 预览区点击代理:图片 lightbox / 代码块复制按钮 / 锚点链接 / 外部链接 */
-  const handleArticleClick = useCallback((event: MouseEvent<HTMLElement>) => {
-    const target = event.target as HTMLElement;
+  const handleArticleClick = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      const target = event.target as HTMLElement;
 
-    // 图片 → lightbox 放大
-    const image = target.closest('img');
-    if (image) {
-      const src = image.getAttribute('src');
-      if (src) {
+      // 图片 → lightbox 放大
+      const image = target.closest('img');
+      if (image) {
+        const src = image.getAttribute('src');
+        if (src) {
+          event.preventDefault();
+          setLightboxSrc(src);
+        }
+        return;
+      }
+
+      const copyButton = target.closest('[data-md-copy]');
+      if (copyButton) {
+        const code = copyButton.closest('.md-code')?.querySelector('pre code');
+        if (code?.textContent) {
+          void writeClipboardText(code.textContent).then((ok) => {
+            showAlert(
+              ok
+                ? { variant: 'success', title: t('tools.markdown_preview.toast_code_copied') }
+                : { variant: 'destructive', title: t('tools.markdown_preview.toast_copy_failed') },
+            );
+          });
+        }
         event.preventDefault();
-        setLightboxSrc(src);
+        return;
       }
-      return;
-    }
 
-    const copyButton = target.closest('[data-md-copy]');
-    if (copyButton) {
-      const code = copyButton.closest('.md-code')?.querySelector('pre code');
-      if (code?.textContent) {
-        void writeClipboardText(code.textContent).then((ok) => {
-          showAlert(
-            ok
-              ? { variant: 'success', title: '代码已复制' }
-              : { variant: 'destructive', title: '复制失败' },
-          );
-        });
-      }
+      const anchor = target.closest('a');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href') ?? '';
+      if (!href) return;
       event.preventDefault();
-      return;
-    }
-
-    const anchor = target.closest('a');
-    if (!anchor) return;
-    const href = anchor.getAttribute('href') ?? '';
-    if (!href) return;
-    event.preventDefault();
-    if (href.startsWith('#')) {
-      const destination = articleRef.current?.querySelector(`#${escapeSelector(href.slice(1))}`);
-      destination?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else if (/^https?:\/\//i.test(href)) {
-      void openExternal(href);
-    }
-  }, []);
+      if (href.startsWith('#')) {
+        const destination = articleRef.current?.querySelector(`#${escapeSelector(href.slice(1))}`);
+        destination?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (/^https?:\/\//i.test(href)) {
+        void openExternal(href);
+      }
+    },
+    [t],
+  );
 
   /** 脚注引用悬停:在滚动容器内定位内容气泡(随内容滚动联动) */
   const handleArticleMouseOver = useCallback((event: MouseEvent<HTMLElement>) => {
@@ -275,7 +282,7 @@ export function MarkdownPreviewPane({
             />
           ) : (
             <p className="py-12 text-center text-sm text-muted-foreground" data-testid="md-empty">
-              {emptyHint}
+              {resolvedEmptyHint}
             </p>
           )}
         </div>
@@ -295,7 +302,7 @@ export function MarkdownPreviewPane({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="图片预览"
+          aria-label={t('tools.markdown_preview.lightbox_aria')}
           data-testid="md-lightbox"
           onClick={() => setLightboxSrc(null)}
           className="fixed inset-0 z-[60] flex cursor-zoom-out items-center justify-center bg-black/80 p-6"
@@ -308,12 +315,12 @@ export function MarkdownPreviewPane({
           />
           <button
             type="button"
-            aria-label="关闭图片预览"
+            aria-label={t('tools.markdown_preview.lightbox_close_aria')}
             data-testid="md-lightbox-close"
             onClick={() => setLightboxSrc(null)}
             className="absolute right-4 top-4 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/90 transition-colors hover:bg-white/20"
           >
-            关闭 (Esc)
+            {t('tools.markdown_preview.lightbox_close')}
           </button>
         </div>
       )}

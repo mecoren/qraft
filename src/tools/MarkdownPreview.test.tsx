@@ -39,6 +39,7 @@ import { MarkdownPreview } from './MarkdownPreview';
 import { renderMermaidIn } from './markdown-mermaid';
 import { useMarkdownPreviewStore } from './markdownPreviewStore';
 import { DRAFT_STORAGE_KEY } from './markdownPreviewStore';
+import { changeLocale } from '@/i18n';
 
 describe('MarkdownPreview', () => {
   beforeEach(() => {
@@ -157,5 +158,21 @@ describe('MarkdownPreview', () => {
     );
     fireEvent.click(screen.getByTestId('md-lightbox-close'));
     expect(screen.queryByTestId('md-lightbox')).not.toBeInTheDocument();
+  });
+
+  it('en-US:工具条/状态栏/主题文案随语言切换(手动切语言场景),结束恢复 zh 桩', () => {
+    localStorage.setItem(DRAFT_STORAGE_KEY, '# Hello');
+    changeLocale('en-US');
+    // 先卸载再切回 zh 桩,避免异步 languageChanged 在 act 环境外触发告警更新
+    const { unmount } = render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    try {
+      expect(screen.getByTestId('mode-edit').textContent).toContain('Edit');
+      expect(screen.getByTestId('btn-outline').textContent).toContain('Outline');
+      expect(screen.getByTestId('md-cursor').textContent).toContain('Line 1, Col 1');
+      expect(screen.getByTestId('md-stats').textContent).toContain('words');
+    } finally {
+      unmount();
+      changeLocale('zh-CN');
+    }
   });
 });

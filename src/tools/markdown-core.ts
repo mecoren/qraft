@@ -507,14 +507,39 @@ function replaceFootnoteRefs(
   return { body: replaced, order };
 }
 
+/**
+ * 渲染产出中内嵌的界面文案(aria-label / title)。
+ * 由调用方(主线程 i18n 层)注入当前语言;缺省回落中文,
+ * 使本模块保持零 i18n 依赖 —— Worker 侧无需打包语言资源。
+ */
+export interface MdRenderLabels {
+  /** 代码块复制按钮 title */
+  copyCode: string;
+  /** 标题悬停锚点 aria-label */
+  headingAnchor: string;
+  /** 脚注回链 aria-label */
+  backref: string;
+}
+
+/** 缺省标签(与 zh 片段一致,兜底场景使用) */
+const DEFAULT_LABELS: MdRenderLabels = {
+  copyCode: '复制代码',
+  headingAnchor: '标题锚点',
+  backref: '返回脚注引用',
+};
+
 /** 构建文末脚注区块 HTML */
-function buildFootnotesHtml(defs: Map<string, string>, order: readonly string[]): string {
+function buildFootnotesHtml(
+  defs: Map<string, string>,
+  order: readonly string[],
+  labels: MdRenderLabels,
+): string {
   if (order.length === 0) return '';
   const items = order.map((label) => {
     const content = defs.get(label) ?? '';
     return (
       `<li id="fn-${escapeHtml(label)}">` +
-      `${content} <a class="md-fn-backref" href="#fnref-${escapeHtml(label)}" aria-label="返回脚注引用">↩</a></li>`
+      `${content} <a class="md-fn-backref" href="#fnref-${escapeHtml(label)}" aria-label="${labels.backref}">↩</a></li>`
     );
   });
   return `<section class="md-footnotes"><hr><ol>\n${items.join('\n')}\n</ol></section>`;
@@ -537,7 +562,12 @@ const COPY_SVG =
  * @param fastHighlight true 时跳过 hljs 高亮(两阶段渲染的快速阶段,
  *   仅纯转义,布局尺寸与完整阶段一致,避免视觉跳动)
  */
-function createRendererObject(slugs: Slugger, collected: HeadingMeta[], fastHighlight: boolean) {
+function createRendererObject(
+  slugs: Slugger,
+  collected: HeadingMeta[],
+  fastHighlight: boolean,
+  labels: MdRenderLabels,
+) {
   return {
     /** 标题:注入锚点 id + 悬停锚点链接,并记录元数据(大纲/[toc] 的唯一事实源) */
     heading(this: RendererThis, { tokens, depth }: Tokens.Heading): string {
@@ -549,7 +579,7 @@ function createRendererObject(slugs: Slugger, collected: HeadingMeta[], fastHigh
       collected.push(meta);
       return (
         `<h${depth} id="${meta.id}">${html}` +
-        `<a class="md-heading-anchor" href="#${meta.id}" aria-label="标题锚点">#</a></h${depth}>\n`
+        `<a class="md-heading-anchor" href="#${meta.id}" aria-label="${labels.headingAnchor}">#</a></h${depth}>\n`
       );
     },
 
@@ -578,7 +608,7 @@ function createRendererObject(slugs: Slugger, collected: HeadingMeta[], fastHigh
       const langLabel = langTag || (hljsLang ?? '');
       const head = langLabel
         ? `<div class="md-code-head"><span class="md-code-lang">${escapeHtml(langLabel)}</span>` +
-          `<button type="button" class="md-code-copy" data-md-copy="true" title="复制代码">${COPY_SVG}</button></div>`
+          `<button type="button" class="md-code-copy" data-md-copy="true" title="${labels.copyCode}">${COPY_SVG}</button></div>`
         : '';
 
       return (
@@ -601,11 +631,16 @@ const MARKED_EXTENSIONS = [
   subscriptExtension,
 ];
 
-function createMarked(slugs: Slugger, headings: HeadingMeta[], fastHighlight: boolean): Marked {
+function createMarked(
+  slugs: Slugger,
+  headings: HeadingMeta[],
+  fastHighlight: boolean,
+  labels: MdRenderLabels,
+): Marked {
   const md = new Marked({ gfm: true, breaks: false });
   md.use({
     extensions: MARKED_EXTENSIONS,
-    renderer: createRendererObject(slugs, headings, fastHighlight),
+    renderer: createRendererObject(slugs, headings, fastHighlight, labels),
   });
   return md;
 }
@@ -629,6 +664,8 @@ export interface RenderOptions {
    * 输入停顿后由组件再触发一次完整渲染。默认 false。
    */
   fastHighlight?: boolean;
+  /** 渲染产出内嵌文案(复制按钮 title 等);缺省回落中文 */
+  labels?: MdRenderLabels;
 }
 
 /**
@@ -638,7 +675,7 @@ export interface RenderOptions {
  * 解析异常时降级为纯转义文本展示,保证输入任何内容都不抛错。
  */
 export function renderMarkdownCore(source: string, options: RenderOptions = {}): RenderCoreResult {
-  const { fastHighlight = false } = options;
+  const { fastHighlight = false, labels = DEFAULT_LABELS } = options;
   if (!source.trim()) return { html: '', outline: [], hasMermaid: false };
 
   const slugs = new Slugger();
@@ -658,7 +695,7 @@ export function renderMarkdownCore(source: string, options: RenderOptions = {}):
   const headings: HeadingMeta[] = [];
   let rendered: string;
   try {
-    rendered = createMarked(slugs, headings, fastHighlight).parse(withRefs, {
+    rendered = createMarked(slugs, headings, fastHighlight, labels).parse(withRefs, {
       async: false,
     }) as string;
   } catch {
@@ -678,7 +715,7 @@ export function renderMarkdownCore(source: string, options: RenderOptions = {}):
   const tocHtml = buildTocHtml(outline);
   if (tocHtml) rendered = rendered.replace('<div class="md-toc-placeholder"></div>', () => tocHtml);
   else rendered = rendered.replace('<div class="md-toc-placeholder"></div>', '');
-  rendered += buildFootnotesHtml(defs, order);
+  rendered += buildFootnotesHtml(defs, order, labels);
 
   return {
     html: rendered,

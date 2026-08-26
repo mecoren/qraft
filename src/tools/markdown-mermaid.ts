@@ -12,6 +12,8 @@
  * - securityLevel 保持默认 'strict',mermaid 内部会对图定义做净化
  */
 
+import { t } from '@/i18n';
+
 type MermaidApi = {
   initialize: (config: Record<string, unknown>) => void;
   render: (id: string, definition: string) => Promise<{ svg: string }>;
@@ -86,7 +88,7 @@ export async function renderMermaidIn(root: HTMLElement, dark: boolean): Promise
       block.classList.add('md-mermaid-error');
       block.insertAdjacentHTML(
         'beforeend',
-        '<p class="md-mermaid-msg">Mermaid 资源加载失败,已回退显示源码</p>',
+        `<p class="md-mermaid-msg">${t('tools.markdown_preview.mermaid_load_failed')}</p>`,
       );
     }
     return;
@@ -120,7 +122,7 @@ export async function renderMermaidIn(root: HTMLElement, dark: boolean): Promise
       block.classList.add('md-mermaid-error');
       block.insertAdjacentHTML(
         'beforeend',
-        '<p class="md-mermaid-msg">图表语法有误,请检查 Mermaid 定义</p>',
+        `<p class="md-mermaid-msg">${t('tools.markdown_preview.mermaid_syntax_error')}</p>`,
       );
     }
   }
