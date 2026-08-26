@@ -3,6 +3,7 @@ import { safeInvoke } from '@/lib/ipc';
 import { DEFAULT_EDITOR_CONFIG, DEFAULT_USER_CONFIG, type UserConfig } from '@/types/config';
 import type { ConfigChangedPayload, ErrorInfo } from '@/types/ipc';
 import { changeLocale } from '@/i18n';
+import { applyMonacoNls } from '@/lib/monaco-nls';
 import { rebuildSearchIndex } from '@/lib/search-index';
 
 /**
@@ -96,6 +97,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       const lang = normalized.general?.language;
       if (lang === 'en-US' || lang === 'zh-CN') {
         changeLocale(lang);
+        applyMonacoNls(lang);
         rebuildSearchIndex();
       }
     } else {
@@ -121,9 +123,10 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       };
       setByPath(next as unknown as Record<string, unknown>, key, value);
       set({ config: next });
-      // 语言切换即时生效(i18n + 搜索索引重建),持久化紧随其后
+      // 语言切换即时生效(i18n + Monaco 内置 UI + 搜索索引重建),持久化紧随其后
       if (key === 'general.language' && (value === 'en-US' || value === 'zh-CN')) {
         changeLocale(value);
+        applyMonacoNls(value);
         rebuildSearchIndex();
       }
     }

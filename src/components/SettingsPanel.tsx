@@ -27,6 +27,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useConfigStore } from '@/store/configStore';
 import { useUiStore } from '@/store/uiStore';
 import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { changeLocale } from '@/i18n';
 import type { ShortcutBinding } from '@/types/config';
 import {
@@ -644,21 +651,25 @@ export function GeneralSection(): JSX.Element {
     },
   });
 
+  // 语言下拉的受控显示值:用户选择后的覆盖态,未选择时回退 config 存储值。
+  // 不用 form.watch 镜像(避免 React Compiler 跳过编译),也不在 effect 里同步 state
+  const [languageOverride, setLanguageOverride] = useState<string | null>(null);
+  const configLanguage = config?.general.language === 'en-US' ? 'en-US' : 'zh-CN';
+  const languageValue = languageOverride ?? configLanguage;
+
   // 配置加载后同步表单
   useEffect(() => {
     if (!config) return;
+    const language = configLanguage;
     form.reset({
       maxHistory: config.general.maxHistory,
       // jsonIndent 来自 toolPrefs.json_formatter.values.indent,缺省 2
       // 用可选链保护 toolPrefs 本身,防止旧配置缺少该字段时崩溃
       jsonIndent: (config.toolPrefs?.['json_formatter']?.values?.indent as number | undefined) ?? 2,
       confirmOnClear: config.general.confirmOnClear,
-      language:
-        config.general.language === 'en-US' || config.general.language === 'zh-CN'
-          ? config.general.language
-          : 'zh-CN',
+      language,
     });
-  }, [config, form]);
+  }, [config, form, configLanguage]);
 
   const onSubmit = async (values: GeneralFormValues) => {
     await setConfig('general.max_history', values.maxHistory);
@@ -713,20 +724,26 @@ export function GeneralSection(): JSX.Element {
 
           <div className="flex flex-col gap-2" data-search-anchor="settings:general:language">
             <Label htmlFor="language">{t('settings.language_label')}</Label>
-            {/* onChange 即时预览(切 i18n locale);持久化仍走表单统一保存 */}
-            <select
-              id="language"
-              {...form.register('language', {
-                onChange: (e) => {
-                  const v = e.target.value;
-                  if (v === 'en-US' || v === 'zh-CN') changeLocale(v);
-                },
-              })}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            {/* shadcn Select:受控接 RHF(watch/setValue);onChange 即时预览切 locale,
+                持久化仍走表单统一保存 */}
+            <Select
+              value={languageValue}
+              onValueChange={(v) => {
+                if (v === 'en-US' || v === 'zh-CN') {
+                  setLanguageOverride(v);
+                  form.setValue('language', v, { shouldValidate: true, shouldDirty: true });
+                  changeLocale(v);
+                }
+              }}
             >
-              <option value="zh-CN">简体中文</option>
-              <option value="en-US">English</option>
-            </select>
+              <SelectTrigger id="language" className="h-9 w-full text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="zh-CN">简体中文</SelectItem>
+                <SelectItem value="en-US">English</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div
@@ -746,7 +763,14 @@ export function GeneralSection(): JSX.Element {
 
       <div className="flex gap-2">
         <Button type="submit">{t('settings.save')}</Button>
-        <Button type="button" variant="outline" onClick={() => form.reset()}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            form.reset();
+            setLanguageOverride(null);
+          }}
+        >
           {t('settings.reset')}
         </Button>
       </div>

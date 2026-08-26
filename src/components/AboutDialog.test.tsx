@@ -6,6 +6,23 @@ import { CHANGELOG_VERSIONS } from '@/lib/changelog';
 import { changeLocale } from '@/i18n';
 
 describe('AboutDialog', () => {
+  it('en-US:更新日志摘要/描述与组件描述随语言切换(手动切语言场景),结束恢复 zh 桩', async () => {
+    const user = userEvent.setup();
+    changeLocale('en-US');
+    // 先卸载再切回 zh 桩,避免异步 languageChanged 在 act 环境外触发告警更新
+    const { unmount } = render(<AboutDialog open onOpenChange={() => {}} />);
+    try {
+      await user.click(screen.getByRole('button', { name: /Changelog/ }));
+      const latest = CHANGELOG_VERSIONS[0];
+      expect(screen.getByText(latest.summary.en)).toBeInTheDocument();
+      expect(screen.getByText(latest.changes[0]!.description.en)).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /Components/ }));
+      expect(screen.getByText('Declarative library for building user interfaces')).toBeInTheDocument();
+    } finally {
+      unmount();
+      changeLocale('zh-CN');
+    }
+  });
   it('en-US:导航/标题随语言切换(手动切语言场景),结束恢复 zh 桩', () => {
     changeLocale('en-US');
     // 先卸载再切回 zh 桩,避免异步 languageChanged 在 act 环境外触发告警更新
@@ -40,13 +57,13 @@ describe('AboutDialog', () => {
     // 区块标题(精确匹配,避免命中折叠触发器中 summary 文本的"更新日志"字样)
     const changelog = screen.getByRole('heading', { name: '更新日志' });
     expect(changelog).toBeInTheDocument();
-    // 首个版本默认展开,展示版本号与摘要
+    // 首个版本默认展开,展示版本号与摘要(summary 为 LocalizedText,zh 桩下取 zh 半边)
     const latest = CHANGELOG_VERSIONS[0];
     expect(screen.getByText(`v${latest.version}`)).toBeInTheDocument();
-    expect(screen.getByText(latest.summary)).toBeInTheDocument();
+    expect(screen.getByText(latest.summary.zh)).toBeInTheDocument();
     // 变更条目展示类别标签与描述
     for (const change of latest.changes.slice(0, 3)) {
-      expect(screen.getByText(change.description)).toBeInTheDocument();
+      expect(screen.getByText(change.description.zh)).toBeInTheDocument();
     }
   });
 
