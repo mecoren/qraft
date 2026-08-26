@@ -8,7 +8,7 @@
 
 import { useMemo, type JSX } from 'react';
 import { Puzzle } from 'lucide-react';
-import { CATALOG_CATEGORIES, TOOL_ONLY_CATALOG, groupCatalogByCategory } from '@/lib/tool-catalog';
+import { CATALOG_CATEGORIES, TOOL_ONLY_CATALOG, groupCatalogByCategory, pickText } from '@/lib/tool-catalog';
 import { ICON_STROKE_WIDTH } from '@/lib/icon-constants';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -47,7 +47,7 @@ export function ExtensionsPage(): JSX.Element {
                 return (
                   <li key={cat.id} className="flex items-center gap-3 py-2.5">
                     <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="flex-1 text-body-sm">{cat.label}</span>
+                    <span className="flex-1 text-body-sm">{pickText(cat.label)}</span>
                     <span className="text-xs text-muted-foreground">{tools.length} 个工具</span>
                   </li>
                 );

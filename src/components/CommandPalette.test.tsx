@@ -28,8 +28,8 @@ describe('CommandPalette', () => {
   it('renders tool list when open', () => {
     render(<CommandPalette open={true} onOpenChange={() => {}} />);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: new RegExp(jf.name, 'i') })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: new RegExp(jm.name, 'i') })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: new RegExp(jf.name.zh, 'i') })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: new RegExp(jm.name.zh, 'i') })).toBeInTheDocument();
   });
 
   it('filters tools by search query', async () => {
@@ -37,10 +37,10 @@ describe('CommandPalette', () => {
     render(<CommandPalette open={true} onOpenChange={() => {}} />);
     await user.type(screen.getByRole('combobox'), 'cron');
     // 仅 cron 相关工具保留
-    expect(screen.getByRole('option', { name: new RegExp(cron.name, 'i') })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: new RegExp(cron.name.zh, 'i') })).toBeInTheDocument();
     // 不相关工具被过滤
     expect(
-      screen.queryByRole('option', { name: new RegExp(jf.name, 'i') }),
+      screen.queryByRole('option', { name: new RegExp(jf.name.zh, 'i') }),
     ).not.toBeInTheDocument();
   });
 
@@ -48,7 +48,7 @@ describe('CommandPalette', () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();
     render(<CommandPalette open={true} onOpenChange={onOpenChange} />);
-    await user.click(screen.getByRole('option', { name: new RegExp(jf.name, 'i') }));
+    await user.click(screen.getByRole('option', { name: new RegExp(jf.name.zh, 'i') }));
     // 选中工具写入 store.currentToolId(经 uiStore.openTool → selectTool)
     expect(useToolStateStore.getState().currentToolId).toBe('json_formatter');
     // 面板关闭

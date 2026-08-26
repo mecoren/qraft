@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { getCatalogEntry, type CatalogEntry } from '@/lib/tool-catalog';
+import { getCatalogEntry, pickText, type CatalogEntry } from '@/lib/tool-catalog';
 import { MAX_KEEPALIVE_TOOLS, pushVisited } from '@/lib/keepalive';
 import { getToolComponent, type ToolProps } from '@/tools/registry';
 import type { ToolMetadata, ToolCategory, Alert, AlertLevel } from '@/types/tool';
@@ -35,10 +35,10 @@ const CATEGORY_MAP: Record<CatalogEntry['category'], ToolCategory> = {
 export function catalogToMetadata(entry: CatalogEntry): ToolMetadata {
   return {
     id: entry.id,
-    name: entry.name,
+    name: pickText(entry.name),
     category: CATEGORY_MAP[entry.category],
     icon: '',
-    description: entry.description,
+    description: pickText(entry.description),
     input_schema: null,
     output_schema: null,
     tags: entry.keywords,

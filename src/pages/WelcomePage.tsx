@@ -18,6 +18,7 @@ import {
   CATALOG_CATEGORIES,
   TOOL_CATALOG,
   getCatalogEntry,
+  pickText,
   type CatalogEntry,
   type CatalogCategoryId,
 } from '@/lib/tool-catalog';
@@ -234,7 +235,7 @@ export function WelcomePage(): JSX.Element {
                   <div key={cat.id} data-testid={`section-cat-${cat.id}`}>
                     <h3 className="mb-2.5 flex items-center gap-1.5 text-body-sm font-semibold">
                       <CatIcon aria-hidden className="size-4 text-primary" />
-                      {cat.label}
+                      {pickText(cat.label)}
                       <span className="ml-1 text-xs font-normal text-muted-foreground tabular-nums">
                         {list.length}
                       </span>

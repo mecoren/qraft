@@ -12,7 +12,7 @@
  * 按 SEARCH_ENTRY_KINDS 顺序分组返回;空查询返回全量。
  */
 
-import { TOOL_CATALOG, getCatalogEntry, getCategoryById } from '@/lib/tool-catalog';
+import { TOOL_CATALOG, getCatalogEntry, getCategoryById, pickText } from '@/lib/tool-catalog';
 import {
   TOOL_ANCHORS,
   SETTING_SECTIONS,
@@ -59,10 +59,17 @@ export interface SearchEntry {
   /** 分组标题(分类名 / 工具名 / 分区名) */
   group: string;
   target: SearchTarget;
+  /** 双语匹配域(zh+en+keywords 拼接);命中判断优先使用,展示不渲染 */
+  matchText?: string;
 }
 
-/** 全部条目(模块加载时构建一次) */
-const ALL_ENTRIES: readonly SearchEntry[] = buildAllEntries();
+/** 全部条目(模块加载时构建一次;语言切换后经 rebuildSearchIndex 重建) */
+let ALL_ENTRIES: readonly SearchEntry[] = buildAllEntries();
+
+/** 语言切换后重建显示字段(title/description/group 随 locale 走) */
+export function rebuildSearchIndex(): void {
+  ALL_ENTRIES = buildAllEntries();
+}
 
 function buildAllEntries(): SearchEntry[] {
   const entries: SearchEntry[] = [];
@@ -78,10 +85,17 @@ function buildAllEntries(): SearchEntry[] {
     entries.push({
       id: `tool:${entry.id}`,
       kind: 'tool',
-      title: entry.name,
-      description: entry.description,
+      title: pickText(entry.name),
+      description: pickText(entry.description),
       keywords: [...entry.keywords],
-      group: getCategoryById(entry.category).label,
+      group: pickText(getCategoryById(entry.category).label),
+      matchText: [
+        entry.name.zh,
+        entry.name.en,
+        entry.description.zh,
+        entry.description.en,
+        ...entry.keywords,
+      ].join(' '),
       target: { view, toolId: entry.id },
     });
   }
@@ -89,7 +103,7 @@ function buildAllEntries(): SearchEntry[] {
   // —— 工具区块条目 ——
   for (const [toolId, anchors] of Object.entries(TOOL_ANCHORS)) {
     const tool = getCatalogEntry(toolId);
-    const group = tool?.name ?? toolId;
+    const group = tool ? pickText(tool.name) : toolId;
     for (const a of anchors) {
       entries.push({
         id: `${toolId}:${a.key}`,
@@ -150,8 +164,9 @@ function buildAllEntries(): SearchEntry[] {
   return entries;
 }
 
-/** 判断条目是否命中查询 */
+/** 判断条目是否命中查询(优先双语匹配域) */
 function matches(entry: SearchEntry, q: string): boolean {
+  if (entry.matchText && entry.matchText.toLowerCase().includes(q)) return true;
   if (entry.title.toLowerCase().includes(q)) return true;
   if (entry.description && entry.description.toLowerCase().includes(q)) return true;
   return entry.keywords.some((k) => k.toLowerCase().includes(q));

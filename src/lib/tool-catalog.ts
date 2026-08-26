@@ -51,6 +51,22 @@ import {
   Asterisk,
   type LucideIcon,
 } from 'lucide-react';
+import { getLocale } from '@/i18n';
+
+// ============================================================
+// 本地化基础(方案乙:就地双语字段)
+// ============================================================
+
+/** 双语文本:zh 为源字面量,en 由覆盖表集中维护 */
+export interface LocalizedText {
+  zh: string;
+  en: string;
+}
+
+/** 按当前界面语言取值(en 缺失时回退 zh) */
+export function pickText(v: LocalizedText): string {
+  return getLocale() === 'en-US' ? v.en || v.zh : v.zh;
+}
 
 // ============================================================
 // 分类定义
@@ -61,20 +77,20 @@ export type CatalogCategoryId =
 
 export interface CatalogCategory {
   id: CatalogCategoryId;
-  label: string;
+  label: LocalizedText;
   icon: LucideIcon;
 }
 
 /** 分类显示顺序(与 DevToys 侧栏一致) */
 export const CATALOG_CATEGORIES: readonly CatalogCategory[] = [
-  { id: 'encoder', label: '编解码器', icon: CodeXml },
-  { id: 'tester', label: '测试工具', icon: FlaskConical },
-  { id: 'formatter', label: '格式化工具', icon: Paintbrush },
-  { id: 'generator', label: '生成器', icon: Wand2 },
-  { id: 'graphic', label: '图像处理', icon: Image },
-  { id: 'editor', label: '文本编辑器', icon: FileCode2 },
-  { id: 'text', label: '文本处理', icon: Type },
-  { id: 'converter', label: '转换器', icon: ArrowLeftRight },
+  { id: 'encoder', label: { zh: '编解码器', en: 'Encoders / Decoders' }, icon: CodeXml },
+  { id: 'tester', label: { zh: '测试工具', en: 'Testers' }, icon: FlaskConical },
+  { id: 'formatter', label: { zh: '格式化工具', en: 'Formatters' }, icon: Paintbrush },
+  { id: 'generator', label: { zh: '生成器', en: 'Generators' }, icon: Wand2 },
+  { id: 'graphic', label: { zh: '图像处理', en: 'Graphics' }, icon: Image },
+  { id: 'editor', label: { zh: '文本编辑器', en: 'Editor' }, icon: FileCode2 },
+  { id: 'text', label: { zh: '文本处理', en: 'Text' }, icon: Type },
+  { id: 'converter', label: { zh: '转换器', en: 'Converters' }, icon: ArrowLeftRight },
 ] as const;
 
 export function getCategoryById(id: CatalogCategoryId): CatalogCategory {
@@ -90,8 +106,8 @@ export function getCategoryById(id: CatalogCategoryId): CatalogCategory {
 export interface CatalogEntry {
   /** UI 层唯一 ID;纯前端工具即注册表 toolId,后端工具与 Rust toolId 一致 */
   id: string;
-  name: string;
-  description: string;
+  name: LocalizedText;
+  description: LocalizedText;
   category: CatalogCategoryId;
   icon: LucideIcon;
   /** 搜索关键词(小写匹配名称/描述之外的补充) */
@@ -108,8 +124,13 @@ export interface CatalogEntry {
  */
 export const DEFAULT_TOOL_ID = 'text_editor';
 
-/** 全部工具目录(顺序即"所有工具"网格与侧栏的展示顺序) */
-export const TOOL_CATALOG: readonly CatalogEntry[] = [
+/** 全部工具目录原始字面量(name/description 为中文源,en 集中于 EN_TOOLS 覆盖表) */
+interface RawCatalogEntry extends Omit<CatalogEntry, 'name' | 'description'> {
+  name: string;
+  description: string;
+}
+
+const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
   // —— 编解码器 ——
   {
     id: 'base64_codec',
@@ -535,6 +556,154 @@ export const TOOL_CATALOG: readonly CatalogEntry[] = [
   },
 ] as const;
 
+/** 英文覆盖表:与 RAW_TOOL_CATALOG 按 id 对齐;缺失条目 en 回退显示中文(自暴露缺口) */
+const EN_TOOLS: Record<string, { name: string; description: string }> = {
+  base64_codec: {
+    name: 'Base64 Converter',
+    description:
+      'Convert text / images / files / audio / video / PDF to and from Base64, with Hex, ASCII and Basic Auth decoding',
+  },
+  certificate_decoder: {
+    name: 'Certificate Decoder',
+    description: 'Decode an X.509 certificate',
+  },
+  gzip_codec: {
+    name: 'GZip Compress / Decompress',
+    description: 'Compress or decompress text with GZip',
+  },
+  html_codec: { name: 'HTML Encoder / Decoder', description: 'Encode and decode HTML text data' },
+  jwt_parser: { name: 'JWT Encoder / Decoder', description: 'Encode and decode JSON Web Tokens' },
+  basic_auth_generator: {
+    name: 'Basic Auth Generator',
+    description: 'Build an Authorization header from a username and password (UTF-8 safe)',
+  },
+  url_codec: {
+    name: 'URL Encoder / Decoder',
+    description: 'Encode or decode all applicable characters to URL-safe output',
+  },
+  jsonpath_tester: { name: 'JSONPath Tester', description: 'Test JSONPath expressions' },
+  regex_tester: { name: 'Regex Tester', description: 'Validate and test regular expressions' },
+  xml_xsd_tester: {
+    name: 'XML / XSD Tester',
+    description: 'Validate XML data against an XSD schema',
+  },
+  json_formatter: {
+    name: 'JSON Formatter',
+    description:
+      'Format, minify and sort JSON, generate TypeScript entities, with automatic XML → JSON conversion',
+  },
+  json_minifier: {
+    name: 'Text Utilities',
+    description:
+      'Common text utilities: escape, trim, URL encode/decode, Unicode & CJK conversion, punctuation normalization, case conversion, line reverse/dedupe/sort, plus character/word/line/byte/sentence/paragraph counts',
+  },
+  sql_formatter: { name: 'SQL Formatter', description: 'Format SQL statements' },
+  xml_formatter: { name: 'XML Formatter', description: 'Format or minify XML data' },
+  hash_calculator: {
+    name: 'Hash / Checksum Calculator',
+    description: 'Compute hashes from text or binary data',
+  },
+  lorem_ipsum: { name: 'Lorem Ipsum Generator', description: 'Generate placeholder filler text' },
+  password_generator: { name: 'Password Generator', description: 'Generate random passwords' },
+  qrcode_tool: {
+    name: 'QR Code Reader / Generator',
+    description: 'Read QR codes or generate one from text. Exportable as SVG.',
+  },
+  uuid_generator: { name: 'UUID Generator', description: 'Generate UUID v1, v4 (GUID) and v7' },
+  ulid_generator: {
+    name: 'ULID Generator',
+    description: 'Generate time-sortable 26-character ULID identifiers',
+  },
+  color_blindness_simulator: {
+    name: 'Color Blindness Simulator',
+    description: 'Simulate color blindness on images or screenshots',
+  },
+  image_converter: { name: 'Image Converter', description: 'Lossless image format conversion' },
+  png_compressor: {
+    name: 'PNG Compressor',
+    description:
+      'Compress PNG images: OxiPNG lossless optimization and palette-based lossy quantization (pngquant-style), with before/after size comparison',
+  },
+  text_compare: { name: 'Text Comparer', description: 'Compare two pieces of text' },
+  markdown_preview: {
+    name: 'Markdown Preview',
+    description:
+      'Typora-style split preview: syntax highlighting, math formulas, Mermaid diagrams, outline navigation and multiple typography themes',
+  },
+  list_comparer: { name: 'List Comparer', description: 'Compare two lists' },
+  duplicate_detector: {
+    name: 'Duplicate Line Detector',
+    description: 'Find duplicate lines and deduplicate with strategies',
+  },
+  text_statistics: {
+    name: 'Text Statistics',
+    description: 'Count characters, words, lines and UTF-8 bytes',
+  },
+  folder_analyzer: {
+    name: 'Folder Analyzer',
+    description:
+      'Analyze folder type distribution, text line/word counts, content search and single-file inspection (read-only)',
+  },
+  text_editor: {
+    name: 'Text Editor',
+    description:
+      'VSCode-style workspace: open-editor list, multi-tab editing, open/save local files, persistent across restarts',
+  },
+  cron_parser: {
+    name: 'Cron Parser',
+    description: 'Parse cron expressions and get upcoming scheduled runs',
+  },
+  ipv4_subnet_calculator: {
+    name: 'IPv4 Subnet Calculator',
+    description:
+      'Compute network address, netmask, broadcast address and usable host range from IP/CIDR (offline)',
+  },
+  json_csv_converter: {
+    name: 'JSON ↔ CSV Converter',
+    description: 'Convert between JSON arrays and CSV tables (RFC 4180 with quote escaping)',
+  },
+  ip_parser: {
+    name: 'IP Address Parser',
+    description:
+      'Analyze IP addresses and subnets: netmask, CIDR notation, network/broadcast address, usable host range, plus optional online geolocation (ISP/ASN/timezone) for IPv4 and IPv6',
+  },
+  timestamp_converter: {
+    name: 'Date Converter',
+    description: 'Convert timestamps to human-readable dates and back',
+  },
+  number_base_converter: {
+    name: 'Number Base Converter',
+    description: 'Convert numbers between different bases',
+  },
+  json_yaml_converter: {
+    name: 'JSON <> YAML Converter',
+    description: 'Convert between JSON and YAML',
+  },
+  json_array_table: {
+    name: 'JSON Array to Table',
+    description: 'Convert a JSON array into a table, exportable as CSV or TSV',
+  },
+  color_converter: {
+    name: 'Color Converter',
+    description: 'Convert between HEX / RGB / HSL color formats',
+  },
+  extensions: {
+    name: 'Manage Extensions',
+    description: 'Add and manage third-party extensions in Qraft',
+  },
+  settings: { name: 'Settings', description: 'Customize how Qraft looks and feels' },
+};
+
+/** 本地化后的全部工具目录(顺序即"所有工具"网格与侧栏的展示顺序) */
+export const TOOL_CATALOG: readonly CatalogEntry[] = RAW_TOOL_CATALOG.map((e) => {
+  const en = EN_TOOLS[e.id];
+  return {
+    ...e,
+    name: { zh: e.name, en: en?.name ?? e.name },
+    description: { zh: e.description, en: en?.description ?? e.description },
+  };
+});
+
 /** 仅工具条目(排除设置/扩展等特殊页面) */
 export const TOOL_ONLY_CATALOG: readonly CatalogEntry[] = TOOL_CATALOG.filter((e) => !e.special);
 
@@ -555,8 +724,10 @@ export function searchCatalog(query: string): CatalogEntry[] {
   if (!q) return [...TOOL_CATALOG];
   return TOOL_CATALOG.filter(
     (e) =>
-      e.name.toLowerCase().includes(q) ||
-      e.description.toLowerCase().includes(q) ||
+      e.name.zh.toLowerCase().includes(q) ||
+      e.name.en.toLowerCase().includes(q) ||
+      e.description.zh.toLowerCase().includes(q) ||
+      e.description.en.toLowerCase().includes(q) ||
       e.keywords.some((k) => k.toLowerCase().includes(q)),
   );
 }

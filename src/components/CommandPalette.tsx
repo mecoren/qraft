@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/compone
 import { History, Home, Settings, Trash2 } from 'lucide-react';
 import { useHistoryStore } from '@/store/historyStore';
 import { useUiStore } from '@/store/uiStore';
-import { TOOL_CATALOG } from '@/lib/tool-catalog';
+import { TOOL_CATALOG, pickText } from '@/lib/tool-catalog';
 
 export interface CommandPaletteProps {
   open: boolean;
@@ -63,15 +63,15 @@ export function CommandPalette({
                   return (
                     <CommandItem
                       key={`detect-${d.toolId}`}
-                      value={`${entry.name} ${entry.keywords.join(' ')} ${d.reason}`}
+                      value={`${entry.name.zh} ${entry.name.en} ${entry.keywords.join(' ')} ${d.reason}`}
                       onSelect={() => {
                         openTool(d.toolId);
                         onOpenChange(false);
                       }}
                     >
                       <entry.icon aria-hidden className="h-4 w-4 opacity-50" />
-                      <span>{entry.name}</span>
-                      <span className="ml-auto text-xs text-muted-foreground">{d.reason}</span>
+                <span>{pickText(entry.name)}</span>
+                <span className="ml-auto text-xs text-muted-foreground">{d.reason}</span>
                     </CommandItem>
                   );
                 })}
@@ -81,7 +81,7 @@ export function CommandPalette({
               {TOOL_CATALOG.map((entry) => (
                 <CommandItem
                   key={entry.id}
-                  value={`${entry.name} ${entry.keywords.join(' ')}`}
+                  value={`${entry.name.zh} ${entry.name.en} ${entry.keywords.join(' ')}`}
                   onSelect={() => {
                     if (entry.special === 'settings') onOpenSettings?.();
                     else if (entry.special === 'extensions')
@@ -91,12 +91,12 @@ export function CommandPalette({
                   }}
                 >
                   <entry.icon aria-hidden className="h-4 w-4 opacity-50" />
-                  <span>{entry.name}</span>
-                  {entry.description && (
-                    <span className="ml-2 truncate text-xs text-muted-foreground">
-                      {entry.description}
-                    </span>
-                  )}
+                <span>{pickText(entry.name)}</span>
+                {entry.description && (
+                  <span className="ml-2 truncate text-xs text-muted-foreground">
+                    {pickText(entry.description)}
+                  </span>
+                )}
                 </CommandItem>
               ))}
             </CommandGroup>

@@ -9,7 +9,7 @@
 
 import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
-import type { CatalogEntry } from '@/lib/tool-catalog';
+import { pickText, type CatalogEntry } from '@/lib/tool-catalog';
 import { ICON_STROKE_WIDTH } from '@/lib/icon-constants';
 
 export interface ToolCardProps {
@@ -24,7 +24,7 @@ export function ToolCard({ entry, onOpen, className }: ToolCardProps): JSX.Eleme
     <button
       type="button"
       onClick={() => onOpen(entry.id)}
-      title={entry.name}
+      title={pickText(entry.name)}
       className={cn(
         'group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border border-border bg-card/90 p-3 text-left',
         'shadow-card transition-all duration-base ease-standard',
@@ -52,9 +52,9 @@ export function ToolCard({ entry, onOpen, className }: ToolCardProps): JSX.Eleme
         <Icon className="size-5" strokeWidth={ICON_STROKE_WIDTH} />
       </span>
       <span className="relative flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-body-sm font-semibold leading-tight">{entry.name}</span>
+        <span className="truncate text-body-sm font-semibold leading-tight">{pickText(entry.name)}</span>
         <span className="line-clamp-2 text-xs leading-snug text-muted-foreground">
-          {entry.description}
+          {pickText(entry.description)}
         </span>
       </span>
     </button>

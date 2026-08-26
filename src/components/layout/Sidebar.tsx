@@ -16,6 +16,7 @@
 
 import { useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
+import { pickText } from '@/lib/tool-catalog';
 import {
   ChevronRight,
   Home,
@@ -325,7 +326,7 @@ export function Sidebar(): JSX.Element {
         {defaultEditorEntry && (
           <RailButton
             icon={defaultEditorEntry.icon}
-            label={defaultEditorEntry.name}
+            label={pickText(defaultEditorEntry.name)}
             active={isToolActive(DEFAULT_TOOL_ID)}
             onClick={() => openTool(DEFAULT_TOOL_ID)}
             testId="rail-text-editor"
@@ -338,7 +339,7 @@ export function Sidebar(): JSX.Element {
               <RailButton
                 key={c.id}
                 icon={c.icon}
-                label={c.label}
+                label={pickText(c.label)}
                 onClick={() => {
                   toggleSidebar();
                   expandCategory(c.id);
@@ -413,7 +414,7 @@ export function Sidebar(): JSX.Element {
                 <NavItem
                   key={entry.id}
                   icon={entry.icon}
-                  label={entry.name}
+                  label={pickText(entry.name)}
                   active={!entry.special && isToolActive(entry.id)}
                   onClick={() => openEntry(entry)}
                   contextMenu={toolContextMenuFor(entry)}
@@ -435,7 +436,7 @@ export function Sidebar(): JSX.Element {
               {defaultEditorEntry && (
                 <NavItem
                   icon={defaultEditorEntry.icon}
-                  label={defaultEditorEntry.name}
+                  label={pickText(defaultEditorEntry.name)}
                   active={isToolActive(DEFAULT_TOOL_ID)}
                   onClick={() => openTool(DEFAULT_TOOL_ID)}
                   testId="nav-text-editor"
@@ -448,7 +449,7 @@ export function Sidebar(): JSX.Element {
                 <NavItem
                   key={entry.id}
                   icon={entry.icon}
-                  label={entry.name}
+                  label={pickText(entry.name)}
                   active={!entry.special && isToolActive(entry.id)}
                   onClick={() => openEntry(entry)}
                   contextMenu={toolContextMenuFor(entry)}
@@ -462,7 +463,7 @@ export function Sidebar(): JSX.Element {
                   <NavGroup
                     key={cat.id}
                     icon={cat.icon}
-                    label={cat.label}
+                    label={pickText(cat.label)}
                     expanded={expandedCategories.includes(cat.id)}
                     onToggle={() => toggleCategory(cat.id)}
                     testId={`nav-cat-${cat.id}`}
@@ -471,7 +472,7 @@ export function Sidebar(): JSX.Element {
                       <NavItem
                         key={entry.id}
                         icon={entry.icon}
-                        label={entry.name}
+                        label={pickText(entry.name)}
                         depth={1}
                         active={isToolActive(entry.id)}
                         onClick={() => openTool(entry.id)}
