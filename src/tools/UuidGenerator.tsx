@@ -8,6 +8,7 @@
  * 错误处理遵循新代约定:执行失败信息直接写入输出编辑器。
  */
 import { useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Fingerprint, Hash, Play, Type } from 'lucide-react';
 import { formatError } from '@/lib/format-error';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,7 @@ interface UuidParams {
 }
 
 export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [version, setVersion] = useState<'v4' | 'v7'>('v4');
   const [count, setCount] = useState(1);
   const [uppercase, setUppercase] = useState(false);
@@ -61,9 +63,13 @@ export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3" data-testid="uuid-generator">
       <ConfigSection title="" searchAnchor="uuid_generator:config">
-        <ConfigRow icon={Fingerprint} label="版本" hint="v4 随机 / v7 时间有序">
+        <ConfigRow
+          icon={Fingerprint}
+          label={t('tools.uuid_generator.version')}
+          hint={t('tools.uuid_generator.version_hint')}
+        >
           <Select value={version} onValueChange={(v) => setVersion(v as 'v4' | 'v7')}>
-            <SelectTrigger className="w-24" aria-label="版本">
+            <SelectTrigger className="w-24" aria-label={t('tools.uuid_generator.version')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -72,7 +78,7 @@ export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
             </SelectContent>
           </Select>
         </ConfigRow>
-        <ConfigRow icon={Hash} label="数量" hint="1 ~ 1000">
+        <ConfigRow icon={Hash} label={t('tools.uuid_generator.count')} hint="1 ~ 1000">
           <Input
             id="count-input"
             type="number"
@@ -81,21 +87,25 @@ export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
             value={count}
             onChange={(e) => setCount(Number(e.target.value))}
             className="w-24"
-            aria-label="数量"
+            aria-label={t('tools.uuid_generator.count')}
           />
         </ConfigRow>
-        <ConfigRow icon={Type} label="格式" hint="大小写与连字符样式">
+        <ConfigRow
+          icon={Type}
+          label={t('tools.uuid_generator.format')}
+          hint={t('tools.uuid_generator.format_hint')}
+        >
           <div className="flex items-center gap-2">
             <Switch id="uppercase" checked={uppercase} onCheckedChange={setUppercase} />
             <Label htmlFor="uppercase" className="text-xs">
-              大写
+              {t('tools.uuid_generator.uppercase')}
             </Label>
           </div>
           <span className="h-4 w-px bg-border" aria-hidden />
           <div className="flex items-center gap-2">
             <Switch id="hyphens" checked={hyphens} onCheckedChange={setHyphens} />
             <Label htmlFor="hyphens" className="text-xs">
-              连字符
+              {t('tools.uuid_generator.hyphens')}
             </Label>
           </div>
         </ConfigRow>
@@ -103,10 +113,10 @@ export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
 
       <CodeEditor
         readOnly
-        title="生成结果"
+        title={t('tools.uuid_generator.output_title')}
         language="plaintext"
         value={output}
-        placeholder="点击上方「生成」按钮创建 UUID"
+        placeholder={t('tools.uuid_generator.output_placeholder')}
         className="min-h-0 flex-1"
         data-testid="output"
         searchAnchor="uuid_generator:output"
@@ -114,7 +124,7 @@ export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
           <>
             <HeaderAction onClick={() => void handleGenerate()} disabled={loading}>
               <Play aria-hidden className="size-3.5" />
-              {loading ? '生成中' : '生成'}
+              {loading ? t('tools.uuid_generator.generating') : t('tools.uuid_generator.generate')}
             </HeaderAction>
             {output && <CopyAction text={output} testId="copy-all" />}
           </>

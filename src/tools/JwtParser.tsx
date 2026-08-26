@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { Label } from '@/components/ui/label';
@@ -16,6 +17,7 @@ interface JwtExtra {
 }
 
 export function JwtParser({ toolId }: ToolProps) {
+  const { t } = useTranslation();
   const [text, setText] = useState('');
   const [extra, setExtra] = useState<JwtExtra | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,9 +46,9 @@ export function JwtParser({ toolId }: ToolProps) {
   return (
     <div className="grid grid-cols-2 gap-4 h-full">
       <div className="flex flex-col gap-2">
-        <Label>JWT 令牌</Label>
+        <Label>{t('tools.jwt_parser.token_label')}</Label>
         <CodeEditor
-          placeholder="在此粘贴 JWT 令牌..."
+          placeholder={t('tools.jwt_parser.token_placeholder')}
           value={text}
           onChange={setText}
           language="plaintext"
@@ -55,7 +57,7 @@ export function JwtParser({ toolId }: ToolProps) {
           searchAnchor="jwt_parser:input"
         />
         <Button onClick={handleParse} disabled={loading || !text}>
-          {loading ? '解析中...' : '解析'}
+          {loading ? t('tools.jwt_parser.parsing') : t('tools.jwt_parser.parse')}
         </Button>
       </div>
 
@@ -71,7 +73,7 @@ export function JwtParser({ toolId }: ToolProps) {
           ) : extra ? (
             <>
               <div className="flex flex-col gap-1">
-                <Label>头部(Header)</Label>
+                <Label>{t('tools.jwt_parser.header')}</Label>
                 <CodeEditor
                   readOnly
                   value={JSON.stringify(extra.header, null, 2)}
@@ -81,7 +83,7 @@ export function JwtParser({ toolId }: ToolProps) {
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <Label>载荷(Payload)</Label>
+                <Label>{t('tools.jwt_parser.payload')}</Label>
                 <CodeEditor
                   readOnly
                   value={JSON.stringify(extra.payload, null, 2)}
@@ -91,7 +93,7 @@ export function JwtParser({ toolId }: ToolProps) {
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <Label>签名(Signature)</Label>
+                <Label>{t('tools.jwt_parser.signature')}</Label>
                 <CodeEditor
                   readOnly
                   value={extra.signature}
@@ -101,12 +103,14 @@ export function JwtParser({ toolId }: ToolProps) {
                 />
               </div>
               {extra.expires_at && (
-                <div className="text-xs text-muted-foreground">过期时间: {extra.expires_at}</div>
+                <div className="text-xs text-muted-foreground">
+                  {t('tools.jwt_parser.expires_at', { time: extra.expires_at })}
+                </div>
               )}
             </>
           ) : (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-              解析 JWT 后将展示各部分内容
+              {t('tools.jwt_parser.empty_state')}
             </div>
           )}
         </div>

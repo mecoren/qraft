@@ -1,0 +1,17 @@
+{
+  "tools.timestamp_converter.copy": "复制",
+  "tools.timestamp_converter.input": "输入",
+  "tools.timestamp_converter.input_hint": "Unix 秒 / 毫秒 / 日期字符串",
+  "tools.timestamp_converter.input_placeholder": "输入时间戳或日期字符串...",
+  "tools.timestamp_converter.timezone": "时区",
+  "tools.timestamp_converter.timezone_hint": "本地时间展示所用时区",
+  "tools.timestamp_converter.convert": "转换",
+  "tools.timestamp_converter.converting": "转换中...",
+  "tools.timestamp_converter.result_title": "转换结果",
+  "tools.timestamp_converter.bytes_unit": "{{count}} 字节 · {{ms}}ms",
+  "tools.timestamp_converter.unix_seconds": "Unix(秒)",
+  "tools.timestamp_converter.unix_millis": "Unix(毫秒)",
+  "tools.timestamp_converter.local_time": "本地时间({{tz}})",
+  "tools.timestamp_converter.relative_time": "相对时间",
+  "tools.timestamp_converter.empty_state": "输入时间戳后点击「转换」查看各格式结果"
+}

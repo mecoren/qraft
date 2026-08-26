@@ -15,6 +15,7 @@
  * - 文件类 decode:输入 base64 → 图片 / 音频 / 视频 / PDF / 下载卡片预览
  */
 import { useCallback, useEffect, useRef, useState, type DragEvent, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -135,6 +136,7 @@ function FileDropzone({
   fileInfo: FileInfo | null;
   onFile: (file: File) => void;
 }): JSX.Element {
+  const { t } = useTranslation();
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -154,14 +156,14 @@ function FileDropzone({
       data-search-anchor="base64_codec:file"
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-body-sm font-semibold">文件</h2>
+        <h2 className="text-body-sm font-semibold">{t('tools.base64_codec.file_section_title')}</h2>
         <Button
           variant="ghost"
           size="sm"
           data-testid="b64-open"
           onClick={() => fileRef.current?.click()}
         >
-          <FolderOpen aria-hidden className="size-3.5" /> 选择文件
+          <FolderOpen aria-hidden className="size-3.5" /> {t('tools.base64_codec.choose_file')}
         </Button>
       </div>
       <input
@@ -199,7 +201,7 @@ function FileDropzone({
           ) : (
             <div className="flex flex-col items-center gap-2 text-muted-foreground">
               <FolderOpen aria-hidden className="size-8" />
-              <p className="text-xs">{mode.hint}</p>
+              <p className="text-xs">{t(mode.hintKey)}</p>
             </div>
           )}
         </div>
@@ -218,11 +220,12 @@ function PreviewBody({
   url: string;
   result: BinaryResult;
 }): JSX.Element {
+  const { t } = useTranslation();
   if (modeId === 'image') {
     return (
       <img
         src={url || undefined}
-        alt="Base64 解码预览"
+        alt={t('tools.base64_codec.preview_image_alt')}
         data-testid="b64-preview"
         className="max-h-full max-w-full object-contain"
       />
@@ -244,7 +247,7 @@ function PreviewBody({
   if (modeId === 'pdf') {
     return (
       <iframe
-        title="PDF 预览"
+        title={t('tools.base64_codec.pdf_preview_title')}
         src={url || undefined}
         data-testid="b64-preview"
         className="h-full w-full rounded-md border border-input"
@@ -281,6 +284,7 @@ function BinaryPreview({
   error: string | null;
   onSave: () => void;
 }): JSX.Element {
+  const { t } = useTranslation();
   // 使用 Blob URL 而非 data: URL:大文件时 data URL 比二进制体积大 ~33%
   // 且常驻内存;Blob URL 零额外拷贝,并在组件卸载/结果变更时释放,降低内存占用。
   const [objectUrl, setObjectUrl] = useState('');
@@ -302,9 +306,9 @@ function BinaryPreview({
   return (
     <div className="flex h-full min-h-[200px] flex-col overflow-hidden rounded-md border border-input bg-card">
       <div className="flex items-center justify-between border-b border-input px-2 py-0.5">
-        <span className="pl-1 text-xs font-medium text-foreground">预览</span>
+        <span className="pl-1 text-xs font-medium text-foreground">{t('tools.base64_codec.preview_title')}</span>
         <HeaderAction testId="b64-save" onClick={onSave} disabled={!result}>
-          <Save aria-hidden className="size-3.5" /> 另存为
+          <Save aria-hidden className="size-3.5" /> {t('tools.base64_codec.save_as')}
         </HeaderAction>
       </div>
       <ScrollArea className="min-h-0 flex-1">
@@ -314,7 +318,7 @@ function BinaryPreview({
               {error}
             </p>
           ) : !result ? (
-            <p className="text-xs text-muted-foreground">{mode.hint}</p>
+            <p className="text-xs text-muted-foreground">{t(mode.hintKey)}</p>
           ) : (
             <PreviewBody modeId={mode.id} url={objectUrl} result={result} />
           )}
@@ -325,6 +329,7 @@ function BinaryPreview({
 }
 
 export function Base64Codec({ toolId }: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [direction, setDirection] = useState<Direction>('decode');
   const [modeId, setModeId] = useState('text');
   const mode: Base64Mode = getMode(direction, modeId) ?? getModes(direction)[0]!;
@@ -400,13 +405,13 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
         setMeta(result.meta ?? null);
       } catch (e) {
         if (seq !== requestSeqRef.current) return;
-        setOutput(formatError(e, '执行失败: '));
+        setOutput(formatError(e, t('tools.base64_codec.error_execute_prefix')));
         setMeta(null);
       } finally {
         if (seq === requestSeqRef.current && !auto) setLoading(false);
       }
     },
-    [toolId, text, direction, modeId, mode, urlSafe, hexCase],
+    [toolId, text, direction, modeId, mode, urlSafe, hexCase, t],
   );
 
   /** 文件类解码:调用 Rust 校验 base64 并嗅探 MIME,返回 extra 供前端预览 */
@@ -438,19 +443,19 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
           setBinaryError(null);
         } else {
           setBinary(null);
-          setBinaryError('后端未返回有效的二进制信息');
+          setBinaryError(t('tools.base64_codec.binary_invalid_response'));
         }
         setMeta(result.meta ?? null);
       } catch (e) {
         if (seq !== requestSeqRef.current) return;
         setBinary(null);
-        setBinaryError(formatError(e, '解码失败: '));
+        setBinaryError(formatError(e, t('tools.base64_codec.error_decode_prefix')));
         setMeta(null);
       } finally {
         if (seq === requestSeqRef.current && !auto) setLoading(false);
       }
     },
-    [toolId, text, urlSafe],
+    [toolId, text, urlSafe, t],
   );
 
   // 全局快捷键契约:text 模式执行编码/解码,file 解码执行二进制解析,
@@ -523,12 +528,16 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
           mime: file.type || 'application/octet-stream',
         });
         setOutput(includeDataUrl ? dataUrl : stripDataUrlPrefix(dataUrl).base64);
-        toast.success(`已编码 ${file.name}`);
+        toast.success(t('tools.base64_codec.encoded_file', { name: file.name }));
       } catch (e) {
-        toast.error(`读取失败: ${e instanceof Error ? e.message : String(e)}`);
+        toast.error(
+          t('tools.base64_codec.read_failed', {
+            message: e instanceof Error ? e.message : String(e),
+          }),
+        );
       }
     },
-    [includeDataUrl],
+    [includeDataUrl, t],
   );
 
   /** 文件类解码:另存为——调用 Rust 端弹保存对话框并写入字节 */
@@ -541,40 +550,48 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
         base64: binary.base64,
         mime: binary.mime,
       });
-      if (path) toast.success(`已保存: ${path}`);
+      if (path) toast.success(t('tools.base64_codec.saved_to_path', { path }));
       // 用户取消对话框时 path 为 null,静默处理
     } catch (e) {
-      toast.error(`保存失败: ${e instanceof Error ? e.message : String(e)}`);
+      toast.error(
+        t('tools.base64_codec.save_failed', {
+          message: e instanceof Error ? e.message : String(e),
+        }),
+      );
     }
-  }, [binary]);
+  }, [binary, t]);
 
   const executeDisabled = loading || !text;
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="base64-codec">
       <ConfigSection title="" searchAnchor="base64_codec:config">
-        <ConfigRow icon={Binary} label="方向" hint="选择编码或解码方向">
+        <ConfigRow
+          icon={Binary}
+          label={t('tools.base64_codec.label_direction')}
+          hint={t('tools.base64_codec.direction_hint')}
+        >
           <Tabs value={direction} onValueChange={(v) => handleDirectionChange(v as Direction)}>
             {/* 固定宽度 w-36,与下方模式 SelectTrigger 视觉对齐 */}
             <TabsList className="w-36">
               <TabsTrigger value="encode" data-testid="dir-encode">
-                <ArrowUpFromLine aria-hidden className="size-3.5" /> 编码
+                <ArrowUpFromLine aria-hidden className="size-3.5" /> {t('tools.base64_codec.tab_encode')}
               </TabsTrigger>
               <TabsTrigger value="decode" data-testid="dir-decode">
-                <ArrowDownToLine aria-hidden className="size-3.5" /> 解码
+                <ArrowDownToLine aria-hidden className="size-3.5" /> {t('tools.base64_codec.tab_decode')}
               </TabsTrigger>
             </TabsList>
           </Tabs>
         </ConfigRow>
-        <ConfigRow icon={Binary} label="模式" hint={mode.hint}>
+        <ConfigRow icon={Binary} label={t('tools.base64_codec.label_mode')} hint={t(mode.hintKey)}>
           {supportsUrlSafe(direction, mode.id) && (
             <>
               <Label htmlFor="b64-url-safe" className="text-xs">
-                URL 安全
+                {t('tools.base64_codec.url_safe_label')}
               </Label>
               <Switch
                 id="b64-url-safe"
-                aria-label="URL 安全"
+                aria-label={t('tools.base64_codec.url_safe_label')}
                 checked={urlSafe}
                 onCheckedChange={setUrlSafe}
               />
@@ -584,11 +601,11 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
           {supportsHexCase(direction, mode.id) && (
             <>
               <Label htmlFor="b64-hex-case" className="text-xs">
-                大写
+                {t('tools.base64_codec.hex_case_upper_label')}
               </Label>
               <Switch
                 id="b64-hex-case"
-                aria-label="Hex 大写"
+                aria-label={t('tools.base64_codec.hex_case_upper_aria')}
                 checked={hexCase === 'upper'}
                 onCheckedChange={(c) => setHexCase(c ? 'upper' : 'lower')}
               />
@@ -602,7 +619,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
               </Label>
               <Switch
                 id="b64-data-url"
-                aria-label="Data URL 前缀"
+                aria-label={t('tools.base64_codec.data_url_prefix_aria')}
                 checked={includeDataUrl}
                 onCheckedChange={setIncludeDataUrl}
               />
@@ -616,7 +633,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
             <SelectContent>
               {getModes(direction).map((m) => (
                 <SelectItem key={m.id} value={m.id}>
-                  {m.label}
+                  {m.labelKey ? t(m.labelKey) : m.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -629,7 +646,9 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           {isTextMode || isFileDecode ? (
             <CodeEditor
-              title={isFileDecode ? 'Base64 输入' : '输入'}
+              title={
+                isFileDecode ? t('tools.base64_codec.input_title_base64') : t('tools.base64_codec.input_title')
+              }
               language="plaintext"
               value={text}
               onChange={setText}
@@ -644,7 +663,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
                     disabled={executeDisabled}
                   >
                     <Play aria-hidden className="size-3.5" />
-                    {loading ? '执行中' : '执行'}
+                    {loading ? t('tools.base64_codec.executing') : t('tools.base64_codec.execute')}
                   </HeaderAction>
                 ) : undefined
               }
@@ -661,7 +680,9 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
           {isTextMode || isFileEncode ? (
             <CodeEditor
               readOnly
-              title={isFileEncode ? 'Base64 输出' : '输出'}
+              title={
+                isFileEncode ? t('tools.base64_codec.output_title_base64') : t('tools.base64_codec.output_title')
+              }
               language="plaintext"
               value={output}
               className="h-full"
@@ -671,7 +692,11 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
                 <>
                   {meta && (
                     <span className="text-xs text-muted-foreground">
-                      {meta.input_bytes} → {meta.output_bytes} 字节 · {meta.duration_ms}ms
+                      {t('tools.base64_codec.bytes_unit', {
+                        input: meta.input_bytes,
+                        output: meta.output_bytes,
+                        ms: meta.duration_ms,
+                      })}
                     </span>
                   )}
                   <CopyAction text={output} testId="output-copy" />

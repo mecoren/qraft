@@ -1,0 +1,13 @@
+{
+  "tools.uuid_generator.version": "Version",
+  "tools.uuid_generator.version_hint": "v4 random / v7 time-ordered",
+  "tools.uuid_generator.count": "Count",
+  "tools.uuid_generator.format": "Format",
+  "tools.uuid_generator.format_hint": "Letter case & hyphen style",
+  "tools.uuid_generator.uppercase": "Uppercase",
+  "tools.uuid_generator.hyphens": "Hyphens",
+  "tools.uuid_generator.output_title": "Generated UUIDs",
+  "tools.uuid_generator.output_placeholder": "Click Generate above to create UUIDs",
+  "tools.uuid_generator.generate": "Generate",
+  "tools.uuid_generator.generating": "Generating"
+}

@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { formatError } from '@/lib/format-error';
+import { useTranslation } from 'react-i18next';
 import { CodeEditor, type EditorLanguage } from '@/components/ui/code-editor';
 import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
 import {
@@ -124,36 +125,60 @@ const DATA_OUTPUT_LANGUAGE: Record<DataFormatId, EditorLanguage> = {
   urlparams: 'plaintext',
 };
 
-/** 排序菜单项定义(与 Json Assistant 风格一致的三组排序) */
+/** 排序菜单项定义(与 Json Assistant 风格一致的三组排序);label 存 i18n 键,渲染时经 t() 解析 */
 const SORT_MENU_GROUPS: ReadonlyArray<{
-  label: string;
-  items: Array<{ label: string; mode: JsonKeySortMode; descending: boolean }>;
+  labelKey: string;
+  items: Array<{ labelKey: string; mode: JsonKeySortMode; descending: boolean }>;
 }> = [
   {
-    label: '基础排序',
+    labelKey: 'tools.json_formatter.sort_group_basic',
     items: [
-      { label: '大小写敏感正序 A-Z', mode: 'alpha', descending: false },
-      { label: '大小写敏感逆序 Z-A', mode: 'alpha', descending: true },
-      { label: '忽略大小写正序 A-Z', mode: 'alpha-insensitive', descending: false },
-      { label: '忽略大小写逆序 Z-A', mode: 'alpha-insensitive', descending: true },
+      {
+        labelKey: 'tools.json_formatter.sort_alpha_asc',
+        mode: 'alpha',
+        descending: false,
+      },
+      {
+        labelKey: 'tools.json_formatter.sort_alpha_desc',
+        mode: 'alpha',
+        descending: true,
+      },
+      {
+        labelKey: 'tools.json_formatter.sort_alpha_insensitive_asc',
+        mode: 'alpha-insensitive',
+        descending: false,
+      },
+      {
+        labelKey: 'tools.json_formatter.sort_alpha_insensitive_desc',
+        mode: 'alpha-insensitive',
+        descending: true,
+      },
     ],
   },
   {
-    label: '自然排序',
+    labelKey: 'tools.json_formatter.sort_group_natural',
     items: [
-      { label: '自然排序 A-Z(数字按值)', mode: 'natural', descending: false },
-      { label: '自然排序 Z-A(数字按值)', mode: 'natural', descending: true },
+      {
+        labelKey: 'tools.json_formatter.sort_natural_asc',
+        mode: 'natural',
+        descending: false,
+      },
+      {
+        labelKey: 'tools.json_formatter.sort_natural_desc',
+        mode: 'natural',
+        descending: true,
+      },
     ],
   },
   {
-    label: '特殊排序',
+    labelKey: 'tools.json_formatter.sort_group_special',
     items: [
-      { label: '长度升序', mode: 'length', descending: false },
-      { label: '长度降序', mode: 'length', descending: true },
-      { label: '十六进制正序', mode: 'hex', descending: false },
-      { label: '十六进制逆序', mode: 'hex', descending: true },
-      { label: '反转(原顺序倒置)', mode: 'reverse', descending: false },
-      { label: '随机', mode: 'random', descending: false },
+      { labelKey: 'tools.json_formatter.sort_length_asc', mode: 'length', descending: false },
+      { labelKey: 'tools.json_formatter.sort_length_desc', mode: 'length', descending: true },
+      { labelKey: 'tools.json_formatter.sort_hex_asc', mode: 'hex', descending: false },
+      { labelKey: 'tools.json_formatter.sort_hex_desc', mode: 'hex', descending: true },
+      { labelKey: 'tools.json_formatter.sort_reverse', mode: 'reverse', descending: false },
+      { labelKey: 'tools.json_formatter.sort_random', mode: 'random', descending: false },
     ],
   },
 ];
@@ -192,6 +217,7 @@ function OutputViewToggle({
   mode: OutputViewMode;
   onChange: (mode: OutputViewMode) => void;
 }) {
+  const { t } = useTranslation();
   const itemClass = (active: boolean): string =>
     cn(
       'flex items-center gap-1 px-2 py-0.5 text-xs transition-colors',
@@ -202,36 +228,37 @@ function OutputViewToggle({
   return (
     <div
       role="group"
-      aria-label="输出视图切换"
+      aria-label={t('tools.json_formatter.output_view_toggle_aria')}
       className="flex overflow-hidden rounded border border-border"
     >
       <button
         type="button"
         data-testid="view-text"
         aria-pressed={mode === 'text'}
-        title="文本视图"
+        title={t('tools.json_formatter.text_view_title')}
         onClick={() => onChange('text')}
         className={itemClass(mode === 'text')}
       >
         <FileText aria-hidden className="size-3.5" />
-        文本
+        {t('tools.json_formatter.text_view_label')}
       </button>
       <button
         type="button"
         data-testid="view-tree"
         aria-pressed={mode === 'tree'}
-        title="树结构视图"
+        title={t('tools.json_formatter.tree_view_title')}
         onClick={() => onChange('tree')}
         className={itemClass(mode === 'tree')}
       >
         <ListTree aria-hidden className="size-3.5" />
-        树形
+        {t('tools.json_formatter.tree_view_label')}
       </button>
     </div>
   );
 }
 
 export function JsonFormatter({ toolId }: ToolProps) {
+  const { t } = useTranslation();
   // —— 多 Tab 工作区(store 为模块级单例,状态跨挂载保留)——
   const docs = useJsonFormatterStore((s) => s.docs);
   const activeDocId = useJsonFormatterStore((s) => s.activeDocId);
@@ -407,7 +434,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
         recordHistory(text);
       } catch (e) {
         // 报错直接写入右侧输出框
-        setOutput(formatError(e, '格式化失败: '));
+        setOutput(formatError(e, t('tools.json_formatter.format_failed')));
         setMeta(null);
         setOutputLanguage('plaintext');
       } finally {
@@ -415,7 +442,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
       }
     },
     // formatOnFrontend 为组件内纯函数,仅依赖 indent(已含于依赖数组)
-    [toolId, text, indent, recordHistory],
+    [toolId, text, indent, recordHistory, t],
   );
 
   // 全局快捷键契约:Ctrl+Enter 执行 / Ctrl+L 清空当前文档 / Ctrl+Shift+C 复制输出。
@@ -471,7 +498,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
       setMeta(null);
       recordHistory(text);
     } catch (e) {
-      setOutput(formatError(e, '解析失败: '));
+      setOutput(formatError(e, t('tools.json_formatter.parse_failed')));
       setOutputLanguage('plaintext');
       setMeta(null);
     }
@@ -487,7 +514,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
       setMeta(null);
       recordHistory(text);
     } catch (e) {
-      setOutput(formatError(e, '排序失败: '));
+      setOutput(formatError(e, t('tools.json_formatter.sort_failed')));
       setOutputLanguage('plaintext');
       setMeta(null);
     }
@@ -503,7 +530,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
       setMeta(null);
       recordHistory(text);
     } catch (e) {
-      setOutput(formatError(e, `转换失败(${language}): `));
+      setOutput(formatError(e, t('tools.json_formatter.convert_failed', { language })));
       setOutputLanguage('plaintext');
       setMeta(null);
     }
@@ -539,7 +566,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
           break;
         default: {
           const exhaustive: never = format;
-          throw new Error(`不支持的格式: ${String(exhaustive)}`);
+          throw new Error(t('tools.json_formatter.unsupported_format', { format: String(exhaustive) }));
         }
       }
       setOutput(converted);
@@ -547,7 +574,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
       setMeta(null);
       recordHistory(text);
     } catch (e) {
-      setOutput(formatError(e, `转换失败(${format}): `));
+      setOutput(formatError(e, t('tools.json_formatter.convert_failed', { format })));
       setOutputLanguage('plaintext');
       setMeta(null);
     }
@@ -582,13 +609,13 @@ export function JsonFormatter({ toolId }: ToolProps) {
     {
       id: 'json',
       items: [
-        { id: 'format', label: '格式化 JSON', onSelect: () => void runFormat() },
-        { id: 'minify', label: '压缩 JSON', onSelect: () => handleQuickAction('minify') },
-        { id: 'sort-asc', label: '键排序 A-Z', onSelect: () => handleSort('alpha', false) },
-        { id: 'sort-desc', label: '键排序 Z-A', onSelect: () => handleSort('alpha', true) },
+        { id: 'format', label: t('tools.json_formatter.ctx_format_json'), onSelect: () => void runFormat() },
+        { id: 'minify', label: t('tools.json_formatter.ctx_minify_json'), onSelect: () => handleQuickAction('minify') },
+        { id: 'sort-asc', label: t('tools.json_formatter.ctx_sort_az'), onSelect: () => handleSort('alpha', false) },
+        { id: 'sort-desc', label: t('tools.json_formatter.ctx_sort_za'), onSelect: () => handleSort('alpha', true) },
         {
           id: 'to-typescript',
-          label: '转换为 TypeScript 类型',
+          label: t('tools.json_formatter.ctx_to_typescript'),
           onSelect: () => handleConvert('typescript'),
         },
       ],
@@ -612,7 +639,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
       >
         <div
           role="tablist"
-          aria-label="JSON 文档"
+          aria-label={t('tools.json_formatter.tabs_aria')}
           className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
         >
           {sortedDocs.map((doc) => {
@@ -647,7 +674,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                     {/* 固定 Tab 用 Pin 图标替代 JSON 图标(与编辑器 Tab 语义一致) */}
                     {doc.pinned ? (
                       <Pin
-                        aria-label="已固定"
+                        aria-label={t('tools.json_formatter.pinned_aria')}
                         data-testid="doc-tab-pin"
                         className="size-3.5 shrink-0 text-primary"
                       />
@@ -657,8 +684,8 @@ export function JsonFormatter({ toolId }: ToolProps) {
                     <span className="truncate">{doc.title}</span>
                     <button
                       type="button"
-                      aria-label={`关闭 ${doc.title}`}
-                      title="关闭"
+                      aria-label={t('tools.json_formatter.close_tab_aria', { title: doc.title })}
+                      title={t('tools.json_formatter.close')}
                       data-testid="doc-tab-close"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -676,16 +703,16 @@ export function JsonFormatter({ toolId }: ToolProps) {
                     onSelect={() => setRenameTarget(doc)}
                     data-testid="ctx-doc-rename"
                   >
-                    重命名
+                    {t('tools.json_formatter.rename')}
                   </ContextMenuItem>
                   <ContextMenuItem
                     onSelect={() => togglePinDoc(doc.id)}
                     data-testid="ctx-doc-toggle-pin"
                   >
-                    固定
+                    {t('tools.json_formatter.pin')}
                     {doc.pinned && (
                       <Check
-                        aria-label="已固定"
+                        aria-label={t('tools.json_formatter.pinned_aria')}
                         data-testid="ctx-doc-pin-check"
                         className="ml-auto size-3.5 text-primary"
                       />
@@ -696,7 +723,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                     onSelect={() => requestCloseDoc(doc.id)}
                     data-testid="ctx-doc-close"
                   >
-                    关闭
+                    {t('tools.json_formatter.close')}
                   </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>
@@ -705,8 +732,8 @@ export function JsonFormatter({ toolId }: ToolProps) {
           <button
             type="button"
             data-testid="doc-add"
-            title="新建 JSON 文档"
-            aria-label="新建 JSON 文档"
+            title={t('tools.json_formatter.new_doc')}
+            aria-label={t('tools.json_formatter.new_doc')}
             onClick={() => newDoc()}
             className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
@@ -718,7 +745,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
-            title="输入(JSON / XML)"
+            title={t('tools.json_formatter.input_title')}
             language={isXmlInput ? 'xml' : 'json'}
             value={text}
             onChange={setText}
@@ -747,7 +774,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                   disabled={disabled}
                 >
                   <Wand2 aria-hidden className="size-3.5" />
-                  {loading ? '格式化中' : '格式化'}
+                  {loading ? t('tools.json_formatter.formatting') : t('tools.json_formatter.format')}
                 </ActionButton>
                 <ActionButton
                   testId="btn-minify"
@@ -755,7 +782,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                   disabled={disabled}
                 >
                   <Minimize2 aria-hidden className="size-3.5" />
-                  压缩
+                  {t('tools.json_formatter.minify')}
                 </ActionButton>
                 {/* —— 多模式键排序(仿 Json Assistant:基础/自然/特殊三组) —— */}
                 <DropdownMenu>
@@ -767,20 +794,20 @@ export function JsonFormatter({ toolId }: ToolProps) {
                       className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
                     >
                       <ArrowUpDown aria-hidden className="size-3.5" />
-                      排序
+                      {t('tools.json_formatter.sort')}
                       <ChevronDown aria-hidden className="size-3 opacity-60" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="max-h-[420px] w-52 overflow-y-auto">
                     {SORT_MENU_GROUPS.map((group, gi) => (
-                      <div key={group.label} data-testid={gi === 0 ? 'sort-menu' : undefined}>
+                      <div key={group.labelKey} data-testid={gi === 0 ? 'sort-menu' : undefined}>
                         {gi > 0 && <DropdownMenuSeparator />}
                         <DropdownMenuLabel className="text-xs text-muted-foreground">
-                          {group.label}
+                          {t(group.labelKey)}
                         </DropdownMenuLabel>
                         {group.items.map((item) => (
                           <DropdownMenuItem
-                            key={item.label}
+                            key={item.labelKey}
                             data-testid={`sort-${item.mode}-${item.descending ? 'desc' : 'asc'}`}
                             disabled={disabled}
                             onSelect={() => handleSort(item.mode, item.descending)}
@@ -788,7 +815,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                             {item.mode === 'reverse' || item.mode === 'random' ? (
                               <ArrowDownAZ aria-hidden className="mr-2 size-3.5 opacity-50" />
                             ) : null}
-                            {item.label}
+                            {t(item.labelKey)}
                           </DropdownMenuItem>
                         ))}
                       </div>
@@ -805,13 +832,13 @@ export function JsonFormatter({ toolId }: ToolProps) {
                       className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
                     >
                       <FileCode2 aria-hidden className="size-3.5" />
-                      转换为
+                      {t('tools.json_formatter.convert_to')}
                       <ChevronDown aria-hidden className="size-3 opacity-60" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="max-h-[460px] overflow-y-auto">
                     <DropdownMenuLabel className="text-xs text-muted-foreground">
-                      实体类
+                      {t('tools.json_formatter.entity_class')}
                     </DropdownMenuLabel>
                     {ENTITY_LANGUAGE_ITEMS.map((item) => (
                       <DropdownMenuItem
@@ -825,7 +852,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                     ))}
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="text-xs text-muted-foreground">
-                      数据格式
+                      {t('tools.json_formatter.data_format')}
                     </DropdownMenuLabel>
                     {DATA_FORMAT_ITEMS.map((item) => (
                       <DropdownMenuItem
@@ -849,7 +876,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                       className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <History aria-hidden className="size-3.5" />
-                      历史
+                      {t('tools.json_formatter.history')}
                       {history.length > 0 && (
                         <span className="rounded bg-muted px-1 text-[10px]">
                           {Math.min(history.length, MAX_HISTORY_ITEMS)}
@@ -859,7 +886,9 @@ export function JsonFormatter({ toolId }: ToolProps) {
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-96 p-0" data-testid="history-popover">
                     <div className="flex items-center gap-1 border-b border-border px-3 py-2">
-                      <span className="flex-1 text-xs font-semibold">历史记录</span>
+                      <span className="flex-1 text-xs font-semibold">
+                        {t('tools.json_formatter.history_title')}
+                      </span>
                       <ActionButton
                         testId="history-save-current"
                         onClick={() => {
@@ -867,7 +896,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                         }}
                       >
                         <Save aria-hidden className="size-3.5" />
-                        保存当前
+                        {t('tools.json_formatter.save_current')}
                       </ActionButton>
                       <ActionButton
                         testId="history-clear"
@@ -875,7 +904,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                         disabled={history.length === 0}
                       >
                         <Trash2 aria-hidden className="size-3.5" />
-                        清空
+                        {t('tools.json_formatter.clear')}
                       </ActionButton>
                     </div>
                     {history.length === 0 ? (
@@ -883,7 +912,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                         className="flex h-24 items-center justify-center text-xs text-muted-foreground"
                         data-testid="history-empty"
                       >
-                        暂无历史记录 · 输入合法 JSON 后自动保存,关闭文档时快照
+                        {t('tools.json_formatter.history_empty')}
                       </div>
                     ) : (
                       <ul className="max-h-72 overflow-y-auto py-1" data-testid="history-list">
@@ -906,12 +935,14 @@ export function JsonFormatter({ toolId }: ToolProps) {
                                     })
                                   : ''}
                                 {' · '}
-                                {item.content.length} 字符
+                                {t('tools.json_formatter.chars_unit', {
+                                  count: item.content.length,
+                                })}
                               </span>
                             </button>
                             <button
                               type="button"
-                              aria-label="删除该条历史"
+                              aria-label={t('tools.json_formatter.delete_history_item_aria')}
                               data-testid="history-item-remove"
                               onClick={() =>
                                 useJsonFormatterStore.getState().removeHistory(item.id)
@@ -928,7 +959,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                 </Popover>
                 {isXmlInput && (
                   <span className="text-xs text-muted-foreground">
-                    已识别 XML,将自动转换为 JSON
+                    {t('tools.json_formatter.xml_hint')}
                   </span>
                 )}
               </>
@@ -942,10 +973,16 @@ export function JsonFormatter({ toolId }: ToolProps) {
           {viewMode === 'tree' ? (
             <div className="flex h-full flex-col bg-background-layer">
               <div className="flex items-center gap-2 border-b border-border px-2 py-1">
-                <span className="flex-1 text-xs font-medium text-muted-foreground">输出</span>
+                <span className="flex-1 text-xs font-medium text-muted-foreground">
+                  {t('tools.json_formatter.output_title')}
+                </span>
                 {meta && (
                   <span className="text-xs text-muted-foreground">
-                    {meta.input_bytes} → {meta.output_bytes} 字节 · {meta.duration_ms}ms
+                    {t('tools.json_formatter.bytes_meta', {
+                      input: meta.input_bytes,
+                      output: meta.output_bytes,
+                      ms: meta.duration_ms,
+                    })}
                   </span>
                 )}
                 <OutputViewToggle mode={viewMode} onChange={setViewMode} />
@@ -954,14 +991,14 @@ export function JsonFormatter({ toolId }: ToolProps) {
               </div>
               {!output.trim() ? (
                 <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
-                  暂无输出内容
+                  {t('tools.json_formatter.empty_output')}
                 </div>
               ) : treeParsing ? (
                 <div
                   className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground"
                   role="status"
                 >
-                  正在构建树视图…
+                  {t('tools.json_formatter.building_tree')}
                 </div>
               ) : treeValue.ok ? (
                 <JsonTreeView
@@ -971,14 +1008,14 @@ export function JsonFormatter({ toolId }: ToolProps) {
                 />
               ) : (
                 <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
-                  当前输出不是有效的 JSON / XML,无法生成树结构
+                  {t('tools.json_formatter.invalid_tree_output')}
                 </div>
               )}
             </div>
           ) : (
             <CodeEditor
               readOnly
-              title="输出"
+              title={t('tools.json_formatter.output_title')}
               language={outputLanguage}
               value={output}
               className="h-full"
@@ -989,7 +1026,11 @@ export function JsonFormatter({ toolId }: ToolProps) {
                   <OutputViewToggle mode={viewMode} onChange={setViewMode} />
                   {meta && (
                     <span className="text-xs text-muted-foreground">
-                      {meta.input_bytes} → {meta.output_bytes} 字节 · {meta.duration_ms}ms
+                      {t('tools.json_formatter.bytes_meta', {
+                        input: meta.input_bytes,
+                        output: meta.output_bytes,
+                        ms: meta.duration_ms,
+                      })}
                     </span>
                   )}
                   <CopyAction text={output} testId="output-copy" />
@@ -1010,22 +1051,26 @@ export function JsonFormatter({ toolId }: ToolProps) {
       >
         <AlertDialogContent size="sm" data-testid="doc-close-dialog">
           <AlertDialogHeader>
-            <AlertDialogTitle>{`确定要关闭 "${closeTarget?.title ?? ''}" 吗?`}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('tools.json_formatter.close_confirm_title', {
+                title: closeTarget?.title ?? '',
+              })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {closeTarget?.content.trim()
-                ? '关闭前会自动保存一条历史快照,可随时在「历史」中恢复。'
-                : '该 Tab 内容为空,关闭后可用「+」新建。'}
+                ? t('tools.json_formatter.close_confirm_snapshot_desc')
+                : t('tools.json_formatter.close_confirm_empty_desc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction onClick={confirmCloseDoc} data-testid="doc-close-dialog-confirm">
-              关闭
+              {t('tools.json_formatter.close')}
             </AlertDialogAction>
             <AlertDialogCancel
               onClick={() => setCloseTarget(null)}
               data-testid="doc-close-dialog-cancel"
             >
-              取消
+              {t('tools.json_formatter.cancel')}
             </AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1035,7 +1080,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
       {renameTarget && (
         <RenameDialog
           open
-          title="重命名 Tab"
+          title={t('tools.json_formatter.rename_dialog_title')}
           initialValue={renameTarget.title}
           onConfirm={(name) => {
             renameDoc(renameTarget.id, name);

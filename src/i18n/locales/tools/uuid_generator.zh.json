@@ -1,0 +1,13 @@
+{
+  "tools.uuid_generator.version": "版本",
+  "tools.uuid_generator.version_hint": "v4 随机 / v7 时间有序",
+  "tools.uuid_generator.count": "数量",
+  "tools.uuid_generator.format": "格式",
+  "tools.uuid_generator.format_hint": "大小写与连字符样式",
+  "tools.uuid_generator.uppercase": "大写",
+  "tools.uuid_generator.hyphens": "连字符",
+  "tools.uuid_generator.output_title": "生成结果",
+  "tools.uuid_generator.output_placeholder": "点击上方「生成」按钮创建 UUID",
+  "tools.uuid_generator.generate": "生成",
+  "tools.uuid_generator.generating": "生成中"
+}

@@ -34,10 +34,12 @@ export type ModeKind = 'text' | 'file';
 export interface Base64Mode {
   /** 模式唯一 ID,同一方向内不可重复 */
   id: string;
-  /** 显示名称 */
+  /** 显示名称(非中文名直接存字面量) */
   label: string;
-  /** 输入区占位 / 描述 */
-  hint: string;
+  /** 中文名的 i18n 键(tools.base64_codec.*);存在时优先于 label 渲染 */
+  labelKey?: string;
+  /** 输入区占位 / 描述的 i18n 键(tools.base64_codec.*) */
+  hintKey: string;
   /** 输入形态 */
   kind: ModeKind;
   /** 传给 Rust base64_codec 的 mode 参数(仅文本类与二进制解码使用) */
@@ -52,7 +54,7 @@ export const ENCODE_MODES: readonly Base64Mode[] = [
   {
     id: 'text',
     label: 'Text',
-    hint: '输入要编码为 Base64 的文本',
+    hintKey: 'tools.base64_codec.mode_encode_text_hint',
     kind: 'text',
     rustMode: 'text',
     icon: Type,
@@ -60,7 +62,7 @@ export const ENCODE_MODES: readonly Base64Mode[] = [
   {
     id: 'url',
     label: 'URL',
-    hint: '输入 URL 字符串,编码为 Base64',
+    hintKey: 'tools.base64_codec.mode_encode_url_hint',
     kind: 'text',
     rustMode: 'text',
     icon: Link,
@@ -68,7 +70,7 @@ export const ENCODE_MODES: readonly Base64Mode[] = [
   {
     id: 'css',
     label: 'CSS',
-    hint: '输入 CSS 代码,编码为 Base64',
+    hintKey: 'tools.base64_codec.mode_encode_css_hint',
     kind: 'text',
     rustMode: 'text',
     icon: FileCode2,
@@ -76,7 +78,7 @@ export const ENCODE_MODES: readonly Base64Mode[] = [
   {
     id: 'html',
     label: 'HTML',
-    hint: '输入 HTML 代码,编码为 Base64',
+    hintKey: 'tools.base64_codec.mode_encode_html_hint',
     kind: 'text',
     rustMode: 'text',
     icon: CodeXml,
@@ -84,23 +86,25 @@ export const ENCODE_MODES: readonly Base64Mode[] = [
   {
     id: 'hex',
     label: 'Hex',
-    hint: '输入十六进制字节序列(可含空格,如 48 65 6c 6c 6f),编码为 Base64',
+    hintKey: 'tools.base64_codec.mode_encode_hex_hint',
     kind: 'text',
     rustMode: 'hex',
     icon: Hash,
   },
   {
     id: 'file',
+    labelKey: 'tools.base64_codec.mode_encode_file_label',
     label: '文件',
-    hint: '拖放或选择任意文件,编码为 Base64',
+    hintKey: 'tools.base64_codec.mode_encode_file_hint',
     kind: 'file',
     rustMode: 'binary',
     icon: FileText,
   },
   {
     id: 'image',
+    labelKey: 'tools.base64_codec.mode_encode_image_label',
     label: '图片',
-    hint: '拖放或选择图片文件,编码为 Base64',
+    hintKey: 'tools.base64_codec.mode_encode_image_hint',
     kind: 'file',
     rustMode: 'binary',
     accept: 'image/*',
@@ -108,8 +112,9 @@ export const ENCODE_MODES: readonly Base64Mode[] = [
   },
   {
     id: 'audio',
+    labelKey: 'tools.base64_codec.mode_encode_audio_label',
     label: '音频',
-    hint: '拖放或选择音频文件,编码为 Base64',
+    hintKey: 'tools.base64_codec.mode_encode_audio_hint',
     kind: 'file',
     rustMode: 'binary',
     accept: 'audio/*',
@@ -117,8 +122,9 @@ export const ENCODE_MODES: readonly Base64Mode[] = [
   },
   {
     id: 'video',
+    labelKey: 'tools.base64_codec.mode_encode_video_label',
     label: '视频',
-    hint: '拖放或选择视频文件,编码为 Base64',
+    hintKey: 'tools.base64_codec.mode_encode_video_hint',
     kind: 'file',
     rustMode: 'binary',
     accept: 'video/*',
@@ -127,7 +133,7 @@ export const ENCODE_MODES: readonly Base64Mode[] = [
   {
     id: 'pdf',
     label: 'PDF',
-    hint: '拖放或选择 PDF 文件,编码为 Base64',
+    hintKey: 'tools.base64_codec.mode_encode_pdf_hint',
     kind: 'file',
     rustMode: 'binary',
     accept: 'application/pdf',
@@ -139,7 +145,7 @@ export const DECODE_MODES: readonly Base64Mode[] = [
   {
     id: 'text',
     label: 'Text',
-    hint: '粘贴 Base64,解码为 UTF-8 纯文本',
+    hintKey: 'tools.base64_codec.mode_decode_text_hint',
     kind: 'text',
     rustMode: 'text',
     icon: Type,
@@ -147,7 +153,7 @@ export const DECODE_MODES: readonly Base64Mode[] = [
   {
     id: 'ascii',
     label: 'ASCII',
-    hint: '粘贴 Base64,逐字节解码为 ASCII/Latin-1 文本',
+    hintKey: 'tools.base64_codec.mode_decode_ascii_hint',
     kind: 'text',
     rustMode: 'ascii',
     icon: FileText,
@@ -155,7 +161,7 @@ export const DECODE_MODES: readonly Base64Mode[] = [
   {
     id: 'hex',
     label: 'Hex',
-    hint: '粘贴 Base64,解码为十六进制字节序列',
+    hintKey: 'tools.base64_codec.mode_decode_hex_hint',
     kind: 'text',
     rustMode: 'hex',
     icon: Hash,
@@ -163,39 +169,43 @@ export const DECODE_MODES: readonly Base64Mode[] = [
   {
     id: 'basic_auth',
     label: 'Basic Auth',
-    hint: '粘贴 Basic 认证头(可带 Basic 前缀),解码为 用户名:密码',
+    hintKey: 'tools.base64_codec.mode_decode_basic_auth_hint',
     kind: 'text',
     rustMode: 'basic_auth',
     icon: KeyRound,
   },
   {
     id: 'file',
+    labelKey: 'tools.base64_codec.mode_decode_file_label',
     label: '文件',
-    hint: '粘贴 Base64,还原为二进制文件下载',
+    hintKey: 'tools.base64_codec.mode_decode_file_hint',
     kind: 'file',
     rustMode: 'binary',
     icon: FileText,
   },
   {
     id: 'image',
+    labelKey: 'tools.base64_codec.mode_decode_image_label',
     label: '图片',
-    hint: '粘贴 Base64 / data URL,预览图片',
+    hintKey: 'tools.base64_codec.mode_decode_image_hint',
     kind: 'file',
     rustMode: 'binary',
     icon: ImageIcon,
   },
   {
     id: 'audio',
+    labelKey: 'tools.base64_codec.mode_decode_audio_label',
     label: '音频',
-    hint: '粘贴 Base64 / data URL,播放音频',
+    hintKey: 'tools.base64_codec.mode_decode_audio_hint',
     kind: 'file',
     rustMode: 'binary',
     icon: Music,
   },
   {
     id: 'video',
+    labelKey: 'tools.base64_codec.mode_decode_video_label',
     label: '视频',
-    hint: '粘贴 Base64 / data URL,播放视频',
+    hintKey: 'tools.base64_codec.mode_decode_video_hint',
     kind: 'file',
     rustMode: 'binary',
     icon: Video,
@@ -203,7 +213,7 @@ export const DECODE_MODES: readonly Base64Mode[] = [
   {
     id: 'pdf',
     label: 'PDF',
-    hint: '粘贴 Base64 / data URL,预览 PDF',
+    hintKey: 'tools.base64_codec.mode_decode_pdf_hint',
     kind: 'file',
     rustMode: 'binary',
     icon: FileType,

@@ -12,6 +12,61 @@ import { initReactI18next } from 'react-i18next';
 import zhCN from './locales/zh-CN.json';
 import enUS from './locales/en-US.json';
 
+// 工具级文案片段(locales/tools/<tool_id>.{zh,en}.json,扁平全前缀键):
+// 并行迁移各工具时只新增自己的片段文件、不改主 locale;构建期在此聚合,
+// 展开为嵌套对象后深合并进主资源(键冲突以片段为准)。
+const toolFragments = import.meta.glob('./locales/tools/*.json', {
+  eager: true,
+}) as Record<string, { default: Record<string, string> }>;
+
+/** {"a.b.c": "v"} → { a: { b: { c: "v" } } }(i18next 以 . 为键分隔符) */
+function expandFlatKeys(flat: Record<string, string>): Record<string, unknown> {
+  const nested: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(flat)) {
+    const parts = key.split('.');
+    let cursor = nested;
+    parts.forEach((part, index) => {
+      if (index === parts.length - 1) {
+        cursor[part] = value;
+        return;
+      }
+      if (typeof cursor[part] !== 'object' || cursor[part] === null) {
+        cursor[part] = {};
+      }
+      cursor = cursor[part] as Record<string, unknown>;
+    });
+  }
+  return nested;
+}
+
+/** 深合并 source 进 target(片段场景仅涉及对象与字符串值) */
+function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(source)) {
+    const existing = target[key];
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      typeof existing === 'object' &&
+      existing !== null
+    ) {
+      deepMerge(existing as Record<string, unknown>, value as Record<string, unknown>);
+    } else {
+      target[key] = value;
+    }
+  }
+}
+
+/** 聚合对应语言的工具片段(zh→zh-CN,en→en-US;其余后缀忽略) */
+function mergeToolFragments(base: Record<string, unknown>, suffix: 'zh' | 'en'): void {
+  for (const [file, mod] of Object.entries(toolFragments)) {
+    if (!file.endsWith(`.${suffix}.json`)) continue;
+    deepMerge(base, expandFlatKeys(mod.default));
+  }
+}
+
+mergeToolFragments(zhCN as Record<string, unknown>, 'zh');
+mergeToolFragments(enUS as Record<string, unknown>, 'en');
+
 export type Locale = 'zh-CN' | 'en-US';
 
 export const FALLBACK_LOCALE: Locale = 'zh-CN';

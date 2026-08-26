@@ -8,6 +8,7 @@
  * 错误处理遵循新代约定:工具内联 alert 展示。
  */
 import { useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CalendarClock, Globe2 } from 'lucide-react';
 import { formatError } from '@/lib/format-error';
 import { Button } from '@/components/ui/button';
@@ -60,6 +61,7 @@ function ResultRow({
   value: string;
   mono?: boolean;
 }): JSX.Element {
+  const { t } = useTranslation();
   return (
     <>
       <dt className="font-semibold">{label}</dt>
@@ -70,7 +72,7 @@ function ResultRow({
           className="text-xs text-primary hover:underline"
           onClick={() => void copyTextWithFeedback(value)}
         >
-          复制
+          {t('tools.timestamp_converter.copy')}
         </button>
       </dd>
     </>
@@ -78,6 +80,7 @@ function ResultRow({
 }
 
 export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [text, setText] = useState('');
   const [timezone, setTimezone] = useState('UTC');
   const [output, setOutput] = useState<ToolOutput | null>(null);
@@ -109,22 +112,26 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
       <ConfigSection title="" searchAnchor="timestamp_converter:config">
         <ConfigRow
           icon={CalendarClock}
-          label="输入"
-          hint="Unix 秒 / 毫秒 / 日期字符串"
+          label={t('tools.timestamp_converter.input')}
+          hint={t('tools.timestamp_converter.input_hint')}
           searchAnchor="timestamp_converter:input"
         >
           <Input
             id="ts-input"
-            placeholder="输入时间戳或日期字符串..."
+            placeholder={t('tools.timestamp_converter.input_placeholder')}
             value={text}
             onChange={(e) => setText(e.target.value)}
             className="w-72 font-mono text-sm"
             data-testid="input"
           />
         </ConfigRow>
-        <ConfigRow icon={Globe2} label="时区" hint="本地时间展示所用时区">
+        <ConfigRow
+          icon={Globe2}
+          label={t('tools.timestamp_converter.timezone')}
+          hint={t('tools.timestamp_converter.timezone_hint')}
+        >
           <Select value={timezone} onValueChange={setTimezone}>
-            <SelectTrigger className="w-48" aria-label="时区">
+            <SelectTrigger className="w-48" aria-label={t('tools.timestamp_converter.timezone')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -136,7 +143,7 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
             </SelectContent>
           </Select>
           <Button onClick={() => void handleConvert()} disabled={loading || !text} size="sm">
-            {loading ? '转换中...' : '转换'}
+            {loading ? t('tools.timestamp_converter.converting') : t('tools.timestamp_converter.convert')}
           </Button>
         </ConfigRow>
       </ConfigSection>
@@ -157,10 +164,13 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
         data-search-anchor="timestamp_converter:result"
       >
         <div className="flex items-center justify-between border-b px-3 py-1.5">
-          <span className="pl-1 text-xs font-medium">转换结果</span>
+          <span className="pl-1 text-xs font-medium">{t('tools.timestamp_converter.result_title')}</span>
           {output?.meta && (
             <span className="text-xs text-muted-foreground">
-              {output.meta.input_bytes} 字节 · {output.meta.duration_ms}ms
+              {t('tools.timestamp_converter.bytes_unit', {
+                count: output.meta.input_bytes,
+                ms: output.meta.duration_ms,
+              })}
             </span>
           )}
         </div>
@@ -168,15 +178,18 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
           <div className="p-4">
             {extra ? (
               <dl className="grid grid-cols-[180px_1fr_auto] gap-x-4 gap-y-3 text-sm">
-                <ResultRow label="Unix(秒)" value={String(extra.unix_seconds)} />
-                <ResultRow label="Unix(毫秒)" value={String(extra.unix_millis)} />
+                <ResultRow label={t('tools.timestamp_converter.unix_seconds')} value={String(extra.unix_seconds)} />
+                <ResultRow label={t('tools.timestamp_converter.unix_millis')} value={String(extra.unix_millis)} />
                 <ResultRow label="ISO 8601" value={extra.iso8601} />
-                <ResultRow label={`本地时间(${timezone})`} value={extra.local} />
-                <ResultRow label="相对时间" value={extra.relative} mono={false} />
+                <ResultRow
+                  label={t('tools.timestamp_converter.local_time', { tz: timezone })}
+                  value={extra.local}
+                />
+                <ResultRow label={t('tools.timestamp_converter.relative_time')} value={extra.relative} mono={false} />
               </dl>
             ) : (
               <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
-                输入时间戳后点击「转换」查看各格式结果
+                {t('tools.timestamp_converter.empty_state')}
               </div>
             )}
           </div>

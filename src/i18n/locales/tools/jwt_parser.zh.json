@@ -1,0 +1,11 @@
+{
+  "tools.jwt_parser.token_label": "JWT 令牌",
+  "tools.jwt_parser.token_placeholder": "在此粘贴 JWT 令牌...",
+  "tools.jwt_parser.parse": "解析",
+  "tools.jwt_parser.parsing": "解析中...",
+  "tools.jwt_parser.header": "头部(Header)",
+  "tools.jwt_parser.payload": "载荷(Payload)",
+  "tools.jwt_parser.signature": "签名(Signature)",
+  "tools.jwt_parser.expires_at": "过期时间: {{time}}",
+  "tools.jwt_parser.empty_state": "解析 JWT 后将展示各部分内容"
+}

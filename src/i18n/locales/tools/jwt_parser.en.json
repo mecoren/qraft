@@ -1,0 +1,11 @@
+{
+  "tools.jwt_parser.token_label": "JWT token",
+  "tools.jwt_parser.token_placeholder": "Paste a JWT token here...",
+  "tools.jwt_parser.parse": "Parse",
+  "tools.jwt_parser.parsing": "Parsing...",
+  "tools.jwt_parser.header": "Header",
+  "tools.jwt_parser.payload": "Payload",
+  "tools.jwt_parser.signature": "Signature",
+  "tools.jwt_parser.expires_at": "Expires at: {{time}}",
+  "tools.jwt_parser.empty_state": "Parse a JWT to see its parts here"
+}
