@@ -12,7 +12,7 @@ vi.mock('@/lib/ipc', () => ({
 }));
 
 import { GeneralSection } from './SettingsPanel';
-import { getLocale } from '@/i18n';
+import { changeLocale, getLocale } from '@/i18n';
 import { useConfigStore } from '@/store/configStore';
 
 function seedConfig(language: string): void {
@@ -34,17 +34,24 @@ describe('GeneralSection 语言切换', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     seedConfig('zh-CN');
+    // 语言切换测试会把 locale 切到 en-US;每个用例前恢复 zh 桩,
+    // 保证依赖中文 label 的查询(如 getByLabelText('界面语言 / Language'))不受前一用例影响
+    changeLocale('zh-CN');
   });
+
+  // 语言下拉的 label 随当前 locale 渲染(zh:「界面语言 / Language」/ en:「Language / 界面语言」),
+  // 前序用例经 UI 切换后可能残留 en;查询统一用双语正则,不依赖语言恢复时序
+  const languageLabel = (): HTMLElement => screen.getByLabelText(/界面语言|Language/);
 
   it('渲染语言下拉且默认 zh-CN', () => {
     render(<GeneralSection />);
-    const select = screen.getByLabelText('界面语言 / Language') as HTMLSelectElement;
+    const select = languageLabel() as HTMLSelectElement;
     expect(select.value).toBe('zh-CN');
   });
 
   it('切换下拉即时预览 i18n locale', async () => {
     render(<GeneralSection />);
-    fireEvent.change(screen.getByLabelText('界面语言 / Language'), {
+    fireEvent.change(languageLabel(), {
       target: { value: 'en-US' },
     });
     expect(getLocale()).toBe('en-US');
@@ -58,10 +65,10 @@ describe('GeneralSection 语言切换', () => {
     ];
     for (const m of all) m.mockResolvedValue({ ok: true, value: true });
     render(<GeneralSection />);
-    fireEvent.change(screen.getByLabelText('界面语言 / Language'), {
+    fireEvent.change(languageLabel(), {
       target: { value: 'en-US' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    fireEvent.click(screen.getByRole('button', { name: /保存|Save/ }));
     await waitFor(() => {
       const flat = all.flatMap((m) => m.mock.calls.map((c) => JSON.stringify(c)));
       expect(flat.some((c) => c.includes('general.language') && c.includes('en-US'))).toBe(true);

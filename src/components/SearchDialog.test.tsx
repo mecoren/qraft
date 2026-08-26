@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { SearchDialog } from './SearchDialog';
 import { useSearchStore } from '@/store/searchStore';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
+import { MAX_MATCHES_PER_TAB } from '@/lib/editor-text-search';
 import type { EditorTab } from '@/tools/code-editor-workspace/schema';
 
 /** 构造最小合法 Tab */
@@ -181,4 +182,19 @@ describe('SearchDialog 文本模式', () => {
     });
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it('海量命中时截断展示并提示(徽标显示 前 X / Y 行)', async () => {
+    const lines = Array.from({ length: MAX_MATCHES_PER_TAB + 10 }, (_, i) => `find line ${i}`);
+    setTabs([makeTab('big', 'big.txt', lines.join('\n'))]);
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    await user.click(screen.getByRole('button', { name: '文本' }));
+    await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), 'find');
+    // 分组徽标展示「前 上限 / 总数 行」
+    expect(await screen.findByText(`前 ${MAX_MATCHES_PER_TAB} / ${lines.length} 行`)).toBeInTheDocument();
+    // 底部截断提示
+    expect(screen.getByText(/命中结果过多,仅显示部分匹配行/)).toBeInTheDocument();
+    // 渲染的 option 数不超过收集上限
+    expect(screen.getAllByRole('option').length).toBe(MAX_MATCHES_PER_TAB);
+  }, 20000);
 });

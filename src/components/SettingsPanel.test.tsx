@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { SettingsPanel } from './SettingsPanel';
 import { useConfigStore } from '@/store/configStore';
 import { DEFAULT_USER_CONFIG } from '@/types/config';
+import { changeLocale } from '@/i18n';
 
 // mock sonner:断言 toast 文案(全局 setup 已在 afterEach 清理 mock 调用记录)
 vi.mock('sonner', () => ({
@@ -32,6 +33,21 @@ describe('SettingsPanel', () => {
     expect(screen.getByText(/^主题$/)).toBeInTheDocument();
     expect(screen.getByLabelText(/最大历史数/)).toBeInTheDocument();
     expect(screen.getByLabelText(/打开命令面板/)).toBeInTheDocument();
+  });
+
+  it('en-US:分区/字段/快捷键标签随语言切换(手动切语言场景),结束恢复 zh 桩', () => {
+    changeLocale('en-US');
+    // 先卸载再切回 zh 桩,避免异步 languageChanged 在 act 环境外触发告警更新
+    const { unmount } = render(<SettingsPanel />);
+    try {
+      expect(screen.getByText(/^Settings$/)).toBeInTheDocument();
+      expect(screen.getByText(/^Theme$/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Max history entries/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Open command palette/)).toBeInTheDocument();
+    } finally {
+      unmount();
+      changeLocale('zh-CN');
+    }
   });
 
   it('renders without crashing when config lacks toolPrefs (legacy persisted config)', () => {

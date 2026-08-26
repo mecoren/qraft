@@ -1,7 +1,7 @@
 import { useEffect, useState, type JSX } from 'react';
 import { toast, Toaster } from 'sonner';
 import { I18nextProvider } from 'react-i18next';
-import { getI18nInstance } from '@/i18n';
+import { getI18nInstance, t as translate } from '@/i18n';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Titlebar } from '@/components/layout/Titlebar';
@@ -95,7 +95,8 @@ export function App(): JSX.Element {
       unlisteners.push(
         await listen<ToolFailedPayload>('tool_failed', (p) => {
           applyToolFailed(p);
-          toast.error(`工具执行失败: ${p.error.message}`);
+          // 事件回调内即时取词(全局 translate),不随组件渲染生命周期固化
+          toast.error(translate('chrome.toast.tool_failed', { message: p.error.message }));
         }),
       );
       // 通过文件关联/命令行/拖放「用 Qraft 打开」的文件:实时在编辑器工作区打开
@@ -108,7 +109,9 @@ export function App(): JSX.Element {
       unlisteners.push(
         await listen<string>('app:open-file-unsupported', (fileName) => {
           if (fileName) {
-            toast.warning(`无法在编辑器中打开「${fileName}」:可能是二进制或不受支持的格式`);
+            toast.warning(
+              translate('chrome.toast.open_binary_unsupported', { name: fileName }),
+            );
           }
         }),
       );

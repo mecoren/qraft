@@ -1,4 +1,5 @@
 import { createElement, Suspense, useEffect, useState, type ComponentType, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -52,6 +53,7 @@ export function catalogToMetadata(entry: CatalogEntry): ToolMetadata {
  * 工具页 —— 顶部标题区已迁移至 Titlebar 左段,此组件直接渲染工具工作区。
  */
 export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element {
+  const { t } = useTranslation();
   const entry = getCatalogEntry(toolId);
 
   // 工具级 keepalive:记录已访问过的工具 id,全部保持挂载,切换工具时仅切换显隐。
@@ -72,7 +74,7 @@ export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element 
   if (!entry) {
     return (
       <div role="status" className="flex items-center justify-center h-full text-muted-foreground">
-        未找到工具
+        {t('chrome.tool_panel.not_found')}
       </div>
     );
   }
@@ -100,7 +102,7 @@ export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element 
                     >
                       {/* 与 font-picker / IpParser 的加载态同一视觉语言:Loader2 + animate-spin */}
                       <Loader2 aria-hidden className="size-4 animate-spin" />
-                      加载工具…
+                      {t('chrome.tool_panel.loading')}
                     </div>
                   }
                 >
@@ -111,7 +113,7 @@ export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element 
                 </Suspense>
               ) : (
                 <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
-                  该工具界面尚未接入,敬请期待
+                  {t('chrome.tool_panel.not_implemented')}
                 </div>
               )}
             </div>
@@ -123,7 +125,7 @@ export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element 
       {alerts.length > 0 && (
         <>
           <Separator />
-          <footer role="region" aria-label="工具警告" className="max-h-32">
+          <footer role="region" aria-label={t('chrome.tool_panel.warning_aria')} className="max-h-32">
             <ScrollArea className="h-full">
               <div className="flex flex-col gap-1 p-2">
                 {alerts.map((a, i) => (

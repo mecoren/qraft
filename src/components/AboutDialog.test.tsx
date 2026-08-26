@@ -3,8 +3,22 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AboutDialog } from './AboutDialog';
 import { CHANGELOG_VERSIONS } from '@/lib/changelog';
+import { changeLocale } from '@/i18n';
 
 describe('AboutDialog', () => {
+  it('en-US:导航/标题随语言切换(手动切语言场景),结束恢复 zh 桩', () => {
+    changeLocale('en-US');
+    // 先卸载再切回 zh 桩,避免异步 languageChanged 在 act 环境外触发告警更新
+    const { unmount } = render(<AboutDialog open onOpenChange={() => {}} />);
+    try {
+      expect(screen.getByRole('button', { name: /App info/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Changelog/ })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'App info' })).toBeInTheDocument();
+    } finally {
+      unmount();
+      changeLocale('zh-CN');
+    }
+  });
   it('shows left nav with four categories and info content by default', () => {
     render(<AboutDialog open onOpenChange={() => {}} />);
     // 左侧导航四分区

@@ -13,6 +13,7 @@ import {
 import { invoke } from '@tauri-apps/api/core';
 import { listen, normalizeIpcError } from '@/lib/ipc';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { Palette, Type, Check, ArrowUp, ArrowDown, FileText, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,24 +60,25 @@ import { DEFAULT_EDITOR_CONFIG, DEFAULT_USER_CONFIG } from '@/types/config';
 
 const SHORTCUT_KEYS: Array<{
   key: keyof ShortcutBinding;
-  label: string;
+  /** i18n 键名(MODE_LABEL 模式),组件层翻译 */
+  labelKey: string;
   /** 标记为暂未生效(该功能尚未实现对应快捷键处理) */
   pending?: boolean;
 }> = [
-  { key: 'open_command_palette', label: '打开命令面板' },
-  { key: 'toggle_sidebar', label: '切换侧栏' },
-  { key: 'execute_tool', label: '执行工具' },
-  { key: 'clear_input', label: '清空输入' },
-  { key: 'copy_output', label: '复制输出' },
-  { key: 'toggle_settings', label: '切换设置' },
-  { key: 'switch_tool', label: '切换工具' },
-  { key: 'open_history', label: '打开历史' },
-  { key: 'search', label: '搜索', pending: true },
-  { key: 'close_panel', label: '关闭面板' },
-  { key: 'save_file', label: '保存编辑器' },
-  { key: 'global_search', label: '全局搜索' },
-  { key: 'cycle_naming_case', label: '切换字符命名风格' },
-  { key: 'toggle_case', label: '切换大小写' },
+  { key: 'open_command_palette', labelKey: 'settings.sc_open_command_palette' },
+  { key: 'toggle_sidebar', labelKey: 'settings.sc_toggle_sidebar' },
+  { key: 'execute_tool', labelKey: 'settings.sc_execute_tool' },
+  { key: 'clear_input', labelKey: 'settings.sc_clear_input' },
+  { key: 'copy_output', labelKey: 'settings.sc_copy_output' },
+  { key: 'toggle_settings', labelKey: 'settings.sc_toggle_settings' },
+  { key: 'switch_tool', labelKey: 'settings.sc_switch_tool' },
+  { key: 'open_history', labelKey: 'settings.sc_open_history' },
+  { key: 'search', labelKey: 'settings.sc_search', pending: true },
+  { key: 'close_panel', labelKey: 'settings.sc_close_panel' },
+  { key: 'save_file', labelKey: 'settings.sc_save_file' },
+  { key: 'global_search', labelKey: 'settings.sc_global_search' },
+  { key: 'cycle_naming_case', labelKey: 'settings.sc_cycle_naming_case' },
+  { key: 'toggle_case', labelKey: 'settings.sc_toggle_case' },
 ];
 
 const generalSchema = z.object({
@@ -124,6 +126,7 @@ interface CheckUpdateResponse {
  *   Releases 供用户手动下载整包(「不同版本不同安装方式」的核心分流)
  */
 export function UpdateSection(): JSX.Element {
+  const { t } = useTranslation();
   const [checking, setChecking] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
@@ -154,14 +157,18 @@ export function UpdateSection(): JSX.Element {
       const isManual = resp.installMode != null && resp.installMode !== 'in-place';
       setManualInstall(isManual);
       if (!resp.available) {
-        toast.success(`已是最新版本 (v${resp.currentVersion})`);
+        toast.success(t('settings.up_to_date_toast', { version: resp.currentVersion }));
       } else if (isManual) {
         // 系统安装版:提示需前往 Releases 手动下载整包(不同安装方式)
-        toast.info(`当前为「${resp.installModeLabel}」,需前往 GitHub Releases 下载整包更新`);
+        toast.info(
+          t('settings.manual_install_toast', { mode: resp.installModeLabel ?? '' }),
+        );
       }
     } catch (err) {
       // Tauri 命令 Err(AppError) 时以序列化错误对象 reject,需归一化取真实消息
-      toast.error(`检查更新失败:${normalizeIpcError(err).message}`);
+      toast.error(
+        t('settings.check_failed_toast', { message: normalizeIpcError(err).message }),
+      );
     } finally {
       setChecking(false);
     }
@@ -186,7 +193,7 @@ export function UpdateSection(): JSX.Element {
         // 兜底:Rust 端判定为系统安装版,跳转下载页
         void invoke('app_open_release_page');
       } else {
-        toast.error(`安装更新失败: ${msg}`);
+        toast.error(t('settings.install_failed_toast', { message: msg }));
       }
       setInstalling(false);
       setProgress(null);
@@ -200,27 +207,29 @@ export function UpdateSection(): JSX.Element {
   return (
     <div className="flex flex-col gap-4">
       <div data-search-anchor="settings:update:check">
-        <h3 className="text-sm font-semibold">检查更新</h3>
-        <p className="text-xs text-muted-foreground">
-          自动更新接入 GitHub Releases,可在下方手动检查。
-        </p>
+        <h3 className="text-sm font-semibold">{t('settings.update_heading')}</h3>
+        <p className="text-xs text-muted-foreground">{t('settings.update_desc')}</p>
       </div>
 
       {!updateInfo?.available && (
         <Button onClick={handleCheckUpdate} disabled={checking || installing}>
-          {checking ? '检查中...' : '检查更新'}
+          {checking ? t('settings.checking') : t('settings.check_update')}
         </Button>
       )}
 
       {updateInfo?.available && (
         <div className="flex flex-col gap-3 rounded-md border p-4">
           <div>
-            <p className="font-medium">发现新版本 v{updateInfo.version}</p>
-            <p className="text-xs text-muted-foreground">当前版本 v{updateInfo.currentVersion}</p>
+            <p className="font-medium">
+              {t('settings.new_version_found', { version: updateInfo.version ?? '' })}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t('settings.current_version', { version: updateInfo.currentVersion })}
+            </p>
           </div>
           {updateInfo.installModeLabel && (
             <p className="text-xs text-muted-foreground">
-              安装方式：
+              {t('settings.install_mode_label')}
               <span className="font-medium text-foreground">{updateInfo.installModeLabel}</span>
             </p>
           )}
@@ -233,16 +242,18 @@ export function UpdateSection(): JSX.Element {
           <div className="flex flex-wrap gap-2">
             <Button onClick={handleInstallUpdate} disabled={installing}>
               {manualInstall
-                ? '前往 GitHub 下载整包'
+                ? t('settings.go_download')
                 : installing
-                  ? `下载并安装中${progress !== null ? ` ${progress}%` : '...'}`
-                  : '立即更新'}
+                  ? t('settings.downloading', {
+                      progress: progress !== null ? ` ${progress}%` : '...',
+                    })
+                  : t('settings.install_now')}
             </Button>
             <Button variant="outline" onClick={handleOpenReleasePage} disabled={installing}>
-              前往 GitHub Releases
+              {t('settings.open_releases')}
             </Button>
             <Button variant="ghost" onClick={() => setUpdateInfo(null)} disabled={installing}>
-              稍后再说
+              {t('settings.later')}
             </Button>
           </div>
         </div>
@@ -294,6 +305,7 @@ function ThemeCard({ label, preview, selected, onSelect, searchAnchor }: ThemeCa
 // ============================================================
 
 export function ThemeSection() {
+  const { t } = useTranslation();
   // ── 主题选择(预设 + 自定义 + 跟随系统)──
   const [paletteId, setPaletteId] = useState<PaletteId>(() => getStoredPaletteId());
   const [customAccent, setCustomAccent] = useState<string>(
@@ -322,9 +334,9 @@ export function ThemeSection() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Palette className="size-5 text-muted-foreground" />
-          主题
+          {t('settings.theme_title')}
         </CardTitle>
-        <CardDescription>选择预设主题或自定义 accent 色,切换即时生效并自动缓存</CardDescription>
+        <CardDescription>{t('settings.theme_desc')}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div
@@ -333,7 +345,7 @@ export function ThemeSection() {
         >
           {/* 跟随系统 */}
           <ThemeCard
-            label="跟随系统"
+            label={t('settings.theme_system')}
             preview={['oklch(0.16 0.01 264)', 'oklch(0.99 0.005 264)']}
             selected={paletteId === 'system'}
             onSelect={() => handleSelectPalette('system')}
@@ -351,7 +363,7 @@ export function ThemeSection() {
           ))}
           {/* 自定义 */}
           <ThemeCard
-            label="自定义"
+            label={t('settings.theme_custom')}
             preview={[customAccent, 'oklch(0.16 0 0)']}
             selected={paletteId === 'custom'}
             onSelect={() => handleSelectPalette('custom')}
@@ -369,22 +381,22 @@ export function ThemeSection() {
               value={customAccent}
               onChange={(e) => handleCustomAccentChange(e.target.value)}
               className="size-10 cursor-pointer rounded-md border border-input bg-transparent p-1"
-              aria-label="选择 accent 色"
+              aria-label={t('settings.accent_picker_aria')}
             />
             <Input
               value={customAccent}
               onChange={(e) => handleCustomAccentChange(e.target.value)}
               className="w-32 font-mono"
               placeholder="#RRGGBB"
-              aria-label="Hex 色值"
+              aria-label={t('settings.accent_hex_aria')}
               aria-invalid={accentInvalid}
             />
             {accentInvalid ? (
               <p className="text-xs text-destructive" role="alert">
-                无效的 HEX 色值,请使用 #RRGGBB 格式
+                {t('settings.accent_invalid')}
               </p>
             ) : (
-              <p className="text-xs text-muted-foreground">实时预览,修改后自动持久化</p>
+              <p className="text-xs text-muted-foreground">{t('settings.accent_hint')}</p>
             )}
           </div>
         )}
@@ -398,6 +410,7 @@ export function ThemeSection() {
 // ============================================================
 
 export function FontSection() {
+  const { t } = useTranslation();
   // ── UI 字体族 ──
   const [fontFamily, setFontFamily] = useState<string | null>(() => getStoredFontFamily());
   // ── 代码字体族(Mono) ──
@@ -468,12 +481,12 @@ export function FontSection() {
   // - 代码字体：仅展示 Mono/Code/Console 等关键字命中的字体，并按分数降序
   const installedFamilyNames = useMemo(() => fonts.map((f) => f.family), [fonts]);
   const uiFontOptions: FontFamilyOption[] = useMemo(
-    () => buildFontFamilyOptions(installedFamilyNames, 'ui', '默认 UI 字体'),
-    [installedFamilyNames],
+    () => buildFontFamilyOptions(installedFamilyNames, 'ui', t('settings.font_ui_default')),
+    [installedFamilyNames, t],
   );
   const monoFontOptions: FontFamilyOption[] = useMemo(
-    () => buildFontFamilyOptions(installedFamilyNames, 'mono', '默认代码字体'),
-    [installedFamilyNames],
+    () => buildFontFamilyOptions(installedFamilyNames, 'mono', t('settings.font_mono_default')),
+    [installedFamilyNames, t],
   );
 
   // 预览文本的 inline style：UI 字体族 + 字重；代码字体预览单独一块
@@ -493,57 +506,52 @@ export function FontSection() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Type className="size-5 text-muted-foreground" />
-          字体
+          {t('settings.font_title')}
         </CardTitle>
-        <CardDescription>
-          选择界面字体与代码字体，设置自动缓存。代码字体作用于 SQL 编辑器、AI 代码块、日志、DDL
-          与数据表等宽内容。
-        </CardDescription>
+        <CardDescription>{t('settings.font_desc')}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {/* 字体族：界面字体 + 代码字体 双选择器 */}
         <div className="flex flex-col gap-2" data-search-anchor="settings:font:ui">
           <div className="flex items-center justify-between">
-            <Label>界面字体</Label>
+            <Label>{t('settings.font_ui_label')}</Label>
             {!fontsLoading && (
               <span className="text-xs text-muted-foreground">
-                已读取系统 {fonts.length} 个字体族
+                {t('settings.font_count', { count: fonts.length })}
               </span>
             )}
           </div>
           <FontPicker
             value={fontFamily}
             options={uiFontOptions}
-            placeholder="默认 UI 字体"
+            placeholder={t('settings.font_ui_default')}
             loading={fontsLoading}
             onOpen={ensureFontsLoaded}
             onChange={handleFontFamilyChange}
-            aria-label="界面字体"
+            aria-label={t('settings.font_ui_label')}
           />
         </div>
 
         <div className="flex flex-col gap-2" data-search-anchor="settings:font:mono">
           <div className="flex items-center justify-between">
-            <Label>代码字体</Label>
-            <span className="text-xs text-muted-foreground">默认 JetBrains Mono</span>
+            <Label>{t('settings.font_mono_label')}</Label>
+            <span className="text-xs text-muted-foreground">{t('settings.font_mono_note')}</span>
           </div>
           <FontPicker
             value={monoFontFamily}
             options={monoFontOptions}
-            placeholder="默认代码字体"
+            placeholder={t('settings.font_mono_default')}
             loading={fontsLoading}
             onOpen={ensureFontsLoaded}
             onChange={handleMonoFontFamilyChange}
-            aria-label="代码字体"
+            aria-label={t('settings.font_mono_label')}
           />
-          <p className="text-xs text-muted-foreground">
-            优先展示名称接近 Mono / Code / Console 的系统已安装字体。
-          </p>
+          <p className="text-xs text-muted-foreground">{t('settings.font_mono_hint')}</p>
         </div>
 
         {/* 字号级别按钮组 */}
         <div className="flex flex-col gap-2" data-search-anchor="settings:font:size">
-          <Label>字号</Label>
+          <Label>{t('settings.font_size_label')}</Label>
           <div className="flex gap-2">
             {FONT_SIZE_LEVELS.map((item, idx) => (
               <button
@@ -565,7 +573,7 @@ export function FontSection() {
 
         {/* 字重级别按钮组 */}
         <div className="flex flex-col gap-2" data-search-anchor="settings:font:weight">
-          <Label>字重</Label>
+          <Label>{t('settings.font_weight_label')}</Label>
           <div className="flex gap-2">
             {FONT_WEIGHT_LEVELS.map((item, idx) => (
               <button
@@ -588,7 +596,7 @@ export function FontSection() {
 
         {/* 字体预览：UI 字体 */}
         <div className="rounded-lg border bg-muted/30 p-4">
-          <p className="mb-2 text-xs text-muted-foreground">界面字体预览</p>
+          <p className="mb-2 text-xs text-muted-foreground">{t('settings.font_preview_ui')}</p>
           <div style={previewStyle} className="flex flex-col gap-1">
             <p className="text-lg">The quick brown fox jumps over the lazy dog</p>
             <p className="text-lg">敏捷的棕色狐狸跳过了懒狗的背</p>
@@ -598,7 +606,7 @@ export function FontSection() {
 
         {/* 字体预览：代码字体(Mono) */}
         <div className="rounded-lg border bg-muted/30 p-4">
-          <p className="mb-2 text-xs text-muted-foreground">代码字体预览</p>
+          <p className="mb-2 text-xs text-muted-foreground">{t('settings.font_preview_mono')}</p>
           <div style={monoPreviewStyle} className="flex flex-col gap-1 font-mono">
             <p className="text-sm">{'SELECT * FROM users WHERE id = 42;'}</p>
             <p className="text-sm">{'const greet = (name: string) => `Hello, ${name}!`;'}</p>
@@ -617,6 +625,7 @@ export function FontSection() {
  * 独立组件供设置面板与设置弹窗复用。
  */
 export function GeneralSection(): JSX.Element {
+  const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const setConfig = useConfigStore((s) => s.setConfig);
   // Smart Detection 开关走 uiStore(会话偏好),不经 Rust 配置表单
@@ -656,7 +665,7 @@ export function GeneralSection(): JSX.Element {
     await setConfig('general.confirm_on_clear', values.confirmOnClear);
     await setConfig('general.language', values.language);
     await setConfig('toolPrefs.json_formatter.values.indent', values.jsonIndent);
-    toast.success('设置已保存');
+    toast.success(t('settings.saved_toast'));
   };
 
   const errors = form.formState.errors;
@@ -665,28 +674,28 @@ export function GeneralSection(): JSX.Element {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       className="flex flex-col gap-6"
-      aria-label="通用设置表单"
+      aria-label={t('settings.general_form_aria')}
     >
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">通用</CardTitle>
-          <CardDescription>历史记录与清空确认</CardDescription>
+          <CardTitle className="text-base">{t('settings.general_title')}</CardTitle>
+          <CardDescription>{t('settings.general_desc')}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2" data-search-anchor="settings:general:max_history">
-            <Label htmlFor="maxHistory">最大历史数</Label>
+            <Label htmlFor="maxHistory">{t('settings.max_history')}</Label>
             <Input
               id="maxHistory"
               type="number"
               {...form.register('maxHistory', { valueAsNumber: true })}
             />
             {errors.maxHistory && (
-              <span className="text-xs text-destructive">必须为 0 或正整数</span>
+              <span className="text-xs text-destructive">{t('settings.max_history_error')}</span>
             )}
           </div>
 
           <div className="flex flex-col gap-2" data-search-anchor="settings:general:json_indent">
-            <Label htmlFor="jsonIndent">JSON 默认缩进</Label>
+            <Label htmlFor="jsonIndent">{t('settings.json_indent')}</Label>
             <Input
               id="jsonIndent"
               type="number"
@@ -699,11 +708,11 @@ export function GeneralSection(): JSX.Element {
             data-search-anchor="settings:general:confirm_clear"
           >
             <input id="confirmOnClear" type="checkbox" {...form.register('confirmOnClear')} />
-            <Label htmlFor="confirmOnClear">清空前确认</Label>
+            <Label htmlFor="confirmOnClear">{t('settings.confirm_clear')}</Label>
           </div>
 
           <div className="flex flex-col gap-2" data-search-anchor="settings:general:language">
-            <Label htmlFor="language">界面语言 / Language</Label>
+            <Label htmlFor="language">{t('settings.language_label')}</Label>
             {/* onChange 即时预览(切 i18n locale);持久化仍走表单统一保存 */}
             <select
               id="language"
@@ -725,9 +734,9 @@ export function GeneralSection(): JSX.Element {
             data-search-anchor="settings:general:smart_detect"
           >
             <div className="flex flex-col gap-0.5">
-              <Label htmlFor="smartDetect">剪贴板智能检测</Label>
+              <Label htmlFor="smartDetect">{t('settings.smart_detect')}</Label>
               <p className="text-xs text-muted-foreground">
-                仅在本机:窗口聚焦时读取剪贴板做本地类型探测,Ctrl+K 面板顶部给出建议。默认关闭,不联网。
+                {t('settings.smart_detect_hint')}
               </p>
             </div>
             <Switch id="smartDetect" checked={smartDetectionEnabled} onCheckedChange={toggleSmartDetection} />
@@ -736,9 +745,9 @@ export function GeneralSection(): JSX.Element {
       </Card>
 
       <div className="flex gap-2">
-        <Button type="submit">保存</Button>
+        <Button type="submit">{t('settings.save')}</Button>
         <Button type="button" variant="outline" onClick={() => form.reset()}>
-          重置
+          {t('settings.reset')}
         </Button>
       </div>
     </form>
@@ -762,6 +771,7 @@ function ShortcutInput({
   onChange: (next: string) => void;
   'aria-label'?: string;
 }): JSX.Element {
+  const { t } = useTranslation();
   const [capturing, setCapturing] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -823,18 +833,18 @@ function ShortcutInput({
         )}
       >
         {capturing ? (
-          <span className="text-muted-foreground">请按下按键…</span>
+          <span className="text-muted-foreground">{t('settings.shortcut_capture')}</span>
         ) : value ? (
           <span className="font-mono">{value}</span>
         ) : (
-          <span className="text-muted-foreground">未绑定</span>
+          <span className="text-muted-foreground">{t('settings.shortcut_none')}</span>
         )}
       </button>
       {value && !capturing && (
         <button
           type="button"
-          aria-label="清空快捷键"
-          title="清空"
+          aria-label={t('settings.shortcut_clear_aria')}
+          title={t('settings.shortcut_clear_title')}
           onClick={() => onChange('')}
           className={cn(
             'absolute right-1 flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground',
@@ -853,6 +863,7 @@ function ShortcutInput({
  * 独立组件供设置面板与设置弹窗复用。
  */
 export function ShortcutSection(): JSX.Element {
+  const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const setConfig = useConfigStore((s) => s.setConfig);
   const resetConfig = useConfigStore((s) => s.resetConfig);
@@ -895,89 +906,92 @@ export function ShortcutSection(): JSX.Element {
       (k) => dirty[k],
     );
     if (changedKeys.length === 0) {
-      toast.info('没有需要保存的更改');
+      toast.info(t('settings.no_changes_toast'));
       return;
     }
     for (const k of changedKeys) {
       await setConfig(`shortcuts.${k}`, values.shortcuts[k]);
     }
     form.reset(values);
-    toast.success('快捷键已保存');
+    toast.success(t('settings.shortcuts_saved_toast'));
   };
 
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       className="flex flex-col gap-6"
-      aria-label="快捷键表单"
+      aria-label={t('settings.shortcut_form_aria')}
     >
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">快捷键</CardTitle>
-          <CardDescription>自定义各功能的快捷键绑定</CardDescription>
+          <CardTitle className="text-base">{t('settings.shortcut_title')}</CardTitle>
+          <CardDescription>{t('settings.shortcut_desc')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4">
-            {SHORTCUT_KEYS.map((s) => (
-              <div
-                key={s.key}
-                className="flex flex-col gap-1"
-                data-search-anchor={`settings:shortcuts:${s.key}`}
-              >
-                <div className="flex items-center gap-1">
-                  <Label htmlFor={`sc-${s.key}`}>{s.label}</Label>
-                  {s.pending && (
-                    <span
-                      className="rounded bg-muted px-1 py-0.5 text-[10px] leading-none text-muted-foreground"
-                      title="该功能的快捷键暂未生效"
-                    >
-                      暂未生效
-                    </span>
-                  )}
+            {SHORTCUT_KEYS.map((s) => {
+              const label = t(s.labelKey);
+              return (
+                <div
+                  key={s.key}
+                  className="flex flex-col gap-1"
+                  data-search-anchor={`settings:shortcuts:${s.key}`}
+                >
+                  <div className="flex items-center gap-1">
+                    <Label htmlFor={`sc-${s.key}`}>{label}</Label>
+                    {s.pending && (
+                      <span
+                        className="rounded bg-muted px-1 py-0.5 text-[10px] leading-none text-muted-foreground"
+                        title={t('settings.pending_title')}
+                      >
+                        {t('settings.pending_badge')}
+                      </span>
+                    )}
+                  </div>
+                  <ShortcutInput
+                    id={`sc-${s.key}`}
+                    aria-label={label}
+                    value={form.watch(`shortcuts.${s.key}`)}
+                    onChange={(next) =>
+                      form.setValue(`shortcuts.${s.key}`, next, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      })
+                    }
+                  />
                 </div>
-                <ShortcutInput
-                  id={`sc-${s.key}`}
-                  aria-label={s.label}
-                  value={form.watch(`shortcuts.${s.key}`)}
-                  onChange={(next) =>
-                    form.setValue(`shortcuts.${s.key}`, next, {
-                      shouldValidate: true,
-                      shouldDirty: true,
-                    })
-                  }
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
 
       <div className="flex gap-2">
-        <Button type="submit">保存快捷键</Button>
+        <Button type="submit">{t('settings.save_shortcuts')}</Button>
         <Button
           type="button"
           variant="outline"
           disabled={resetting}
-          onClick={async () => {
-            setResetting(true);
-            try {
-              // 先把本地表单恢复成默认值,避免等待异步事件期间 UI 出现空值
-              form.reset({ shortcuts: { ...DEFAULT_USER_CONFIG.shortcuts } });
-              const r = await resetConfig('shortcuts');
-              if (r.ok) {
-                toast.success('快捷键已恢复默认');
-              } else {
-                toast.error('恢复默认失败,请重试');
+            onClick={async () => {
+              setResetting(true);
+              try {
+                // 先把本地表单恢复成默认值,避免等待异步事件期间 UI 出现空值
+                form.reset({ shortcuts: { ...DEFAULT_USER_CONFIG.shortcuts } });
+                const r = await resetConfig('shortcuts');
+                if (r.ok) {
+                  toast.success(t('settings.restored_toast'));
+                } else {
+                  toast.error(t('settings.restore_failed_toast'));
+                }
+              } catch {
+                toast.error(t('settings.restore_error_toast'));
+              } finally {
+                setResetting(false);
               }
-            } catch {
-              toast.error('恢复默认时出错,请重试');
-            } finally {
-              setResetting(false);
-            }
-          }}
-        >
-          {resetting ? '恢复中…' : '恢复默认'}
-        </Button>
+            }}
+          >
+            {resetting ? t('settings.restoring') : t('settings.restore_defaults')}
+          </Button>
       </div>
     </form>
   );
@@ -987,6 +1001,7 @@ export function ShortcutSection(): JSX.Element {
  * 文本编辑器区块：字符命名转换的启用项与循环顺序。
  */
 export function EditorSection(): JSX.Element {
+  const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const setConfig = useConfigStore((s) => s.setConfig);
   const naming = config?.editor?.namingConvention;
@@ -1018,13 +1033,13 @@ export function EditorSection(): JSX.Element {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <FileText className="size-4" />
-          文本编辑器
+          {t('settings.editor_title')}
         </CardTitle>
-        <CardDescription>字符命名转换的启用项与循环顺序</CardDescription>
+        <CardDescription>{t('settings.editor_desc')}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <div className="flex flex-col gap-3" data-search-anchor="settings:editor:enabled_styles">
-          <Label className="text-sm font-medium">启用风格</Label>
+          <Label className="text-sm font-medium">{t('settings.editor_enabled_label')}</Label>
           <div className="grid grid-cols-2 gap-3">
             {NAMING_CONVENTIONS.map((convention: { id: NamingConventionId; label: string }) => (
               <div key={convention.id} className="flex items-center gap-2">
@@ -1040,7 +1055,7 @@ export function EditorSection(): JSX.Element {
         </div>
 
         <div className="flex flex-col gap-3" data-search-anchor="settings:editor:cycle_order">
-          <Label className="text-sm font-medium">循环顺序</Label>
+          <Label className="text-sm font-medium">{t('settings.editor_order_label')}</Label>
           <div className="flex gap-4">
             <div className="flex-1 divide-y divide-border rounded-md border border-border bg-background">
               {order.map((id, index) => {
@@ -1057,7 +1072,7 @@ export function EditorSection(): JSX.Element {
                         className="size-7"
                         disabled={index === 0}
                         onClick={() => move(index, -1)}
-                        aria-label={`上移 ${convention.label}`}
+                        aria-label={t('settings.move_up_aria', { label: convention.label })}
                       >
                         <ArrowUp className="size-4" />
                       </Button>
@@ -1068,7 +1083,7 @@ export function EditorSection(): JSX.Element {
                         className="size-7"
                         disabled={index === order.length - 1}
                         onClick={() => move(index, 1)}
-                        aria-label={`下移 ${convention.label}`}
+                        aria-label={t('settings.move_down_aria', { label: convention.label })}
                       >
                         <ArrowDown className="size-4" />
                       </Button>
@@ -1093,7 +1108,7 @@ export function EditorSection(): JSX.Element {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            在文本编辑器中选中字符后按「切换字符命名风格」快捷键，将按此顺序循环切换。
+            {t('settings.editor_cycle_hint')}
           </p>
         </div>
       </CardContent>
@@ -1102,11 +1117,12 @@ export function EditorSection(): JSX.Element {
 }
 
 export function SettingsPanel(): JSX.Element {
+  const { t } = useTranslation();
   return (
     <div className="h-full bg-background-layer">
       <ScrollArea className="h-full">
         <div className="p-6 flex flex-col gap-6">
-          <h2 className="text-lg font-semibold">设置</h2>
+          <h2 className="text-lg font-semibold">{t('settings.title')}</h2>
 
           {/* 主题区块:主题网格 + 自定义 accent */}
           <ThemeSection />

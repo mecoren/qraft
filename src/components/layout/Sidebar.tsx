@@ -311,7 +311,7 @@ export function Sidebar(): JSX.Element {
   if (collapsed) {
     return (
       <nav
-        aria-label="工具导航"
+        aria-label={t('chrome.sidebar.nav_aria')}
         data-testid="sidebar-rail"
         className="flex h-full w-14 shrink-0 flex-col items-center gap-1 border-r border-sidebar-border bg-sidebar-layer py-2 text-sidebar-foreground"
       >
@@ -351,14 +351,14 @@ export function Sidebar(): JSX.Element {
         <div aria-hidden className="my-1 h-px w-6 bg-sidebar-border" />
         <RailButton
           icon={Settings}
-          label="设置"
+          label={t('chrome.sidebar.settings')}
           active={view === 'settings'}
           onClick={() => setView('settings')}
           testId="rail-settings"
         />
         <RailButton
           icon={Info}
-          label="关于"
+          label={t('chrome.sidebar.about')}
           active={view === 'about'}
           onClick={() => setView('about')}
           testId="rail-about"
@@ -370,7 +370,7 @@ export function Sidebar(): JSX.Element {
   // —— 展开态:224px ——
   return (
     <nav
-      aria-label="工具导航"
+      aria-label={t('chrome.sidebar.nav_aria')}
       data-testid="sidebar"
       className="flex h-full w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar-layer text-sidebar-foreground"
     >
@@ -491,21 +491,21 @@ export function Sidebar(): JSX.Element {
       <div className="flex flex-col gap-0.5 border-t border-sidebar-border px-2 py-2">
         <NavItem
           icon={Puzzle}
-          label="管理扩展"
+          label={t('chrome.sidebar.manage_extensions')}
           active={view === 'extensions'}
           onClick={() => setView('extensions')}
           testId="nav-extensions"
         />
         <NavItem
           icon={Settings}
-          label="设置"
+          label={t('chrome.sidebar.settings')}
           active={view === 'settings'}
           onClick={() => setView('settings')}
           testId="nav-settings"
         />
         <NavItem
           icon={Info}
-          label="关于"
+          label={t('chrome.sidebar.about')}
           active={view === 'about'}
           onClick={() => setView('about')}
           testId="nav-about"

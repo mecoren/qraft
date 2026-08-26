@@ -11,6 +11,7 @@
  */
 
 import { useMemo, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Boxes, Heart, History, Info, LayoutGrid, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ToolCard } from '@/components/tool-card';
@@ -114,6 +115,7 @@ function Section({ title, icon: Icon, children, testId, searchAnchor }: SectionP
 // ============================================================
 
 export function WelcomePage(): JSX.Element {
+  const { t } = useTranslation();
   const openTool = useUiStore((s) => s.openTool);
   const setView = useUiStore((s) => s.setView);
   const favorites = useUiStore((s) => s.favorites);
@@ -161,14 +163,14 @@ export function WelcomePage(): JSX.Element {
           <div className="flex items-center gap-3">
             <Logo className="size-10 shrink-0" />
             <h1 className="text-hero font-bold leading-tight tracking-tight text-hero-foreground">
-              欢迎使用 Qraft
+              {t('chrome.welcome.greeting')}
               <span className="ml-2 align-middle text-xs font-normal text-hero-foreground/70">
                 v{APP_VERSION}
               </span>
             </h1>
           </div>
           <p className="mt-1.5 text-body-sm text-hero-foreground/75">
-            本地优先的开发者工具箱 —— 离线可用,零遥测
+            {t('chrome.welcome.tagline')}
           </p>
         </div>
 
@@ -180,32 +182,36 @@ export function WelcomePage(): JSX.Element {
           >
             <KpiCard
               icon={CatalogIcon}
-              label="工具总数"
+              label={t('chrome.welcome.stat_tools')}
               value={totalTools}
               testId="kpi-total-tools"
             />
             <KpiCard
               icon={FavoriteIcon}
-              label="收藏夹"
+              label={t('chrome.welcome.stat_favorites')}
               value={favorites.length}
               testId="kpi-favorites"
             />
             <KpiCard
               icon={RecentIcon}
-              label="最近使用"
+              label={t('chrome.welcome.stat_recents')}
               value={recents.length}
               testId="kpi-recents"
             />
             <KpiCard
               icon={CategoryIcon}
-              label="工具分类"
+              label={t('chrome.welcome.stat_categories')}
               value={totalCategories}
               testId="kpi-categories"
             />
           </div>
 
           {recentEntries.length > 0 && (
-            <Section title="最近使用" testId="section-recents" searchAnchor="welcome:recents">
+            <Section
+              title={t('chrome.welcome.section_recents')}
+              testId="section-recents"
+              searchAnchor="welcome:recents"
+            >
               <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
                 {recentEntries.map((entry) => (
                   <ToolCard key={entry.id} entry={entry} onOpen={() => openEntry(entry)} />
@@ -215,7 +221,11 @@ export function WelcomePage(): JSX.Element {
           )}
 
           {favoriteEntries.length > 0 && (
-            <Section title="收藏夹" testId="section-favorites" searchAnchor="welcome:favorites">
+            <Section
+              title={t('chrome.welcome.section_favorites')}
+              testId="section-favorites"
+              searchAnchor="welcome:favorites"
+            >
               <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
                 {favoriteEntries.map((entry) => (
                   <ToolCard key={entry.id} entry={entry} onOpen={() => openEntry(entry)} />
@@ -225,7 +235,11 @@ export function WelcomePage(): JSX.Element {
           )}
 
           {/* 所有工具:按分类分组,每组带分类图标小标题 */}
-          <Section title="所有工具" testId="section-all-tools" searchAnchor="welcome:all-tools">
+          <Section
+            title={t('chrome.sidebar.tools')}
+            testId="section-all-tools"
+            searchAnchor="welcome:all-tools"
+          >
             <div className="flex flex-col gap-6">
               {CATALOG_CATEGORIES.map((cat) => {
                 const list = toolsByCategory.get(cat.id);
@@ -255,7 +269,7 @@ export function WelcomePage(): JSX.Element {
           <div className="mt-7 flex items-center justify-between gap-4 rounded-xl border border-border bg-card/90 p-3.5 shadow-card">
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <Info aria-hidden className="size-3.5 shrink-0 text-primary" />
-              找不到想要的东西？在 GitHub 上提出功能请求
+              {t('chrome.welcome.feedback')}
             </p>
             <Button
               variant="outline"
@@ -263,7 +277,7 @@ export function WelcomePage(): JSX.Element {
               className="h-7 text-xs"
               onClick={() => void openExternal(ISSUES_URL)}
             >
-              提出想法
+              {t('chrome.welcome.propose_idea')}
             </Button>
           </div>
         </div>

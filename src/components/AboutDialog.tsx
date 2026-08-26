@@ -15,6 +15,7 @@
  */
 
 import { useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import {
   Dialog,
@@ -38,7 +39,7 @@ import {
 } from '@/components/ui/accordion';
 import { Logo } from '@/components/Logo';
 import { useDialogWindow, DialogResizeHandle } from '@/hooks/useDialogWindow';
-import { CHANGELOG_VERSIONS, CHANGE_CATEGORY_LABEL, type ChangeCategory } from '@/lib/changelog';
+import { CHANGELOG_VERSIONS, type ChangeCategory } from '@/lib/changelog';
 
 /** 默认尺寸(px) */
 const DEFAULT_WIDTH = 920;
@@ -55,15 +56,16 @@ type AboutCategory = 'info' | 'changelog' | 'licenses' | 'components';
 
 interface CategoryItem {
   key: AboutCategory;
-  label: string;
+  /** i18n 键名(MODE_LABEL 模式),组件层翻译 */
+  labelKey: string;
   icon: LucideIcon;
 }
 
 const CATEGORIES: CategoryItem[] = [
-  { key: 'info', label: '应用信息', icon: Info },
-  { key: 'changelog', label: '更新日志', icon: History },
-  { key: 'licenses', label: '开源许可', icon: BookOpen },
-  { key: 'components', label: '开源组件', icon: Code },
+  { key: 'info', labelKey: 'chrome.about.nav_info', icon: Info },
+  { key: 'changelog', labelKey: 'chrome.about.nav_changelog', icon: History },
+  { key: 'licenses', labelKey: 'chrome.about.nav_licenses', icon: BookOpen },
+  { key: 'components', labelKey: 'chrome.about.nav_components', icon: Code },
 ];
 
 // ============================================================
@@ -73,13 +75,13 @@ const CATEGORIES: CategoryItem[] = [
 
 const APP_VERSION = __APP_VERSION__;
 
-/** 应用信息条目 */
-const ABOUT_INFO_ITEMS: { label: string; value: string }[] = [
-  { label: '应用名称', value: 'Qraft' },
-  { label: '版本号', value: `v${APP_VERSION}` },
-  { label: '技术栈', value: 'Tauri 2.0 + React 19 + Rust' },
-  { label: 'UI 框架', value: 'shadcn/ui + Tailwind CSS v4' },
-  { label: '更新源', value: 'GitHub Releases' },
+/** 应用信息条目(label 存 i18n 键,组件层翻译) */
+const ABOUT_INFO_ITEMS: { labelKey: string; value: string }[] = [
+  { labelKey: 'chrome.about.item_name', value: 'Qraft' },
+  { labelKey: 'chrome.about.item_version', value: `v${APP_VERSION}` },
+  { labelKey: 'chrome.about.item_stack', value: 'Tauri 2.0 + React 19 + Rust' },
+  { labelKey: 'chrome.about.item_ui_framework', value: 'shadcn/ui + Tailwind CSS v4' },
+  { labelKey: 'chrome.about.item_update_source', value: 'GitHub Releases' },
 ];
 
 // ============================================================
@@ -693,6 +695,7 @@ interface AboutDialogProps {
 }
 
 export function AboutDialog({ open, onOpenChange }: AboutDialogProps): JSX.Element {
+  const { t } = useTranslation();
   const [active, setActive] = useState<AboutCategory>('info');
 
   const { rect, dragEvents, resizeEvents, onMove } = useDialogWindow({
@@ -724,15 +727,15 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps): JSX.Eleme
             {...dragEvents}
           >
             <GripHorizontal className="size-4 text-muted-foreground" />
-            <DialogTitle className="text-sm font-semibold">关于</DialogTitle>
-            <DialogDescription className="sr-only">应用关于信息</DialogDescription>
+            <DialogTitle className="text-sm font-semibold">{t('chrome.about.title')}</DialogTitle>
+            <DialogDescription className="sr-only">{t('chrome.about.sr_desc')}</DialogDescription>
             <div className="flex-1" />
             <button
               data-no-drag
               type="button"
               onClick={() => onOpenChange(false)}
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              aria-label="关闭关于"
+              aria-label={t('chrome.about.close_aria')}
             >
               <X className="size-4" />
             </button>
@@ -761,7 +764,7 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps): JSX.Eleme
                       )}
                     >
                       <Icon aria-hidden className="size-4" />
-                      {cat.label}
+                      {t(cat.labelKey)}
                     </Button>
                   );
                 })}
@@ -797,27 +800,30 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps): JSX.Eleme
 // ============================================================
 
 function InfoSection(): JSX.Element {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center gap-3 py-2">
         <Logo className="size-20 rounded-2xl bg-muted/50 p-3 shadow-sm" />
         <div className="text-center">
           <div className="text-base font-semibold text-foreground">Qraft</div>
-          <div className="mt-1 text-xs text-muted-foreground">本地优先的开发者工具箱</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {t('chrome.welcome.hero_title')}
+          </div>
         </div>
         <Badge variant="secondary" className="mt-1">
           v{APP_VERSION}
         </Badge>
       </div>
       <div>
-        <h2 className="text-base font-semibold text-foreground">应用信息</h2>
-        <p className="mt-1 text-sm text-muted-foreground">应用基本信息与运行状态</p>
+        <h2 className="text-base font-semibold text-foreground">{t('chrome.about.info_heading')}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t('chrome.about.info_desc')}</p>
       </div>
       <Card>
         <CardContent className="flex flex-col gap-3 pt-6">
           {ABOUT_INFO_ITEMS.map((item) => (
-            <div key={item.label} className="flex items-center justify-between gap-3">
-              <span className="text-sm text-muted-foreground">{item.label}</span>
+            <div key={item.labelKey} className="flex items-center justify-between gap-3">
+              <span className="text-sm text-muted-foreground">{t(item.labelKey)}</span>
               <span className="text-sm font-medium text-foreground">{item.value}</span>
             </div>
           ))}
@@ -832,12 +838,15 @@ function InfoSection(): JSX.Element {
 // ============================================================
 
 function ChangelogSection(): JSX.Element {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h2 className="text-base font-semibold text-foreground">更新日志</h2>
+        <h2 className="text-base font-semibold text-foreground">
+          {t('chrome.about.changelog_heading')}
+        </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          版本迭代记录(共 {CHANGELOG_VERSIONS.length} 个版本)
+          {t('chrome.about.changelog_desc', { count: CHANGELOG_VERSIONS.length })}
         </p>
       </div>
       <Card>
@@ -864,7 +873,8 @@ function ChangelogSection(): JSX.Element {
                           variant={CHANGE_CATEGORY_VARIANT[change.category]}
                           className="mt-0.5 shrink-0 text-[10px]"
                         >
-                          {CHANGE_CATEGORY_LABEL[change.category]}
+                          {/* 类别徽章走 i18n;条目正文(摘要/描述)为历史内容,保持原文 */}
+                          {t(`chrome.about.cat_${change.category}`)}
                         </Badge>
                         <span className="text-sm text-muted-foreground">{change.description}</span>
                       </li>
@@ -885,11 +895,14 @@ function ChangelogSection(): JSX.Element {
 // ============================================================
 
 function LicensesSection(): JSX.Element {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-base font-semibold text-foreground">开源许可</h2>
-        <p className="mt-1 text-sm text-muted-foreground">本应用使用的部分开源软件及其许可证</p>
+        <h2 className="text-base font-semibold text-foreground">
+          {t('chrome.about.licenses_heading')}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t('chrome.about.licenses_desc')}</p>
       </div>
       <Card>
         <CardContent className="flex flex-col gap-3 pt-6">
@@ -924,6 +937,7 @@ function LicensesSection(): JSX.Element {
 // ============================================================
 
 function ComponentGroup({ list }: { list: OpenSourceComponent[] }): JSX.Element {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardContent className="pt-2">
@@ -954,7 +968,9 @@ function ComponentGroup({ list }: { list: OpenSourceComponent[] }): JSX.Element 
                 <div className="flex flex-col gap-2 pl-1 text-xs text-muted-foreground">
                   {comp.repository && (
                     <div>
-                      <span className="font-medium text-foreground">仓库：</span>
+                      <span className="font-medium text-foreground">
+                        {t('chrome.about.repo_label')}
+                      </span>
                       <a
                         href={comp.repository}
                         target="_blank"
@@ -967,7 +983,9 @@ function ComponentGroup({ list }: { list: OpenSourceComponent[] }): JSX.Element 
                   )}
                   {comp.homepage && (
                     <div>
-                      <span className="font-medium text-foreground">主页：</span>
+                      <span className="font-medium text-foreground">
+                        {t('chrome.about.homepage_label')}
+                      </span>
                       <a
                         href={comp.homepage}
                         target="_blank"
@@ -979,7 +997,9 @@ function ComponentGroup({ list }: { list: OpenSourceComponent[] }): JSX.Element 
                     </div>
                   )}
                   <div>
-                    <span className="font-medium text-foreground">许可证：</span>
+                    <span className="font-medium text-foreground">
+                      {t('chrome.about.license_label')}
+                    </span>
                     <span className="ml-1">{comp.license}</span>
                   </div>
                 </div>
@@ -993,22 +1013,28 @@ function ComponentGroup({ list }: { list: OpenSourceComponent[] }): JSX.Element 
 }
 
 function ComponentsSection(): JSX.Element {
+  const { t } = useTranslation();
   const frontend = COMPONENTS.filter((c) => c.source === 'frontend');
   const rust = COMPONENTS.filter((c) => c.source === 'rust');
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-base font-semibold text-foreground">开源组件</h2>
+        <h2 className="text-base font-semibold text-foreground">
+          {t('chrome.about.components_heading')}
+        </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          本应用使用的全部开源组件清单(前端 {frontend.length} + Rust {rust.length} 个,共{' '}
-          {COMPONENTS.length} 个)
+          {t('chrome.about.components_desc', {
+            frontend: frontend.length,
+            rust: rust.length,
+            total: COMPONENTS.length,
+          })}
         </p>
       </div>
       <Tabs defaultValue="frontend" className="flex flex-col gap-4">
         <TabsList>
-          <TabsTrigger value="frontend">前端依赖（npm）</TabsTrigger>
-          <TabsTrigger value="rust">Rust 依赖（crates.io）</TabsTrigger>
+          <TabsTrigger value="frontend">{t('chrome.about.tab_frontend')}</TabsTrigger>
+          <TabsTrigger value="rust">{t('chrome.about.tab_rust')}</TabsTrigger>
         </TabsList>
         <TabsContent value="frontend">
           <ComponentGroup list={frontend} />

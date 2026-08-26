@@ -31,6 +31,7 @@ import {
 } from 'react';
 import Editor, { type BeforeMount, type Monaco, type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
+import { useTranslation } from 'react-i18next';
 import { Check, ClipboardPaste, FolderOpen, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -307,6 +308,7 @@ export function CodeEditor({
   contextMenuSections,
   lineNumbers = true,
 }: CodeEditorProps): ReactNode {
+  const { t } = useTranslation();
   const monacoRef = useRef<Monaco | null>(null);
   const editorRef = useRef<MonacoEditor | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -481,7 +483,7 @@ export function CodeEditor({
     if (text) {
       onChange?.(text);
     } else {
-      toast.info('剪贴板为空或不可用');
+      toast.info(t('chrome.code_editor.clipboard_empty'));
     }
   };
 
@@ -492,7 +494,7 @@ export function CodeEditor({
       const text = await readFileAsText(file);
       onChange?.(text);
     } catch {
-      toast.error('读取文件失败');
+      toast.error(t('chrome.code_editor.read_file_failed'));
     }
     // 允许重复选择同一文件
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -538,17 +540,17 @@ export function CodeEditor({
           <span className="flex shrink-0 items-center">
             {!readOnly && showPaste && (
               <ToolbarButton
-                label="粘贴"
+                label={t('chrome.code_editor.paste')}
                 testId={dataTestId ? `${dataTestId}-paste` : undefined}
                 onClick={() => void handlePaste()}
               >
                 <ClipboardPaste aria-hidden className="size-3.5" />
-                粘贴
+                {t('chrome.code_editor.paste')}
               </ToolbarButton>
             )}
             {!readOnly && showOpenFile && (
               <ToolbarButton
-                label="打开文件"
+                label={t('chrome.code_editor.open_file')}
                 testId={dataTestId ? `${dataTestId}-open` : undefined}
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -557,12 +559,12 @@ export function CodeEditor({
             )}
             {!readOnly && showClear && (
               <ToolbarButton
-                label="清除"
+                label={t('chrome.code_editor.clear')}
                 testId={dataTestId ? `${dataTestId}-clear` : undefined}
                 onClick={() => onChange?.('')}
               >
                 <X aria-hidden className="size-3.5" />
-                清除
+                {t('chrome.code_editor.clear')}
               </ToolbarButton>
             )}
             {actions}
@@ -581,7 +583,7 @@ export function CodeEditor({
           onChange={(v) => onChange?.(v ?? '')}
           loading={
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-              加载编辑器…
+              {t('chrome.code_editor.loading')}
             </div>
           }
           options={{
@@ -684,19 +686,19 @@ export function CodeEditor({
             {showCharCount && (
               <span
                 data-testid={dataTestId ? `${dataTestId}-char-count` : undefined}
-                title={`${charCount} 个字符`}
-                aria-label={`${charCount} 个字符`}
+                title={t('chrome.code_editor.char_count_title', { count: charCount })}
+                aria-label={t('chrome.code_editor.char_count_title', { count: charCount })}
                 className="whitespace-nowrap tabular-nums"
               >
-                {charCount} 字符
+                {t('chrome.code_editor.char_count', { count: charCount })}
               </span>
             )}
             {selected > 0 && (
               <span
                 data-testid={dataTestId ? `${dataTestId}-status-sel` : undefined}
-                aria-label={`已选择 ${selected}`}
+                aria-label={t('chrome.code_editor.selected_title', { count: selected })}
               >
-                (已选择{selected})
+                {t('chrome.code_editor.selected', { count: selected })}
               </span>
             )}
             {/* 行列跳转(仿 VSCode):点击弹出「转到行/列」弹层 */}
@@ -705,12 +707,18 @@ export function CodeEditor({
                 <button
                   type="button"
                   data-testid={dataTestId ? `${dataTestId}-status-pos` : undefined}
-                  title="转到行/列"
-                  aria-label={`行 ${cursor.line}, 列 ${cursor.column},点击跳转指定行列`}
+                  title={t('chrome.code_editor.goto_title')}
+                  aria-label={t('chrome.code_editor.goto_aria', {
+                    line: cursor.line,
+                    column: cursor.column,
+                  })}
                   onClick={openGotoPopover}
                   className="whitespace-nowrap rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
-                  行 {cursor.line}, 列 {cursor.column}
+                  {t('chrome.code_editor.status_pos', {
+                    line: cursor.line,
+                    column: cursor.column,
+                  })}
                 </button>
               </PopoverTrigger>
               <PopoverContent
@@ -718,10 +726,14 @@ export function CodeEditor({
                 className="w-56 p-3"
                 data-testid={`${dataTestId ?? 'editor'}-goto`}
               >
-                <div className="mb-2 text-xs font-semibold">转到行/列</div>
+                <div className="mb-2 text-xs font-semibold">
+                  {t('chrome.code_editor.goto_title')}
+                </div>
                 <div className="flex items-center gap-2">
                   <label className="flex flex-1 flex-col gap-1">
-                    <span className="text-[10px] text-muted-foreground">行号</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {t('chrome.code_editor.goto_line_label')}
+                    </span>
                     <Input
                       value={gotoLine}
                       onChange={(e) => setGotoLine(e.target.value)}
@@ -734,7 +746,9 @@ export function CodeEditor({
                     />
                   </label>
                   <label className="flex flex-1 flex-col gap-1">
-                    <span className="text-[10px] text-muted-foreground">列号</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {t('chrome.code_editor.goto_col_label')}
+                    </span>
                     <Input
                       value={gotoColumn}
                       onChange={(e) => setGotoColumn(e.target.value)}
@@ -753,7 +767,7 @@ export function CodeEditor({
                   data-testid={`${dataTestId ?? 'editor'}-goto-apply`}
                   className="mt-2 w-full rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  跳转
+                  {t('chrome.code_editor.goto_apply')}
                 </button>
               </PopoverContent>
             </Popover>
@@ -761,11 +775,11 @@ export function CodeEditor({
             <button
               type="button"
               data-testid={dataTestId ? `${dataTestId}-status-indent` : undefined}
-              title={`缩进:${tabSize} 空格,点击切换`}
+              title={t('chrome.code_editor.indent_title', { size: tabSize })}
               onClick={cycleTabSize}
               className="whitespace-nowrap rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
-              空格:{tabSize}
+              {t('chrome.code_editor.indent_label', { size: tabSize })}
             </button>
             {/* 文件编码:展示 + 可选切换(仿 VSCode 编码徽章);显示在右下角描述中 */}
             {encoding !== undefined &&
@@ -775,7 +789,7 @@ export function CodeEditor({
                     <button
                       type="button"
                       data-testid={dataTestId ? `${dataTestId}-status-encoding` : undefined}
-                      title="选择文件编码(保存时按该编码写回)"
+                      title={t('chrome.code_editor.encoding_pick_title')}
                       className="whitespace-nowrap rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       {encodingLabel(encoding)}
@@ -813,7 +827,7 @@ export function CodeEditor({
               ) : (
                 <span
                   data-testid={dataTestId ? `${dataTestId}-status-encoding` : undefined}
-                  title="文件编码"
+                  title={t('chrome.code_editor.encoding_title')}
                   className="whitespace-nowrap px-1.5 py-0.5"
                 >
                   {encodingLabel(encoding)}
@@ -825,8 +839,11 @@ export function CodeEditor({
               data-testid={dataTestId ? `${dataTestId}-status-eol` : undefined}
               title={
                 onToggleEol
-                  ? `行尾序列:${eolLabel},点击切换为 ${eolLabel === 'CRLF' ? 'LF' : 'CRLF'}`
-                  : `行尾序列:${eolLabel}`
+                  ? t('chrome.code_editor.eol_switch_title', {
+                      eol: eolLabel,
+                      next: eolLabel === 'CRLF' ? 'LF' : 'CRLF',
+                    })
+                  : t('chrome.code_editor.eol_title', { eol: eolLabel })
               }
               onClick={onToggleEol}
               disabled={!onToggleEol}
@@ -841,8 +858,8 @@ export function CodeEditor({
             {sizeBytes !== undefined && (
               <span
                 data-testid={dataTestId ? `${dataTestId}-status-size` : undefined}
-                title="文件大小(按 UTF-8 编码估算,随编辑实时更新)"
-                aria-label={`文件大小 ${formatBytes(sizeBytes)}`}
+                title={t('chrome.code_editor.size_title')}
+                aria-label={t('chrome.code_editor.size_aria', { size: formatBytes(sizeBytes) })}
                 className="whitespace-nowrap tabular-nums"
               >
                 {formatBytes(sizeBytes)}

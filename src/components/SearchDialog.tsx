@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useMemo, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Search,
   FileText,
@@ -39,22 +40,22 @@ export interface SearchDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-/** 分组展示顺序与中文标签 */
+/** 分组展示顺序与标签(存 i18n 键,组件层翻译) */
 const KIND_LABEL: Record<SearchEntryKind, string> = {
-  tool: '工具',
-  'tool-section': '工具区块',
-  setting: '设置',
-  'setting-field': '设置项',
-  page: '页面',
+  tool: 'chrome.search_dialog.group_tool',
+  'tool-section': 'chrome.search_dialog.group_tool_section',
+  setting: 'chrome.search_dialog.group_setting',
+  'setting-field': 'chrome.search_dialog.group_setting_field',
+  page: 'chrome.search_dialog.group_page',
 };
 
 /** 搜索模式 */
 type SearchMode = 'feature' | 'text';
 
-/** 模式切换项 */
-const MODES: { id: SearchMode; label: string; icon: LucideIcon }[] = [
-  { id: 'feature', label: '功能', icon: Search },
-  { id: 'text', label: '文本', icon: Files },
+/** 模式切换项(label 存 i18n 键) */
+const MODES: { id: SearchMode; labelKey: string; icon: LucideIcon }[] = [
+  { id: 'feature', labelKey: 'chrome.search_dialog.mode_feature', icon: Search },
+  { id: 'text', labelKey: 'chrome.search_dialog.mode_text', icon: Files },
 ];
 
 /** 文本模式匹配行内容高亮(匹配片段橙黄背景,区分大小写跟随搜索) */
@@ -94,6 +95,7 @@ function TextResultGroup({
   query: string;
   onSelect: (tabId: string) => void;
 }): JSX.Element {
+  const { t } = useTranslation();
   return (
     <CommandGroup
       key={group.tabId}
@@ -101,7 +103,12 @@ function TextResultGroup({
         <span className="flex w-full items-center justify-between gap-2">
           <span className="truncate">{group.tabTitle}</span>
           <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
-            {group.count} 行
+            {group.truncated
+              ? t('chrome.search_dialog.lines_progress', {
+                  current: group.matches.length,
+                  total: group.count,
+                })
+              : t('chrome.search_dialog.lines_count', { count: group.count })}
           </span>
         </span>
       }
@@ -170,6 +177,7 @@ function EntryIcon({ entry }: { entry: SearchEntry }): JSX.Element {
 }
 
 export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Element {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<SearchMode>('feature');
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -225,8 +233,10 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl overflow-hidden p-0">
-        <DialogTitle className="sr-only">全局搜索</DialogTitle>
-        <DialogDescription className="sr-only">搜索所有功能,回车跳转</DialogDescription>
+        <DialogTitle className="sr-only">{t('chrome.search_dialog.sr_title')}</DialogTitle>
+        <DialogDescription className="sr-only">
+          {t('chrome.search_dialog.sr_desc')}
+        </DialogDescription>
         <Command shouldFilter={false}>
           {/* 受控搜索输入:查询由自身 state 管理,searchIndex 驱动结果过滤;
            * cmdk 仅负责结果列表的 ↑↓ 键盘导航与 Enter 触发 */}
@@ -249,7 +259,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
                     }`}
                   >
                     <Icon aria-hidden className="size-3.5" strokeWidth={ICON_STROKE_WIDTH} />
-                    {m.label}
+                    {t(m.labelKey)}
                   </button>
                 );
               })}
@@ -259,9 +269,17 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={mode === 'text' ? '搜索编辑器文本...' : '搜索所有功能、工具、设置...'}
+              placeholder={
+                mode === 'text'
+                  ? t('chrome.search_dialog.placeholder_text')
+                  : t('chrome.search_dialog.placeholder_global')
+              }
               autoFocus
-              aria-label={mode === 'text' ? '文本搜索' : '全局搜索'}
+              aria-label={
+                mode === 'text'
+                  ? t('chrome.search_dialog.aria_text')
+                  : t('chrome.search_dialog.aria_global')
+              }
               className="flex h-11 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
@@ -270,34 +288,41 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
               /* —— 文本搜索模式:按文件分组展示匹配行 —— */
               tabs.length === 0 ? (
                 <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-                  请先在文本编辑器中打开文件
+                  {t('chrome.search_dialog.need_editor_file')}
                 </div>
               ) : debounced.trim() === '' ? (
                 <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-                  输入关键字搜索已打开文件的内容
+                  {t('chrome.search_dialog.text_search_hint')}
                 </div>
               ) : total === 0 ? (
                 <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-                  未找到匹配「{debounced.trim()}」的内容
+                  {t('chrome.search_dialog.no_matches', { query: debounced.trim() })}
                 </div>
               ) : (
-                tabGroups.map((g) => (
-                  <TextResultGroup
-                    key={g.tabId}
-                    group={g}
-                    query={debounced}
-                    onSelect={handleTextSelect}
-                  />
-                ))
+                <>
+                  {tabGroups.map((g) => (
+                    <TextResultGroup
+                      key={g.tabId}
+                      group={g}
+                      query={debounced}
+                      onSelect={handleTextSelect}
+                    />
+                  ))}
+                  {tabGroups.some((g) => g.truncated) && (
+                    <div className="px-6 py-2 text-center text-xs text-muted-foreground">
+                      {t('chrome.search_dialog.too_many_hits')}
+                    </div>
+                  )}
+                </>
               )
             ) : total === 0 ? (
               <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-                未找到匹配「{debounced.trim()}」的内容
+                {t('chrome.search_dialog.no_matches', { query: debounced.trim() })}
               </div>
             ) : (
               grouped.size > 0 &&
               [...grouped.entries()].map(([kind, entries]) => (
-                <CommandGroup key={kind} heading={KIND_LABEL[kind]}>
+                <CommandGroup key={kind} heading={t(KIND_LABEL[kind])}>
                   {entries.map((entry) => {
                     return (
                       <CommandItem
@@ -329,19 +354,19 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
             <span className="flex items-center gap-1.5">
               <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">↑</kbd>
               <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">↓</kbd>
-              导航
+              {t('chrome.search_dialog.navigate')}
             </span>
             <span className="flex items-center gap-1.5">
               <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
                 Enter
               </kbd>
-              跳转
+              {t('chrome.search_dialog.jump')}
             </span>
             <span className="flex items-center gap-1.5">
               <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Esc</kbd>
-              关闭
+              {t('chrome.search_dialog.close')}
             </span>
-            <span className="ml-auto">{total} 条结果</span>
+            <span className="ml-auto">{t('chrome.search_dialog.results_count', { count: total })}</span>
           </div>
         </Command>
       </DialogContent>
