@@ -27,6 +27,10 @@
       "clear_history": "Clear history"
     },
     "welcome": { "hero_title": "Local-first developer toolbox", "open_tool": "Open tool" },
+    "common": {
+      "cancel": "Cancel",
+      "confirm": "Confirm"
+    },
     "toast": {
       "copied": "Copied to clipboard",
       "copy_failed": "Copy failed",

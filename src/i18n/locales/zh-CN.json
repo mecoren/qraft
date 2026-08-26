@@ -27,6 +27,10 @@
       "clear_history": "清空历史"
     },
     "welcome": { "hero_title": "本地优先的开发者工具箱", "open_tool": "打开工具" },
+    "common": {
+      "cancel": "取消",
+      "confirm": "确定"
+    },
     "toast": {
       "copied": "已复制到剪贴板",
       "copy_failed": "复制失败",

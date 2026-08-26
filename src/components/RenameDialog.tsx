@@ -8,6 +8,7 @@
  *   使 useState 初始化器每次打开都拿到最新的 initialValue)
  */
 import { useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,7 @@ export function RenameDialog({
   'data-testid': dataTestId,
 }: RenameDialogProps): JSX.Element {
   // 条件渲染(父组件关闭即卸载)下,useState 初始化器每次打开都取最新值
+  const { t } = useTranslation();
   const [value, setValue] = useState(initialValue);
   const trimmed = value.trim();
 
@@ -84,7 +86,7 @@ export function RenameDialog({
             onClick={onCancel}
             data-testid={`${dataTestId}-cancel`}
           >
-            取消
+            {t('chrome.common.cancel')}
           </Button>
           <Button
             size="sm"
@@ -94,7 +96,7 @@ export function RenameDialog({
             }}
             data-testid={`${dataTestId}-confirm`}
           >
-            确定
+            {t('chrome.common.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>
