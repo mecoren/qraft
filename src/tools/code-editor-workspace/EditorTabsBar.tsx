@@ -18,6 +18,7 @@
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { GitCompareArrows, Pin, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FileIcon } from './FileIcon';
@@ -82,6 +83,7 @@ export function EditorTabsBar({
   onCopyPath,
   'data-testid': dataTestId,
 }: EditorTabsBarProps): JSX.Element {
+  const { t } = useTranslation();
   /** 滚动容器:指向 ScrollArea 内部 Viewport(div) */
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -292,7 +294,7 @@ export function EditorTabsBar({
       // - 轨道 pointer-events-none 鼠标穿透,滑块仅 hover/scroll 时可见
       className="flex h-9 shrink-0 items-stretch overflow-hidden rounded-t-lg border-b border-border bg-background-layer"
       role="tablist"
-      aria-label="打开的编辑器"
+      aria-label={t('tools.text_editor.open_editors')}
     >
       <ScrollArea
         viewportRef={scrollRef}
@@ -325,7 +327,7 @@ export function EditorTabsBar({
               //   情况下文字都精确垂直居中于 36px 内
               className="flex h-9 shrink-0 items-center px-3 text-xs leading-none text-muted-foreground"
             >
-              无打开的编辑器
+              {t('tools.text_editor.no_open_editors')}
             </div>
           ) : (
             <>
@@ -413,7 +415,7 @@ export function EditorTabsBar({
                        */}
                       {tab.pinned ? (
                         <Pin
-                          aria-label="已固定"
+                          aria-label={t('tools.text_editor.pinned_aria')}
                           data-testid={`${dataTestId}-pin-${tab.title}`}
                           className={cn(
                             'size-3.5 shrink-0',
@@ -435,7 +437,7 @@ export function EditorTabsBar({
                       <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
                         {dirty && (
                           <span
-                            aria-label="未保存"
+                            aria-label={t('tools.text_editor.unsaved_aria')}
                             data-testid={`${dataTestId}-dirty-${tab.title}`}
                             className="size-2 rounded-full bg-primary transition-opacity group-hover:opacity-0"
                           />
@@ -443,7 +445,7 @@ export function EditorTabsBar({
                         <button
                           type="button"
                           // 从关闭按钮按下拖动不应触发 Tab 拖拽(见 handlePointerDown 守卫)
-                          aria-label={`关闭 ${tab.title}`}
+                          aria-label={t('tools.text_editor.close_tab_aria', { title: tab.title })}
                           data-testid={`${dataTestId}-close-${tab.title}`}
                           onClick={(e) => {
                             // 阻止冒泡,避免同时触发 Tab 切换
@@ -502,7 +504,7 @@ export function EditorTabsBar({
                     <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
                       <button
                         type="button"
-                        aria-label={`关闭对比 ${label}`}
+                        aria-label={t('tools.text_editor.close_compare_aria', { label })}
                         data-testid={`${dataTestId}-compare-close-${cp.id}`}
                         onClick={(e) => {
                           // 阻止冒泡,避免同时触发 Tab 切换
