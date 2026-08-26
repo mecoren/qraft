@@ -148,8 +148,8 @@ describe('analyzeIp (IPv4 + CIDR)', () => {
 
   it('classifies private class C', () => {
     if (r.version !== 4) throw new Error('expected v4');
-    expect(r.scope).toContain('私网');
-    expect(r.ipClass).toBe('C 类');
+    expect(r.scope).toBe('tools.ip_parser.scope_private');
+    expect(r.ipClass).toBe('tools.ip_parser.class_c');
   });
 
   it('treats bare IP as /32 host', () => {
@@ -162,7 +162,7 @@ describe('analyzeIp (IPv4 + CIDR)', () => {
     expect(h.usableHosts).toBe(1n);
     expect(h.firstHost).toBe('8.8.8.8');
     expect(h.lastHost).toBe('8.8.8.8');
-    expect(h.scope).toBe('公网地址');
+    expect(h.scope).toBe('tools.ip_parser.scope_public');
   });
 
   it('handles RFC 3021 /31 point-to-point subnet', () => {
@@ -203,20 +203,22 @@ describe('analyzeIp (IPv6)', () => {
     if (h.version !== 6) throw new Error('expected v6');
     expect(h.prefix).toBe(128);
     expect(h.cidr).toBe('fe80::1/128');
-    expect(h.scope).toContain('链路本地');
+    expect(h.scope).toBe('tools.ip_parser.v6_link_local');
   });
 });
 
 describe('scope / classification helpers', () => {
   it('identifies loopback and multicast scopes', () => {
-    expect(describeIpv4Scope(parseIpv4('127.0.0.1')!)).toContain('环回');
-    expect(describeIpv4Scope(parseIpv4('224.0.0.1')!)).toContain('组播');
-    expect(describeIpv4Scope(parseIpv4('172.16.5.5')!)).toContain('私网');
-    expect(describeIpv4Scope(parseIpv4('169.254.9.9')!)).toContain('链路本地');
-    expect(describeIpv4Scope(parseIpv4('100.100.1.1')!)).toContain('NAT');
-    expect(describeIpv4Class(parseIpv4('10.0.0.1')!)).toBe('A 类');
-    expect(describeIpv4Class(parseIpv4('150.1.1.1')!)).toBe('B 类');
-    expect(describeIpv4Class(parseIpv4('240.0.0.1')!)).toContain('E 类');
+    expect(describeIpv4Scope(parseIpv4('127.0.0.1')!)).toBe('tools.ip_parser.scope_loopback');
+    expect(describeIpv4Scope(parseIpv4('224.0.0.1')!)).toBe('tools.ip_parser.scope_multicast');
+    expect(describeIpv4Scope(parseIpv4('172.16.5.5')!)).toBe('tools.ip_parser.scope_private');
+    expect(describeIpv4Scope(parseIpv4('169.254.9.9')!)).toBe(
+      'tools.ip_parser.scope_link_local',
+    );
+    expect(describeIpv4Scope(parseIpv4('100.100.1.1')!)).toBe('tools.ip_parser.scope_cgnat');
+    expect(describeIpv4Class(parseIpv4('10.0.0.1')!)).toBe('tools.ip_parser.class_a');
+    expect(describeIpv4Class(parseIpv4('150.1.1.1')!)).toBe('tools.ip_parser.class_b');
+    expect(describeIpv4Class(parseIpv4('240.0.0.1')!)).toBe('tools.ip_parser.class_e');
   });
 });
 

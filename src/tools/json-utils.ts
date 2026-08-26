@@ -15,6 +15,8 @@
  * - reverse        反转(保持对象原键序并整体倒置)
  * - random         随机(洗牌)
  */
+import { t } from '@/i18n';
+
 export type JsonKeySortMode =
   'alpha' | 'alpha-insensitive' | 'natural' | 'length' | 'hex' | 'reverse' | 'random';
 
@@ -170,7 +172,7 @@ function xmlElementToObject(el: Element): unknown {
 /** XML 文本 → JSON 值(根元素作为键,属性以 @ 前缀,文本为 #text) */
 export function xmlToJson(xmlText: string): unknown {
   const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
-  if (doc.querySelector('parsererror')) throw new Error('XML 解析失败');
+  if (doc.querySelector('parsererror')) throw new Error(t('tools.json_formatter.xml_parse_failed'));
   return { [doc.documentElement.tagName]: xmlElementToObject(doc.documentElement) };
 }
 

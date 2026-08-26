@@ -13,14 +13,20 @@
 
 export type EntityLanguage = 'typescript' | 'java' | 'go' | 'rust' | 'python' | 'csharp';
 
-/** 转换为菜单项(label 与顺序供 UI 使用) */
-export const ENTITY_LANGUAGE_ITEMS: ReadonlyArray<{ id: EntityLanguage; label: string }> = [
-  { id: 'typescript', label: 'TypeScript 类型' },
-  { id: 'java', label: 'Java 类' },
-  { id: 'go', label: 'Go 结构体' },
-  { id: 'rust', label: 'Rust 结构体' },
+import { t } from '@/i18n';
+
+/** 转换为菜单项(label 存 i18n 键,组件层翻译) */
+export const ENTITY_LANGUAGE_ITEMS: ReadonlyArray<{
+  id: EntityLanguage;
+  labelKey?: string;
+  label: string;
+}> = [
+  { id: 'typescript', labelKey: 'tools.json_formatter.entity_lang_ts', label: 'TypeScript 类' },
+  { id: 'java', labelKey: 'tools.json_formatter.entity_lang_java', label: 'Java 类' },
+  { id: 'go', labelKey: 'tools.json_formatter.entity_lang_go', label: 'Go 结构体' },
+  { id: 'rust', labelKey: 'tools.json_formatter.entity_lang_rust', label: 'Rust 结构体' },
   { id: 'python', label: 'Python dataclass' },
-  { id: 'csharp', label: 'C# 类' },
+  { id: 'csharp', labelKey: 'tools.json_formatter.entity_lang_csharp', label: 'C# 类' },
 ];
 
 // ============================================================
@@ -287,7 +293,10 @@ function emitJava(root: JsonTypeNode, _rootName: string): string {
   }
 
   if (root.kind !== 'record') {
-    return `// 根节点不是 JSON 对象,无法生成 Java 类\n// 推断的根类型:${javaBaseType(root)}`;
+    return t('tools.json_formatter.entity_root_not_object_slash', {
+      lang: t('tools.json_formatter.entity_lang_java'),
+      base: javaBaseType(root),
+    });
   }
 
   const records: RecordType[] = [root];
@@ -411,7 +420,10 @@ function emitGo(root: JsonTypeNode, _rootName: string): string {
   }
 
   if (root.kind !== 'record') {
-    return `// 根节点不是 JSON 对象,无法生成 Go 结构体\n// 推断的根类型:${goTypeName(root)}`;
+    return t('tools.json_formatter.entity_root_not_object_slash', {
+      lang: t('tools.json_formatter.entity_lang_go'),
+      base: goTypeName(root),
+    });
   }
 
   const structs: string[] = [];
@@ -506,7 +518,10 @@ function emitRust(root: JsonTypeNode, _rootName: string): string {
   }
 
   if (root.kind !== 'record') {
-    return `// 根节点不是 JSON 对象,无法生成 Rust 结构体\n// 推断的根类型:${rustBaseType(root)}`;
+    return t('tools.json_formatter.entity_root_not_object_slash', {
+      lang: t('tools.json_formatter.entity_lang_rust'),
+      base: rustBaseType(root),
+    });
   }
 
   const structs: string[] = [];
@@ -602,7 +617,10 @@ function emitPython(root: JsonTypeNode, _rootName: string): string {
   }
 
   if (root.kind !== 'record') {
-    return `# 根节点不是 JSON 对象,无法生成 Python dataclass\n# 推断的根类型:${pyBaseType(root)}`;
+    return t('tools.json_formatter.entity_root_not_object_hash', {
+      lang: 'Python dataclass',
+      base: pyBaseType(root),
+    });
   }
 
   // 收集依赖:是否用到 Optional / Any / List(字段级可空也要计入)
@@ -791,7 +809,10 @@ function emitCSharp(root: JsonTypeNode, _rootName: string): string {
   }
 
   if (root.kind !== 'record') {
-    return `// 根节点不是 JSON 对象,无法生成 C# 类\n// 推断的根类型:${csBaseType(root)}`;
+    return t('tools.json_formatter.entity_root_not_object_slash', {
+      lang: t('tools.json_formatter.entity_lang_csharp'),
+      base: csBaseType(root),
+    });
   }
 
   const classes: string[] = [];
@@ -853,7 +874,7 @@ export function generateEntityCode(
       return emitCSharp(root, rootName);
     default: {
       const exhaustive: never = language;
-      throw new Error(`不支持的语言: ${String(exhaustive)}`);
+      throw new Error(t('tools.json_formatter.entity_lang_unsupported', { value: String(exhaustive) }));
     }
   }
 }

@@ -13,17 +13,18 @@
  */
 
 import { stringify as yamlStringify } from 'yaml';
+import { t } from '@/i18n';
 
 export type DataFormatId = 'xml' | 'yaml' | 'toml' | 'json5' | 'properties' | 'urlparams';
 
-/** 转换为菜单「数据格式」分组项(label 与顺序供 UI 使用) */
-export const DATA_FORMAT_ITEMS: ReadonlyArray<{ id: DataFormatId; label: string }> = [
+/** 转换为菜单「数据格式」分组项(label 存 i18n 键,组件层翻译) */
+export const DATA_FORMAT_ITEMS: ReadonlyArray<{ id: DataFormatId; labelKey?: string; label: string }> = [
   { id: 'xml', label: 'XML' },
   { id: 'yaml', label: 'YAML' },
   { id: 'toml', label: 'TOML' },
   { id: 'json5', label: 'JSON5' },
   { id: 'properties', label: 'Properties' },
-  { id: 'urlparams', label: 'URL 参数' },
+  { id: 'urlparams', labelKey: 'tools.json_formatter.format_urlparams', label: 'URL 参数' },
 ];
 
 // ============================================================
@@ -242,7 +243,7 @@ function emitTomlArrayOfTables(
  */
 export function jsonToToml(value: unknown): string {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return '# 根节点不是 JSON 对象,无法生成 TOML';
+    return t('tools.json_formatter.toml_root_not_object');
   }
   const lines: string[] = [];
   emitTomlTable(lines, [], value as Record<string, unknown>);
@@ -338,7 +339,7 @@ function flattenProperties(value: unknown, prefix: string, out: Array<[string, s
  */
 export function jsonToProperties(value: unknown): string {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return '# 根节点不是 JSON 对象,无法生成 Properties';
+    return t('tools.json_formatter.properties_root_not_object');
   }
   const out: Array<[string, string]> = [];
   flattenProperties(value, '', out);

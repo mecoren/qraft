@@ -37,7 +37,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { readClipboardText } from '@/lib/clipboard';
 import { readFileAsText, formatBytes } from '@/lib/file-utils';
-import { TEXT_ENCODINGS, encodingLabel } from '@/lib/text-encodings';
+import { TEXT_ENCODINGS, type TextEncodingOption } from '@/lib/text-encodings';
 import { useEditorFontSize } from '@/hooks/useEditorFontSize';
 import { defineThemeFor, defineVsCodeTheme, getThemeName, useMonacoTheme } from './monaco-theme';
 import {
@@ -309,6 +309,13 @@ export function CodeEditor({
   lineNumbers = true,
 }: CodeEditorProps): ReactNode {
   const { t } = useTranslation();
+  /** 编码展示名:带 labelKey 的条目随语言翻译,其余用静态 label */
+  const encodingDisplay = (opt: TextEncodingOption): string =>
+    opt.labelKey ? t(opt.labelKey) : opt.label;
+  const encodingBadge = (): string => {
+    const opt = TEXT_ENCODINGS.find((e) => e.id === encoding);
+    return opt ? encodingDisplay(opt) : 'UTF-8';
+  };
   const monacoRef = useRef<Monaco | null>(null);
   const editorRef = useRef<MonacoEditor | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -792,7 +799,7 @@ export function CodeEditor({
                       title={t('chrome.code_editor.encoding_pick_title')}
                       className="whitespace-nowrap rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
-                      {encodingLabel(encoding)}
+                      {encodingBadge()}
                     </button>
                   </PopoverTrigger>
                   <PopoverContent
@@ -819,7 +826,7 @@ export function CodeEditor({
                             <Check aria-hidden className="size-3.5 text-primary" />
                           )}
                         </span>
-                        {opt.label}
+                        {encodingDisplay(opt)}
                       </button>
                     ))}
                   </PopoverContent>
@@ -830,7 +837,7 @@ export function CodeEditor({
                   title={t('chrome.code_editor.encoding_title')}
                   className="whitespace-nowrap px-1.5 py-0.5"
                 >
-                  {encodingLabel(encoding)}
+                  {encodingBadge()}
                 </span>
               ))}
             {/* 行尾序列:CRLF/LF 展示,提供回调时可点击切换 */}

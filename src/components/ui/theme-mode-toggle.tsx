@@ -15,6 +15,7 @@
  */
 
 import { forwardRef, useEffect, useState, type ComponentPropsWithoutRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Moon, Sun, Monitor } from 'lucide-react';
 import { type ThemeMode, getStoredThemeMode, setThemeMode } from '@/lib/color-theme';
 import { cn } from '@/lib/utils';
@@ -27,10 +28,11 @@ const MODE_ICONS: Record<ThemeMode, typeof Sun> = {
   system: Monitor,
 };
 
-const MODE_LABELS: Record<ThemeMode, string> = {
-  light: '浅色',
-  dark: '深色',
-  system: '跟随系统',
+/** 模式 → i18n 键(MODE_LABEL 模式),组件层翻译 */
+const MODE_LABEL_KEYS: Record<ThemeMode, string> = {
+  light: 'chrome.theme_mode.light',
+  dark: 'chrome.theme_mode.dark',
+  system: 'chrome.theme_mode.system',
 };
 
 export interface ThemeModeToggleProps extends Omit<ComponentPropsWithoutRef<'button'>, 'onClick'> {
@@ -39,6 +41,7 @@ export interface ThemeModeToggleProps extends Omit<ComponentPropsWithoutRef<'but
 
 export const ThemeModeToggle = forwardRef<HTMLButtonElement, ThemeModeToggleProps>(
   function ThemeModeToggle({ className, variant = 'ghost', ...props }, ref) {
+    const { t } = useTranslation();
     const [mode, setMode] = useState<ThemeMode>(() => getStoredThemeMode());
 
     // 监听 storage 事件:其他窗口修改主题模式时同步本组件状态
@@ -60,7 +63,8 @@ export const ThemeModeToggle = forwardRef<HTMLButtonElement, ThemeModeToggleProp
     };
 
     const Icon = MODE_ICONS[mode];
-    const label = MODE_LABELS[mode];
+    const label = t(MODE_LABEL_KEYS[mode]);
+    const toggleAria = t('chrome.theme_mode.toggle_aria', { mode: label });
 
     // 侧栏样式:全宽按钮,图标 + 文字
     if (variant === 'sidebar') {
@@ -69,7 +73,7 @@ export const ThemeModeToggle = forwardRef<HTMLButtonElement, ThemeModeToggleProp
           ref={ref}
           type="button"
           onClick={handleClick}
-          aria-label={`切换主题模式(当前: ${label})`}
+          aria-label={toggleAria}
           className={cn(
             'flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
             className,
@@ -90,7 +94,7 @@ export const ThemeModeToggle = forwardRef<HTMLButtonElement, ThemeModeToggleProp
         ref={ref}
         type="button"
         onClick={handleClick}
-        aria-label={`切换主题模式(当前: ${label})`}
+        aria-label={toggleAria}
         title={label}
         className={cn(
           'flex items-center justify-center rounded-md text-sm text-foreground transition-colors',

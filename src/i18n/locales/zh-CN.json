@@ -55,6 +55,91 @@
       "tool_failed": "工具执行失败:{{message}}",
       "open_binary_unsupported": "无法在编辑器中打开「{{name}}」:可能是二进制或不受支持的格式"
     },
+    "window": {
+      "minimize": "最小化",
+      "maximize": "最大化",
+      "restore": "还原",
+      "close": "关闭"
+    },
+    "copy": "复制",
+    "config_card": { "title": "配置" },
+    "theme_mode": {
+      "light": "浅色",
+      "dark": "深色",
+      "system": "跟随系统",
+      "toggle_aria": "切换主题模式(当前: {{mode}})"
+    },
+    "error_boundary": {
+      "title": "渲染错误",
+      "copied": "错误已复制到剪贴板",
+      "heading": "渲染出错",
+      "retry": "重试"
+    },
+    "history": {
+      "title": "历史记录",
+      "clear_aria": "清空历史记录",
+      "clear": "清空历史",
+      "empty": "暂无历史记录",
+      "list_aria": "历史记录列表"
+    },
+    "font_picker": {
+      "clear_aria": "清空",
+      "search": "搜索字体族…",
+      "loading": "正在读取系统字体列表…",
+      "empty": "未找到匹配的字体族"
+    },
+    "settings_dialog": {
+      "sr_desc": "应用设置",
+      "close_aria": "关闭设置"
+    },
+    "send_to": {
+      "send_to": "发送到",
+      "send_aria": "发送到其他工具",
+      "dropped_tab_name": "发送的内容"
+    },
+    "json_tree": {
+      "count_elements": "({{count}} 元素)",
+      "count_properties": "({{count}} 属性)",
+      "hidden_children": "已省略其余 {{count}} 个子节点",
+      "expand_all": "展开全部",
+      "collapse_all": "收起全部",
+      "primitive": "原始值",
+      "container_nodes": "{{count}} 个容器节点",
+      "aria": "JSON 树结构视图"
+    },
+    "fold_summary": {
+      "object": "{ {{count}} 个键 }",
+      "array": "[ {{count}} 个元素 ]"
+    },
+    "detect": {
+      "reason_pem": "PEM 证书",
+      "reason_jwt": "JWT 结构",
+      "reason_json": "JSON 内容",
+      "reason_base64": "Base64 编码",
+      "reason_url_encoded": "URL 编码片段"
+    },
+    "encoding": {
+      "big5": "Big5 (繁体中文)",
+      "shift_jis": "Shift-JIS (日语)",
+      "euc_kr": "EUC-KR (韩语)"
+    },
+    "tool_actions": {
+      "no_execute": "当前工具不支持快捷键执行",
+      "no_clear_input": "当前工具不支持快捷键清空输入",
+      "no_copy_output": "当前工具暂无可复制的输出"
+    },
+    "search": {
+      "group_settings": "设置",
+      "group_pages": "页面"
+    },
+    "palette_name": {
+      "obsidian": "黑曜石",
+      "deep_sea": "深海",
+      "twilight": "暮光",
+      "emerald_night": "翡翠夜",
+      "daylight": "日光",
+      "custom": "自定义"
+    },
     "tool_panel": {
       "not_found": "未找到工具",
       "loading": "加载工具中…",
@@ -196,6 +281,16 @@
     "font_mono_hint": "优先展示名称接近 Mono / Code / Console 的系统已安装字体。",
     "font_size_label": "字号",
     "font_weight_label": "字重",
+    "font_size_xs": "小",
+    "font_size_standard": "标准",
+    "font_size_l": "大",
+    "font_size_xl": "特大",
+    "font_size_xxl": "超大",
+    "font_weight_light": "细",
+    "font_weight_regular": "常规",
+    "font_weight_medium": "中等",
+    "font_weight_semibold": "半粗",
+    "font_weight_bold": "粗体",
     "font_preview_ui": "界面字体预览",
     "font_preview_mono": "代码字体预览",
     "general_title": "通用",

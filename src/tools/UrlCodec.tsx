@@ -54,9 +54,9 @@ export function UrlCodec({ toolId }: ToolProps) {
   return (
     <div className="grid grid-cols-2 gap-4 h-full">
       <div className="flex flex-col gap-2">
-        <Label>输入</Label>
+        <Label>{t('tools.url_codec.label_input')}</Label>
         <CodeEditor
-          placeholder="输入文本..."
+          placeholder={t('tools.url_codec.placeholder_input')}
           value={text}
           onChange={setText}
           language="plaintext"
@@ -67,7 +67,7 @@ export function UrlCodec({ toolId }: ToolProps) {
         <div className="flex items-center gap-4" data-search-anchor="url_codec:config">
           <div className="flex items-center gap-2">
             <Label htmlFor="url-action" className="text-xs">
-              操作
+              {t('tools.url_codec.label_action')}
             </Label>
             <Select value={action} onValueChange={(v) => setAction(v as 'encode' | 'decode')}>
               <SelectTrigger id="url-action" className="w-28">

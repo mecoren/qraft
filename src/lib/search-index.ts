@@ -13,6 +13,7 @@
  */
 
 import { TOOL_CATALOG, getCatalogEntry, getCategoryById, pickText } from '@/lib/tool-catalog';
+import { t } from '@/i18n';
 import {
   TOOL_ANCHORS,
   SETTING_SECTIONS,
@@ -108,10 +109,13 @@ function buildAllEntries(): SearchEntry[] {
       entries.push({
         id: `${toolId}:${a.key}`,
         kind: 'tool-section',
-        title: a.title,
-        description: a.description,
+        title: pickText(a.title),
+        description: a.description ? pickText(a.description) : undefined,
         keywords: a.keywords ?? [],
         group,
+        matchText: [a.title.zh, a.title.en, a.description?.zh, a.description?.en, ...(a.keywords ?? [])]
+          .filter(Boolean)
+          .join(' '),
         target: { view: 'tool', toolId, anchor: `${toolId}:${a.key}` },
       });
     }
@@ -122,10 +126,12 @@ function buildAllEntries(): SearchEntry[] {
     entries.push({
       id: `setting:${s.menuId}`,
       kind: 'setting',
-      title: s.title,
-      description: s.description,
+      title: pickText(s.title),
+      description: pickText(s.description),
       keywords: [...s.keywords],
-      group: '设置',
+      group: t('chrome.search.group_settings'),
+      matchText: [s.title.zh, s.title.en, s.description.zh, s.description.en, ...s.keywords]
+        .join(' '),
       target: { view: 'settings', settingsMenu: s.menuId, anchor: `settings:${s.menuId}` },
     });
   }
@@ -136,10 +142,19 @@ function buildAllEntries(): SearchEntry[] {
     entries.push({
       id: `setting-field:${f.menuId}:${f.key}`,
       kind: 'setting-field',
-      title: f.title,
-      description: f.description,
+      title: pickText(f.title),
+      description: f.description ? pickText(f.description) : undefined,
       keywords: [...f.keywords],
-      group: section?.title ?? '设置',
+      group: section ? pickText(section.title) : t('chrome.search.group_settings'),
+      matchText: [
+        f.title.zh,
+        f.title.en,
+        f.description?.zh,
+        f.description?.en,
+        ...f.keywords,
+      ]
+        .filter(Boolean)
+        .join(' '),
       target: {
         view: 'settings',
         settingsMenu: f.menuId,
@@ -153,10 +168,13 @@ function buildAllEntries(): SearchEntry[] {
     entries.push({
       id: `page:${p.view}`,
       kind: 'page',
-      title: p.title,
-      description: p.description,
+      title: pickText(p.title),
+      description: pickText(p.description),
       keywords: [...p.keywords],
-      group: '页面',
+      group: t('chrome.search.group_pages'),
+      matchText: [p.title.zh, p.title.en, p.description.zh, p.description.en, ...p.keywords].join(
+        ' ',
+      ),
       target: { view: p.view },
     });
   }

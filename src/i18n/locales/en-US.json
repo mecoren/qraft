@@ -55,6 +55,91 @@
       "tool_failed": "Tool execution failed: {{message}}",
       "open_binary_unsupported": "Cannot open \"{{name}}\" in the editor: it may be binary or an unsupported format"
     },
+    "window": {
+      "minimize": "Minimize",
+      "maximize": "Maximize",
+      "restore": "Restore",
+      "close": "Close"
+    },
+    "copy": "Copy",
+    "config_card": { "title": "Configuration" },
+    "theme_mode": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System",
+      "toggle_aria": "Switch theme mode (current: {{mode}})"
+    },
+    "error_boundary": {
+      "title": "Render error",
+      "copied": "Error details copied to clipboard",
+      "heading": "Something went wrong while rendering",
+      "retry": "Retry"
+    },
+    "history": {
+      "title": "History",
+      "clear_aria": "Clear history",
+      "clear": "Clear history",
+      "empty": "No history yet",
+      "list_aria": "History list"
+    },
+    "font_picker": {
+      "clear_aria": "Clear",
+      "search": "Search font families…",
+      "loading": "Loading system fonts…",
+      "empty": "No matching font families"
+    },
+    "settings_dialog": {
+      "sr_desc": "Application settings",
+      "close_aria": "Close settings"
+    },
+    "send_to": {
+      "send_to": "Send to",
+      "send_aria": "Send to another tool",
+      "dropped_tab_name": "Sent content"
+    },
+    "json_tree": {
+      "count_elements": "({{count}} items)",
+      "count_properties": "({{count}} properties)",
+      "hidden_children": "{{count}} more children hidden",
+      "expand_all": "Expand all",
+      "collapse_all": "Collapse all",
+      "primitive": "Primitive value",
+      "container_nodes": "{{count}} container nodes",
+      "aria": "JSON tree view"
+    },
+    "fold_summary": {
+      "object": "{ {{count}} keys }",
+      "array": "[ {{count}} items ]"
+    },
+    "detect": {
+      "reason_pem": "PEM certificate",
+      "reason_jwt": "JWT structure",
+      "reason_json": "JSON content",
+      "reason_base64": "Base64 data",
+      "reason_url_encoded": "URL-encoded fragment"
+    },
+    "encoding": {
+      "big5": "Big5 (Traditional Chinese)",
+      "shift_jis": "Shift-JIS (Japanese)",
+      "euc_kr": "EUC-KR (Korean)"
+    },
+    "tool_actions": {
+      "no_execute": "The current tool does not support shortcut execution",
+      "no_clear_input": "The current tool does not support clearing via shortcut",
+      "no_copy_output": "The current tool has no output to copy"
+    },
+    "search": {
+      "group_settings": "Settings",
+      "group_pages": "Pages"
+    },
+    "palette_name": {
+      "obsidian": "Obsidian",
+      "deep_sea": "Deep Sea",
+      "twilight": "Twilight",
+      "emerald_night": "Emerald Night",
+      "daylight": "Daylight",
+      "custom": "Custom"
+    },
     "tool_panel": {
       "not_found": "Tool not found",
       "loading": "Loading tool…",
@@ -196,6 +281,16 @@
     "font_mono_hint": "Prefers installed fonts whose names match Mono / Code / Console.",
     "font_size_label": "Font size",
     "font_weight_label": "Font weight",
+    "font_size_xs": "S",
+    "font_size_standard": "Standard",
+    "font_size_l": "L",
+    "font_size_xl": "XL",
+    "font_size_xxl": "XXL",
+    "font_weight_light": "Light",
+    "font_weight_regular": "Regular",
+    "font_weight_medium": "Medium",
+    "font_weight_semibold": "Semibold",
+    "font_weight_bold": "Bold",
     "font_preview_ui": "Interface font preview",
     "font_preview_mono": "Code font preview",
     "general_title": "General",

@@ -355,7 +355,7 @@ export function ThemeSection() {
           {PRESET_PALETTES.map((p) => (
             <ThemeCard
               key={p.id}
-              label={p.displayName}
+              label={t(p.displayNameKey)}
               preview={[p.accent, p.background]}
               selected={paletteId === p.id}
               onSelect={() => handleSelectPalette(p.id as PaletteId)}
@@ -565,7 +565,7 @@ export function FontSection() {
                     : 'border-input text-muted-foreground hover:bg-accent/50',
                 )}
               >
-                {item.label}
+                {t(item.labelKey)}
               </button>
             ))}
           </div>
@@ -588,7 +588,7 @@ export function FontSection() {
                 )}
                 style={{ fontWeight: item.weight }}
               >
-                {item.label}
+                {t(item.labelKey)}
               </button>
             ))}
           </div>

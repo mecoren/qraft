@@ -8,6 +8,7 @@
  * - 折叠的子树不渲染(React 天然懒加载),超大数组/对象在折叠态下零开销
  */
 import { useMemo, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Braces,
   Brackets,
@@ -101,6 +102,7 @@ function JsonNode({
   onToggle,
   isArrayItem,
 }: JsonNodeProps): JSX.Element {
+  const { t } = useTranslation();
   const isOpen = expanded.has(path);
   const isContainer = Array.isArray(value) || (value !== null && typeof value === 'object');
 
@@ -128,7 +130,9 @@ function JsonNode({
   const entries: Array<[string, unknown]> = Array.isArray(value)
     ? value.map((v, i) => [String(i), v])
     : Object.entries(value as Record<string, unknown>);
-  const countLabel = Array.isArray(value) ? `(${value.length} 元素)` : `(${entries.length} 属性)`;
+  const countLabel = Array.isArray(value)
+    ? t('chrome.json_tree.count_elements', { count: value.length })
+    : t('chrome.json_tree.count_properties', { count: entries.length });
   const truncated = entries.length > MAX_VISIBLE_CHILDREN;
   const visibleEntries = truncated ? entries.slice(0, MAX_VISIBLE_CHILDREN) : entries;
   const Icon = Array.isArray(value) ? Brackets : Braces;
@@ -183,7 +187,9 @@ function JsonNode({
           ))}
           {truncated && (
             <div className="py-1 pl-6 text-xs text-muted-foreground">
-              已省略其余 {entries.length - MAX_VISIBLE_CHILDREN} 个子节点
+              {t('chrome.json_tree.hidden_children', {
+                count: entries.length - MAX_VISIBLE_CHILDREN,
+              })}
             </div>
           )}
         </div>
@@ -197,6 +203,7 @@ export function JsonTreeView({
   className,
   'data-testid': dataTestId,
 }: JsonTreeViewProps): JSX.Element {
+  const { t } = useTranslation();
   // expanded 为空 Set 时表示「尚未手动操作」,按默认规则(前两层)展示:
   // 用哨兵值区分「收起全部」与「未初始化」,避免初始渲染误判。
   const [expanded, setExpanded] = useState<Set<string> | null>(null);
@@ -233,7 +240,7 @@ export function JsonTreeView({
           data-testid="tree-expand-all"
         >
           <ChevronsUpDown aria-hidden className="size-3.5" />
-          展开全部
+          {t('chrome.json_tree.expand_all')}
         </Button>
         <Button
           variant="ghost"
@@ -244,13 +251,18 @@ export function JsonTreeView({
           data-testid="tree-collapse-all"
         >
           <ChevronsDownUp aria-hidden className="size-3.5" />
-          收起全部
+          {t('chrome.json_tree.collapse_all')}
         </Button>
         <span className="ml-auto text-xs text-muted-foreground">
-          {isRootPrimitive ? '原始值' : `${allPaths.length} 个容器节点`}
+          {isRootPrimitive
+            ? t('chrome.json_tree.primitive')
+            : t('chrome.json_tree.container_nodes', { count: allPaths.length })}
         </span>
       </div>
-      <ScrollArea className="min-h-0 flex-1" aria-label="JSON 树结构视图">
+      <ScrollArea
+        className="min-h-0 flex-1"
+        aria-label={t('chrome.json_tree.aria')}
+      >
         <div className="p-2 font-mono">
           <JsonNode label={null} value={value} path="$" expanded={effective} onToggle={toggle} />
         </div>

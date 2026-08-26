@@ -61,5 +61,17 @@
   "tools.json_formatter.close_confirm_snapshot_desc": "A history snapshot will be saved before closing; restore it anytime from \"History\".",
   "tools.json_formatter.close_confirm_empty_desc": "This tab is empty; you can create a new one with \"+\" after closing.",
   "tools.json_formatter.cancel": "Cancel",
-  "tools.json_formatter.rename_dialog_title": "Rename tab"
+  "tools.json_formatter.rename_dialog_title": "Rename tab",
+  "tools.json_formatter.format_urlparams": "URL params",
+  "tools.json_formatter.xml_parse_failed": "Failed to parse XML",
+  "tools.json_formatter.toml_root_not_object": "# Root is not a JSON object; cannot generate TOML",
+  "tools.json_formatter.properties_root_not_object": "# Root is not a JSON object; cannot generate Properties",
+  "tools.json_formatter.entity_lang_ts": "TypeScript class",
+  "tools.json_formatter.entity_lang_java": "Java class",
+  "tools.json_formatter.entity_lang_go": "Go struct",
+  "tools.json_formatter.entity_lang_rust": "Rust structs",
+  "tools.json_formatter.entity_lang_csharp": "C# class",
+  "tools.json_formatter.entity_root_not_object_slash": "// Root is not a JSON object; cannot generate {{lang}}\n// Inferred root type: {{base}}",
+  "tools.json_formatter.entity_root_not_object_hash": "# Root is not a JSON object; cannot generate {{lang}}\n# Inferred root type: {{base}}",
+  "tools.json_formatter.entity_lang_unsupported": "Unsupported language: {{value}}"
 }

@@ -847,7 +847,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                         disabled={disabled}
                         onSelect={() => handleConvert(item.id)}
                       >
-                        {item.label}
+                        {item.labelKey ? t(item.labelKey) : item.label}
                       </DropdownMenuItem>
                     ))}
                     <DropdownMenuSeparator />
@@ -861,7 +861,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                         disabled={disabled}
                         onSelect={() => handleConvertFormat(item.id)}
                       >
-                        {item.label}
+                        {item.labelKey ? t(item.labelKey) : item.label}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>

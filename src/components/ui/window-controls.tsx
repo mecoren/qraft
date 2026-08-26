@@ -11,12 +11,14 @@
  */
 
 import { type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Copy, Minus, Square, X } from 'lucide-react';
 import { closeWindow, minimize, toggleMaximize, useMaximized } from '@/lib/window';
 import { useCustomWindowControls } from '@/lib/platform';
 import { ICON_STROKE_WIDTH } from '@/lib/icon-constants';
 
 export function WindowControls(): JSX.Element | null {
+  const { t } = useTranslation();
   const maximized = useMaximized();
 
   // macOS 使用原生红绿灯,不渲染自绘按钮
@@ -27,8 +29,8 @@ export function WindowControls(): JSX.Element | null {
       <button
         type="button"
         className="window-control"
-        aria-label="最小化"
-        title="最小化"
+        aria-label={t('chrome.window.minimize')}
+        title={t('chrome.window.minimize')}
         onClick={() => void minimize()}
       >
         <Minus aria-hidden className="size-3.5" strokeWidth={ICON_STROKE_WIDTH} />
@@ -36,8 +38,8 @@ export function WindowControls(): JSX.Element | null {
       <button
         type="button"
         className="window-control"
-        aria-label={maximized ? '还原' : '最大化'}
-        title={maximized ? '还原' : '最大化'}
+        aria-label={maximized ? t('chrome.window.restore') : t('chrome.window.maximize')}
+        title={maximized ? t('chrome.window.restore') : t('chrome.window.maximize')}
         onClick={() => void toggleMaximize()}
         data-testid="window-toggle-maximize"
       >
@@ -50,8 +52,8 @@ export function WindowControls(): JSX.Element | null {
       <button
         type="button"
         className="window-control window-control--close"
-        aria-label="关闭"
-        title="关闭"
+        aria-label={t('chrome.window.close')}
+        title={t('chrome.window.close')}
         onClick={() => void closeWindow()}
       >
         <X aria-hidden className="size-3.5" strokeWidth={ICON_STROKE_WIDTH} />

@@ -1,4 +1,5 @@
 import { useRef, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { formatDistanceToNow } from 'date-fns';
 import { Trash2 } from 'lucide-react';
@@ -12,6 +13,7 @@ export interface HistoryPanelProps {
 }
 
 export function HistoryPanel({ onSelect }: HistoryPanelProps): JSX.Element {
+  const { t } = useTranslation();
   const entries = useHistoryStore((s) => s.entries);
   const clearHistory = useHistoryStore((s) => s.clearHistory);
   const parentRef = useRef<HTMLDivElement>(null);
@@ -29,25 +31,29 @@ export function HistoryPanel({ onSelect }: HistoryPanelProps): JSX.Element {
   return (
     <div className="flex flex-col h-full bg-background-layer">
       <header className="flex items-center gap-2 px-4 py-2 border-b border-border">
-        <h2 className="text-sm font-semibold flex-1">历史记录</h2>
+        <h2 className="text-sm font-semibold flex-1">{t('chrome.history.title')}</h2>
         <Button
           variant="ghost"
           size="sm"
-          aria-label="清空历史记录"
+          aria-label={t('chrome.history.clear_aria')}
           onClick={() => void clearHistory()}
           disabled={entries.length === 0}
         >
           <Trash2 className="h-4 w-4" aria-hidden />
-          <span className="ml-1">清空历史</span>
+          <span className="ml-1">{t('chrome.history.clear')}</span>
         </Button>
       </header>
 
       {entries.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-          暂无历史记录
+          {t('chrome.history.empty')}
         </div>
       ) : (
-        <ScrollArea viewportRef={parentRef} className="min-h-0 flex-1" aria-label="历史记录列表">
+        <ScrollArea
+          viewportRef={parentRef}
+          className="min-h-0 flex-1"
+          aria-label={t('chrome.history.list_aria')}
+        >
           <ul style={{ height: `${virtualizer.getTotalSize()}px` }} className="relative">
             {virtualizer.getVirtualItems().map((vi) => {
               const entry = entries[vi.index];

@@ -13,6 +13,8 @@
 // 基础类型
 // ============================================================
 
+import { t } from '@/i18n';
+
 export interface IpV4Analysis {
   version: 4;
   /** 输入的 IP(点分十进制规范化形式) */
@@ -43,9 +45,9 @@ export interface IpV4Analysis {
   usableHosts: bigint;
   /** 总地址数 2^(32-n) */
   totalAddresses: bigint;
-  /** 传统分类:A / B / C / D(组播)/ E(保留) */
+  /** 传统分类键(tools.ip_parser.class_*,组件层翻译) */
   ipClass: string;
-  /** 地址用途/作用域描述,如「私网地址(RFC 1918)」 */
+  /** 用途/作用域键(tools.ip_parser.scope_* 等,组件层翻译) */
   scope: string;
 }
 
@@ -65,7 +67,7 @@ export interface IpV6Analysis {
   lastAddress: string;
   /** 总地址数 2^(128-n) */
   totalAddresses: bigint;
-  /** 地址作用域描述,如「链路本地地址」 */
+  /** 作用域键(tools.ip_parser.v6_* 等,组件层翻译) */
   scope: string;
 }
 
@@ -201,62 +203,69 @@ export function formatIpv6Full(value: bigint): string {
 interface V4Range {
   lo: number;
   hi: number;
-  scope: string;
+  /** 用途描述的 i18n 键(tools.ip_parser.*,组件层翻译) */
+  scopeKey: string;
 }
 
 /** IPv4 保留/特殊地址段(lo/hi 为 uint32 数值),按惯例顺序匹配 */
 const V4_SCOPES: readonly V4Range[] = [
-  { lo: 0x00000000, hi: 0x00ffffff, scope: '本网络地址(保留,RFC 791)' },
-  { lo: 0x0a000000, hi: 0x0affffff, scope: '私网地址(RFC 1918)' },
-  { lo: 0x64400000, hi: 0x647fffff, scope: '运营商级 NAT(RFC 6598)' },
-  { lo: 0x7f000000, hi: 0x7fffffff, scope: '环回地址(RFC 1122)' },
-  { lo: 0xa9fe0000, hi: 0xa9feffff, scope: '链路本地地址(RFC 3927)' },
-  { lo: 0xac100000, hi: 0xac1fffff, scope: '私网地址(RFC 1918)' },
-  { lo: 0xc0000000, hi: 0xc00000ff, scope: 'IETF 协议分配(RFC 6890)' },
-  { lo: 0xc0000200, hi: 0xc00002ff, scope: '测试文档专用(TEST-NET-1)' },
-  { lo: 0xc0586300, hi: 0xc05863ff, scope: '6to4 中继任播(保留,RFC 7526)' },
-  { lo: 0xc0a80000, hi: 0xc0a8ffff, scope: '私网地址(RFC 1918)' },
-  { lo: 0xc6120000, hi: 0xc613ffff, scope: '网络性能测试(RFC 2544)' },
-  { lo: 0xc6336400, hi: 0xc63364ff, scope: '测试文档专用(TEST-NET-2)' },
-  { lo: 0xcb007100, hi: 0xcb0071ff, scope: '测试文档专用(TEST-NET-3)' },
-  { lo: 0xe0000000, hi: 0xefffffff, scope: '组播地址(RFC 1112)' },
-  { lo: 0xf0000000, hi: 0xffffffff, scope: '保留地址(含受限广播)' },
+  { lo: 0x00000000, hi: 0x00ffffff, scopeKey: 'tools.ip_parser.scope_this_network' },
+  { lo: 0x0a000000, hi: 0x0affffff, scopeKey: 'tools.ip_parser.scope_private' },
+  { lo: 0x64400000, hi: 0x647fffff, scopeKey: 'tools.ip_parser.scope_cgnat' },
+  { lo: 0x7f000000, hi: 0x7fffffff, scopeKey: 'tools.ip_parser.scope_loopback' },
+  { lo: 0xa9fe0000, hi: 0xa9feffff, scopeKey: 'tools.ip_parser.scope_link_local' },
+  { lo: 0xac100000, hi: 0xac1fffff, scopeKey: 'tools.ip_parser.scope_private' },
+  { lo: 0xc0000000, hi: 0xc00000ff, scopeKey: 'tools.ip_parser.scope_ietf' },
+  { lo: 0xc0000200, hi: 0xc00002ff, scopeKey: 'tools.ip_parser.scope_test_net1' },
+  { lo: 0xc0586300, hi: 0xc05863ff, scopeKey: 'tools.ip_parser.scope_6to4_anycast' },
+  { lo: 0xc0a80000, hi: 0xc0a8ffff, scopeKey: 'tools.ip_parser.scope_private' },
+  { lo: 0xc6120000, hi: 0xc613ffff, scopeKey: 'tools.ip_parser.scope_benchmark' },
+  { lo: 0xc6336400, hi: 0xc63364ff, scopeKey: 'tools.ip_parser.scope_test_net2' },
+  { lo: 0xcb007100, hi: 0xcb0071ff, scopeKey: 'tools.ip_parser.scope_test_net3' },
+  { lo: 0xe0000000, hi: 0xefffffff, scopeKey: 'tools.ip_parser.scope_multicast' },
+  { lo: 0xf0000000, hi: 0xffffffff, scopeKey: 'tools.ip_parser.scope_reserved' },
 ];
 
-/** IPv4 用途描述;公网返回「公网地址」 */
+/** 公网作用域键(IPv4/IPv6 共用判定),组件据此选择徽章配色 */
+export const IP_PUBLIC_SCOPE_KEYS: ReadonlySet<string> = new Set([
+  'tools.ip_parser.scope_public',
+  'tools.ip_parser.v6_global',
+]);
+
+/** IPv4 用途描述(返回 i18n 键);公网返回 scope_public */
 export function describeIpv4Scope(value: bigint): string {
   const v = Number(BigInt.asUintN(32, value));
   for (const r of V4_SCOPES) {
-    if (v >= r.lo && v <= r.hi) return r.scope;
+    if (v >= r.lo && v <= r.hi) return r.scopeKey;
   }
-  return '公网地址';
+  return 'tools.ip_parser.scope_public';
 }
 
-/** IPv4 传统分类(A/B/C/D/E) */
+/** IPv4 传统分类(A/B/C/D/E)(返回 i18n 键) */
 export function describeIpv4Class(value: bigint): string {
   const first = Number((BigInt.asUintN(32, value) >> 24n) & 255n);
-  if (first < 128) return 'A 类';
-  if (first < 192) return 'B 类';
-  if (first < 224) return 'C 类';
-  if (first < 240) return 'D 类(组播)';
-  return 'E 类(保留)';
+  if (first < 128) return 'tools.ip_parser.class_a';
+  if (first < 192) return 'tools.ip_parser.class_b';
+  if (first < 224) return 'tools.ip_parser.class_c';
+  if (first < 240) return 'tools.ip_parser.class_d';
+  return 'tools.ip_parser.class_e';
 }
 
-/** IPv6 作用域描述 */
+/** IPv6 作用域描述(返回 i18n 键) */
 export function describeIpv6Scope(value: bigint): string {
-  if (value === 0n) return '未指定地址(::)';
-  if (value === 1n) return '环回地址(::1)';
+  if (value === 0n) return 'tools.ip_parser.v6_unspecified';
+  if (value === 1n) return 'tools.ip_parser.v6_loopback';
   const top8 = value >> 120n;
-  if (top8 === 0xffn) return '组播地址(RFC 4291)';
+  if (top8 === 0xffn) return 'tools.ip_parser.v6_multicast';
   // fe80::/10:首 10 位 1111 1110 10
-  if (value >> 118n === 0x3fan) return '链路本地地址(RFC 4291)';
+  if (value >> 118n === 0x3fan) return 'tools.ip_parser.v6_link_local';
   // fc00::/7:首 7 位 1111 110
-  if (value >> 121n === 0x7fn) return '唯一本地地址(RFC 4193)';
-  if (value >> 96n === 0x20010db8n) return '测试文档专用(RFC 3849)';
-  if (value >> 96n === 0x20010000n) return 'Teredo 隧道地址(RFC 4380,已弃用)';
-  if (value >> 112n === 0x2002n) return '6to4 地址(RFC 7526,已弃用)';
-  if (value >> 96n === 0x64ff9bn) return 'NAT64 地址(RFC 6052)';
-  return '全球单播地址(公网)';
+  if (value >> 121n === 0x7fn) return 'tools.ip_parser.v6_unique_local';
+  if (value >> 96n === 0x20010db8n) return 'tools.ip_parser.v6_doc';
+  if (value >> 96n === 0x20010000n) return 'tools.ip_parser.v6_teredo';
+  if (value >> 112n === 0x2002n) return 'tools.ip_parser.v6_6to4';
+  if (value >> 96n === 0x64ff9bn) return 'tools.ip_parser.v6_nat64';
+  return 'tools.ip_parser.v6_global';
 }
 
 // ============================================================
@@ -273,24 +282,24 @@ export class IpParseError extends Error {}
  */
 export function analyzeIp(rawInput: string): IpAnalysis {
   const input = rawInput.trim();
-  if (!input) throw new IpParseError('请输入 IP 地址或 CIDR');
+  if (!input) throw new IpParseError(t('tools.ip_parser.err_empty'));
 
   const slash = input.lastIndexOf('/');
   const ipText = slash >= 0 ? input.slice(0, slash) : input;
   const prefixText = slash >= 0 ? input.slice(slash + 1) : '';
-  if (!ipText) throw new IpParseError('缺少 IP 地址部分');
+  if (!ipText) throw new IpParseError(t('tools.ip_parser.err_missing_ip'));
   if (slash >= 0 && !/^\d{1,3}$/.test(prefixText)) {
-    throw new IpParseError(`无效的前缀长度: ${prefixText}`);
+    throw new IpParseError(t('tools.ip_parser.err_bad_prefix', { value: prefixText }));
   }
   const explicitPrefix = slash >= 0 ? Number(prefixText) : null;
 
   // —— IPv4 ——
   if (ipText.includes('.')) {
     const ipValue = parseIpv4(ipText);
-    if (ipValue === null) throw new IpParseError(`无效的 IPv4 地址: ${ipText}`);
+    if (ipValue === null) throw new IpParseError(t('tools.ip_parser.err_bad_ipv4', { value: ipText }));
     const prefix = explicitPrefix ?? 32;
     if (explicitPrefix !== null && (explicitPrefix < 0 || explicitPrefix > 32)) {
-      throw new IpParseError(`IPv4 前缀长度应在 0-32 之间: ${explicitPrefix}`);
+      throw new IpParseError(t('tools.ip_parser.err_v4_prefix_range', { value: explicitPrefix }));
     }
     const mask = prefixToMaskBigInt(prefix, 32);
     const networkValue = ipValue & mask;
@@ -340,10 +349,10 @@ export function analyzeIp(rawInput: string): IpAnalysis {
 
   // —— IPv6 ——
   const ipValue = parseIpv6(ipText);
-  if (ipValue === null) throw new IpParseError(`无效的 IP 地址: ${ipText}`);
+    if (ipValue === null) throw new IpParseError(t('tools.ip_parser.err_bad_ip', { value: ipText }));
   const prefix = explicitPrefix ?? 128;
   if (explicitPrefix !== null && (explicitPrefix < 0 || explicitPrefix > 128)) {
-    throw new IpParseError(`IPv6 前缀长度应在 0-128 之间: ${explicitPrefix}`);
+    throw new IpParseError(t('tools.ip_parser.err_v6_prefix_range', { value: explicitPrefix }));
   }
   const mask = prefixToMaskBigInt(prefix, 128);
   const networkValue = ipValue & mask;

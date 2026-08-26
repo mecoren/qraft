@@ -5,23 +5,25 @@
  */
 
 import type { JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Copy } from 'lucide-react';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 
 export function CopyAction({ text, testId }: { text: string; testId?: string }): JSX.Element {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
       data-testid={testId}
-      title="复制"
-      aria-label="复制"
+      title={t('chrome.copy')}
+      aria-label={t('chrome.copy')}
       onClick={() => {
         void copyTextWithFeedback(text);
       }}
       className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <Copy aria-hidden className="size-3.5" />
-      复制
+      {t('chrome.copy')}
     </button>
   );
 }

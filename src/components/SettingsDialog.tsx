@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Dialog, DialogPortal, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
@@ -59,6 +60,7 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX.Element {
+  const { t } = useTranslation();
   const [active, setActive] = useState<MenuId>('theme');
 
   const { rect, dragEvents, resizeEvents, onMove } = useDialogWindow({
@@ -71,37 +73,37 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX
   const menuItems: MenuItem[] = [
     {
       id: 'theme',
-      label: '主题',
+      label: t('settings.theme_title'),
       icon: <Palette className="size-4" />,
       content: <ThemeSection />,
     },
     {
       id: 'font',
-      label: '字体',
+      label: t('settings.font_title'),
       icon: <Type className="size-4" />,
       content: <FontSection />,
     },
     {
       id: 'general',
-      label: '通用',
+      label: t('settings.general_title'),
       icon: <SlidersHorizontal className="size-4" />,
       content: <GeneralSection />,
     },
     {
       id: 'editor',
-      label: '文本编辑器',
+      label: t('settings.editor_title'),
       icon: <FileText className="size-4" />,
       content: <EditorSection />,
     },
     {
       id: 'shortcuts',
-      label: '快捷键',
+      label: t('settings.shortcut_title'),
       icon: <Keyboard className="size-4" />,
       content: <ShortcutSection />,
     },
     {
       id: 'update',
-      label: '更新',
+      label: t('settings.update_heading'),
       icon: <CloudDownload className="size-4" />,
       content: <UpdateSection />,
     },
@@ -169,15 +171,15 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX
             {...dragEvents}
           >
             <GripHorizontal className="size-4 text-muted-foreground" />
-            <DialogTitle className="text-sm font-semibold">设置</DialogTitle>
-            <DialogDescription className="sr-only">应用设置</DialogDescription>
+            <DialogTitle className="text-sm font-semibold">{t('settings.title')}</DialogTitle>
+            <DialogDescription className="sr-only">{t('chrome.settings_dialog.sr_desc')}</DialogDescription>
             <div className="flex-1" />
             <button
               data-no-drag
               type="button"
               onClick={() => onOpenChange(false)}
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              aria-label="关闭设置"
+              aria-label={t('chrome.settings_dialog.close_aria')}
             >
               <X className="size-4" />
             </button>

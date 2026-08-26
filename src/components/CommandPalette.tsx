@@ -54,7 +54,7 @@ export function CommandPalette({
         <Command shouldFilter={true}>
           <CommandInput placeholder={t('chrome.palette.placeholder')} />
           <CommandList className="max-h-80">
-            <CommandEmpty>无匹配项</CommandEmpty>
+            <CommandEmpty>{t('chrome.palette.no_match')}</CommandEmpty>
             {detected.length > 0 && (
               <CommandGroup heading={t('chrome.palette.detect_clipboard')}>
                 {detected.map((d) => {
@@ -71,7 +71,7 @@ export function CommandPalette({
                     >
                       <entry.icon aria-hidden className="h-4 w-4 opacity-50" />
                 <span>{pickText(entry.name)}</span>
-                <span className="ml-auto text-xs text-muted-foreground">{d.reason}</span>
+                <span className="ml-auto text-xs text-muted-foreground">{t(d.reason)}</span>
                     </CommandItem>
                   );
                 })}

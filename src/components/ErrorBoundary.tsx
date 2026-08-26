@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
+import { t as translate } from '@/i18n';
 import { showAlert } from '@/lib/toast-alert';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,7 @@ export class ErrorBoundary extends Component<Props, State> {
     // 通过全局 alert 提示,确保用户可见
     showAlert({
       variant: 'destructive',
-      title: '渲染错误',
+      title: translate('chrome.error_boundary.title'),
       description: error.message,
     });
     // 控制台保留完整堆栈便于调试
@@ -46,9 +47,9 @@ export class ErrorBoundary extends Component<Props, State> {
     const text = `${err.name}: ${err.message}\n${err.stack ?? ''}`;
     try {
       await navigator.clipboard.writeText(text);
-      showAlert({ variant: 'success', title: '错误已复制到剪贴板' });
+      showAlert({ variant: 'success', title: translate('chrome.error_boundary.copied') });
     } catch {
-      showAlert({ variant: 'destructive', title: '复制失败' });
+      showAlert({ variant: 'destructive', title: translate('chrome.toast.copy_failed') });
     }
   };
 
@@ -61,11 +62,11 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <Alert variant="destructive" className="m-4">
         <AlertCircle aria-hidden className="size-4" />
-        <AlertTitle>渲染出错</AlertTitle>
+        <AlertTitle>{translate('chrome.error_boundary.heading')}</AlertTitle>
         <AlertDescription>{error.message}</AlertDescription>
         <div className="col-start-2 mt-2 flex gap-2">
           <Button variant="secondary" size="sm" onClick={this.reset}>
-            重试
+            {translate('chrome.error_boundary.retry')}
           </Button>
           <Button variant="outline" size="sm" onClick={this.handleCopy}>
             Copy error

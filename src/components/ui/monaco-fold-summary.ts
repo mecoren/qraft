@@ -39,6 +39,7 @@
  *   refresh 动态对比实例并重新订阅。
  */
 import type { editor } from 'monaco-editor';
+import { t } from '@/i18n';
 
 interface FoldSummaryInfo {
   count: number;
@@ -77,15 +78,21 @@ function summaryClassName(
   }
   return {
     cls: `${prefix}-${count}`,
-    label: kind === 'object' ? `{ ${count} 个键 }` : `[ ${count} 个元素 ]`,
+    label: foldSummaryLabel(count, kind),
   };
+}
+
+/** 折叠摘要文案(生成 CSS 规则时即时取词;语言切换后新折叠区随新语言) */
+function foldSummaryLabel(count: number, kind: 'object' | 'array'): string {
+  return kind === 'object'
+    ? t('chrome.fold_summary.object', { count })
+    : t('chrome.fold_summary.array', { count });
 }
 
 /** 确保「N+」通用规则已注入(仅一次,count 超上限时使用) */
 function ensureStaticPlusRule(cls: string, kind: 'object' | 'array'): void {
   if (injectedRules.has(cls)) return;
-  const label =
-    kind === 'object' ? `{ ${MAX_EXACT_COUNT}+ 个键 }` : `[ ${MAX_EXACT_COUNT}+ 个元素 ]`;
+  const label = foldSummaryLabel(MAX_EXACT_COUNT, kind);
   const rule = `.monaco-editor .${cls}:after { content: "${label}"; }`;
   insertRule(rule, cls);
 }
@@ -99,7 +106,7 @@ function ensureSummaryRule(count: number, kind: 'object' | 'array'): void {
   const cls = resolved.cls;
   if (injectedRules.has(cls)) return;
 
-  const label = kind === 'object' ? `{ ${count} 个键 }` : `[ ${count} 个元素 ]`;
+  const label = foldSummaryLabel(count, kind);
   // ::after content 的引号需转义;这里 label 全是数字 + 中文 + 括号,安全。
   // 前导空格省略——源码中被隐藏的开括号单元格正好充当与行内容的间隔
   const rule = `.monaco-editor .${cls}:after { content: "${label}"; }`;

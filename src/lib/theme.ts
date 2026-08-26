@@ -114,13 +114,13 @@ export function getStoredMonoFontFamily(): string | null {
 
 // ── 字号级别 ──
 
-/** 字号级别定义:0=小, 1=标准, 2=大, 3=特大, 4=超大 */
+/** 字号级别定义:0=小 1=标准, 2=大, 3=特大, 4=超大(label 存 i18n 键,组件层翻译) */
 export const FONT_SIZE_LEVELS = [
-  { label: '小', scale: 0.875 },
-  { label: '标准', scale: 1.0 },
-  { label: '大', scale: 1.125 },
-  { label: '特大', scale: 1.25 },
-  { label: '超大', scale: 1.375 },
+  { labelKey: 'settings.font_size_xs', scale: 0.875 },
+  { labelKey: 'settings.font_size_standard', scale: 1.0 },
+  { labelKey: 'settings.font_size_l', scale: 1.125 },
+  { labelKey: 'settings.font_size_xl', scale: 1.25 },
+  { labelKey: 'settings.font_size_xxl', scale: 1.375 },
 ] as const;
 
 export const FONT_SIZE_STORAGE_KEY = 'font_size_level';
@@ -164,13 +164,13 @@ export function getEditorFontSize(): { fontSize: number; lineHeight: number } {
 
 // ── 字重级别 ──
 
-/** 字重级别定义:0=细, 1=常规, 2=中等, 3=半粗, 4=粗体 */
+/** 字重级别定义:0=细, 1=常规, 2=中等, 3=半粗, 4=粗体(label 存 i18n 键,组件层翻译) */
 export const FONT_WEIGHT_LEVELS = [
-  { label: '细', weight: 300 },
-  { label: '常规', weight: 400 },
-  { label: '中等', weight: 500 },
-  { label: '半粗', weight: 600 },
-  { label: '粗体', weight: 700 },
+  { labelKey: 'settings.font_weight_light', weight: 300 },
+  { labelKey: 'settings.font_weight_regular', weight: 400 },
+  { labelKey: 'settings.font_weight_medium', weight: 500 },
+  { labelKey: 'settings.font_weight_semibold', weight: 600 },
+  { labelKey: 'settings.font_weight_bold', weight: 700 },
 ] as const;
 
 export const FONT_WEIGHT_STORAGE_KEY = 'font_weight_level';

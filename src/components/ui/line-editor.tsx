@@ -10,6 +10,7 @@
  */
 
 import { useMemo, useRef, type JSX, type ReactNode, type UIEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ClipboardPaste, FolderOpen, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -71,6 +72,7 @@ export function LineEditor({
   className,
   'data-testid': testId,
 }: LineEditorProps): JSX.Element {
+  const { t } = useTranslation();
   const gutterRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -97,7 +99,7 @@ export function LineEditor({
     if (text) {
       onChange?.(text);
     } else {
-      toast.info('剪贴板为空或不可用');
+      toast.info(t('chrome.code_editor.clipboard_empty'));
     }
   };
 
@@ -108,7 +110,7 @@ export function LineEditor({
       const text = await readFileAsText(file);
       onChange?.(text);
     } catch {
-      toast.error('读取文件失败');
+      toast.error(t('chrome.code_editor.read_file_failed'));
     }
     // 允许重复选择同一文件
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -134,17 +136,17 @@ export function LineEditor({
           <span className="flex shrink-0 items-center">
             {!readOnly && showPaste && (
               <ToolbarButton
-                label="粘贴"
+                label={t('chrome.code_editor.paste')}
                 testId={testId ? `${testId}-paste` : undefined}
                 onClick={() => void handlePaste()}
               >
                 <ClipboardPaste aria-hidden className="size-3.5" />
-                粘贴
+                {t('chrome.code_editor.paste')}
               </ToolbarButton>
             )}
             {!readOnly && showOpenFile && (
               <ToolbarButton
-                label="打开文件"
+                label={t('chrome.code_editor.open_file')}
                 testId={testId ? `${testId}-open` : undefined}
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -153,7 +155,7 @@ export function LineEditor({
             )}
             {!readOnly && showClear && (
               <ToolbarButton
-                label="清除"
+                label={t('chrome.code_editor.clear')}
                 testId={testId ? `${testId}-clear` : undefined}
                 onClick={() => onChange?.('')}
               >
@@ -186,7 +188,7 @@ export function LineEditor({
             wrap="off"
             onChange={(e) => onChange?.(e.target.value)}
             onScroll={handleScroll}
-            aria-label={title ?? '文本编辑器'}
+            aria-label={title ?? t('chrome.code_editor.fallback_aria')}
             className={cn(
               'h-full w-full resize-none whitespace-pre bg-transparent px-2 py-2 font-mono text-xs leading-6 outline-none',
               'placeholder:text-muted-foreground/60',

@@ -1,12 +1,13 @@
 /**
- * 文件辅助:下载与本机文件读取
- *
+ * 文件辅助:下载与本机文件读�? *
  * 设计说明:
- * - 生产 CSP 为 img-src 'self' data:,因此图片预览一律使用 data URL 而非 blob URL
+ * - 生产 CSP �?img-src 'self' data:,因此图片预览一律使�?data URL 而非 blob URL
  * - 下载通过 <a download> + data/blob URL 触发,无需后端参与
  */
 
-/** 将字节数组转为 base64 字符串(分块避免栈溢出) */
+import { t } from '@/i18n';
+
+/** 将字节数组转�?base64 字符�?分块避免栈溢�? */
 export function bytesToBase64(bytes: Uint8Array): string {
   const CHUNK = 0x8000;
   let binary = '';
@@ -16,7 +17,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-/** 将 base64 字符串解码为字节数组,非法输入抛错 */
+/** �?base64 字符串解码为字节数组,非法输入抛错 */
 export function base64ToBytes(base64: string): Uint8Array {
   const cleaned = base64.replace(/\s+/g, '');
   const binary = atob(cleaned);
@@ -27,7 +28,7 @@ export function base64ToBytes(base64: string): Uint8Array {
   return bytes;
 }
 
-/** 从 base64 data URL 中提取纯 base64 部分(无前缀时原样返回) */
+/** �?base64 data URL 中提取纯 base64 部分(无前缀时原样返�? */
 export function stripDataUrlPrefix(input: string): { base64: string; mime: string | null } {
   const match = input.trim().match(/^data:([^;,]+)?(?:;base64)?,(.*)$/s);
   if (match) {
@@ -36,13 +37,13 @@ export function stripDataUrlPrefix(input: string): { base64: string; mime: strin
   return { base64: input.trim(), mime: null };
 }
 
-/** 触发浏览器下载一个文本文件 */
+/** 触发浏览器下载一个文本文�?*/
 export function downloadText(filename: string, text: string, mime = 'text/plain'): void {
   const blob = new Blob([text], { type: `${mime};charset=utf-8` });
   downloadBlob(filename, blob);
 }
 
-/** 触发浏览器下载一个 Blob */
+/** 触发浏览器下载一�?Blob */
 export function downloadBlob(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -51,26 +52,25 @@ export function downloadBlob(filename: string, blob: Blob): void {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  // 延迟回收,确保下载已启动
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // 延迟回收,确保下载已启�?  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** 读取 File 为 data URL(图片预览用,CSP 安全) */
+/** 读取 File �?data URL(图片预览�?CSP 安全) */
 export function readFileAsDataUrl(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error('读取文件失败'));
+    reader.onerror = () => reject(reader.error ?? new Error(t('chrome.code_editor.read_file_failed')));
     reader.readAsDataURL(file);
   });
 }
 
-/** 读取 File 为文本 */
+/** 读取 File 为文�?*/
 export function readFileAsText(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error('读取文件失败'));
+    reader.onerror = () => reject(reader.error ?? new Error(t('chrome.code_editor.read_file_failed')));
     reader.readAsText(file);
   });
 }

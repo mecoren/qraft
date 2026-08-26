@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
 import { t } from '@/i18n';
-import { analyzeIp, IpParseError, type IpAnalysis } from './ip-parser';
+import { analyzeIp, IpParseError, IP_PUBLIC_SCOPE_KEYS, type IpAnalysis } from './ip-parser';
 import { extractLookupIp, lookupIpGeo, type IpGeoInfo } from './ip-geo';
 import type { ToolProps } from './registry';
 
@@ -60,8 +60,12 @@ function toInfoItems(a: IpAnalysis): InfoItem[] {
         value: a.totalAddresses.toString(),
         testId: 'ip-item-total',
       },
-      { label: t('tools.ip_parser.field_scope'), value: a.scope, testId: 'ip-item-scope' },
-      { label: t('tools.ip_parser.field_class'), value: a.ipClass, testId: 'ip-item-class' },
+      { label: t('tools.ip_parser.field_scope'), value: t(a.scope), testId: 'ip-item-scope' },
+      {
+        label: t('tools.ip_parser.field_class'),
+        value: t(a.ipClass),
+        testId: 'ip-item-class',
+      },
       { label: t('tools.ip_parser.field_int'), value: a.intValue.toString(), testId: 'ip-item-int' },
       { label: t('tools.ip_parser.field_hex'), value: a.hex, testId: 'ip-item-hex' },
       { label: t('tools.ip_parser.field_binary'), value: a.binary, testId: 'ip-item-binary' },
@@ -84,7 +88,7 @@ function toInfoItems(a: IpAnalysis): InfoItem[] {
       value: a.totalAddresses.toString(),
       testId: 'ip-item-total',
     },
-    { label: t('tools.ip_parser.field_scope'), value: a.scope, testId: 'ip-item-scope' },
+    { label: t('tools.ip_parser.field_scope'), value: t(a.scope), testId: 'ip-item-scope' },
   ];
 }
 
@@ -231,12 +235,12 @@ export function IpParser(_props: ToolProps): JSX.Element {
             <span
               data-testid="ip-summary-type"
               className={
-                parsed.result.scope.includes('公网') || parsed.result.scope.includes('全球单播')
+                IP_PUBLIC_SCOPE_KEYS.has(parsed.result.scope)
                   ? 'rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400'
                   : 'rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400'
               }
             >
-              {parsed.result.scope}
+              {t(parsed.result.scope)}
             </span>
           </div>
         </section>

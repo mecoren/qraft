@@ -61,5 +61,17 @@
   "tools.json_formatter.close_confirm_snapshot_desc": "关闭前会自动保存一条历史快照,可随时在「历史」中恢复。",
   "tools.json_formatter.close_confirm_empty_desc": "该 Tab 内容为空,关闭后可用「+」新建。",
   "tools.json_formatter.cancel": "取消",
-  "tools.json_formatter.rename_dialog_title": "重命名 Tab"
+  "tools.json_formatter.rename_dialog_title": "重命名 Tab",
+  "tools.json_formatter.format_urlparams": "URL 参数",
+  "tools.json_formatter.xml_parse_failed": "XML 解析失败",
+  "tools.json_formatter.toml_root_not_object": "# 根节点不是 JSON 对象,无法生成 TOML",
+  "tools.json_formatter.properties_root_not_object": "# 根节点不是 JSON 对象,无法生成 Properties",
+  "tools.json_formatter.entity_lang_ts": "TypeScript 类",
+  "tools.json_formatter.entity_lang_java": "Java 类",
+  "tools.json_formatter.entity_lang_go": "Go 结构体",
+  "tools.json_formatter.entity_lang_rust": "Rust 结构体",
+  "tools.json_formatter.entity_lang_csharp": "C# 类",
+  "tools.json_formatter.entity_root_not_object_slash": "// 根节点不是 JSON 对象,无法生成 {{lang}}\n// 推断的根类型:{{base}}",
+  "tools.json_formatter.entity_root_not_object_hash": "# 根节点不是 JSON 对象,无法生成 {{lang}}\n# 推断的根类型:{{base}}",
+  "tools.json_formatter.entity_lang_unsupported": "不支持的语言: {{value}}"
 }

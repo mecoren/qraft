@@ -27,6 +27,9 @@ export type PaletteMode = 'dark' | 'light';
  */
 export interface ColorPalette {
   id: string;
+  /** 展示名的 i18n 键(组件层翻译) */
+  displayNameKey: string;
+  /** zh 缺省展示名 */
   displayName: string;
   mode: PaletteMode;
   accent: string;
@@ -72,6 +75,7 @@ export interface ColorPalette {
 /** 黑曜石 - 默认深色(DevToys Fluent 风格,azure 蓝调) */
 const obsidian: ColorPalette = {
   id: 'obsidian',
+  displayNameKey: 'chrome.palette_name.obsidian',
   displayName: '黑曜石',
   mode: 'dark',
   accent: 'oklch(0.62 0.19 250)',
@@ -109,6 +113,7 @@ const obsidian: ColorPalette = {
 /** 深海 - 青蓝调 */
 const deepSea: ColorPalette = {
   id: 'deep-sea',
+  displayNameKey: 'chrome.palette_name.deep_sea',
   displayName: '深海',
   mode: 'dark',
   accent: 'oklch(0.62 0.16 220)',
@@ -146,6 +151,7 @@ const deepSea: ColorPalette = {
 /** 暮光 - 橙红暖调 */
 const twilight: ColorPalette = {
   id: 'twilight',
+  displayNameKey: 'chrome.palette_name.twilight',
   displayName: '暮光',
   mode: 'dark',
   accent: 'oklch(0.62 0.20 25)',
@@ -183,6 +189,7 @@ const twilight: ColorPalette = {
 /** 翡翠夜 - 翠绿护眼 */
 const emeraldNight: ColorPalette = {
   id: 'emerald-night',
+  displayNameKey: 'chrome.palette_name.emerald_night',
   displayName: '翡翠夜',
   mode: 'dark',
   accent: 'oklch(0.62 0.16 162)',
@@ -220,6 +227,7 @@ const emeraldNight: ColorPalette = {
 /** 日光 - 亮色模式默认(应用启动默认主题,DevToys Fluent 风格 azure) */
 const daylight: ColorPalette = {
   id: 'daylight',
+  displayNameKey: 'chrome.palette_name.daylight',
   displayName: '日光',
   mode: 'light',
   accent: 'oklch(0.54 0.18 256)',
@@ -327,6 +335,7 @@ export function pickAccentForeground(accentHex: string): string {
 export function deriveCustomPalette(accent: string): ColorPalette {
   return {
     id: 'custom',
+    displayNameKey: 'chrome.palette_name.custom',
     displayName: '自定义',
     mode: 'dark',
     accent,

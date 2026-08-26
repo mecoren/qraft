@@ -18,7 +18,8 @@ describe('SendToMenu', () => {
     const user = userEvent.setup();
     render(<SendToMenu text="abc" currentToolId="json_formatter" testId="send-json" />);
     await user.click(screen.getByTestId('send-json'));
-    expect(await screen.findByRole('menuitem', { name: /哈希计算器/ })).toBeInTheDocument();
+    // 目标展示名取自 tool-catalog(LocalizedText 随语言走)
+    expect(await screen.findByRole('menuitem', { name: /哈希 \/ 校验和生成器/ })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: /JSON 格式化器/ })).not.toBeInTheDocument();
   });
 
@@ -26,7 +27,7 @@ describe('SendToMenu', () => {
     const user = userEvent.setup();
     render(<SendToMenu text="abc" currentToolId="json_formatter" testId="send-json" />);
     await user.click(screen.getByTestId('send-json'));
-    await user.click(await screen.findByRole('menuitem', { name: /哈希计算器/ }));
+    await user.click(await screen.findByRole('menuitem', { name: /哈希 \/ 校验和生成器/ }));
     await waitFor(() => {
       expect(useHandoffStore.getState().pending).toEqual({
         toolId: 'hash_calculator',

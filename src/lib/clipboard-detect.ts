@@ -4,6 +4,7 @@
  */
 export interface DetectionResult {
   toolId: string;
+  /** 命中原因(i18n 键名,展示层翻译) */
   reason: string;
 }
 
@@ -48,11 +49,15 @@ export function detectClipboardTools(raw: string): DetectionResult[] {
 
   const results: DetectionResult[] = [];
   if (/^-----BEGIN CERTIFICATE-----/.test(text)) {
-    results.push({ toolId: 'certificate_decoder', reason: 'PEM 证书' });
+    results.push({ toolId: 'certificate_decoder', reason: 'chrome.detect.reason_pem' });
   }
-  if (looksLikeJwt(text)) results.push({ toolId: 'jwt_parser', reason: 'JWT 结构' });
-  if (isProbablyJson(text)) results.push({ toolId: 'json_formatter', reason: 'JSON 内容' });
-  if (looksLikeBase64(text)) results.push({ toolId: 'base64_codec', reason: 'Base64 编码' });
-  if (looksLikeUrlEncoded(text)) results.push({ toolId: 'url_codec', reason: 'URL 编码片段' });
+  if (looksLikeJwt(text))
+    results.push({ toolId: 'jwt_parser', reason: 'chrome.detect.reason_jwt' });
+  if (isProbablyJson(text))
+    results.push({ toolId: 'json_formatter', reason: 'chrome.detect.reason_json' });
+  if (looksLikeBase64(text))
+    results.push({ toolId: 'base64_codec', reason: 'chrome.detect.reason_base64' });
+  if (looksLikeUrlEncoded(text))
+    results.push({ toolId: 'url_codec', reason: 'chrome.detect.reason_url_encoded' });
   return results.slice(0, MAX_RESULTS);
 }

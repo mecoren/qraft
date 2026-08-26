@@ -19,6 +19,7 @@
  */
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Check, ChevronsUpDown, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -107,6 +108,7 @@ export function FontPicker({
   onOpen,
   'aria-label': ariaLabel,
 }: FontPickerProps): JSX.Element {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   // 渐进渲染窗口:首屏 INITIAL_VISIBLE_OPTIONS,触底后按 LOAD_STEP 追加
@@ -229,7 +231,7 @@ export function FontPicker({
               <span
                 role="button"
                 tabIndex={0}
-                aria-label="清空"
+                aria-label={t('chrome.font_picker.clear_aria')}
                 className="rounded p-0.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 onClick={handleClear}
                 onKeyDown={(e) => {
@@ -252,15 +254,19 @@ export function FontPicker({
         align="start"
       >
         <Command shouldFilter={false} loop>
-          <CommandInput placeholder="搜索字体族…" value={query} onValueChange={setQuery} />
+            <CommandInput
+              placeholder={t('chrome.font_picker.search')}
+              value={query}
+              onValueChange={setQuery}
+            />
           <CommandList>
             {loading || (!options.length && Boolean(onOpen)) ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
                 <Loader2 className="size-3.5 animate-spin" />
-                正在读取系统字体列表…
+                {t('chrome.font_picker.loading')}
               </div>
             ) : filteredOptions.length === 0 ? (
-              <CommandEmpty>未找到匹配的字体族</CommandEmpty>
+              <CommandEmpty>{t('chrome.font_picker.empty')}</CommandEmpty>
             ) : (
               <CommandGroup>
                 {shownOptions.map((option) => {

@@ -8,25 +8,34 @@
  */
 
 import type { JSX, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function ConfigSection({
-  title = '配置',
+  title,
   children,
   className,
   searchAnchor,
 }: {
-  /** 卡片标题;传入空字符串时不渲染标题文字(仅保留无障碍名称) */
+  /** 卡片标题;缺省用「配置」;传入空字符串时不渲染标题文字(仅保留无障碍名称) */
   title?: string;
   children: ReactNode;
   className?: string;
   /** 全局搜索锚点(完整值 `${toolId}:${key}`),用于搜索跳转定位高亮 */
   searchAnchor?: string;
 }): JSX.Element {
+  const { t } = useTranslation();
+  const resolvedTitle = title ?? t('chrome.config_card.title');
   return (
-    <section aria-label={title || '配置'} className={className} data-search-anchor={searchAnchor}>
-      {title ? <h2 className="mb-1.5 text-body-sm font-semibold">{title}</h2> : null}
+    <section
+      aria-label={resolvedTitle || t('chrome.config_card.title')}
+      className={className}
+      data-search-anchor={searchAnchor}
+    >
+      {resolvedTitle ? (
+        <h2 className="mb-1.5 text-body-sm font-semibold">{resolvedTitle}</h2>
+      ) : null}
       <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-card">
         {children}
       </div>

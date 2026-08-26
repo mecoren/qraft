@@ -10,6 +10,7 @@
  * 工具未注册或未提供某个动作时,降级为 toast 提示而非静默失败。
  */
 import { toast } from 'sonner';
+import { t } from '@/i18n';
 import { useToolStateStore } from '@/store/toolStateStore';
 
 /** 工具可暴露给全局快捷键的动作集合,缺省项表示该工具不支持此动作 */
@@ -44,7 +45,7 @@ function resolveActive(): ToolShortcutActions | undefined {
 export function executeToolAction(): void {
   const action = resolveActive()?.execute;
   if (!action) {
-    toast.info('当前工具不支持快捷键执行');
+    toast.info(t('chrome.tool_actions.no_execute'));
     return;
   }
   action();
@@ -54,7 +55,7 @@ export function executeToolAction(): void {
 export function clearInputAction(): void {
   const action = resolveActive()?.clearInput;
   if (!action) {
-    toast.info('当前工具不支持快捷键清空输入');
+    toast.info(t('chrome.tool_actions.no_clear_input'));
     return;
   }
   action();
@@ -64,7 +65,7 @@ export function clearInputAction(): void {
 export function copyOutputAction(): void {
   const action = resolveActive()?.copyOutput;
   if (!action) {
-    toast.info('当前工具暂无可复制的输出');
+    toast.info(t('chrome.tool_actions.no_copy_output'));
     return;
   }
   action();
