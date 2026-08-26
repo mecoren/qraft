@@ -9,6 +9,7 @@
  * 错误处理遵循新代约定:工具内联 alert 展示于结果区。
  */
 import { useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Play, ShieldCheck } from 'lucide-react';
 import {
   Select,
@@ -44,6 +45,7 @@ const ALGORITHM_OPTIONS: ReadonlyArray<{ value: HashAlgorithm; label: string }> 
 ];
 
 export function HashCalculator({ toolId }: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [text, setText] = useState('');
   const [algorithm, setAlgorithm] = useState<HashAlgorithm>('sha256');
   const [output, setOutput] = useState<ToolOutput | null>(null);
@@ -85,9 +87,9 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3" data-testid="hash-calculator">
       <ConfigSection title="" searchAnchor="hash_calculator:config">
-        <ConfigRow icon={ShieldCheck} label="算法" hint="MD5 仅用于校验,安全场景请用 SHA-2/BLAKE3">
+        <ConfigRow icon={ShieldCheck} label={t('tools.hash_calculator.algorithm')} hint={t('tools.hash_calculator.algorithm_hint')}>
           <Select value={algorithm} onValueChange={(v) => setAlgorithm(v as HashAlgorithm)}>
-            <SelectTrigger className="w-32" aria-label="算法">
+            <SelectTrigger className="w-32" aria-label={t('tools.hash_calculator.algorithm')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -105,8 +107,8 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
         {/* 左区:输入文本(「计算」动作在工具栏) */}
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
-            title="输入文本"
-            placeholder="输入待哈希的文本..."
+            title={t('tools.hash_calculator.input_title')}
+            placeholder={t('tools.hash_calculator.input_placeholder')}
             value={text}
             onChange={setText}
             language="plaintext"
@@ -116,7 +118,7 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
             actions={
               <HeaderAction onClick={() => void handleCompute()} disabled={loading || !text}>
                 <Play aria-hidden className="size-3.5" />
-                {loading ? '计算中' : '计算'}
+                {loading ? t('tools.hash_calculator.computing') : t('tools.hash_calculator.compute')}
               </HeaderAction>
             }
           />
@@ -130,7 +132,7 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
             {error ? (
               <div className="flex h-full flex-col overflow-hidden rounded-md border border-input bg-card">
                 <div className="border-b border-input px-2 py-0.5">
-                  <span className="pl-1 text-xs font-medium">哈希值</span>
+                  <span className="pl-1 text-xs font-medium">{t('tools.hash_calculator.output_title')}</span>
                 </div>
                 <div
                   role="alert"
@@ -142,10 +144,10 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
             ) : (
               <CodeEditor
                 readOnly
-                title="哈希值"
+                title={t('tools.hash_calculator.output_title')}
                 language="plaintext"
                 value={output?.text ?? ''}
-                placeholder="点击左栏工具栏「计算」生成哈希"
+                placeholder={t('tools.hash_calculator.output_placeholder')}
                 className="h-full"
                 data-testid="output"
                 searchAnchor="hash_calculator:output"
@@ -153,7 +155,7 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
                   <>
                     {output?.meta && (
                       <span className="text-xs text-muted-foreground">
-                        {output.meta.input_bytes} 字节 · {output.meta.duration_ms}ms
+                        {t('tools.hash_calculator.bytes_unit', { count: output.meta.input_bytes, ms: output.meta.duration_ms })}
                       </span>
                     )}
                     {output?.text && (

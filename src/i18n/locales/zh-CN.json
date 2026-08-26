@@ -44,5 +44,18 @@
       "text": "文本处理",
       "converter": "转换器"
     }
+  },
+  "tools": {
+    "hash_calculator": {
+      "algorithm": "算法",
+      "algorithm_hint": "MD5 仅用于校验,安全场景请用 SHA-2/BLAKE3",
+      "input_title": "输入文本",
+      "input_placeholder": "输入待哈希的文本...",
+      "compute": "计算",
+      "computing": "计算中",
+      "output_title": "哈希值",
+      "output_placeholder": "点击左栏工具栏「计算」生成哈希",
+      "bytes_unit": "{{count}} 字节 · {{ms}}ms"
+    }
   }
 }

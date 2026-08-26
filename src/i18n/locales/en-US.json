@@ -34,6 +34,28 @@
     }
   },
   "catalog": {
-    "categories": {}
+    "categories": {
+      "encoder": "Encoders / Decoders",
+      "tester": "Testers",
+      "formatter": "Formatters",
+      "generator": "Generators",
+      "graphic": "Graphics",
+      "editor": "Editor",
+      "text": "Text",
+      "converter": "Converters"
+    }
+  },
+  "tools": {
+    "hash_calculator": {
+      "algorithm": "Algorithm",
+      "algorithm_hint": "MD5 is for checksums only; prefer SHA-2/BLAKE3 for security",
+      "input_title": "Input",
+      "input_placeholder": "Enter text to hash...",
+      "compute": "Compute",
+      "computing": "Computing",
+      "output_title": "Hash",
+      "output_placeholder": "Click Compute in the left toolbar to generate a hash",
+      "bytes_unit": "{{count}} bytes · {{ms}}ms"
+    }
   }
 }
