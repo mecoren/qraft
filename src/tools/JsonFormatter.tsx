@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { formatDistanceToNow } from 'date-fns';
+import { formatError } from '@/lib/format-error';
 import { CodeEditor, type EditorLanguage } from '@/components/ui/code-editor';
 import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
 import {
@@ -47,7 +48,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { RenameDialog } from '@/components/RenameDialog';
 import { CopyAction } from '@/components/copy-action';
-import { invokeCommand, CommandError } from '@/lib/ipc';
+import { invokeCommand } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import { useToolHandoff } from '@/hooks/useToolHandoff';
@@ -182,36 +183,6 @@ function ActionButton({
   );
 }
 
-/** Rust ToolError 的 Display 前缀,与 code 语义重复,展示时剥离避免冗余 */
-const RUST_ERROR_PREFIXES = [
-  'parse failed: ',
-  'invalid input: ',
-  'internal error: ',
-  'input too large: ',
-  'tool not found: ',
-  'timeout after ',
-  'out of memory: ',
-];
-
-/** 把任意异常格式化为右侧输出框可显示的错误文本 */
-function formatError(e: unknown, prefix?: string): string {
-  let body: string;
-  if (e instanceof CommandError) {
-    let message = e.message;
-    for (const p of RUST_ERROR_PREFIXES) {
-      if (message.startsWith(p)) {
-        message = message.slice(p.length);
-        break;
-      }
-    }
-    body = e.code ? `${e.code}: ${message}` : message;
-  } else if (e instanceof Error) {
-    body = e.message;
-  } else {
-    body = String(e);
-  }
-  return prefix ? `${prefix}${body}` : body;
-}
 
 /** 输出视图切换(文本/树形),文本与树形两种输出形态的标题栏共用 */
 function OutputViewToggle({

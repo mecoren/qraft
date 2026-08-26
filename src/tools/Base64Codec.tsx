@@ -25,6 +25,7 @@ import {
   Save,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatError } from '@/lib/format-error';
 import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
@@ -41,7 +42,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { invokeCommand, CommandError } from '@/lib/ipc';
+import { invokeCommand } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import { useToolHandoff } from '@/hooks/useToolHandoff';
@@ -69,36 +70,6 @@ function base64ToUint8Array(b64: string): Uint8Array {
 import type { OutputMeta, ToolOutput } from '@/types/tool';
 import type { ToolProps } from './registry';
 
-/** Rust ToolError 的 Display 前缀,展示时剥离避免冗余(与 JsonFormatter 一致) */
-const RUST_ERROR_PREFIXES = [
-  'parse failed: ',
-  'invalid input: ',
-  'internal error: ',
-  'input too large: ',
-  'tool not found: ',
-  'timeout after ',
-  'out of memory: ',
-];
-
-/** 把任意异常格式化为输出框可显示的错误文本 */
-function formatError(e: unknown, prefix?: string): string {
-  let body: string;
-  if (e instanceof CommandError) {
-    let message = e.message;
-    for (const p of RUST_ERROR_PREFIXES) {
-      if (message.startsWith(p)) {
-        message = message.slice(p.length);
-        break;
-      }
-    }
-    body = e.code ? `${e.code}: ${message}` : message;
-  } else if (e instanceof Error) {
-    body = e.message;
-  } else {
-    body = String(e);
-  }
-  return prefix ? `${prefix}${body}` : body;
-}
 
 /** MIME → 文件扩展名(解码二进制另存为时使用) */
 const MIME_EXT: Record<string, string> = {

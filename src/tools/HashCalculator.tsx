@@ -18,11 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { formatError } from '@/lib/format-error';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection, HeaderAction } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { invokeCommand, CommandError } from '@/lib/ipc';
+import { invokeCommand } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import { useToolHandoff } from '@/hooks/useToolHandoff';
@@ -176,10 +177,4 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
 }
 
 /** 把任意异常格式化为可显示的错误文本(CommandError 附带错误码便于排障) */
-function formatError(e: unknown): string {
-  if (e instanceof CommandError) {
-    return e.code ? `${e.code}: ${e.message}` : e.message;
-  }
-  if (e instanceof Error) return e.message;
-  return String(e);
-}
+

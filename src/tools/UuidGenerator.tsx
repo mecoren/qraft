@@ -9,6 +9,7 @@
  */
 import { useState, type JSX } from 'react';
 import { Fingerprint, Hash, Play, Type } from 'lucide-react';
+import { formatError } from '@/lib/format-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -22,7 +23,7 @@ import {
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection, HeaderAction } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
-import { invokeCommand, CommandError } from '@/lib/ipc';
+import { invokeCommand } from '@/lib/ipc';
 import type { ToolProps } from './registry';
 import type { ToolOutput } from '@/types/tool';
 
@@ -124,10 +125,4 @@ export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
 }
 
 /** 把任意异常格式化为输出框可显示的错误文本(与其他新代工具一致) */
-function formatError(e: unknown): string {
-  if (e instanceof CommandError) {
-    return e.code ? `${e.code}: ${e.message}` : e.message;
-  }
-  if (e instanceof Error) return e.message;
-  return String(e);
-}
+

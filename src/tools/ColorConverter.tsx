@@ -9,6 +9,7 @@
  */
 import { useState, type JSX } from 'react';
 import { Palette } from 'lucide-react';
+import { formatError } from '@/lib/format-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,7 +22,7 @@ import {
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
-import { invokeCommand, CommandError } from '@/lib/ipc';
+import { invokeCommand } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import type { ToolProps } from './registry';
 import type { ToolOutput } from '@/types/tool';
@@ -172,10 +173,4 @@ function CopyButton({ value }: { value?: string }): JSX.Element {
 }
 
 /** 把任意异常格式化为可显示的错误文本(CommandError 附带错误码便于排障) */
-function formatError(e: unknown): string {
-  if (e instanceof CommandError) {
-    return e.code ? `${e.code}: ${e.message}` : e.message;
-  }
-  if (e instanceof Error) return e.message;
-  return String(e);
-}
+
