@@ -30,6 +30,7 @@ import {
   PenLine,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { MonacoContextMenu, type MonacoEditor } from '@/components/ui/monaco-context-menu';
@@ -98,6 +99,7 @@ function createCompareId(): string {
 }
 
 export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const workspace = useEditorWorkspaceStore((s) => s.workspace);
   const ready = useEditorWorkspaceStore((s) => s.ready);
   const hydrate = useEditorWorkspaceStore((s) => s.hydrate);
@@ -221,9 +223,9 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     <div className="flex items-center gap-0.5" data-testid="editor-md-actions">
       {(
         [
-          ['edit', PenLine, '编辑'],
-          ['split', Columns2, '分屏'],
-          ['preview', Eye, '预览'],
+          ['edit', PenLine, t('tools.text_editor.md_view_edit')],
+          ['split', Columns2, t('tools.text_editor.md_view_split')],
+          ['preview', Eye, t('tools.text_editor.md_view_preview')],
         ] as ReadonlyArray<[MdViewMode, typeof PenLine, string]>
       ).map(([mode, Icon, label]) => (
         <button
@@ -231,7 +233,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
           type="button"
           onClick={() => setMdViewMode(mode)}
           aria-pressed={mdViewMode === mode}
-          title={`${label}视图`}
+          title={t('tools.text_editor.md_view_title', { label })}
           data-testid={`editor-md-${mode}${mode === 'preview' ? '-btn' : ''}`}
           className={cn(
             'rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
@@ -287,9 +289,9 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         setActiveCompareId(null);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '打开文件失败');
+      toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_open_file'));
     }
-  }, []);
+  }, [t]);
 
   /** 打开文件夹:加入左栏「文件夹」树(多根并存),默认展开根 */
   const handleOpenFolder = useCallback(async () => {
@@ -297,11 +299,13 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       const rootPath = await openFolderDialog();
       if (!rootPath) return; // 用户取消:静默
       useEditorWorkspaceStore.getState().openFolder(rootPath);
-      toast.success(`已打开文件夹:${folderNameFromPath(rootPath)}`);
+      toast.success(
+        t('tools.text_editor.toast_folder_opened', { name: folderNameFromPath(rootPath) }),
+      );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '打开文件夹失败');
+      toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_open_folder'));
     }
-  }, []);
+  }, [t]);
 
   /**
    * 点击文件夹树中的文件:
@@ -325,13 +329,18 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     } catch (e) {
       const name = fileNameFromPath(path);
       if (e instanceof CommandError && e.code === 'ERR_FILE_UNSUPPORTED') {
-        toast.error(`无法在编辑器中打开「${name}」:可能是二进制或不受支持的格式`);
+        toast.error(t('tools.text_editor.err_file_unsupported', { name }));
       } else {
         // 其余失败(未授权/不存在等):展示后端返回的真实错误信息
-        toast.error(`打开「${name}」失败:${e instanceof Error ? e.message : '未知错误'}`);
+        toast.error(
+          t('tools.text_editor.err_open_named', {
+            name,
+            reason: e instanceof Error ? e.message : t('tools.text_editor.err_unknown'),
+          }),
+        );
       }
     }
-  }, []);
+  }, [t]);
 
   /**
    * 保存指定 Tab:已绑定路径直接写回(按 Tab 记录的编码),untitled 弹「另存为」。
@@ -346,7 +355,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         // 按 Tab 记录的编码写回(状态栏可切换;缺省 UTF-8)
         await saveToPathEncoded(tab.path, tab.content, tab.encoding ?? 'utf-8');
         state.markSaved(id, tab.path);
-        toast.success(`已保存 ${tab.title}`);
+        toast.success(t('tools.text_editor.toast_saved', { name: tab.title }));
         return true;
       }
       // 未绑定路径:文件名缺扩展名时补 .txt,供保存对话框使用
@@ -354,16 +363,16 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       const path = await saveWithDialog(fileName, tab.content);
       if (path) {
         state.markSaved(id, path);
-        toast.success(`已保存 ${fileName}`);
+        toast.success(t('tools.text_editor.toast_saved', { name: fileName }));
         return true;
       }
       // 用户取消保存对话框:保持 dirty 状态
       return false;
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '保存失败');
+      toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_save'));
       return false;
     }
-  }, []);
+  }, [t]);
 
   /** 保存激活 Tab(菜单「保存」/ Ctrl+S 快捷键) */
   const handleSave = useCallback(() => {
@@ -457,23 +466,29 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   }, []);
 
   /** 复制 Tab 路径到剪贴板 */
-  const handleCopyPath = useCallback((id: string) => {
-    const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id);
-    if (!tab?.path) return;
-    void writeClipboardText(tab.path).then((ok) => {
-      if (ok) toast.success(`已复制路径:${tab.path}`);
-      else toast.error('复制路径失败');
-    });
-  }, []);
+  const handleCopyPath = useCallback(
+    (id: string) => {
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id);
+      if (!tab?.path) return;
+      void writeClipboardText(tab.path).then((ok) => {
+        if (ok) toast.success(t('tools.text_editor.toast_path_copied', { path: tab.path }));
+        else toast.error(t('tools.text_editor.err_copy_path'));
+      });
+    },
+    [t],
+  );
 
   /** 在系统文件管理器中显示目标文件 */
-  const handleRevealInExplorer = useCallback((id: string) => {
-    const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id);
-    if (!tab?.path) return;
-    void revealInExplorer(tab.path).catch((e) => {
-      toast.error(e instanceof Error ? e.message : '无法在文件管理器中显示');
-    });
-  }, []);
+  const handleRevealInExplorer = useCallback(
+    (id: string) => {
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id);
+      if (!tab?.path) return;
+      void revealInExplorer(tab.path).catch((e) => {
+        toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_reveal'));
+      });
+    },
+    [t],
+  );
 
   /**
    * 左栏选中处理(单击 / Ctrl+点击)。
@@ -499,7 +514,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         // 点击的文件已在选中集 → 取消;否则加入
         const next = base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
         if (new Set(next).size > 2) {
-          toast.error('一次最多选中两个文件进行对比');
+          toast.error(t('tools.text_editor.err_max_two_compare'));
           return;
         }
         state.switchTab(id);
@@ -512,7 +527,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       setActiveCompareId(null);
       setSelectedTabIds([]);
     },
-    [selectedTabIds, workspace.activeTabId],
+    [selectedTabIds, workspace.activeTabId, t],
   );
 
   /** 点击左栏普通文件:激活该 Tab 并退出对比视图 */
@@ -548,11 +563,11 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     const active = tabs.find((t) => t.id === state.workspace.activeTabId);
     if (active && !chosen.some((c) => c.id === active.id)) chosen.push(active);
     if (chosen.length < 2) {
-      toast.info('请先选中至少两个文件再进行对比');
+      toast.info(t('tools.text_editor.info_select_two'));
       return;
     }
     if (chosen.length > 2) {
-      toast.error('一次只能对比两个文件,请先取消多余的选中再试');
+      toast.error(t('tools.text_editor.err_only_two_compare'));
       return;
     }
     const pair: ComparePair = {
@@ -562,7 +577,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     };
     setCompares((prev) => [...prev, pair]);
     setActiveCompareId(pair.id);
-  }, [selectedTabIds]);
+  }, [selectedTabIds, t]);
 
   /** 点击左栏对比项:切换激活该对比 */
   const handleSelectCompare = useCallback((id: string) => {
@@ -652,13 +667,13 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     () => [
       {
         id: 'file',
-        label: '文件',
+        label: t('tools.text_editor.menu_file'),
         groups: [
           {
             items: [
               {
                 id: 'new',
-                label: '新建',
+                label: t('tools.text_editor.menu_new'),
                 shortcut: 'Ctrl+N',
                 icon: FilePlus2,
                 onSelect: handleNewTab,
@@ -666,7 +681,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               },
               {
                 id: 'open',
-                label: '打开...',
+                label: t('tools.text_editor.menu_open'),
                 shortcut: 'Ctrl+O',
                 icon: FolderOpen,
                 onSelect: () => void handleOpen(),
@@ -674,7 +689,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               },
               {
                 id: 'open-folder',
-                label: '打开文件夹...',
+                label: t('tools.text_editor.menu_open_folder'),
                 icon: Folder,
                 onSelect: () => void handleOpenFolder(),
                 testId: 'toolbar-open-folder',
@@ -685,7 +700,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
             items: [
               {
                 id: 'save',
-                label: '保存',
+                label: t('tools.text_editor.save'),
                 shortcut: 'Ctrl+S',
                 onSelect: handleSave,
                 disabled: !activeTab,
@@ -693,7 +708,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               },
               {
                 id: 'save-all',
-                label: '全部保存',
+                label: t('tools.text_editor.save_all'),
                 shortcut: 'Ctrl+Shift+S',
                 onSelect: () => void handleSaveAll(),
                 disabled: workspace.tabs.every((t) => t.content === t.savedContent),
@@ -704,14 +719,14 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
             items: [
               {
                 id: 'close',
-                label: '关闭',
+                label: t('tools.text_editor.close'),
                 shortcut: 'Ctrl+W',
                 onSelect: handleCloseCurrent,
                 disabled: !activeTab,
               },
               {
                 id: 'close-all',
-                label: '全部关闭',
+                label: t('tools.text_editor.close_all'),
                 shortcut: 'Ctrl+Shift+W',
                 onSelect: requestCloseAll,
                 disabled: workspace.tabs.length === 0,
@@ -723,13 +738,15 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       },
       {
         id: 'view',
-        label: '视图',
+        label: t('tools.text_editor.menu_view'),
         groups: [
           {
             items: [
               {
                 id: 'toggle-sidebar',
-                label: workspace.leftSidebarVisible ? '隐藏左栏' : '显示左栏',
+                label: workspace.leftSidebarVisible
+                  ? t('tools.text_editor.menu_hide_sidebar')
+                  : t('tools.text_editor.menu_show_sidebar'),
                 shortcut: 'Ctrl+B',
                 onSelect: handleToggleSidebar,
                 testId: 'toolbar-toggle-sidebar',
@@ -751,6 +768,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       handleSaveAll,
       handleToggleSidebar,
       requestCloseAll,
+      t,
     ],
   );
   useToolMenus(toolId, menus);
@@ -767,20 +785,20 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         items: [
           {
             id: 'cycle-naming-case',
-            label: '切换字符命名风格',
+            label: t('tools.text_editor.ctx_naming_case'),
             shortcut: 'Ctrl+Shift+U',
             onSelect: cycleNamingCaseShortcutHandler,
           },
           {
             id: 'toggle-case',
-            label: '切换大小写',
+            label: t('tools.text_editor.ctx_toggle_case'),
             shortcut: 'Ctrl+Shift+L',
             onSelect: toggleCaseShortcutHandler,
           },
         ],
       },
     ],
-    [],
+    [t],
   );
 
   /** 未保存对话框:保存并关闭(仅 close-tab;另存为被取消则保持打开) */
@@ -878,12 +896,14 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         <button
           type="button"
           onClick={() => setLanguagePickerOpen(true)}
-          title="选择语言模式"
+          title={t('tools.text_editor.select_language_mode')}
           data-testid="editor-language-badge"
           className="flex items-center gap-1 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         >
           <LanguageIcon language={activeTab.language} />
-          {LANGUAGE_LABELS[activeTab.language] ?? '纯文本'}
+          {activeTab.language === 'plaintext'
+            ? t('tools.text_editor.lang_plaintext')
+            : LANGUAGE_LABELS[activeTab.language]}
         </button>
       }
       // 嵌入模式:外层右侧主页面卡片已自带 rounded-lg + border,
@@ -1027,7 +1047,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                   className="flex h-full min-h-[280px] flex-col items-center justify-center gap-3 py-16 text-sm text-muted-foreground"
                 >
                   <FilePlus2 aria-hidden className="size-10 opacity-40" />
-                  <p>无打开的编辑器</p>
+                  <p>{t('tools.text_editor.no_open_editors')}</p>
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -1036,7 +1056,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                       data-testid="empty-open"
                     >
                       <FolderOpen aria-hidden className="size-4" />
-                      打开文件
+                      {t('tools.text_editor.action_open_file')}
                     </Button>
                     <Button
                       size="sm"
@@ -1045,7 +1065,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                       data-testid="empty-open-folder"
                     >
                       <Folder aria-hidden className="size-4" />
-                      打开文件夹
+                      {t('tools.text_editor.action_open_folder')}
                     </Button>
                     <Button
                       size="sm"
@@ -1054,7 +1074,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                       data-testid="empty-new"
                     >
                       <FilePlus2 aria-hidden className="size-4" />
-                      新建
+                      {t('tools.text_editor.menu_new')}
                     </Button>
                   </div>
                 </div>
@@ -1080,7 +1100,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         {renaming && (
           <RenameDialog
             open
-            title="重命名"
+            title={t('tools.text_editor.rename')}
             initialValue={renaming.title}
             onConfirm={(name) => {
               useEditorWorkspaceStore.getState().renameTab(renaming.id, name);
@@ -1181,6 +1201,7 @@ function FileCompareView({
   onChangeRight: (value: string) => void;
   'data-testid'?: string;
 }): JSX.Element {
+  const { t } = useTranslation();
   const themeName = useMonacoTheme();
   const monacoRef = useRef<Monaco | null>(null);
   // 字号随设置档位缩放;options 变化时 @monaco-editor/react 会热更新已挂载实例
@@ -1280,7 +1301,7 @@ function FileCompareView({
           className="h-full"
           loading={
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-              加载编辑器…
+              {t('tools.text_editor.diff_loading')}
             </div>
           }
         />
@@ -1329,6 +1350,7 @@ function SidebarResizeHandle({
   /** 拖拽中状态变化回调(同上) */
   onActiveChange?: (v: boolean) => void;
 }): JSX.Element {
+  const { t } = useTranslation();
   const startWidthRef = useRef<number>(0);
   const startXRef = useRef<number>(0);
   /** 最小宽度钉住阶段:隐藏态按下,或刚由拖拽恢复、尚未越过最小宽度边界。
@@ -1433,7 +1455,11 @@ function SidebarResizeHandle({
       aria-valuemin={SIDEBAR_MIN_WIDTH}
       aria-valuemax={SIDEBAR_MAX_WIDTH}
       tabIndex={0}
-      title={sidebarVisible ? '拖动调整文件列表宽度' : '向右拖动显示文件列表'}
+      title={
+        sidebarVisible
+          ? t('tools.text_editor.resize_hint')
+          : t('tools.text_editor.restore_hint')
+      }
       className={cn(
         // 4px 宽点击区,恰好填满 gap-1 分割空间;默认完全透明,悬浮时才高亮
         'group relative flex h-full w-1 shrink-0 cursor-col-resize items-center justify-center self-stretch bg-transparent focus-visible:outline-none',
