@@ -2,6 +2,7 @@
  * 扫描结果面板:概览卡片 + 分类明细(shadcn Card/Tabs/Table,纯展示)。
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -13,7 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { humanBytes, zhCategory, type FileCategory, type ScanReport } from './types';
+import { humanBytes, categoryLabel, type FileCategory, type ScanReport } from './types';
 
 interface Props {
   report: ScanReport;
@@ -22,38 +23,56 @@ interface Props {
 type TabKey = 'ext' | 'category' | 'text' | 'largest';
 
 const TABS: ReadonlyArray<[TabKey, string]> = [
-  ['ext', '按扩展名'],
-  ['category', '按类别'],
-  ['text', '文本行数/字数'],
-  ['largest', '最大文件'],
+  ['ext', 'tools.folder_analyzer.tab_by_ext'],
+  ['category', 'tools.folder_analyzer.tab_by_category'],
+  ['text', 'tools.folder_analyzer.tab_text_metrics'],
+  ['largest', 'tools.folder_analyzer.tab_largest'],
 ];
 
 export function ScanResultsPanel({ report }: Props) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<TabKey>('ext');
   const tm = report.text_metrics;
   return (
     <div className="flex min-h-0 flex-col gap-3" data-testid="scan-results">
       <div className="grid grid-cols-4 gap-2">
-        <StatCard label="文件总数" value={String(report.total_files)} testId="scan-total-files" />
-        <StatCard label="目录数" value={String(report.total_dirs)} testId="scan-total-dirs" />
-        <StatCard label="总大小" value={humanBytes(report.total_bytes)} testId="scan-total-size" />
-        <StatCard label="耗时" value={`${report.elapsed_ms} ms`} testId="scan-elapsed" />
+        <StatCard
+          label={t('tools.folder_analyzer.stat_total_files')}
+          value={String(report.total_files)}
+          testId="scan-total-files"
+        />
+        <StatCard
+          label={t('tools.folder_analyzer.stat_total_dirs')}
+          value={String(report.total_dirs)}
+          testId="scan-total-dirs"
+        />
+        <StatCard
+          label={t('tools.folder_analyzer.stat_total_size')}
+          value={humanBytes(report.total_bytes)}
+          testId="scan-total-size"
+        />
+        <StatCard
+          label={t('tools.folder_analyzer.stat_elapsed')}
+          value={`${report.elapsed_ms} ms`}
+          testId="scan-elapsed"
+        />
       </div>
 
       {(report.truncated || report.cancelled) && (
         <Alert role="status" data-testid="scan-partial-warning">
           <AlertDescription className="text-sm">
-            {report.truncated ? '结果被截断(超过条目上限),' : ''}
-            {report.cancelled ? '已被用户取消,' : ''}以下为部分统计。
+            {report.truncated ? t('tools.folder_analyzer.partial_truncated') : ''}
+            {report.cancelled ? t('tools.folder_analyzer.partial_cancelled') : ''}
+            {t('tools.folder_analyzer.partial_suffix')}
           </AlertDescription>
         </Alert>
       )}
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
         <TabsList>
-          {TABS.map(([key, label]) => (
+          {TABS.map(([key, labelKey]) => (
             <TabsTrigger key={key} value={key} data-testid={`scan-tab-${key}`}>
-              {label}
+              {t(labelKey)}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -64,15 +83,19 @@ export function ScanResultsPanel({ report }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-3">扩展名</TableHead>
-                <TableHead className="text-right">数量</TableHead>
-                <TableHead className="pr-3 text-right">大小</TableHead>
+                <TableHead className="pl-3">{t('tools.folder_analyzer.col_ext')}</TableHead>
+                <TableHead className="text-right">{t('tools.folder_analyzer.col_count')}</TableHead>
+                <TableHead className="pr-3 text-right">
+                  {t('tools.folder_analyzer.col_size')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {report.by_extension.map((e) => (
                 <TableRow key={e.ext} data-testid={`scan-ext-row-${e.ext}`}>
-                  <TableCell className="pl-3 font-mono">{e.ext || '(无扩展名)'}</TableCell>
+                  <TableCell className="pl-3 font-mono">
+                    {e.ext || t('tools.folder_analyzer.no_ext')}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">{e.files}</TableCell>
                   <TableCell className="pr-3 text-right tabular-nums">
                     {humanBytes(e.bytes)}
@@ -87,15 +110,19 @@ export function ScanResultsPanel({ report }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-3">类别</TableHead>
-                <TableHead className="text-right">数量</TableHead>
-                <TableHead className="pr-3 text-right">大小</TableHead>
+                <TableHead className="pl-3">{t('tools.folder_analyzer.col_category')}</TableHead>
+                <TableHead className="text-right">{t('tools.folder_analyzer.col_count')}</TableHead>
+                <TableHead className="pr-3 text-right">
+                  {t('tools.folder_analyzer.col_size')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {report.by_category.map((c) => (
                 <TableRow key={c.category} data-testid={`scan-cat-row-${c.category}`}>
-                  <TableCell className="pl-3">{zhCategory(c.category as FileCategory)}</TableCell>
+                  <TableCell className="pl-3">
+                    {categoryLabel(c.category as FileCategory)}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">{c.files}</TableCell>
                   <TableCell className="pr-3 text-right tabular-nums">
                     {humanBytes(c.bytes)}
@@ -110,10 +137,12 @@ export function ScanResultsPanel({ report }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-3">扩展名</TableHead>
-                <TableHead className="text-right">文件</TableHead>
-                <TableHead className="text-right">行数</TableHead>
-                <TableHead className="pr-3 text-right">字数</TableHead>
+                <TableHead className="pl-3">{t('tools.folder_analyzer.col_ext')}</TableHead>
+                <TableHead className="text-right">{t('tools.folder_analyzer.col_files')}</TableHead>
+                <TableHead className="text-right">{t('tools.folder_analyzer.col_lines')}</TableHead>
+                <TableHead className="pr-3 text-right">
+                  {t('tools.folder_analyzer.col_words')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -131,10 +160,18 @@ export function ScanResultsPanel({ report }: Props) {
 
         {tab === 'text' && tm && (
           <div className="border-t px-3 py-2 text-xs text-muted-foreground">
-            覆盖 {tm.files_analyzed} 个文本文件 · 共 {tm.lines} 行 / {tm.words} 词 /{' '}
-            {tm.chars} 字符
-            {tm.files_skipped_large > 0 && ` · ${tm.files_skipped_large} 个超大文件跳过`}
-            {tm.files_skipped_binary > 0 && ` · ${tm.files_skipped_binary} 个二进制跳过`}
+            {t('tools.folder_analyzer.text_summary', {
+              analyzed: tm.files_analyzed,
+              lines: tm.lines,
+              words: tm.words,
+              chars: tm.chars,
+            })}
+            {tm.files_skipped_large > 0 &&
+              ` · ${t('tools.folder_analyzer.text_skipped_large', { count: tm.files_skipped_large })}`}
+            {tm.files_skipped_binary > 0 &&
+              ` · ${t('tools.folder_analyzer.text_skipped_binary', {
+                count: tm.files_skipped_binary,
+              })}`}
           </div>
         )}
 
@@ -142,8 +179,12 @@ export function ScanResultsPanel({ report }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-3">文件</TableHead>
-                <TableHead className="pr-3 text-right">大小</TableHead>
+                <TableHead className="pl-3">
+                  {t('tools.folder_analyzer.col_file_path')}
+                </TableHead>
+                <TableHead className="pr-3 text-right">
+                  {t('tools.folder_analyzer.col_size')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

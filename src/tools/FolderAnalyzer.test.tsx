@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { changeLocale } from '@/i18n';
 
 const pickFolder = vi.fn();
 const pickFilePath = vi.fn();
@@ -117,7 +118,7 @@ describe('FolderAnalyzer orchestration', () => {
     fakeState = {
       status: 'running',
       processed: 42,
-      message: '已扫描 42 文件',
+      message: 'Scanned 42 files',
       result: null,
       error: null,
     };
@@ -170,5 +171,21 @@ describe('FolderAnalyzer orchestration', () => {
     // 切回 scan:结果仍可查看
     await user.click(screen.getByTestId('analyzer-mode-scan'));
     expect(screen.getByText('scan-panel')).toBeInTheDocument();
+  });
+
+  it('en-US:页签/按钮/提示随语言切换(手动切语言场景),结束恢复 zh 桩', () => {
+    changeLocale('en-US');
+    // 先卸载再切回 zh 桩,避免异步 languageChanged 在 act 环境外触发告警更新
+    const { unmount } = renderTool();
+    try {
+      expect(screen.getByTestId('analyzer-mode-scan')).toHaveTextContent('Folder stats');
+      expect(screen.getByTestId('analyzer-mode-search')).toHaveTextContent('Content search');
+      expect(screen.getByTestId('analyzer-pick-folder')).toHaveTextContent('Choose folder…');
+      expect(screen.getByTestId('analyzer-run')).toHaveTextContent('Analyze');
+      expect(screen.getByText('Read-only analysis: no files are written or modified.')).toBeInTheDocument();
+    } finally {
+      unmount();
+      changeLocale('zh-CN');
+    }
   });
 });

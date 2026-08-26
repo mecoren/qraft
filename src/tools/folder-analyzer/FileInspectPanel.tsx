@@ -4,26 +4,42 @@
 import { Fragment } from 'react';
 import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { writeClipboardText } from '@/lib/clipboard';
 import { inferLanguageFromPath } from '@/tools/code-editor-workspace/languageMap';
-import { humanBytes, zhCategory, type FileInspectReport } from './types';
+import { humanBytes, categoryLabel, type FileInspectReport } from './types';
 
 interface Props {
   report: FileInspectReport;
 }
 
 export function FileInspectPanel({ report }: Props) {
+  const { t } = useTranslation();
   const rows: Array<[string, string, string?]> = [
-    ['路径', report.path],
-    ['类型', `${zhCategory(report.category)}${report.magic ? `(魔数:${report.magic})` : ''}`],
-    ['大小', `${humanBytes(report.size_bytes)}(${report.size_bytes} 字节)`],
+    [t('tools.folder_analyzer.field_path'), report.path],
+    [
+      t('tools.folder_analyzer.field_type'),
+      report.magic
+        ? t('tools.folder_analyzer.type_with_magic', {
+            category: categoryLabel(report.category),
+            magic: report.magic,
+          })
+        : categoryLabel(report.category),
+    ],
+    [
+      t('tools.folder_analyzer.field_size'),
+      t('tools.folder_analyzer.size_detail', {
+        human: humanBytes(report.size_bytes),
+        bytes: report.size_bytes,
+      }),
+    ],
     ...(report.is_text
       ? ([
-          ['编码', report.encoding ?? '-'],
+          [t('tools.folder_analyzer.field_encoding'), report.encoding ?? '-'],
           [
-            '行数 / 词数 / 字符',
+            t('tools.folder_analyzer.field_counts'),
             `${report.lines ?? 0} / ${report.words ?? 0} / ${report.chars ?? 0}`,
           ],
         ] as Array<[string, string]>)
@@ -43,12 +59,12 @@ export function FileInspectPanel({ report }: Props) {
                   variant="ghost"
                   size="sm"
                   className="size-6 shrink-0 p-0"
-                  title="复制 SHA-256"
-                  aria-label="复制 SHA-256"
+                  title={t('tools.folder_analyzer.copy_sha_title')}
+                  aria-label={t('tools.folder_analyzer.copy_sha_title')}
                   data-testid="inspect-copy-sha"
                   onClick={() => {
                     void writeClipboardText(copyValue);
-                    toast.success('已复制 SHA-256');
+                    toast.success(t('tools.folder_analyzer.toast_sha_copied'));
                   }}
                 >
                   <Copy aria-hidden className="size-3.5" />

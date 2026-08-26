@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +25,7 @@ import type {
 } from './folder-analyzer/types';
 
 export function FolderAnalyzer(_props: ToolProps) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<AnalyzerMode>('scan');
   // 已完成结果所属的模式:切换 Tab 时旧结果不渲染(三种报告结构互不兼容,强转会崩溃)
   const [resultMode, setResultMode] = useState<AnalyzerMode | null>(null);
@@ -138,13 +140,13 @@ export function FolderAnalyzer(_props: ToolProps) {
       <Tabs value={mode} onValueChange={(v) => setMode(v as AnalyzerMode)}>
         <TabsList>
           <TabsTrigger value="scan" data-testid="analyzer-mode-scan">
-            文件夹统计
+            {t('tools.folder_analyzer.tab_scan')}
           </TabsTrigger>
           <TabsTrigger value="search" data-testid="analyzer-mode-search">
-            内容搜索
+            {t('tools.folder_analyzer.tab_search')}
           </TabsTrigger>
           <TabsTrigger value="file" data-testid="analyzer-mode-file">
-            单文件解析
+            {t('tools.folder_analyzer.tab_file')}
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -153,25 +155,25 @@ export function FolderAnalyzer(_props: ToolProps) {
         {(mode === 'scan' || mode === 'search') && (
           <div className="flex flex-col gap-1">
             <Button variant="outline" onClick={handlePickFolder} data-testid="analyzer-pick-folder">
-              选择文件夹…
+              {t('tools.folder_analyzer.pick_folder')}
             </Button>
           </div>
         )}
         {mode === 'file' && (
           <Button variant="outline" onClick={handlePickFile} data-testid="analyzer-pick-file">
-            选择文件…(或直接拖入)
+            {t('tools.folder_analyzer.pick_file')}
           </Button>
         )}
         {mode === 'search' && (
           <div className="flex flex-col gap-1">
             <Label htmlFor="analyzer-pattern-input" className="text-xs">
-              搜索内容
+              {t('tools.folder_analyzer.label_pattern')}
             </Label>
             <Input
               id="analyzer-pattern-input"
               value={pattern}
               onChange={(e) => setPattern(e.target.value)}
-              placeholder="普通文本或正则表达式"
+              placeholder={t('tools.folder_analyzer.placeholder_pattern')}
               className="w-64"
               data-testid="analyzer-pattern"
             />
@@ -180,7 +182,7 @@ export function FolderAnalyzer(_props: ToolProps) {
         <div className="flex items-center gap-2 pb-1">
           <Switch id="hidden-switch" checked={includeHidden} onCheckedChange={setIncludeHidden} />
           <Label htmlFor="hidden-switch" className="text-xs">
-            包含隐藏文件
+            {t('tools.folder_analyzer.label_hidden')}
           </Label>
         </div>
         {mode === 'search' && (
@@ -188,7 +190,7 @@ export function FolderAnalyzer(_props: ToolProps) {
             <div className="flex items-center gap-2 pb-1">
               <Switch id="regex-switch" checked={isRegex} onCheckedChange={setIsRegex} />
               <Label htmlFor="regex-switch" className="text-xs">
-                正则
+                {t('tools.folder_analyzer.label_regex')}
               </Label>
             </div>
             <div className="flex items-center gap-2 pb-1">
@@ -198,26 +200,34 @@ export function FolderAnalyzer(_props: ToolProps) {
                 onCheckedChange={setCaseInsensitive}
               />
               <Label htmlFor="case-switch" className="text-xs">
-                忽略大小写
+                {t('tools.folder_analyzer.label_case_insensitive')}
               </Label>
             </div>
           </>
         )}
         {mode !== 'file' && (
           <Button onClick={() => void handleRun()} disabled={!canRun} data-testid="analyzer-run">
-            {state.status === 'running' ? '分析中…' : '开始分析'}
+            {state.status === 'running'
+              ? t('tools.folder_analyzer.run_running')
+              : t('tools.folder_analyzer.run_start')}
           </Button>
         )}
         <span className="text-xs text-muted-foreground truncate max-w-[40ch]" title={target ?? ''}>
-          {target ? `目标:${target}` : '尚未选择目标'}
+          {target
+            ? t('tools.folder_analyzer.target_set', { path: target })
+            : t('tools.folder_analyzer.target_none')}
         </span>
       </div>
 
-      <p className="text-xs text-muted-foreground">只读分析:不会写入或修改任何文件。</p>
+      <p className="text-xs text-muted-foreground">{t('tools.folder_analyzer.readonly_notice')}</p>
 
       {state.status === 'running' && (
         <div className="flex items-center gap-3">
-          <Progress value={undefined} className="flex-1" aria-label="分析进行中" />
+          <Progress
+            value={undefined}
+            className="flex-1"
+            aria-label={t('tools.folder_analyzer.progress_aria')}
+          />
           <span className="text-xs text-muted-foreground" data-testid="analyzer-progress-message">
             {state.message}
           </span>
@@ -227,7 +237,7 @@ export function FolderAnalyzer(_props: ToolProps) {
             onClick={() => void cancel()}
             data-testid="analyzer-cancel"
           >
-            取消
+            {t('tools.folder_analyzer.cancel')}
           </Button>
         </div>
       )}

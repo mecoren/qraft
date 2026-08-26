@@ -3,6 +3,7 @@
  * 不接入全局 toolStateStore:任务生命周期完全属于当前工具面板。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { t } from '@/i18n';
 import {
   cancelAnalyzerTask,
   runFileInspect,
@@ -75,7 +76,7 @@ export function useAnalyzerTask(): {
           return {
             ...INITIAL,
             status: 'failed',
-            error: info?.message ?? info?.detail ?? '任务失败',
+            error: info?.message ?? info?.detail ?? t('tools.folder_analyzer.error_task_failed'),
           };
         }),
     });

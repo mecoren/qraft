@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { humanBytes, zhCategory } from './types';
+import { categoryLabel, humanBytes } from './types';
 
 describe('humanBytes', () => {
   it.each([
@@ -16,9 +16,13 @@ describe('humanBytes', () => {
   });
 });
 
-describe('zhCategory', () => {
-  it('maps known categories', () => {
-    expect(zhCategory('code')).toBe('代码');
-    expect(zhCategory('archive')).toBe('压缩包');
+describe('categoryLabel', () => {
+  it('maps known categories (zh 桩下为中文)', () => {
+    expect(categoryLabel('code')).toBe('代码');
+    expect(categoryLabel('archive')).toBe('压缩包');
+  });
+
+  it('falls back to raw value for unknown category', () => {
+    expect(categoryLabel('mystery' as never)).toBe('mystery');
   });
 });

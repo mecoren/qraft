@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { changeLocale } from '@/i18n';
 
 // CodeEditor 内嵌 Monaco,jsdom 无法加载:替换为 textarea 替身,
 // 暴露 value / language / lineNumbers,供面板断言(与 CodeEditor.test 同策略)
@@ -99,6 +100,22 @@ describe('ScanResultsPanel', () => {
     render(<ScanResultsPanel report={{ ...scanFixture, truncated: true }} />);
     expect(screen.getByRole('status')).toHaveTextContent(/截断/);
   });
+
+  it('en-US:概览卡与截断提示随语言切换(手动切语言场景),结束恢复 zh 桩', () => {
+    changeLocale('en-US');
+    // 先卸载再切回 zh 桩,避免异步 languageChanged 在 act 环境外触发告警更新
+    const { unmount } = render(
+      <ScanResultsPanel report={{ ...scanFixture, truncated: true }} />,
+    );
+    try {
+      expect(screen.getByText('Total files')).toBeInTheDocument();
+      expect(screen.getByText('Elapsed')).toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent(/truncated/);
+    } finally {
+      unmount();
+      changeLocale('zh-CN');
+    }
+  });
 });
 
 describe('SearchResultsPanel', () => {
@@ -176,5 +193,19 @@ describe('FileInspectPanel', () => {
       />,
     );
     expect(screen.queryByTestId('inspect-preview-editor')).toBeNull();
+  });
+
+  it('en-US:字段名与类别随语言切换(手动切语言场景),结束恢复 zh 桩', () => {
+    changeLocale('en-US');
+    const { unmount } = render(<FileInspectPanel report={r} />);
+    try {
+      expect(screen.getByText('Path')).toBeInTheDocument();
+      expect(screen.getByText('Encoding')).toBeInTheDocument();
+      expect(screen.getByText('Document')).toBeInTheDocument();
+      expect(screen.getByText('7 B (7 bytes)')).toBeInTheDocument();
+    } finally {
+      unmount();
+      changeLocale('zh-CN');
+    }
   });
 });

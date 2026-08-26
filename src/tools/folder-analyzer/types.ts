@@ -2,6 +2,7 @@
  * folder_analyzer 后端结果镜像(键名与 Rust serde 序列化一致,snake_case)。
  * 只读分析,不落盘。
  */
+import { t } from '@/i18n';
 
 export type AnalyzerMode = 'scan' | 'search' | 'file';
 
@@ -115,17 +116,9 @@ export function humanBytes(n: number): string {
   return `${v.toFixed(digits)} ${UNIT[i]}`;
 }
 
-const ZH_CATEGORY: Record<FileCategory, string> = {
-  code: '代码',
-  document: '文档',
-  image: '图像',
-  video: '视频',
-  audio: '音频',
-  archive: '压缩包',
-  binary: '二进制',
-  other: '其他',
-};
-
-export function zhCategory(c: FileCategory): string {
-  return ZH_CATEGORY[c] ?? c;
+/** 类别显示名:i18n 键缺失(未知类别值)时回退原始枚举字符串 */
+export function categoryLabel(c: FileCategory): string {
+  const key = `tools.folder_analyzer.cat_${c}`;
+  const label = t(key);
+  return label === key ? c : label;
 }
