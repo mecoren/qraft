@@ -18,6 +18,7 @@
  */
 import type { JSX } from 'react';
 import { Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -66,6 +67,7 @@ export function TabContextMenu({
   selectedCount = 0,
   children,
 }: TabContextMenuProps): JSX.Element {
+  const { t } = useTranslation();
   const hasPath = tab.path !== null;
   // 左栏多选场景才显示「比较所选内容」;顶栏 Tab 栏不传 onCompareSelected,不显示
   const canCompare = typeof onCompareSelected === 'function' && selectedCount >= 2;
@@ -76,7 +78,7 @@ export function TabContextMenu({
         {typeof onRename === 'function' && (
           <>
             <ContextMenuItem onSelect={onRename} data-testid="ctx-rename">
-              重命名
+              {t('tools.text_editor.rename')}
             </ContextMenuItem>
             <ContextMenuSeparator />
           </>
@@ -84,33 +86,35 @@ export function TabContextMenu({
         {canCompare && (
           <>
             <ContextMenuItem onSelect={onCompareSelected} data-testid="ctx-compare-selected">
-              比较所选内容
-              <ContextMenuShortcut>{selectedCount} 个文件</ContextMenuShortcut>
+              {t('tools.text_editor.compare_selected')}
+              <ContextMenuShortcut>
+                {t('tools.text_editor.compare_selected_num', { num: selectedCount })}
+              </ContextMenuShortcut>
             </ContextMenuItem>
             <ContextMenuSeparator />
           </>
         )}
         <ContextMenuItem onSelect={onClose} data-testid="ctx-close">
-          关闭
+          {t('tools.text_editor.close')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={onCloseOthers} data-testid="ctx-close-others">
-          关闭其他
+          {t('tools.text_editor.close_others')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={onCloseRight} data-testid="ctx-close-right">
-          关闭右侧
+          {t('tools.text_editor.close_right')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={onCloseSaved} data-testid="ctx-close-saved">
-          关闭已保存
+          {t('tools.text_editor.close_saved')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={onCloseAll} data-testid="ctx-close-all">
-          全部关闭
+          {t('tools.text_editor.close_all')}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={onTogglePin} data-testid="ctx-toggle-pin">
-          固定
+          {t('tools.text_editor.pin')}
           {tab.pinned && (
             <Check
-              aria-label="已固定"
+              aria-label={t('tools.text_editor.pinned_aria')}
               data-testid="ctx-toggle-pin-check"
               className="ml-auto size-3.5 text-primary"
             />
@@ -118,17 +122,17 @@ export function TabContextMenu({
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={onRevealInExplorer} disabled={!hasPath} data-testid="ctx-reveal">
-          在文件资源管理器中显示
+          {t('tools.text_editor.reveal_in_explorer')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={onCopyPath} disabled={!hasPath} data-testid="ctx-copy-path">
-          复制路径
+          {t('tools.text_editor.copy_path')}
         </ContextMenuItem>
         <ContextMenuItem disabled data-testid="ctx-copy-relative-path">
-          复制相对路径
+          {t('tools.text_editor.copy_relative_path')}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={onSave} data-testid="ctx-save">
-          保存
+          {t('tools.text_editor.save')}
           <ContextMenuShortcut>Ctrl+S</ContextMenuShortcut>
         </ContextMenuItem>
       </ContextMenuContent>
