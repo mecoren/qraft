@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 
+import { changeLocale } from '@/i18n';
+
 import {
   TextProcessor,
   chineseSymbolToEnglish,
@@ -328,5 +330,21 @@ describe('TextProcessor component', () => {
     fireEvent.change(getInput(), { target: { value: 'hello' } });
     // mock 中 mock 的选区长度 = value.length
     expect(screen.getByTestId('input-status-sel').textContent).toBe('(已选择5)');
+  });
+
+  it('en-US:按钮/统计/标题文案随语言切换(手动切语言场景),结束恢复 zh 桩', () => {
+    changeLocale('en-US');
+    // 先卸载再切回 zh 桩,避免异步 languageChanged 在 act 环境外触发告警更新
+    const { unmount } = render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    try {
+      expect(screen.getByTestId('textproc-btn-escape').textContent).toBe('Escape');
+      expect(
+        within(screen.getByTestId('input-status')).getByTestId('textproc-stat-chars').textContent,
+      ).toBe('0');
+      expect(screen.getByTestId('input-status').textContent).toContain('chars');
+    } finally {
+      unmount();
+      changeLocale('zh-CN');
+    }
   });
 });

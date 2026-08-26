@@ -18,6 +18,7 @@
  *   与 SQL 格式化器保持一致。
  */
 import { useCallback, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowDownNarrowWide,
   Binary,
@@ -256,23 +257,35 @@ export function computeStats(input: string): TextStats {
  * - 该组件作为 CodeEditor.statusBarRight 渲染,自动位于状态栏右侧,与 VS Code 风格一致。
  */
 function EditorStats({ text }: { text: string }): JSX.Element {
+  const { t } = useTranslation();
   const s = computeStats(text);
   return (
     <span
       className="whitespace-nowrap tabular-nums text-muted-foreground"
       data-testid="textproc-editor-stats"
-      title={`字符 ${s.chars} · 单词 ${s.words} · 行 ${s.lines} · 字节 ${s.bytes} · 句子 ${s.sentences} · 段落 ${s.paragraphs}`}
+      title={t('tools.json_minifier.stats_tooltip', {
+        chars: s.chars,
+        words: s.words,
+        lines: s.lines,
+        bytes: s.bytes,
+        sentences: s.sentences,
+        paragraphs: s.paragraphs,
+      })}
     >
-      <span data-testid="textproc-stat-chars">{s.chars}</span> 字符
+      <span data-testid="textproc-stat-chars">{s.chars}</span> {t('tools.json_minifier.stat_chars')}
       <span aria-hidden> · </span>
-      <span data-testid="textproc-stat-words">{s.words}</span> 单词
+      <span data-testid="textproc-stat-words">{s.words}</span> {t('tools.json_minifier.stat_words')}
       <span aria-hidden> · </span>
-      <span data-testid="textproc-stat-lines">{s.lines}</span> 行<span aria-hidden> · </span>
-      <span data-testid="textproc-stat-bytes">{s.bytes}</span> 字节
+      <span data-testid="textproc-stat-lines">{s.lines}</span>
+      {t('tools.json_minifier.stat_lines')}
       <span aria-hidden> · </span>
-      <span data-testid="textproc-stat-sentences">{s.sentences}</span> 句子
+      <span data-testid="textproc-stat-bytes">{s.bytes}</span> {t('tools.json_minifier.stat_bytes')}
       <span aria-hidden> · </span>
-      <span data-testid="textproc-stat-paragraphs">{s.paragraphs}</span> 段落
+      <span data-testid="textproc-stat-sentences">{s.sentences}</span>{' '}
+      {t('tools.json_minifier.stat_sentences')}
+      <span aria-hidden> · </span>
+      <span data-testid="textproc-stat-paragraphs">{s.paragraphs}</span>{' '}
+      {t('tools.json_minifier.stat_paragraphs')}
     </span>
   );
 }
@@ -297,34 +310,94 @@ type TransformId =
   | 'uniqueLines'
   | 'sortLines';
 
-/** 单个转换的配置 */
+/** 单个转换的配置(label 存 i18n 键名,由组件层翻译,保证语言切换即生效) */
 interface TransformDef {
   id: TransformId;
-  label: string;
+  labelKey: string;
   Icon: typeof Quote;
   apply: (input: string) => string;
 }
 
 const TRANSFORMS: readonly TransformDef[] = [
-  { id: 'escape', label: '转义', Icon: Quote, apply: escapeText },
-  { id: 'stripWhitespace', label: '去空格', Icon: Eraser, apply: stripWhitespace },
-  { id: 'urlEncode', label: 'URL 编码', Icon: Link2, apply: urlEncode },
-  { id: 'urlDecode', label: 'URL 解码', Icon: Link2Off, apply: urlDecode },
-  { id: 'unicodeToChinese', label: 'Unicode 转中文', Icon: Languages, apply: unicodeToChinese },
-  { id: 'chineseToUnicode', label: '中文转 Unicode', Icon: Binary, apply: chineseToUnicode },
+  { id: 'escape', labelKey: 'tools.json_minifier.label_escape', Icon: Quote, apply: escapeText },
+  {
+    id: 'stripWhitespace',
+    labelKey: 'tools.json_minifier.label_strip_whitespace',
+    Icon: Eraser,
+    apply: stripWhitespace,
+  },
+  {
+    id: 'urlEncode',
+    labelKey: 'tools.json_minifier.label_url_encode',
+    Icon: Link2,
+    apply: urlEncode,
+  },
+  {
+    id: 'urlDecode',
+    labelKey: 'tools.json_minifier.label_url_decode',
+    Icon: Link2Off,
+    apply: urlDecode,
+  },
+  {
+    id: 'unicodeToChinese',
+    labelKey: 'tools.json_minifier.label_unicode_to_chinese',
+    Icon: Languages,
+    apply: unicodeToChinese,
+  },
+  {
+    id: 'chineseToUnicode',
+    labelKey: 'tools.json_minifier.label_chinese_to_unicode',
+    Icon: Binary,
+    apply: chineseToUnicode,
+  },
   {
     id: 'chineseSymbolToEnglish',
-    label: '中文符号转英文',
+    labelKey: 'tools.json_minifier.label_cn_symbol_to_ascii',
     Icon: Replace,
     apply: chineseSymbolToEnglish,
   },
-  { id: 'toUpperCase', label: '大写', Icon: CaseUpper, apply: toUpperCase },
-  { id: 'toLowerCase', label: '小写', Icon: CaseLower, apply: toLowerCase },
-  { id: 'capitalizeSentences', label: '句首大写', Icon: TextQuote, apply: capitalizeSentences },
-  { id: 'capitalizeWords', label: '词首大写', Icon: Type, apply: capitalizeWords },
-  { id: 'reverseText', label: '反转', Icon: Undo2, apply: reverseText },
-  { id: 'uniqueLines', label: '去重行', Icon: CopyX, apply: uniqueLines },
-  { id: 'sortLines', label: '排序行', Icon: ArrowDownNarrowWide, apply: sortLines },
+  {
+    id: 'toUpperCase',
+    labelKey: 'tools.json_minifier.label_uppercase',
+    Icon: CaseUpper,
+    apply: toUpperCase,
+  },
+  {
+    id: 'toLowerCase',
+    labelKey: 'tools.json_minifier.label_lowercase',
+    Icon: CaseLower,
+    apply: toLowerCase,
+  },
+  {
+    id: 'capitalizeSentences',
+    labelKey: 'tools.json_minifier.label_capitalize_sentences',
+    Icon: TextQuote,
+    apply: capitalizeSentences,
+  },
+  {
+    id: 'capitalizeWords',
+    labelKey: 'tools.json_minifier.label_capitalize_words',
+    Icon: Type,
+    apply: capitalizeWords,
+  },
+  {
+    id: 'reverseText',
+    labelKey: 'tools.json_minifier.label_reverse',
+    Icon: Undo2,
+    apply: reverseText,
+  },
+  {
+    id: 'uniqueLines',
+    labelKey: 'tools.json_minifier.label_unique_lines',
+    Icon: CopyX,
+    apply: uniqueLines,
+  },
+  {
+    id: 'sortLines',
+    labelKey: 'tools.json_minifier.label_sort_lines',
+    Icon: ArrowDownNarrowWide,
+    apply: sortLines,
+  },
 ];
 
 /**
@@ -400,11 +473,13 @@ function GroupFragment({
  *   「字符 · 单词 · 行 · 字节 · 句子 · 段落」,字号与编辑器状态栏一致。
  */
 export function TextProcessor(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
 
   // 把当前输入按指定转换处理:成功时把结果写入输出框、不改动输入;
   // 输出为只读副本,不会随输入实时同步,需要时再点转换。失败时弹 toast 并保持输出不变。
+  // toast 文案在回调内即时翻译(t 进入依赖数组),语言切换后再次点击即为新语言。
   const handleApply = useCallback(
     (id: TransformId) => {
       if (!input) return;
@@ -413,26 +488,37 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
       try {
         const next = def.apply(input);
         if (next === input) {
-          toast.info(`${def.label}:文本无需转换`);
+          toast.info(
+            t('tools.json_minifier.toast_no_change', { label: t(def.labelKey) }),
+          );
           return;
         }
         setOutput(next);
       } catch (e) {
-        toast.error(`${def.label}失败:${e instanceof Error ? e.message : String(e)}`);
+        toast.error(
+          t('tools.json_minifier.toast_failed', {
+            label: t(def.labelKey),
+            message: e instanceof Error ? e.message : String(e),
+          }),
+        );
       }
     },
-    [input],
+    [input, t],
   );
 
   const disabled = !input;
 
   function renderGroup(ids: readonly TransformId[]): JSX.Element {
     return (
-      <ButtonGroup aria-label="文本转换" data-testid={`textproc-group-${ids.join('-')}`}>
+      <ButtonGroup
+        aria-label={t('tools.json_minifier.group_aria_inner')}
+        data-testid={`textproc-group-${ids.join('-')}`}
+      >
         {ids.map((id) => {
           const def = TRANSFORMS_BY_ID.get(id);
           if (!def) return null;
           const Icon = def.Icon;
+          const label = t(def.labelKey);
           return (
             <Button
               key={id}
@@ -441,13 +527,13 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
               size="sm"
               disabled={disabled}
               onClick={() => handleApply(id)}
-              title={def.label}
-              aria-label={def.label}
+              title={label}
+              aria-label={label}
               data-testid={`textproc-btn-${id}`}
               className="gap-1.5"
             >
               <Icon aria-hidden className="size-3.5" />
-              {def.label}
+              {label}
             </Button>
           );
         })}
@@ -460,8 +546,8 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
       <ConfigSection title="" searchAnchor="json_minifier:config">
         <ConfigRow
           icon={Wand2}
-          label="转换"
-          hint="点击按钮把当前输入的转换结果写入输出框,输入不变;同组内紧密拼接,组间留白"
+          label={t('tools.json_minifier.row_transform')}
+          hint={t('tools.json_minifier.row_transform_hint')}
         >
           {/* 外层 ButtonGroup 起容器作用 —— 仅作为 flex 父节点,
               配合 `has-[>[data-slot=button-group]]:gap-2` 自动在子组之间
@@ -471,7 +557,7 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
               ButtonGroup)在横向放不下时自动换行到第二排;`gap-y-2` 为换行后
               的垂直间距,与组内 `gap-2` 视觉一致。 */}
           <ButtonGroup
-            aria-label="符号与编码转换"
+            aria-label={t('tools.json_minifier.group_aria_row1')}
             data-testid="textproc-button-group-row1"
             className="w-full flex-wrap gap-y-2"
           >
@@ -483,11 +569,11 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
 
         <ConfigRow
           icon={CaseUpper}
-          label="调整"
-          hint="大小写与行级重排:点击写入输出框,输入不变;横向放不下时自动换行"
+          label={t('tools.json_minifier.row_adjust')}
+          hint={t('tools.json_minifier.row_adjust_hint')}
         >
           <ButtonGroup
-            aria-label="大小写与行重排"
+            aria-label={t('tools.json_minifier.group_aria_row2')}
             data-testid="textproc-button-group-row2"
             className="w-full flex-wrap gap-y-2"
           >
@@ -501,7 +587,7 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
-            title="输入"
+            title={t('tools.json_minifier.input_title')}
             language="plaintext"
             value={input}
             onChange={setInput}
@@ -523,7 +609,7 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
             readOnly
-            title="输出"
+            title={t('tools.json_minifier.output_title')}
             language="plaintext"
             value={output}
             className="h-full"
