@@ -299,7 +299,9 @@ impl StreamingTool for FolderAnalyzer {
                         let d = counters.dirs.load(Ordering::Relaxed);
                         yield Ok(StreamEvent::Progress {
                             percent: 0,
-                            message: format!("已扫描 {f} 文件 · {d} 目录"),
+                            // 进度文案走英文(开发者向),与 hash/json_formatter 等流式工具一致;
+                            // 前端展示原样透传,不做二次翻译
+                            message: format!("Scanned {f} files · {d} dirs"),
                             processed: f,
                             total: 0,
                         });
