@@ -38,6 +38,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type JSX } from 'react';
 import { createPortal } from 'react-dom';
 import { Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { OnMount } from '@monaco-editor/react';
 
@@ -111,28 +112,54 @@ interface MenuEntry {
   checked?: boolean;
 }
 
+/** 静态菜单项定义:label 为 i18n 键,渲染时经 t() 解析(语言切换即时生效) */
+interface MenuDef {
+  /** Monaco 命令/动作 id(editor.trigger 用);__ 前缀为本地特殊项 */
+  id: string;
+  labelKey: string;
+  shortcut?: string;
+  /** 勾选态(仅「自动换行」等开关项使用) */
+  checked?: boolean;
+}
+
 /**
  * Monaco 0.56 内置命令/动作 id(来源:node_modules/monaco-editor/esm/vs
  * 中 editorExtensions.js / coreCommands.js / clipboard.js / formatActions.js)。
  * 撤销/重做为裸 id(undo/redo),其余带 editor.action. 前缀。
  */
-const MENU_DEFS: Omit<MenuEntry, 'disabled'>[] = [
-  { id: 'undo', label: '撤销', shortcut: 'Ctrl+Z' },
-  { id: 'redo', label: '重做', shortcut: 'Ctrl+Y' },
-  { id: '__sep__1', label: '' },
-  { id: 'editor.action.clipboardCutAction', label: '剪切', shortcut: 'Ctrl+X' },
-  { id: 'editor.action.clipboardCopyAction', label: '复制', shortcut: 'Ctrl+C' },
-  { id: '__paste__', label: '粘贴', shortcut: 'Ctrl+V' },
-  { id: '__sep__2', label: '' },
-  { id: 'editor.action.selectAll', label: '全选', shortcut: 'Ctrl+A' },
-  { id: '__sep__3', label: '' },
+const MENU_DEFS: MenuDef[] = [
+  { id: 'undo', labelKey: 'chrome.editor_menu.undo', shortcut: 'Ctrl+Z' },
+  { id: 'redo', labelKey: 'chrome.editor_menu.redo', shortcut: 'Ctrl+Y' },
+  { id: '__sep__1', labelKey: '' },
+  { id: 'editor.action.clipboardCutAction', labelKey: 'chrome.editor_menu.cut', shortcut: 'Ctrl+X' },
+  {
+    id: 'editor.action.clipboardCopyAction',
+    labelKey: 'chrome.editor_menu.copy',
+    shortcut: 'Ctrl+C',
+  },
+  { id: '__paste__', labelKey: 'chrome.editor_menu.paste', shortcut: 'Ctrl+V' },
+  { id: '__sep__2', labelKey: '' },
+  { id: 'editor.action.selectAll', labelKey: 'chrome.editor_menu.select_all', shortcut: 'Ctrl+A' },
+  { id: '__sep__3', labelKey: '' },
   // 0.56 源码 findModel.js:查找 actions.find / 替换 editor.action.startFindReplaceAction
-  { id: 'actions.find', label: '查找', shortcut: 'Ctrl+F' },
-  { id: 'editor.action.startFindReplaceAction', label: '替换', shortcut: 'Ctrl+H' },
-  { id: '__sep__4', label: '' },
-  { id: 'editor.action.formatDocument', label: '格式化文档', shortcut: 'Shift+Alt+F' },
-  { id: '__sep__5', label: '' },
-  { id: 'editor.action.quickCommand', label: '命令面板', shortcut: 'Ctrl+Shift+P' },
+  { id: 'actions.find', labelKey: 'chrome.editor_menu.find', shortcut: 'Ctrl+F' },
+  {
+    id: 'editor.action.startFindReplaceAction',
+    labelKey: 'chrome.editor_menu.replace',
+    shortcut: 'Ctrl+H',
+  },
+  { id: '__sep__4', labelKey: '' },
+  {
+    id: 'editor.action.formatDocument',
+    labelKey: 'chrome.editor_menu.format_document',
+    shortcut: 'Shift+Alt+F',
+  },
+  { id: '__sep__5', labelKey: '' },
+  {
+    id: 'editor.action.quickCommand',
+    labelKey: 'chrome.editor_menu.command_palette',
+    shortcut: 'Ctrl+Shift+P',
+  },
 ];
 
 /**
@@ -142,14 +169,22 @@ const MENU_DEFS: Omit<MenuEntry, 'disabled'>[] = [
  *   的正确 id 是 editor.toggleFold(Ctrl+K Ctrl+L)
  * - 所有折叠动作都带 CONTEXT_FOLDING_ENABLED 前置条件,折叠关闭时不生效
  */
-const FOLDING_MENU_DEFS: Omit<MenuEntry, 'disabled'>[] = [
-  { id: '__sep__f1', label: '' },
-  { id: 'editor.fold', label: '折叠', shortcut: 'Ctrl+Shift+[' },
-  { id: 'editor.unfold', label: '展开', shortcut: 'Ctrl+Shift+]' },
-  { id: 'editor.toggleFold', label: '切换折叠', shortcut: 'Ctrl+K Ctrl+L' },
-  { id: '__sep__f2', label: '' },
-  { id: 'editor.foldAll', label: '全部折叠', shortcut: 'Ctrl+K Ctrl+0' },
-  { id: 'editor.unfoldAll', label: '全部展开', shortcut: 'Ctrl+K Ctrl+J' },
+const FOLDING_MENU_DEFS: MenuDef[] = [
+  { id: '__sep__f1', labelKey: '' },
+  { id: 'editor.fold', labelKey: 'chrome.editor_menu.fold', shortcut: 'Ctrl+Shift+[' },
+  { id: 'editor.unfold', labelKey: 'chrome.editor_menu.unfold', shortcut: 'Ctrl+Shift+]' },
+  {
+    id: 'editor.toggleFold',
+    labelKey: 'chrome.editor_menu.toggle_fold',
+    shortcut: 'Ctrl+K Ctrl+L',
+  },
+  { id: '__sep__f2', labelKey: '' },
+  { id: 'editor.foldAll', labelKey: 'chrome.editor_menu.fold_all', shortcut: 'Ctrl+K Ctrl+0' },
+  {
+    id: 'editor.unfoldAll',
+    labelKey: 'chrome.editor_menu.unfold_all',
+    shortcut: 'Ctrl+K Ctrl+J',
+  },
 ];
 
 export function MonacoContextMenu({
@@ -164,6 +199,7 @@ export function MonacoContextMenu({
   onClose,
   'data-testid': dataTestId,
 }: MonacoContextMenuProps): JSX.Element | null {
+  const { t } = useTranslation();
   // 打开时计算上下文禁用(无需每次渲染重算)
   const entries: MenuEntry[] = useMemo(() => {
     if (!editor) return [];
@@ -173,51 +209,50 @@ export function MonacoContextMenu({
     // 折叠关闭时不注入该菜单组,避免无效项。
     const baseDefs = folding ? [...MENU_DEFS, ...FOLDING_MENU_DEFS] : MENU_DEFS;
     // 提供切换回调时,追加「自动换行」开关组(仅作用于当前编辑器实例)
-    const defs: Omit<MenuEntry, 'disabled'>[] = onToggleWordWrap
+    const defs: MenuDef[] = onToggleWordWrap
       ? [
           ...baseDefs,
-          { id: '__sep__w', label: '' },
+          { id: '__sep__w', labelKey: '' },
           {
             id: '__toggle_word_wrap__',
-            label: '自动换行',
+            labelKey: 'chrome.editor_menu.word_wrap',
             checked: wordWrapOn ?? false,
           },
         ]
       : baseDefs;
     // 宿主自定义分组:每组前插入分隔线;id 编码为 __custom__<sectionId>:<itemId>
     for (const section of sections ?? []) {
-      defs.push({ id: `__sep__custom_${section.id}`, label: '' });
+      defs.push({ id: `__sep__custom_${section.id}`, labelKey: '' });
       for (const item of section.items) {
         defs.push({
           id: `__custom__${section.id}:${item.id}`,
-          label: item.label,
+          labelKey: item.label,
           shortcut: item.shortcut,
         });
       }
     }
     return defs.map((def) => {
-      if (def.id.startsWith('__sep__')) {
-        return { ...def, disabled: false };
-      }
+      const label = def.labelKey ? t(def.labelKey) : '';
+      const base = { ...def, label };
       if (def.id === 'editor.action.clipboardCutAction') {
-        return { ...def, disabled: readOnly || !hasSelection };
+        return { ...base, disabled: readOnly || !hasSelection };
       }
       if (def.id === 'editor.action.clipboardCopyAction') {
-        return { ...def, disabled: !hasSelection };
+        return { ...base, disabled: !hasSelection };
       }
       if (def.id === '__paste__') {
-        return { ...def, disabled: readOnly };
+        return { ...base, disabled: readOnly };
       }
       if (def.id.startsWith('__custom__')) {
         const actionId = def.id.slice(def.id.indexOf(':') + 1);
         const item = (sections ?? []).flatMap((s) => s.items).find((a) => a.id === actionId);
-        return { ...def, disabled: item?.disabled ?? false };
+        return { ...base, disabled: item?.disabled ?? false };
       }
-      return { ...def, disabled: false };
+      return { ...base, disabled: false };
     });
     // open 依赖是故意的:菜单重新打开时需基于最新选区重算禁用状态
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-x/exhaustive-deps
-  }, [editor, open, readOnly, folding, wordWrapOn, onToggleWordWrap, sections]);
+  }, [editor, open, readOnly, folding, wordWrapOn, onToggleWordWrap, sections, t]);
 
   // 浮层容器 ref:点击外部关闭 + 视口边界修正测量
   const menuRef = useRef<HTMLDivElement>(null);

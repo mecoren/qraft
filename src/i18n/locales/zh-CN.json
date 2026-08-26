@@ -31,6 +31,24 @@
       "copied": "已复制到剪贴板",
       "copy_failed": "复制失败",
       "copied_with_preview": "已复制到剪贴板:{{preview}}"
+    },
+    "editor_menu": {
+      "undo": "撤销",
+      "redo": "重做",
+      "cut": "剪切",
+      "copy": "复制",
+      "paste": "粘贴",
+      "select_all": "全选",
+      "find": "查找",
+      "replace": "替换",
+      "format_document": "格式化文档",
+      "command_palette": "命令面板",
+      "fold": "折叠",
+      "unfold": "展开",
+      "toggle_fold": "切换折叠",
+      "fold_all": "全部折叠",
+      "unfold_all": "全部展开",
+      "word_wrap": "自动换行"
     }
   },
   "catalog": {

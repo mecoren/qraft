@@ -31,6 +31,24 @@
       "copied": "Copied to clipboard",
       "copy_failed": "Copy failed",
       "copied_with_preview": "Copied: {{preview}}"
+    },
+    "editor_menu": {
+      "undo": "Undo",
+      "redo": "Redo",
+      "cut": "Cut",
+      "copy": "Copy",
+      "paste": "Paste",
+      "select_all": "Select All",
+      "find": "Find",
+      "replace": "Replace",
+      "format_document": "Format Document",
+      "command_palette": "Command Palette",
+      "fold": "Fold",
+      "unfold": "Unfold",
+      "toggle_fold": "Toggle Fold",
+      "fold_all": "Fold All",
+      "unfold_all": "Unfold All",
+      "word_wrap": "Word Wrap"
     }
   },
   "catalog": {
