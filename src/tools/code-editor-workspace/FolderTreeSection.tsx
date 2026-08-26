@@ -24,6 +24,7 @@
  */
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { ChevronDown, Folder, FolderOpen, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -68,6 +69,7 @@ export function FolderTreeSection({
   onOpenFile,
   'data-testid': dataTestId,
 }: FolderTreeSectionProps): JSX.Element | null {
+  const { t } = useTranslation();
   /** 整个「文件夹」分组是否折叠(独立会话状态,不落盘) */
   const [collapsed, setCollapsed] = useState(false);
   /** 已加载目录的子项缓存(dirPath → 排序后的条目) */
@@ -91,7 +93,7 @@ export function FolderTreeSection({
     } catch (e) {
       // 清除标记允许下次展开重试;提示具体原因(未授权/不存在等)
       loadedRef.current.delete(dirPath);
-      toast.error(e instanceof Error ? e.message : '读取目录失败');
+      toast.error(e instanceof Error ? e.message : t('tools.text_editor.read_dir_failed'));
     } finally {
       setLoadingDirs((prev) => {
         if (!(dirPath in prev)) return prev;
@@ -100,7 +102,7 @@ export function FolderTreeSection({
         return next;
       });
     }
-  }, []);
+  }, [t]);
 
   // 所有处于展开状态的目录确保子项已加载:
   // 覆盖挂载还原(重启后 expandedDirs 持久化恢复)与用户展开两个来源
@@ -126,7 +128,7 @@ export function FolderTreeSection({
             style={{ paddingLeft: 8 + (depth + 1) * DEPTH_STEP_PX }}
             className="px-2 py-1 text-xs text-muted-foreground"
           >
-            加载中…
+            {t('tools.text_editor.folder_loading')}
           </li>,
         ];
       }
@@ -181,7 +183,7 @@ export function FolderTreeSection({
         {/* 根文件夹:hover 显示关闭按钮(ml-auto 锚定行尾) */}
         {isRoot && (
           <X
-            aria-label={`关闭文件夹 ${name}`}
+            aria-label={t('tools.text_editor.folder_close_aria', { name })}
             role="button"
             data-testid={`${dataTestId}-close-${name}`}
             data-folder-close={entry.path}
@@ -226,7 +228,7 @@ export function FolderTreeSection({
 
   return (
     <section
-      aria-label="文件夹"
+      aria-label={t('tools.text_editor.folder_section')}
       data-testid={`${dataTestId}-folder-section`}
       className={cn(
         'flex min-h-0 flex-col',
@@ -256,7 +258,7 @@ export function FolderTreeSection({
             collapsed ? '-rotate-90' : 'rotate-0',
           )}
         />
-        <h2 className="min-w-0 flex-1 truncate">文件夹</h2>
+        <h2 className="min-w-0 flex-1 truncate">{t('tools.text_editor.folder_section')}</h2>
         {/* 数量徽章:根文件夹数量(样式对齐对比差异计数徽章) */}
         <span
           data-testid={`${dataTestId}-folder-count`}
