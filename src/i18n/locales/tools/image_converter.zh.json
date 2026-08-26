@@ -1,0 +1,20 @@
+{
+  "tools.image_converter.only_image_files": "仅支持图片文件",
+  "tools.image_converter.error_decode": "图片解码失败",
+  "tools.image_converter.error_image_load": "图片加载失败",
+  "tools.image_converter.error_canvas": "Canvas 不可用",
+  "tools.image_converter.error_convert_unsupported": "转换失败:目标格式可能不受支持",
+  "tools.image_converter.exported_with_size": "已导出 {{format}}({{size}})",
+  "tools.image_converter.label_target_format": "目标格式",
+  "tools.image_converter.label_quality": "质量",
+  "tools.image_converter.hint_quality": "有损格式的压缩质量",
+  "tools.image_converter.quality_best": "最高(100%)",
+  "tools.image_converter.quality_high": "高(92%)",
+  "tools.image_converter.quality_medium": "中(80%)",
+  "tools.image_converter.quality_low": "低(60%)",
+  "tools.image_converter.section_image": "图片",
+  "tools.image_converter.choose_image": "选择图片",
+  "tools.image_converter.clear": "清除",
+  "tools.image_converter.convert_export": "转换并导出",
+  "tools.image_converter.dropzone_hint": "拖放图片到此处,或点击「选择图片」"
+}

@@ -1,0 +1,19 @@
+{
+  "tools.number_base_converter.group_formatted": "Digit grouping",
+  "tools.number_base_converter.group_formatted_hint": "Group digits by base convention",
+  "tools.number_base_converter.input_base": "Input base",
+  "tools.number_base_converter.base_binary": "Binary",
+  "tools.number_base_converter.base_octal": "Octal",
+  "tools.number_base_converter.base_decimal": "Decimal",
+  "tools.number_base_converter.base_hex": "Hexadecimal",
+  "tools.number_base_converter.input_title": "Input",
+  "tools.number_base_converter.placeholder_hex": "e.g. FF or 0xFF",
+  "tools.number_base_converter.placeholder_default": "Enter a number",
+  "tools.number_base_converter.input_aria": "Number to convert",
+  "tools.number_base_converter.result_title": "Results",
+  "tools.number_base_converter.error_empty_input": "Empty input",
+  "tools.number_base_converter.error_invalid_binary": "Not a valid binary number",
+  "tools.number_base_converter.error_invalid_octal": "Not a valid octal number",
+  "tools.number_base_converter.error_invalid_decimal": "Not a valid decimal number",
+  "tools.number_base_converter.error_invalid_hex": "Not a valid hexadecimal number"
+}

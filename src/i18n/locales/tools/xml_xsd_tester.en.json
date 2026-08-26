@@ -1,0 +1,10 @@
+{
+  "tools.xml_xsd_tester.parse_error": "XML parse error",
+  "tools.xml_xsd_tester.xml_invalid": "Invalid XML: {{error}}",
+  "tools.xml_xsd_tester.xsd_invalid": "Invalid XSD: {{error}}",
+  "tools.xml_xsd_tester.no_declarations": "No element declarations (xs:element) found in the XSD",
+  "tools.xml_xsd_tester.root_not_declared": "Root element <{{name}}> is not declared in the XSD",
+  "tools.xml_xsd_tester.element_not_declared": "Element <{{name}}> is not declared in the XSD",
+  "tools.xml_xsd_tester.structure_ok": "XML structure matches the element declarations in the XSD",
+  "tools.xml_xsd_tester.idle_hint": "Enter an XSD and XML to validate automatically"
+}

@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type DragEvent, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 import { Download, FolderOpen, QrCode as QrIcon, ScanLine } from 'lucide-react';
@@ -16,28 +17,30 @@ import { CodeEditor } from '@/components/ui/code-editor';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CopyAction } from '@/components/copy-action';
 import { downloadBlob, downloadText, readFileAsDataUrl } from '@/lib/file-utils';
+import { t } from '@/i18n';
 import type { ToolProps } from './registry';
 
 async function decodeQrFromDataUrl(dataUrl: string): Promise<string> {
   const img = new Image();
   await new Promise<void>((resolve, reject) => {
     img.onload = () => resolve();
-    img.onerror = () => reject(new Error('图片加载失败'));
+    img.onerror = () => reject(new Error(t('tools.qrcode_tool.error_image_load')));
     img.src = dataUrl;
   });
   const canvas = document.createElement('canvas');
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas 不可用');
+  if (!ctx) throw new Error(t('tools.qrcode_tool.error_canvas'));
   ctx.drawImage(img, 0, 0);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const code = jsQR(imageData.data, imageData.width, imageData.height);
-  if (!code) throw new Error('未识别到二维码');
+  if (!code) throw new Error(t('tools.qrcode_tool.error_not_found'));
   return code.data;
 }
 
 export function QrcodeTool(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   // —— 生成 ——
   const [text, setText] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -86,22 +89,25 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
     downloadText('qrcode.svg', svg, 'image/svg+xml');
   }, [text]);
 
-  const scanFile = useCallback(async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast.error('仅支持图片文件');
-      return;
-    }
-    try {
-      const dataUrl = await readFileAsDataUrl(file);
-      setScanPreview(dataUrl);
-      const result = await decodeQrFromDataUrl(dataUrl);
-      setDecoded(result);
-      toast.success('二维码识别成功');
-    } catch (e) {
-      setDecoded('');
-      toast.error(e instanceof Error ? e.message : String(e));
-    }
-  }, []);
+  const scanFile = useCallback(
+    async (file: File) => {
+      if (!file.type.startsWith('image/')) {
+        toast.error(t('tools.qrcode_tool.only_image_files'));
+        return;
+      }
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        setScanPreview(dataUrl);
+        const result = await decodeQrFromDataUrl(dataUrl);
+        setDecoded(result);
+        toast.success(t('tools.qrcode_tool.scan_success'));
+      } catch (e) {
+        setDecoded('');
+        toast.error(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [t],
+  );
 
   const onDrop = useCallback(
     (e: DragEvent) => {
@@ -117,21 +123,21 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
     <Tabs defaultValue="generate" className="flex h-full flex-col" data-testid="qrcode-tool">
       <TabsList data-search-anchor="qrcode_tool:tabs">
         <TabsTrigger value="generate" data-testid="qr-tab-generate">
-          <QrIcon aria-hidden className="size-3.5" /> 生成二维码
+          <QrIcon aria-hidden className="size-3.5" /> {t('tools.qrcode_tool.tab_generate')}
         </TabsTrigger>
         <TabsTrigger value="scan" data-testid="qr-tab-scan">
-          <ScanLine aria-hidden className="size-3.5" /> 读取二维码
+          <ScanLine aria-hidden className="size-3.5" /> {t('tools.qrcode_tool.tab_scan')}
         </TabsTrigger>
       </TabsList>
 
       {/* 生成 */}
       <TabsContent value="generate" className="mt-3 flex min-h-0 flex-1 gap-3">
         <CodeEditor
-          title="文本"
+          title={t('tools.qrcode_tool.input_title')}
           language="plaintext"
           value={text}
           onChange={setText}
-          placeholder="输入要编码的文本或链接"
+          placeholder={t('tools.qrcode_tool.input_placeholder')}
           data-testid="qr-text"
           className="min-h-0 flex-1"
           searchAnchor="qrcode_tool:input"
@@ -144,7 +150,7 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
           data-search-anchor="qrcode_tool:image"
         >
           <div className="flex items-center justify-between">
-            <h2 className="text-body-sm font-semibold">二维码</h2>
+            <h2 className="text-body-sm font-semibold">{t('tools.qrcode_tool.preview_title')}</h2>
             <div className="flex gap-1">
               <Button
                 variant="ghost"
@@ -170,12 +176,12 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
             {qrDataUrl ? (
               <img
                 src={qrDataUrl}
-                alt="生成的二维码"
+                alt={t('tools.qrcode_tool.preview_alt')}
                 data-testid="qr-preview"
                 className="max-h-full max-w-full rounded bg-white p-1"
               />
             ) : (
-              <p className="text-xs text-muted-foreground">输入文本后自动生成</p>
+              <p className="text-xs text-muted-foreground">{t('tools.qrcode_tool.preview_empty')}</p>
             )}
           </div>
         </div>
@@ -185,14 +191,14 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
       <TabsContent value="scan" className="mt-3 flex min-h-0 flex-1 gap-3">
         <div className="flex min-h-0 flex-1 flex-col gap-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-body-sm font-semibold">二维码图片</h2>
+            <h2 className="text-body-sm font-semibold">{t('tools.qrcode_tool.scan_title')}</h2>
             <Button
               variant="ghost"
               size="sm"
               data-testid="qr-open"
               onClick={() => fileRef.current?.click()}
             >
-              <FolderOpen aria-hidden className="size-3.5" /> 选择图片
+              <FolderOpen aria-hidden className="size-3.5" /> {t('tools.qrcode_tool.choose_image')}
             </Button>
           </div>
           <input
@@ -223,17 +229,17 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
               {scanPreview ? (
                 <img
                   src={scanPreview}
-                  alt="待识别的二维码图片"
+                  alt={t('tools.qrcode_tool.scan_preview_alt')}
                   className="max-h-full max-w-full object-contain"
                 />
               ) : (
-                <p className="text-xs text-muted-foreground">拖放二维码图片到此处</p>
+                <p className="text-xs text-muted-foreground">{t('tools.qrcode_tool.dropzone_hint')}</p>
               )}
             </div>
           </ScrollArea>
         </div>
         <CodeEditor
-          title="识别结果"
+          title={t('tools.qrcode_tool.result_title')}
           language="plaintext"
           value={decoded}
           readOnly

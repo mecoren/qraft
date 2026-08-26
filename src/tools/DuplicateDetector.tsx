@@ -19,6 +19,7 @@
 import { useDeferredValue, useMemo, useRef, useState, type JSX } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ClipboardCopy, ListChecks } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   Select,
   SelectContent,
@@ -204,15 +205,15 @@ export function unduplicateLines(
 // UI 组件
 // ============================================================
 
-const MODE_LABEL: Record<DupMatchMode, string> = {
-  line: '行',
-  substring: '子串(偏移/长度)',
+const MODE_LABEL_KEY: Record<DupMatchMode, string> = {
+  line: 'tools.duplicate_detector.mode_line',
+  substring: 'tools.duplicate_detector.mode_substring',
 };
 
-const UNIQUE_MODE_LABEL: Record<UnduplicateMode, string> = {
-  keepFirst: '保留首次',
-  keepLast: '保留末次',
-  removeAll: '全部移除',
+const UNIQUE_MODE_LABEL_KEY: Record<UnduplicateMode, string> = {
+  keepFirst: 'tools.duplicate_detector.uniq_keep_first',
+  keepLast: 'tools.duplicate_detector.uniq_keep_last',
+  removeAll: 'tools.duplicate_detector.uniq_remove_all',
 };
 
 function parseNonNegativeInt(value: string): number | null {
@@ -223,6 +224,7 @@ function parseNonNegativeInt(value: string): number | null {
 }
 
 export function DuplicateDetector(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [mode, setMode] = useState<DupMatchMode>('line');
   const [offsetStr, setOffsetStr] = useState('0');
@@ -263,11 +265,11 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
 
   const handleUnduplicate = (): void => {
     if (!input) {
-      toast.info('输入为空,无可去重的行');
+      toast.info(t('tools.duplicate_detector.toast_empty_input'));
       return;
     }
     if (!configValid) {
-      toast.error('偏移 / 长度必须是非负整数');
+      toast.error(t('tools.duplicate_detector.toast_invalid_offset_length'));
       return;
     }
     // 基于最新输入即时计算(不走 deferred,避免快速输入后的竞态)
@@ -277,11 +279,11 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
         ? unduplicateLines(linesNow, mode, offsetNum!, lengthNum!, uniqMode).join('\n')
         : unduplicateLines(linesNow, mode, 0, 0, uniqMode).join('\n');
     if (input === preview) {
-      toast.info('当前输入已无重复行');
+      toast.info(t('tools.duplicate_detector.toast_already_unique'));
       return;
     }
     setInput(preview);
-    toast.success('已去除重复行');
+    toast.success(t('tools.duplicate_detector.toast_dedup_done'));
   };
 
   /** 把表格序列化为纯文本(值 + 数量,用于复制按钮) */
@@ -293,7 +295,7 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
   /** 表格渲染 —— 支持选中/复制整段文本 */
   const handleCopyTable = (): void => {
     if (!tableText) {
-      toast.info('暂无重复行可复制');
+      toast.info(t('tools.duplicate_detector.toast_nothing_to_copy'));
       return;
     }
     // 统一复制反馈(成功 toast + 预览/失败报错),与 CopyAction 同一范式
@@ -304,7 +306,7 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
     <div className="flex h-full flex-col gap-3" data-testid="duplicate-detector">
       {/* 顶栏:全部配置 + 按钮合并在一行 */}
       <section
-        aria-label="配置"
+        aria-label={t('tools.duplicate_detector.config_aria')}
         className="rounded-lg border border-border bg-card shadow-card"
         data-search-anchor="duplicate_detector:config"
       >
@@ -312,15 +314,17 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
           {/* 匹配模式 */}
           <label className="flex items-center gap-2 text-body-sm">
             <ListChecks aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-            <span className="shrink-0 text-muted-foreground">匹配模式</span>
+            <span className="shrink-0 text-muted-foreground">
+              {t('tools.duplicate_detector.match_mode')}
+            </span>
             <Select value={mode} onValueChange={(v) => setMode(v as DupMatchMode)}>
               <SelectTrigger data-testid="dd-mode" className="h-8 w-36">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(MODE_LABEL) as DupMatchMode[]).map((m) => (
+                {(Object.keys(MODE_LABEL_KEY) as DupMatchMode[]).map((m) => (
                   <SelectItem key={m} value={m}>
-                    {MODE_LABEL[m]}
+                    {t(MODE_LABEL_KEY[m])}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -329,7 +333,7 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
 
           {/* 偏移 / 长度 */}
           <label className="flex items-center gap-1.5 text-body-sm text-muted-foreground">
-            <span className="shrink-0">偏移</span>
+            <span className="shrink-0">{t('tools.duplicate_detector.offset_label')}</span>
             <Input
               type="number"
               min={0}
@@ -343,7 +347,7 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
             />
           </label>
           <label className="flex items-center gap-1.5 text-body-sm text-muted-foreground">
-            <span className="shrink-0">长度</span>
+            <span className="shrink-0">{t('tools.duplicate_detector.length_label')}</span>
             <Input
               type="number"
               min={0}
@@ -359,15 +363,17 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
 
           {/* 去重模式 */}
           <label className="flex items-center gap-2 text-body-sm">
-            <span className="shrink-0 text-muted-foreground">去重模式</span>
+            <span className="shrink-0 text-muted-foreground">
+              {t('tools.duplicate_detector.dedupe_mode')}
+            </span>
             <Select value={uniqMode} onValueChange={(v) => setUniqMode(v as UnduplicateMode)}>
               <SelectTrigger data-testid="dd-uniq" className="h-8 w-32">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(UNIQUE_MODE_LABEL) as UnduplicateMode[]).map((m) => (
+                {(Object.keys(UNIQUE_MODE_LABEL_KEY) as UnduplicateMode[]).map((m) => (
                   <SelectItem key={m} value={m}>
-                    {UNIQUE_MODE_LABEL[m]}
+                    {t(UNIQUE_MODE_LABEL_KEY[m])}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -377,13 +383,13 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
           {/* 是否统计(不重复的数据) */}
           <label
             className="flex items-center gap-2 text-body-sm text-muted-foreground"
-            title="开启时统计并显示不重复的数据;关闭时仅统计重复的数据"
+            title={t('tools.duplicate_detector.stat_unique_title')}
           >
-            <span className="shrink-0">是否统计</span>
+            <span className="shrink-0">{t('tools.duplicate_detector.stat_unique')}</span>
             <Switch
               checked={statUnique}
               onCheckedChange={setStatUnique}
-              aria-label="是否统计(不重复的数据)"
+              aria-label={t('tools.duplicate_detector.stat_unique_aria')}
               data-testid="dd-stat-unique-toggle"
             />
           </label>
@@ -397,7 +403,7 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
               disabled={!input || !configValid}
               data-testid="dd-undup"
             >
-              去重
+              {t('tools.duplicate_detector.dedupe_btn')}
             </Button>
             <Button
               type="button"
@@ -406,11 +412,11 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
               onClick={handleCopyTable}
               disabled={tableRows.length === 0}
               data-testid="dd-copy"
-              title="复制结果表格"
-              aria-label="复制结果表格"
+              title={t('tools.duplicate_detector.copy_table')}
+              aria-label={t('tools.duplicate_detector.copy_table')}
             >
               <ClipboardCopy aria-hidden className="size-3.5" />
-              复制
+              {t('tools.duplicate_detector.copy_btn')}
             </Button>
           </div>
         </div>
@@ -419,7 +425,7 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
-            title="输入"
+            title={t('tools.duplicate_detector.input_title')}
             value={input}
             onChange={setInput}
             language="plaintext"
@@ -470,6 +476,7 @@ export function DuplicatesTable({
   testId,
   searchAnchor,
 }: DuplicatesTableProps): JSX.Element {
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 虚拟列表:仅渲染可见行。initialRect 保证 jsdom / 首次渲染也有非零可视区。
@@ -490,18 +497,24 @@ export function DuplicatesTable({
     >
       {/* 顶部 汇总 */}
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-input bg-card px-3 py-1.5 text-xs">
-        <span className="font-medium text-foreground">结果</span>
+        <span className="font-medium text-foreground">
+          {t('tools.duplicate_detector.result_title')}
+        </span>
         <span className="flex items-center gap-3 tabular-nums text-muted-foreground">
-          <span data-testid="dd-stat-total">总计 {stats.total}</span>
+          <span data-testid="dd-stat-total">
+            {t('tools.duplicate_detector.summary_total', { n: stats.total })}
+          </span>
           {statUnique && (
             <>
               <span aria-hidden className="h-3 w-px bg-border" />
-              <span data-testid="dd-stat-unique">不重复 {stats.unique}</span>
+              <span data-testid="dd-stat-unique">
+                {t('tools.duplicate_detector.summary_unique', { n: stats.unique })}
+              </span>
             </>
           )}
           <span aria-hidden className="h-3 w-px bg-border" />
           <span data-testid="dd-stat-dup" className="text-foreground/90">
-            重复 {stats.duplicates}
+            {t('tools.duplicate_detector.summary_duplicates', { n: stats.duplicates })}
           </span>
         </span>
       </div>
@@ -511,8 +524,10 @@ export function DuplicatesTable({
         className="grid shrink-0 border-b border-input bg-muted/40 text-xs font-medium text-muted-foreground"
         style={{ gridTemplateColumns: '1fr 72px' }}
       >
-        <div className="px-3 py-1.5">值</div>
-        <div className="border-l border-input px-3 py-1.5 text-right tabular-nums">数量</div>
+        <div className="px-3 py-1.5">{t('tools.duplicate_detector.col_value')}</div>
+        <div className="border-l border-input px-3 py-1.5 text-right tabular-nums">
+          {t('tools.duplicate_detector.col_count')}
+        </div>
       </div>
 
       {/* 表格主体(虚拟滚动) */}
@@ -522,7 +537,9 @@ export function DuplicatesTable({
             className="flex h-full items-center justify-center px-3 py-6 text-center text-xs text-muted-foreground"
             data-testid="dd-empty"
           >
-            {statUnique ? '暂无数据' : '暂无重复数据'}
+            {statUnique
+              ? t('tools.duplicate_detector.empty_all')
+              : t('tools.duplicate_detector.empty_duplicates')}
           </div>
         ) : (
           <div
@@ -545,7 +562,9 @@ export function DuplicatesTable({
                 >
                   <div className="truncate px-3 py-1.5" title={r.value} data-testid="dd-row-value">
                     {r.value === '' ? (
-                      <span className="text-muted-foreground">(空行)</span>
+                      <span className="text-muted-foreground">
+                        {t('tools.duplicate_detector.empty_line_value')}
+                      </span>
                     ) : (
                       r.value
                     )}

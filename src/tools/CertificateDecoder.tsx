@@ -9,10 +9,12 @@
 // 避免把 ~100KB 的 polyfill 拖进首屏依赖图
 import 'reflect-metadata';
 import { useEffect, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X509Certificate } from '@peculiar/x509';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { CopyAction } from '@/components/copy-action';
+import { getLocale, t } from '@/i18n';
 import type { ToolProps } from './registry';
 
 function hex(buffer: ArrayBuffer, sep = ':'): string {
@@ -22,7 +24,7 @@ function hex(buffer: ArrayBuffer, sep = ':'): string {
 }
 
 function fmtDate(d: Date): string {
-  return d.toLocaleString('zh-CN', { hour12: false });
+  return d.toLocaleString(getLocale(), { hour12: false });
 }
 
 export async function describeCertificate(input: string): Promise<string> {
@@ -33,36 +35,51 @@ export async function describeCertificate(input: string): Promise<string> {
   const valid = now >= cert.notBefore && now <= cert.notAfter;
 
   const lines: string[] = [
-    '[基本信息]',
-    `主题 (Subject): ${cert.subject}`,
-    `颁发者 (Issuer): ${cert.issuer}`,
-    `序列号: ${cert.serialNumber.toUpperCase()}`,
-    `版本: v3`,
+    t('tools.certificate_decoder.section_basic'),
+    t('tools.certificate_decoder.field_subject', { value: cert.subject }),
+    t('tools.certificate_decoder.field_issuer', { value: cert.issuer }),
+    t('tools.certificate_decoder.field_serial', { value: cert.serialNumber.toUpperCase() }),
+    t('tools.certificate_decoder.field_version'),
     '',
-    '[有效期]',
-    `生效时间: ${fmtDate(cert.notBefore)}`,
-    `过期时间: ${fmtDate(cert.notAfter)}`,
-    `当前状态: ${valid ? '有效' : '已过期或尚未生效'}`,
+    t('tools.certificate_decoder.section_validity'),
+    t('tools.certificate_decoder.field_not_before', { value: fmtDate(cert.notBefore) }),
+    t('tools.certificate_decoder.field_not_after', { value: fmtDate(cert.notAfter) }),
+    t('tools.certificate_decoder.field_status', {
+      value: valid
+        ? t('tools.certificate_decoder.status_valid')
+        : t('tools.certificate_decoder.status_inactive'),
+    }),
     '',
-    '[签名与公钥]',
-    `签名算法: ${cert.signatureAlgorithm.name}(${cert.signatureAlgorithm.hash?.name ?? '-'})`,
-    `公钥算法: ${cert.publicKey.algorithm.name}`,
+    t('tools.certificate_decoder.section_signature'),
+    t('tools.certificate_decoder.field_signature_algorithm', {
+      name: cert.signatureAlgorithm.name,
+      hash: cert.signatureAlgorithm.hash?.name ?? '-',
+    }),
+    t('tools.certificate_decoder.field_public_key_algorithm', {
+      value: cert.publicKey.algorithm.name,
+    }),
     '',
-    '[指纹]',
+    t('tools.certificate_decoder.section_fingerprints'),
     `SHA-1: ${hex(sha1)}`,
     `SHA-256: ${hex(sha256)}`,
   ];
 
   if (cert.extensions.length > 0) {
-    lines.push('', '[扩展]');
+    lines.push('', t('tools.certificate_decoder.section_extensions'));
     for (const ext of cert.extensions) {
-      lines.push(`${ext.type}${ext.critical ? '(关键)' : ''}`);
+      lines.push(
+        t('tools.certificate_decoder.extension_line', {
+          type: ext.type,
+          critical: ext.critical ? t('tools.certificate_decoder.extension_critical') : '',
+        }),
+      );
     }
   }
   return lines.join('\n');
 }
 
 export function CertificateDecoder(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
 
@@ -81,13 +98,13 @@ export function CertificateDecoder(_props: ToolProps): JSX.Element {
         if (!cancelled) setOutput(text);
       },
       () => {
-        if (!cancelled) setOutput('解析失败:请输入有效的 PEM 或 Base64 DER 格式证书');
+        if (!cancelled) setOutput(t('tools.certificate_decoder.error_parse_failed'));
       },
     );
     return () => {
       cancelled = true;
     };
-  }, [input]);
+  }, [input, t]);
 
   return (
     <ResizablePanelGroup
@@ -97,7 +114,7 @@ export function CertificateDecoder(_props: ToolProps): JSX.Element {
     >
       <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
         <CodeEditor
-          title="输入证书(PEM / Base64 DER)"
+          title={t('tools.certificate_decoder.title_input')}
           language="plaintext"
           value={input}
           onChange={setInput}
@@ -110,7 +127,7 @@ export function CertificateDecoder(_props: ToolProps): JSX.Element {
       <ResizableHandle withHandle />
       <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
         <CodeEditor
-          title="解码结果"
+          title={t('tools.certificate_decoder.title_output')}
           language="plaintext"
           value={output}
           readOnly

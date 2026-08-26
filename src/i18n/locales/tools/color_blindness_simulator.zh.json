@@ -1,0 +1,13 @@
+{
+  "tools.color_blindness_simulator.deficiency_protanopia": "红色盲 Protanopia",
+  "tools.color_blindness_simulator.deficiency_deuteranopia": "绿色盲 Deuteranopia",
+  "tools.color_blindness_simulator.deficiency_tritanopia": "蓝色盲 Tritanopia",
+  "tools.color_blindness_simulator.only_image_files": "仅支持图片文件",
+  "tools.color_blindness_simulator.read_failed": "读取失败: {{message}}",
+  "tools.color_blindness_simulator.error_image_load": "图片加载失败",
+  "tools.color_blindness_simulator.source_title": "源图片",
+  "tools.color_blindness_simulator.choose_image": "选择图片",
+  "tools.color_blindness_simulator.original": "原图",
+  "tools.color_blindness_simulator.dropzone_hint": "拖放图片到此处,或点击「选择图片」",
+  "tools.color_blindness_simulator.save": "保存"
+}

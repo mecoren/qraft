@@ -8,7 +8,9 @@
  */
 
 import { useDeferredValue, useMemo, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle2, XCircle } from 'lucide-react';
+import { t as translate } from '@/i18n';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { useState } from 'react';
@@ -23,7 +25,11 @@ function parseXml(text: string): ParseOutcome {
   const doc = new DOMParser().parseFromString(text, 'application/xml');
   const err = doc.querySelector('parsererror');
   if (err) {
-    return { doc: null, error: err.textContent?.trim().split('\n')[0] ?? 'XML 解析错误' };
+    return {
+      doc: null,
+      error:
+        err.textContent?.trim().split('\n')[0] ?? translate('tools.xml_xsd_tester.parse_error'),
+    };
   }
   return { doc, error: null };
 }
@@ -39,28 +45,34 @@ function collectDeclaredElements(xsd: Document): Set<string> {
   return names;
 }
 
+/** i18n 翻译函数签名(组件内传 react-i18next 的 t,保证语言切换后重算) */
+type TranslateFn = typeof translate;
+
 export function validateXmlAgainstXsd(
   xmlText: string,
   xsdText: string,
+  tr: TranslateFn = translate,
 ): {
   ok: boolean;
   messages: string[];
 } {
   const messages: string[] = [];
   const xml = parseXml(xmlText);
-  if (xml.error) return { ok: false, messages: [`XML 格式错误:${xml.error}`] };
+  if (xml.error)
+    return { ok: false, messages: [tr('tools.xml_xsd_tester.xml_invalid', { error: xml.error })] };
   const xsd = parseXml(xsdText);
-  if (xsd.error) return { ok: false, messages: [`XSD 格式错误:${xsd.error}`] };
+  if (xsd.error)
+    return { ok: false, messages: [tr('tools.xml_xsd_tester.xsd_invalid', { error: xsd.error })] };
 
   const declared = collectDeclaredElements(xsd.doc!);
   if (declared.size === 0) {
-    return { ok: false, messages: ['XSD 中未找到任何元素声明(xs:element)'] };
+    return { ok: false, messages: [tr('tools.xml_xsd_tester.no_declarations')] };
   }
 
   const root = xml.doc!.documentElement;
   const rootName = root.localName;
   if (!declared.has(rootName)) {
-    messages.push(`根元素 <${rootName}> 未在 XSD 中声明`);
+    messages.push(tr('tools.xml_xsd_tester.root_not_declared', { name: rootName }));
   }
 
   // 遍历 XML 全部元素,统计未声明的元素名
@@ -73,16 +85,17 @@ export function validateXmlAgainstXsd(
     node = walker.nextNode();
   }
   for (const name of undeclared) {
-    messages.push(`元素 <${name}> 未在 XSD 中声明`);
+    messages.push(tr('tools.xml_xsd_tester.element_not_declared', { name }));
   }
 
   if (messages.length === 0) {
-    return { ok: true, messages: ['XML 与 XSD 声明的元素结构一致'] };
+    return { ok: true, messages: [tr('tools.xml_xsd_tester.structure_ok')] };
   }
   return { ok: false, messages };
 }
 
 export function XmlXsdTester(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [xsd, setXsd] = useState('');
   const [xml, setXml] = useState('');
   // 校验需 DOM 解析 + 全树遍历:defer xml 输入,校验低优先级追赶
@@ -90,8 +103,8 @@ export function XmlXsdTester(_props: ToolProps): JSX.Element {
 
   const verdict = useMemo(() => {
     if (!deferredXml.trim() || !xsd.trim()) return null;
-    return validateXmlAgainstXsd(deferredXml, xsd);
-  }, [deferredXml, xsd]);
+    return validateXmlAgainstXsd(deferredXml, xsd, t);
+  }, [deferredXml, xsd, t]);
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="xml-xsd-tester">
@@ -102,7 +115,7 @@ export function XmlXsdTester(_props: ToolProps): JSX.Element {
         className="flex items-start gap-2 rounded-lg border border-border bg-card px-4 py-3 shadow-card"
       >
         {verdict === null ? (
-          <p className="text-xs text-muted-foreground">输入 XSD 与 XML 后自动校验</p>
+          <p className="text-xs text-muted-foreground">{t('tools.xml_xsd_tester.idle_hint')}</p>
         ) : verdict.ok ? (
           <>
             <CheckCircle2 aria-hidden className="mt-0.5 size-4 shrink-0 text-diff-add-fg" />

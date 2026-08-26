@@ -1,0 +1,20 @@
+{
+  "tools.image_converter.only_image_files": "Only image files are supported",
+  "tools.image_converter.error_decode": "Failed to decode image",
+  "tools.image_converter.error_image_load": "Failed to load image",
+  "tools.image_converter.error_canvas": "Canvas is unavailable",
+  "tools.image_converter.error_convert_unsupported": "Conversion failed: the target format may be unsupported",
+  "tools.image_converter.exported_with_size": "Exported {{format}} ({{size}})",
+  "tools.image_converter.label_target_format": "Target format",
+  "tools.image_converter.label_quality": "Quality",
+  "tools.image_converter.hint_quality": "Compression quality for lossy formats",
+  "tools.image_converter.quality_best": "Best (100%)",
+  "tools.image_converter.quality_high": "High (92%)",
+  "tools.image_converter.quality_medium": "Medium (80%)",
+  "tools.image_converter.quality_low": "Low (60%)",
+  "tools.image_converter.section_image": "Image",
+  "tools.image_converter.choose_image": "Choose Image",
+  "tools.image_converter.clear": "Clear",
+  "tools.image_converter.convert_export": "Convert & Export",
+  "tools.image_converter.dropzone_hint": "Drop an image here, or click \"Choose Image\""
+}

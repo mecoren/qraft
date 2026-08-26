@@ -1,0 +1,18 @@
+{
+  "tools.regex_tester.pattern_label": "Regular expression",
+  "tools.regex_tester.pattern_hint": "Rust regex syntax",
+  "tools.regex_tester.pattern_placeholder": "Enter a regular expression...",
+  "tools.regex_tester.flags_label": "Flags",
+  "tools.regex_tester.flags_hint": "g / i / m / s / x; click \"Test\" in the left pane toolbar to run",
+  "tools.regex_tester.flags_placeholder": "Flags",
+  "tools.regex_tester.text_title": "Test text",
+  "tools.regex_tester.text_placeholder": "Enter test text...",
+  "tools.regex_tester.testing": "Testing",
+  "tools.regex_tester.test": "Test",
+  "tools.regex_tester.result_title": "Match results",
+  "tools.regex_tester.match_count": "{{count}} matches",
+  "tools.regex_tester.groups_label": "Groups:",
+  "tools.regex_tester.group_empty": "<none>",
+  "tools.regex_tester.no_matches": "No matches found.",
+  "tools.regex_tester.empty_state": "Enter a regular expression and test text, then click \"Test\""
+}

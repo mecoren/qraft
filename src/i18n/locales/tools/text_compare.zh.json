@@ -1,0 +1,19 @@
+{
+  "tools.text_compare.config_aria": "配置",
+  "tools.text_compare.inline_mode": "行内模式",
+  "tools.text_compare.inline_mode_on": "开启",
+  "tools.text_compare.inline_mode_off": "关闭",
+  "tools.text_compare.diff_stats": "差异",
+  "tools.text_compare.diff_none": "无差异",
+  "tools.text_compare.side_original": "原始",
+  "tools.text_compare.side_modified": "修改后",
+  "tools.text_compare.fullscreen_aria": "全屏查看差异",
+  "tools.text_compare.loading_editor": "加载编辑器…",
+  "tools.text_compare.dialog_diff_title": "差异",
+  "tools.text_compare.dialog_diff_desc": "原始文本与修改后文本的并排差异",
+  "tools.text_compare.action_paste_aria": "{{label}}：粘贴",
+  "tools.text_compare.action_open_file_aria": "{{label}}：打开文件",
+  "tools.text_compare.action_clear_aria": "{{label}}：清除",
+  "tools.text_compare.toast_clipboard_empty": "剪贴板为空或不可用",
+  "tools.text_compare.toast_read_file_failed": "读取文件失败"
+}

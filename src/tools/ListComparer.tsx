@@ -4,6 +4,7 @@
 
 import { useDeferredValue, useMemo, useState, type JSX } from 'react';
 import { CaseSensitive, ListChecks } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   Select,
   SelectContent,
@@ -20,11 +21,11 @@ import type { ToolProps } from './registry';
 
 type CompareMode = 'intersection' | 'union' | 'onlyA' | 'onlyB';
 
-const MODE_LABEL: Record<CompareMode, string> = {
-  intersection: '交集(A ∩ B)',
-  union: '并集(A ∪ B)',
-  onlyA: '仅在 A 中(A - B)',
-  onlyB: '仅在 B 中(B - A)',
+const MODE_LABEL_KEY: Record<CompareMode, string> = {
+  intersection: 'tools.list_comparer.mode_intersection',
+  union: 'tools.list_comparer.mode_union',
+  onlyA: 'tools.list_comparer.mode_only_a',
+  onlyB: 'tools.list_comparer.mode_only_b',
 };
 
 export function compareLists(
@@ -73,6 +74,7 @@ export function compareLists(
 }
 
 export function ListComparer(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [listA, setListA] = useState('');
   const [listB, setListB] = useState('');
   const [mode, setMode] = useState<CompareMode>('intersection');
@@ -90,33 +92,37 @@ export function ListComparer(_props: ToolProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3" data-testid="list-comparer">
       <ConfigSection title="" searchAnchor="list_comparer:config">
-        <ConfigRow icon={CaseSensitive} label="区分大小写">
+        <ConfigRow icon={CaseSensitive} label={t('tools.list_comparer.case_sensitive')}>
           <Switch
             checked={caseSensitive}
             onCheckedChange={setCaseSensitive}
-            aria-label="区分大小写"
+            aria-label={t('tools.list_comparer.case_sensitive')}
             data-testid="lc-case"
           />
         </ConfigRow>
-        <ConfigRow icon={ListChecks} label="比较模式">
+        <ConfigRow icon={ListChecks} label={t('tools.list_comparer.compare_mode')}>
           <Select value={mode} onValueChange={(v) => setMode(v as CompareMode)}>
             <SelectTrigger data-testid="lc-mode" className="w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(MODE_LABEL) as CompareMode[]).map((m) => (
+              {(Object.keys(MODE_LABEL_KEY) as CompareMode[]).map((m) => (
                 <SelectItem key={m} value={m}>
-                  {MODE_LABEL[m]}
+                  {t(MODE_LABEL_KEY[m])}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </ConfigRow>
-        <ConfigRow icon={ListChecks} label="修剪空白" hint="忽略行首尾空白与空行">
+        <ConfigRow
+          icon={ListChecks}
+          label={t('tools.list_comparer.trim_whitespace')}
+          hint={t('tools.list_comparer.trim_whitespace_hint')}
+        >
           <Switch
             checked={trimItems}
             onCheckedChange={setTrimItems}
-            aria-label="修剪空白"
+            aria-label={t('tools.list_comparer.trim_whitespace')}
             data-testid="lc-trim"
           />
         </ConfigRow>
@@ -125,7 +131,7 @@ export function ListComparer(_props: ToolProps): JSX.Element {
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         <ResizablePanel defaultSize={34} minSize={15} className="min-h-0 min-w-0">
           <CodeEditor
-            title="列表 A"
+            title={t('tools.list_comparer.list_a')}
             language="plaintext"
             value={listA}
             onChange={setListA}
@@ -137,7 +143,7 @@ export function ListComparer(_props: ToolProps): JSX.Element {
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={33} minSize={15} className="min-h-0 min-w-0">
           <CodeEditor
-            title="列表 B"
+            title={t('tools.list_comparer.list_b')}
             language="plaintext"
             value={listB}
             onChange={setListB}
@@ -149,7 +155,7 @@ export function ListComparer(_props: ToolProps): JSX.Element {
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={33} minSize={15} className="min-h-0 min-w-0">
           <CodeEditor
-            title={`结果 · ${MODE_LABEL[mode]}`}
+            title={t('tools.list_comparer.result_title', { mode: t(MODE_LABEL_KEY[mode]) })}
             language="plaintext"
             value={result}
             readOnly

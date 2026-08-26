@@ -1,0 +1,10 @@
+{
+  "tools.xml_xsd_tester.parse_error": "XML 解析错误",
+  "tools.xml_xsd_tester.xml_invalid": "XML 格式错误:{{error}}",
+  "tools.xml_xsd_tester.xsd_invalid": "XSD 格式错误:{{error}}",
+  "tools.xml_xsd_tester.no_declarations": "XSD 中未找到任何元素声明(xs:element)",
+  "tools.xml_xsd_tester.root_not_declared": "根元素 <{{name}}> 未在 XSD 中声明",
+  "tools.xml_xsd_tester.element_not_declared": "元素 <{{name}}> 未在 XSD 中声明",
+  "tools.xml_xsd_tester.structure_ok": "XML 与 XSD 声明的元素结构一致",
+  "tools.xml_xsd_tester.idle_hint": "输入 XSD 与 XML 后自动校验"
+}

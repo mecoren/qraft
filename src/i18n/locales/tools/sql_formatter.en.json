@@ -1,0 +1,22 @@
+{
+  "tools.sql_formatter.language": "Language",
+  "tools.sql_formatter.language_hint": "Choose the SQL dialect",
+  "tools.sql_formatter.dialect_standard_sql": "Standard SQL",
+  "tools.sql_formatter.dialect_mysql": "MySQL",
+  "tools.sql_formatter.dialect_postgresql": "PostgreSQL",
+  "tools.sql_formatter.dialect_sqlite": "SQLite",
+  "tools.sql_formatter.dialect_mariadb": "MariaDB",
+  "tools.sql_formatter.dialect_transactsql": "SQL Server (T-SQL)",
+  "tools.sql_formatter.dialect_plsql": "Oracle PL/SQL",
+  "tools.sql_formatter.dialect_bigquery": "BigQuery",
+  "tools.sql_formatter.indent": "Indent",
+  "tools.sql_formatter.indent_2": "2 spaces",
+  "tools.sql_formatter.indent_4": "4 spaces",
+  "tools.sql_formatter.keyword_case": "Keyword case",
+  "tools.sql_formatter.case_upper": "Uppercase",
+  "tools.sql_formatter.case_lower": "Lowercase",
+  "tools.sql_formatter.case_preserve": "Preserve as written",
+  "tools.sql_formatter.input_title": "Input",
+  "tools.sql_formatter.output_title": "Output",
+  "tools.sql_formatter.format_failed": "Format failed: {{message}}"
+}

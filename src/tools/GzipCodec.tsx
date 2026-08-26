@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useMemo, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeftRight, Gauge } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { CodeEditor } from '@/components/ui/code-editor';
@@ -34,6 +35,7 @@ export async function gunzipToText(bytes: Uint8Array): Promise<string> {
 }
 
 export function GzipCodec(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [compressMode, setCompressMode] = useState(true);
   const [output, setOutput] = useState('');
@@ -71,36 +73,44 @@ export function GzipCodec(_props: ToolProps): JSX.Element {
         setRatio(null);
         setError(
           compressMode
-            ? `压缩失败: ${e instanceof Error ? e.message : String(e)}`
-            : '解压失败:输入不是有效的 gzip base64 数据',
+            ? t('tools.gzip_codec.error_compress', {
+                message: e instanceof Error ? e.message : String(e),
+              })
+            : t('tools.gzip_codec.error_decompress_invalid'),
         );
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [input, compressMode]);
+  }, [input, compressMode, t]);
 
   const ratioText = useMemo(() => {
     if (!ratio || ratio.before === 0) return null;
     const pct = ((1 - ratio.after / ratio.before) * 100).toFixed(1);
-    return `${formatBytes(ratio.before)} → ${formatBytes(ratio.after)}(节省 ${pct}%)`;
-  }, [ratio]);
+    return t('tools.gzip_codec.ratio_text', {
+      before: formatBytes(ratio.before),
+      after: formatBytes(ratio.after),
+      pct,
+    });
+  }, [ratio, t]);
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="gzip-codec">
       <ConfigSection title="" searchAnchor="gzip_codec:config">
-        <ConfigRow icon={ArrowLeftRight} label="GZip 转换" hint="选择压缩或解压缩">
-          <span className="text-xs text-muted-foreground">{compressMode ? '压缩' : '解压缩'}</span>
+        <ConfigRow icon={ArrowLeftRight} label={t('tools.gzip_codec.label_convert')} hint={t('tools.gzip_codec.hint_mode')}>
+          <span className="text-xs text-muted-foreground">
+            {compressMode ? t('tools.gzip_codec.mode_compress') : t('tools.gzip_codec.mode_decompress')}
+          </span>
           <Switch
             data-testid="gzip-mode-switch"
-            aria-label="压缩/解压缩切换"
+            aria-label={t('tools.gzip_codec.aria_mode_toggle')}
             checked={compressMode}
             onCheckedChange={setCompressMode}
           />
         </ConfigRow>
         {ratioText ? (
-          <ConfigRow icon={Gauge} label="压缩率">
+          <ConfigRow icon={Gauge} label={t('tools.gzip_codec.label_ratio')}>
             <span data-testid="gzip-ratio" className="text-xs text-muted-foreground">
               {ratioText}
             </span>
@@ -111,11 +121,15 @@ export function GzipCodec(_props: ToolProps): JSX.Element {
       <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
           <CodeEditor
-            title="输入"
+            title={t('tools.gzip_codec.title_input')}
             language="plaintext"
             value={input}
             onChange={setInput}
-            placeholder={compressMode ? '输入要压缩的文本' : '输入 gzip base64 数据'}
+            placeholder={
+              compressMode
+                ? t('tools.gzip_codec.placeholder_compress_input')
+                : t('tools.gzip_codec.placeholder_decompress_input')
+            }
             data-testid="gzip-input"
             className="h-full"
             searchAnchor="gzip_codec:input"
@@ -124,7 +138,7 @@ export function GzipCodec(_props: ToolProps): JSX.Element {
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
           <CodeEditor
-            title="输出"
+            title={t('tools.gzip_codec.title_output')}
             language="plaintext"
             value={error ?? output}
             readOnly

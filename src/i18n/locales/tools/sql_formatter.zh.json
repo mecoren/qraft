@@ -1,0 +1,22 @@
+{
+  "tools.sql_formatter.language": "语言",
+  "tools.sql_formatter.language_hint": "选择 SQL 方言",
+  "tools.sql_formatter.dialect_standard_sql": "标准 SQL",
+  "tools.sql_formatter.dialect_mysql": "MySQL",
+  "tools.sql_formatter.dialect_postgresql": "PostgreSQL",
+  "tools.sql_formatter.dialect_sqlite": "SQLite",
+  "tools.sql_formatter.dialect_mariadb": "MariaDB",
+  "tools.sql_formatter.dialect_transactsql": "SQL Server (T-SQL)",
+  "tools.sql_formatter.dialect_plsql": "Oracle PL/SQL",
+  "tools.sql_formatter.dialect_bigquery": "BigQuery",
+  "tools.sql_formatter.indent": "缩进",
+  "tools.sql_formatter.indent_2": "2 个空格",
+  "tools.sql_formatter.indent_4": "4 个空格",
+  "tools.sql_formatter.keyword_case": "关键字大小写",
+  "tools.sql_formatter.case_upper": "大写",
+  "tools.sql_formatter.case_lower": "小写",
+  "tools.sql_formatter.case_preserve": "保持原样",
+  "tools.sql_formatter.input_title": "输入",
+  "tools.sql_formatter.output_title": "输出",
+  "tools.sql_formatter.format_failed": "格式化失败: {{message}}"
+}

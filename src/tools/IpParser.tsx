@@ -10,10 +10,12 @@
 
 import { useCallback, useDeferredValue, useMemo, useState, type JSX, type ReactNode } from 'react';
 import { Globe2, Loader2, Network } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
+import { t } from '@/i18n';
 import { analyzeIp, IpParseError, type IpAnalysis } from './ip-parser';
 import { extractLookupIp, lookupIpGeo, type IpGeoInfo } from './ip-geo';
 import type { ToolProps } from './registry';
@@ -28,41 +30,61 @@ interface InfoItem {
 function toInfoItems(a: IpAnalysis): InfoItem[] {
   if (a.version === 4) {
     const items: InfoItem[] = [
-      { label: 'IP 地址', value: a.ip, testId: 'ip-item-address' },
-      { label: '子网掩码', value: a.netmask, testId: 'ip-item-netmask' },
-      { label: '通配符掩码', value: a.wildcard, testId: 'ip-item-wildcard' },
-      { label: 'CIDR 记法', value: a.cidr, testId: 'ip-item-cidr' },
-      { label: '前缀长度', value: `/${a.prefix}`, testId: 'ip-item-prefix' },
-      { label: '网络地址', value: a.network, testId: 'ip-item-network' },
+      { label: t('tools.ip_parser.field_ip'), value: a.ip, testId: 'ip-item-address' },
+      { label: t('tools.ip_parser.field_netmask'), value: a.netmask, testId: 'ip-item-netmask' },
+      { label: t('tools.ip_parser.field_wildcard'), value: a.wildcard, testId: 'ip-item-wildcard' },
+      { label: t('tools.ip_parser.field_cidr'), value: a.cidr, testId: 'ip-item-cidr' },
+      { label: t('tools.ip_parser.field_prefix_len'), value: `/${a.prefix}`, testId: 'ip-item-prefix' },
+      { label: t('tools.ip_parser.field_network'), value: a.network, testId: 'ip-item-network' },
     ];
     if (a.broadcast !== null) {
-      items.push({ label: '广播地址', value: a.broadcast, testId: 'ip-item-broadcast' });
+      items.push({
+        label: t('tools.ip_parser.field_broadcast'),
+        value: a.broadcast,
+        testId: 'ip-item-broadcast',
+      });
     }
     items.push(
       {
-        label: '可用主机范围',
+        label: t('tools.ip_parser.field_host_range'),
         value: a.firstHost === a.lastHost ? a.firstHost : `${a.firstHost} - ${a.lastHost}`,
         testId: 'ip-item-hosts',
       },
-      { label: '可用主机数', value: a.usableHosts.toString(), testId: 'ip-item-usable' },
-      { label: '总地址数', value: a.totalAddresses.toString(), testId: 'ip-item-total' },
-      { label: '地址类型', value: a.scope, testId: 'ip-item-scope' },
-      { label: '传统分类', value: a.ipClass, testId: 'ip-item-class' },
-      { label: '整数表示', value: a.intValue.toString(), testId: 'ip-item-int' },
-      { label: '十六进制', value: a.hex, testId: 'ip-item-hex' },
-      { label: '二进制', value: a.binary, testId: 'ip-item-binary' },
+      {
+        label: t('tools.ip_parser.field_usable_hosts'),
+        value: a.usableHosts.toString(),
+        testId: 'ip-item-usable',
+      },
+      {
+        label: t('tools.ip_parser.field_total_addresses'),
+        value: a.totalAddresses.toString(),
+        testId: 'ip-item-total',
+      },
+      { label: t('tools.ip_parser.field_scope'), value: a.scope, testId: 'ip-item-scope' },
+      { label: t('tools.ip_parser.field_class'), value: a.ipClass, testId: 'ip-item-class' },
+      { label: t('tools.ip_parser.field_int'), value: a.intValue.toString(), testId: 'ip-item-int' },
+      { label: t('tools.ip_parser.field_hex'), value: a.hex, testId: 'ip-item-hex' },
+      { label: t('tools.ip_parser.field_binary'), value: a.binary, testId: 'ip-item-binary' },
     );
     return items;
   }
   return [
-    { label: 'IP 地址', value: a.ip, testId: 'ip-item-address' },
-    { label: '完全展开形式', value: a.full, testId: 'ip-item-full' },
-    { label: 'CIDR 记法', value: a.cidr, testId: 'ip-item-cidr' },
-    { label: '前缀长度', value: `/${a.prefix}`, testId: 'ip-item-prefix' },
-    { label: '网络地址', value: `${a.network}/${a.prefix}`, testId: 'ip-item-network' },
-    { label: '子网末地址', value: a.lastAddress, testId: 'ip-item-last' },
-    { label: '总地址数', value: a.totalAddresses.toString(), testId: 'ip-item-total' },
-    { label: '地址类型', value: a.scope, testId: 'ip-item-scope' },
+    { label: t('tools.ip_parser.field_ip'), value: a.ip, testId: 'ip-item-address' },
+    { label: t('tools.ip_parser.field_full_form'), value: a.full, testId: 'ip-item-full' },
+    { label: t('tools.ip_parser.field_cidr'), value: a.cidr, testId: 'ip-item-cidr' },
+    { label: t('tools.ip_parser.field_prefix_len'), value: `/${a.prefix}`, testId: 'ip-item-prefix' },
+    {
+      label: t('tools.ip_parser.field_network'),
+      value: `${a.network}/${a.prefix}`,
+      testId: 'ip-item-network',
+    },
+    { label: t('tools.ip_parser.field_last_address'), value: a.lastAddress, testId: 'ip-item-last' },
+    {
+      label: t('tools.ip_parser.field_total_addresses'),
+      value: a.totalAddresses.toString(),
+      testId: 'ip-item-total',
+    },
+    { label: t('tools.ip_parser.field_scope'), value: a.scope, testId: 'ip-item-scope' },
   ];
 }
 
@@ -75,10 +97,9 @@ interface GeoItem {
   copyText: string;
 }
 
-const UNAVAILABLE = '不可用';
-
 /** 将归属地结果展开为卡片条目(字段与布局对齐参考截图) */
 function toGeoItems(info: IpGeoInfo): GeoItem[] {
+  const unavailable = t('tools.ip_parser.unavailable');
   return [
     {
       label: 'Country',
@@ -97,28 +118,28 @@ function toGeoItems(info: IpGeoInfo): GeoItem[] {
               {info.countryCode.toUpperCase()}
             </span>
           ) : null}
-          {info.country ?? UNAVAILABLE}
+          {info.country ?? unavailable}
         </span>
       ),
-      copyText: info.country ?? UNAVAILABLE,
+      copyText: info.country ?? unavailable,
     },
     {
       label: 'Region',
       testId: 'ip-geo-card-region',
-      value: info.region ?? UNAVAILABLE,
-      copyText: info.region ?? UNAVAILABLE,
+      value: info.region ?? unavailable,
+      copyText: info.region ?? unavailable,
     },
     {
       label: 'City',
       testId: 'ip-geo-card-city',
-      value: info.city ?? UNAVAILABLE,
-      copyText: info.city ?? UNAVAILABLE,
+      value: info.city ?? unavailable,
+      copyText: info.city ?? unavailable,
     },
     {
       label: 'Org&ISP',
       testId: 'ip-geo-card-org',
-      value: info.orgIsp ?? UNAVAILABLE,
-      copyText: info.orgIsp ?? UNAVAILABLE,
+      value: info.orgIsp ?? unavailable,
+      copyText: info.orgIsp ?? unavailable,
     },
     {
       label: 'Network Type',
@@ -129,20 +150,20 @@ function toGeoItems(info: IpGeoInfo): GeoItem[] {
     {
       label: 'ASN',
       testId: 'ip-geo-card-asn',
-      value: info.asnNumber !== null ? info.asnNumber.toString() : UNAVAILABLE,
-      copyText: info.asnNumber !== null ? info.asnNumber.toString() : UNAVAILABLE,
+      value: info.asnNumber !== null ? info.asnNumber.toString() : unavailable,
+      copyText: info.asnNumber !== null ? info.asnNumber.toString() : unavailable,
     },
     {
       label: 'Time Zone',
       testId: 'ip-geo-card-timezone',
-      value: info.timezoneDisplay ?? UNAVAILABLE,
-      copyText: info.timezoneDisplay ?? UNAVAILABLE,
+      value: info.timezoneDisplay ?? unavailable,
+      copyText: info.timezoneDisplay ?? unavailable,
     },
     {
       label: 'Postal Code',
       testId: 'ip-geo-card-postal',
-      value: info.postalCode ?? UNAVAILABLE,
-      copyText: info.postalCode ?? UNAVAILABLE,
+      value: info.postalCode ?? unavailable,
+      copyText: info.postalCode ?? unavailable,
     },
   ];
 }
@@ -154,6 +175,7 @@ type GeoState =
   | { status: 'error'; message: string };
 
 export function IpParser(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [geo, setGeo] = useState<GeoState>({ status: 'idle' });
   // analyzeIp 对超长/畸形输入逐字符回溯:defer 输入,解析低优先级追赶
@@ -192,11 +214,13 @@ export function IpParser(_props: ToolProps): JSX.Element {
       {/* 查询摘要头部:大号 IP + 类型徽章 */}
       {parsed.result ? (
         <section
-          aria-label="查询摘要"
+          aria-label={t('tools.ip_parser.summary_aria')}
           data-search-anchor="ip_parser:summary"
           className="rounded-lg border border-border bg-card px-4 py-3 shadow-card"
         >
-          <p className="mb-1 text-xs font-medium tracking-wide text-primary uppercase">解析结果</p>
+          <p className="mb-1 text-xs font-medium tracking-wide text-primary uppercase">
+            {t('tools.ip_parser.summary_heading')}
+          </p>
           <div className="flex flex-wrap items-center gap-2">
             <h2 data-testid="ip-summary-address" className="break-all font-mono text-2xl font-bold">
               {parsed.result.ip}
@@ -225,14 +249,14 @@ export function IpParser(_props: ToolProps): JSX.Element {
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="例如 192.168.1.130/26 或 2001:db8::1"
-              aria-label="IP 地址或 CIDR"
+              placeholder={t('tools.ip_parser.input_placeholder')}
+              aria-label={t('tools.ip_parser.input_aria')}
               data-testid="ip-input"
               spellCheck={false}
               className="h-8 border-0 p-0 font-mono text-body-sm shadow-none focus-visible:ring-0"
             />
             <p className="mt-0.5 text-xs text-muted-foreground">
-              支持 IPv4 / IPv6 地址与 CIDR 前缀长度,留空前缀时按单主机(/32 或 /128)处理
+              {t('tools.ip_parser.input_hint')}
             </p>
           </div>
           <CopyAction text={input.trim()} testId="ip-copy-input" />
@@ -251,18 +275,18 @@ export function IpParser(_props: ToolProps): JSX.Element {
 
       {!parsed.result && !parsed.error ? (
         <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
-          输入 IP 地址后自动解析网络信息
+          {t('tools.ip_parser.empty_state')}
         </p>
       ) : null}
 
       {/* 归属地与运营商(联网查询,手动触发):布局对齐 iplocation.net Lookup Summary */}
       <section
-        aria-label="归属地与运营商"
+        aria-label={t('tools.ip_parser.geo_section_aria')}
         data-search-anchor="ip_parser:geo"
         className="flex flex-col gap-2"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-body-sm font-semibold">归属地与运营商</h2>
+          <h2 className="text-body-sm font-semibold">{t('tools.ip_parser.geo_heading')}</h2>
           <Button
             type="button"
             variant="outline"
@@ -276,12 +300,12 @@ export function IpParser(_props: ToolProps): JSX.Element {
             ) : (
               <Globe2 aria-hidden className="size-3.5" />
             )}
-            {geo.status === 'loading' ? '查询中…' : '查询归属地'}
+            {geo.status === 'loading'
+              ? t('tools.ip_parser.geo_querying')
+              : t('tools.ip_parser.geo_query_btn')}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          查询需联网:仅将待查 IP 发送至 ip-api.com 在线服务;输入为空时查询本机公网 IP
-        </p>
+        <p className="text-xs text-muted-foreground">{t('tools.ip_parser.geo_hint')}</p>
 
         {geo.status === 'error' ? (
           <p
@@ -319,7 +343,7 @@ export function IpParser(_props: ToolProps): JSX.Element {
       {/* 信息卡网格 */}
       {infoItems.length > 0 ? (
         <section
-          aria-label="网络信息"
+          aria-label={t('tools.ip_parser.info_section_aria')}
           data-search-anchor="ip_parser:result"
           className="flex min-h-0 flex-1 flex-col"
         >
@@ -344,7 +368,7 @@ export function IpParser(_props: ToolProps): JSX.Element {
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
             <Network aria-hidden className="size-3.5" />
-            子网计算均在本地离线完成;归属地数据仅在点击「查询归属地」时联网获取
+            {t('tools.ip_parser.offline_note')}
           </div>
         </section>
       ) : null}

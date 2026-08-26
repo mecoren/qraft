@@ -7,6 +7,7 @@
  */
 
 import { useMemo, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CalendarClock, Clock, ListOrdered } from 'lucide-react';
 import cronstrue from 'cronstrue/i18n';
 import { CronExpressionParser } from 'cron-parser';
@@ -28,6 +29,7 @@ function fmt(d: Date): string {
 type ParsedResult = null | { error: string } | { description: string; next: string[] };
 
 export function CronParser(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [expr, setExpr] = useState('0 0 * * *');
   const [withSeconds, setWithSeconds] = useState(false);
   const [count, setCount] = useState(5);
@@ -37,17 +39,19 @@ export function CronParser(_props: ToolProps): JSX.Element {
     if (!text) return null;
     const parts = text.split(/\s+/);
     if (withSeconds && parts.length !== 6) {
-      return { error: '包含秒的 Cron 表达式应为 6 段' };
+      return { error: t('tools.cron_parser.error_seconds_required') };
     }
     if (!withSeconds && parts.length !== 5) {
-      return { error: '标准 Cron 表达式应为 5 段(分 时 日 月 周)' };
+      return { error: t('tools.cron_parser.error_five_parts_required') };
     }
     let description: string;
     try {
       description = cronstrue.toString(text, { locale: 'zh_CN', use24HourTimeFormat: true });
     } catch (e) {
       return {
-        error: `表达式无效: ${typeof e === 'string' ? e : e instanceof Error ? e.message : String(e)}`,
+        error: t('tools.cron_parser.error_invalid_expression', {
+          message: typeof e === 'string' ? e : e instanceof Error ? e.message : String(e),
+        }),
       };
     }
     try {
@@ -59,44 +63,57 @@ export function CronParser(_props: ToolProps): JSX.Element {
       }
       return { description, next };
     } catch (e) {
-      return { error: `计算执行时间失败: ${e instanceof Error ? e.message : String(e)}` };
+      return {
+        error: t('tools.cron_parser.error_compute_failed', {
+          message: e instanceof Error ? e.message : String(e),
+        }),
+      };
     }
-  }, [expr, withSeconds, count]);
+  }, [expr, withSeconds, count, t]);
 
   const nextText = parsed && 'next' in parsed ? parsed.next.join('\n') : '';
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="cron-parser">
       <ConfigSection title="" searchAnchor="cron_parser:config">
-        <ConfigRow icon={Clock} label="包含秒" hint="6 段模式(秒 分 时 日 月 周)">
+        <ConfigRow
+          icon={Clock}
+          label={t('tools.cron_parser.include_seconds')}
+          hint={t('tools.cron_parser.include_seconds_hint')}
+        >
           <Switch
             checked={withSeconds}
             onCheckedChange={setWithSeconds}
-            aria-label="包含秒"
+            aria-label={t('tools.cron_parser.include_seconds')}
             data-testid="cron-seconds"
           />
         </ConfigRow>
-        <ConfigRow icon={ListOrdered} label="计划任务数量">
+        <ConfigRow icon={ListOrdered} label={t('tools.cron_parser.task_count')}>
           <Input
             type="number"
             min={1}
             max={100}
             value={count}
             onChange={(e) => setCount(Number(e.target.value) || 1)}
-            aria-label="计划任务数量"
+            aria-label={t('tools.cron_parser.task_count')}
             data-testid="cron-count"
             className="h-7 w-20 text-right text-body-sm"
           />
         </ConfigRow>
       </ConfigSection>
 
-      <section aria-label="Cron 表达式" data-search-anchor="cron_parser:expression">
-        <h2 className="mb-1.5 text-body-sm font-semibold">Cron 表达式</h2>
+      <section
+        aria-label={t('tools.cron_parser.expression_label')}
+        data-search-anchor="cron_parser:expression"
+      >
+        <h2 className="mb-1.5 text-body-sm font-semibold">
+          {t('tools.cron_parser.expression_label')}
+        </h2>
         <Input
           value={expr}
           onChange={(e) => setExpr(e.target.value)}
           placeholder={withSeconds ? '0 0 0 * * *' : '0 0 * * *'}
-          aria-label="Cron 表达式"
+          aria-label={t('tools.cron_parser.expression_label')}
           data-testid="cron-expr"
           className="h-9 font-mono text-body-sm"
         />
@@ -106,7 +123,7 @@ export function CronParser(_props: ToolProps): JSX.Element {
       <div className="flex items-start gap-2 rounded-lg border border-border bg-card px-4 py-3 shadow-card">
         <CalendarClock aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
         {parsed === null ? (
-          <p className="text-xs text-muted-foreground">输入表达式后自动解析</p>
+          <p className="text-xs text-muted-foreground">{t('tools.cron_parser.empty_hint')}</p>
         ) : 'error' in parsed ? (
           <p data-testid="cron-error" className="text-body-sm text-destructive">
             {parsed.error}
@@ -120,12 +137,12 @@ export function CronParser(_props: ToolProps): JSX.Element {
 
       {/* 下次执行时间 */}
       <section
-        aria-label="计划的日期"
+        aria-label={t('tools.cron_parser.scheduled_dates_aria')}
         className="flex min-h-0 flex-1 flex-col"
         data-search-anchor="cron_parser:result"
       >
         <div className="mb-1.5 flex items-center justify-between">
-          <h2 className="text-body-sm font-semibold">接下来的计划日期</h2>
+          <h2 className="text-body-sm font-semibold">{t('tools.cron_parser.upcoming_dates')}</h2>
           <CopyAction text={nextText} testId="cron-copy" />
         </div>
         <ScrollArea className="min-h-0 flex-1 rounded-lg border border-border bg-card shadow-card">

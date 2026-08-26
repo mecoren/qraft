@@ -3,6 +3,7 @@
  */
 
 import { useCallback, useRef, useState, type DragEvent, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Download, FileImage, FolderOpen, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -42,44 +43,48 @@ interface LoadedImage {
 }
 
 export function ImageConverter(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [image, setImage] = useState<LoadedImage | null>(null);
   const [format, setFormat] = useState<TargetFormat>('image/png');
   const [quality, setQuality] = useState('0.92');
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const loadFile = useCallback(async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast.error('仅支持图片文件');
-      return;
-    }
-    try {
-      const dataUrl = await readFileAsDataUrl(file);
-      const img = new Image();
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error('图片解码失败'));
-        img.src = dataUrl;
-      });
-      setImage({
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        dataUrl,
-        width: img.naturalWidth,
-        height: img.naturalHeight,
-      });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
-    }
-  }, []);
+  const loadFile = useCallback(
+    async (file: File) => {
+      if (!file.type.startsWith('image/')) {
+        toast.error(t('tools.image_converter.only_image_files'));
+        return;
+      }
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        const img = new Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error(t('tools.image_converter.error_decode')));
+          img.src = dataUrl;
+        });
+        setImage({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          dataUrl,
+          width: img.naturalWidth,
+          height: img.naturalHeight,
+        });
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [t],
+  );
 
   const convert = useCallback(async () => {
     if (!image) return;
     const img = new Image();
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
-      img.onerror = () => reject(new Error('图片加载失败'));
+      img.onerror = () => reject(new Error(t('tools.image_converter.error_image_load')));
       img.src = image.dataUrl;
     });
     const canvas = document.createElement('canvas');
@@ -87,7 +92,7 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
     canvas.height = img.naturalHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) {
-      toast.error('Canvas 不可用');
+      toast.error(t('tools.image_converter.error_canvas'));
       return;
     }
     // JPEG 无透明通道:先铺白底
@@ -100,13 +105,18 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
       canvas.toBlob(resolve, format, Number(quality)),
     );
     if (!blob) {
-      toast.error('转换失败:目标格式可能不受支持');
+      toast.error(t('tools.image_converter.error_convert_unsupported'));
       return;
     }
     const base = image.name.replace(/\.[^.]+$/, '') || 'image';
     downloadBlob(`${base}.${EXT[format]}`, blob);
-    toast.success(`已导出 ${FORMAT_LABEL[format]}(${formatBytes(blob.size)})`);
-  }, [image, format, quality]);
+    toast.success(
+      t('tools.image_converter.exported_with_size', {
+        format: FORMAT_LABEL[format],
+        size: formatBytes(blob.size),
+      }),
+    );
+  }, [image, format, quality, t]);
 
   const onDrop = useCallback(
     (e: DragEvent) => {
@@ -121,7 +131,7 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3" data-testid="image-converter">
       <ConfigSection title="" searchAnchor="image_converter:config">
-        <ConfigRow icon={FileImage} label="目标格式">
+        <ConfigRow icon={FileImage} label={t('tools.image_converter.label_target_format')}>
           <Select value={format} onValueChange={(v) => setFormat(v as TargetFormat)}>
             <SelectTrigger data-testid="ic-format" className="w-28">
               <SelectValue />
@@ -136,16 +146,20 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
           </Select>
         </ConfigRow>
         {format !== 'image/png' ? (
-          <ConfigRow icon={FileImage} label="质量" hint="有损格式的压缩质量">
+          <ConfigRow
+            icon={FileImage}
+            label={t('tools.image_converter.label_quality')}
+            hint={t('tools.image_converter.hint_quality')}
+          >
             <Select value={quality} onValueChange={setQuality}>
               <SelectTrigger data-testid="ic-quality" className="w-28">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">最高(100%)</SelectItem>
-                <SelectItem value="0.92">高(92%)</SelectItem>
-                <SelectItem value="0.8">中(80%)</SelectItem>
-                <SelectItem value="0.6">低(60%)</SelectItem>
+                <SelectItem value="1">{t('tools.image_converter.quality_best')}</SelectItem>
+                <SelectItem value="0.92">{t('tools.image_converter.quality_high')}</SelectItem>
+                <SelectItem value="0.8">{t('tools.image_converter.quality_medium')}</SelectItem>
+                <SelectItem value="0.6">{t('tools.image_converter.quality_low')}</SelectItem>
               </SelectContent>
             </Select>
           </ConfigRow>
@@ -154,7 +168,7 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
 
       {/* 图片区 */}
       <div className="flex items-center justify-between" data-search-anchor="image_converter:image">
-        <h2 className="text-body-sm font-semibold">图片</h2>
+        <h2 className="text-body-sm font-semibold">{t('tools.image_converter.section_image')}</h2>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -162,7 +176,7 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
             data-testid="ic-open"
             onClick={() => fileRef.current?.click()}
           >
-            <FolderOpen aria-hidden className="size-3.5" /> 选择图片
+            <FolderOpen aria-hidden className="size-3.5" /> {t('tools.image_converter.choose_image')}
           </Button>
           <Button
             variant="ghost"
@@ -171,7 +185,7 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
             disabled={!image}
             onClick={() => setImage(null)}
           >
-            <X aria-hidden className="size-3.5" /> 清除
+            <X aria-hidden className="size-3.5" /> {t('tools.image_converter.clear')}
           </Button>
           <Button
             size="sm"
@@ -179,7 +193,7 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
             disabled={!image}
             onClick={() => void convert()}
           >
-            <Download aria-hidden className="size-3.5" /> 转换并导出
+            <Download aria-hidden className="size-3.5" /> {t('tools.image_converter.convert_export')}
           </Button>
         </div>
       </div>
@@ -224,7 +238,7 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
           ) : (
             <div className="flex flex-col items-center gap-2 text-muted-foreground">
               <FileImage aria-hidden className="size-8" />
-              <p className="text-xs">拖放图片到此处,或点击「选择图片」</p>
+              <p className="text-xs">{t('tools.image_converter.dropzone_hint')}</p>
             </div>
           )}
         </div>

@@ -1,0 +1,13 @@
+{
+  "tools.url_codec.label_input": "输入",
+  "tools.url_codec.placeholder_input": "输入文本...",
+  "tools.url_codec.label_action": "操作",
+  "tools.url_codec.action_encode": "编码",
+  "tools.url_codec.action_decode": "解码",
+  "tools.url_codec.component_encode_aria": "组件编码",
+  "tools.url_codec.component_encode_label": "组件编码",
+  "tools.url_codec.execute": "执行",
+  "tools.url_codec.executing": "执行中...",
+  "tools.url_codec.label_output": "输出",
+  "tools.url_codec.bytes_unit": "{{input}} → {{output}} 字节 · {{ms}}ms"
+}

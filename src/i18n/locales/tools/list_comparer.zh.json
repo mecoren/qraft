@@ -1,0 +1,13 @@
+{
+  "tools.list_comparer.mode_intersection": "交集(A ∩ B)",
+  "tools.list_comparer.mode_union": "并集(A ∪ B)",
+  "tools.list_comparer.mode_only_a": "仅在 A 中(A - B)",
+  "tools.list_comparer.mode_only_b": "仅在 B 中(B - A)",
+  "tools.list_comparer.case_sensitive": "区分大小写",
+  "tools.list_comparer.compare_mode": "比较模式",
+  "tools.list_comparer.trim_whitespace": "修剪空白",
+  "tools.list_comparer.trim_whitespace_hint": "忽略行首尾空白与空行",
+  "tools.list_comparer.list_a": "列表 A",
+  "tools.list_comparer.list_b": "列表 B",
+  "tools.list_comparer.result_title": "结果 · {{mode}}"
+}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { Label } from '@/components/ui/label';
@@ -21,6 +22,7 @@ interface UrlCodecParams {
 }
 
 export function UrlCodec({ toolId }: ToolProps) {
+  const { t } = useTranslation();
   const [text, setText] = useState('');
   const [action, setAction] = useState<'encode' | 'decode'>('encode');
   const [component, setComponent] = useState(false);
@@ -72,35 +74,38 @@ export function UrlCodec({ toolId }: ToolProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="encode">编码</SelectItem>
-                <SelectItem value="decode">解码</SelectItem>
+                <SelectItem value="encode">{t('tools.url_codec.action_encode')}</SelectItem>
+                <SelectItem value="decode">{t('tools.url_codec.action_decode')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="flex items-center gap-2">
             <Switch
               id="url-component"
-              aria-label="组件编码"
+              aria-label={t('tools.url_codec.component_encode_aria')}
               checked={component}
               onCheckedChange={setComponent}
             />
             <Label htmlFor="url-component" className="text-xs">
-              组件编码
+              {t('tools.url_codec.component_encode_label')}
             </Label>
           </div>
           <Button onClick={handleExecute} disabled={loading || !text}>
-            {loading ? '执行中...' : '执行'}
+            {loading ? t('tools.url_codec.executing') : t('tools.url_codec.execute')}
           </Button>
         </div>
       </div>
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <Label>输出</Label>
+          <Label>{t('tools.url_codec.label_output')}</Label>
           {output?.meta && (
             <span className="text-xs text-muted-foreground">
-              {output.meta.input_bytes} → {output.meta.output_bytes} 字节 ·{' '}
-              {output.meta.duration_ms}ms
+              {t('tools.url_codec.bytes_unit', {
+                input: output.meta.input_bytes,
+                output: output.meta.output_bytes,
+                ms: output.meta.duration_ms,
+              })}
             </span>
           )}
         </div>

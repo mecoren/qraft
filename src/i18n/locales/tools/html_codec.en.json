@@ -1,0 +1,10 @@
+{
+  "tools.html_codec.label_convert": "Conversion",
+  "tools.html_codec.hint_mode": "Choose the conversion mode to apply",
+  "tools.html_codec.mode_encode": "Encode",
+  "tools.html_codec.mode_decode": "Decode",
+  "tools.html_codec.aria_mode_toggle": "Toggle encode/decode",
+  "tools.html_codec.title_input": "Input",
+  "tools.html_codec.title_output": "Output",
+  "tools.html_codec.error_parse": "Parse failed: {{message}}"
+}

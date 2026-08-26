@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type DragEvent, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Download, EyeOff, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -14,10 +15,11 @@ import type { ToolProps } from './registry';
 
 type Deficiency = 'protanopia' | 'deuteranopia' | 'tritanopia';
 
+/** 各色觉缺陷的 i18n 标签键,渲染时经 t() 翻译 */
 const LABELS: Record<Deficiency, string> = {
-  protanopia: '红色盲 Protanopia',
-  deuteranopia: '绿色盲 Deuteranopia',
-  tritanopia: '蓝色盲 Tritanopia',
+  protanopia: 'tools.color_blindness_simulator.deficiency_protanopia',
+  deuteranopia: 'tools.color_blindness_simulator.deficiency_deuteranopia',
+  tritanopia: 'tools.color_blindness_simulator.deficiency_tritanopia',
 };
 
 /** Viénot 1999 近似矩阵(sRGB 线性域) */
@@ -52,22 +54,30 @@ export function applyDeficiency(imageData: ImageData, kind: Deficiency): ImageDa
 }
 
 export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [srcUrl, setSrcUrl] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [results, setResults] = useState<Record<Deficiency, string> | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const loadFile = useCallback(async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast.error('仅支持图片文件');
-      return;
-    }
-    try {
-      setSrcUrl(await readFileAsDataUrl(file));
-    } catch (e) {
-      toast.error(`读取失败: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }, []);
+  const loadFile = useCallback(
+    async (file: File) => {
+      if (!file.type.startsWith('image/')) {
+        toast.error(t('tools.color_blindness_simulator.only_image_files'));
+        return;
+      }
+      try {
+        setSrcUrl(await readFileAsDataUrl(file));
+      } catch (e) {
+        toast.error(
+          t('tools.color_blindness_simulator.read_failed', {
+            message: e instanceof Error ? e.message : String(e),
+          }),
+        );
+      }
+    },
+    [t],
+  );
 
   // 源图变化 → 生成三种模拟图
   useEffect(() => {
@@ -104,12 +114,12 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
       }
       if (!cancelled) setResults(out);
     };
-    img.onerror = () => toast.error('图片加载失败');
+    img.onerror = () => toast.error(t('tools.color_blindness_simulator.error_image_load'));
     img.src = srcUrl;
     return () => {
       cancelled = true;
     };
-  }, [srcUrl]);
+  }, [srcUrl, t]);
 
   const onDrop = useCallback(
     (e: DragEvent) => {
@@ -127,14 +137,14 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
         className="flex items-center justify-between"
         data-search-anchor="color_blindness_simulator:source"
       >
-        <h2 className="text-body-sm font-semibold">源图片</h2>
+        <h2 className="text-body-sm font-semibold">{t('tools.color_blindness_simulator.source_title')}</h2>
         <Button
           variant="ghost"
           size="sm"
           data-testid="cb-open"
           onClick={() => fileRef.current?.click()}
         >
-          <FolderOpen aria-hidden className="size-3.5" /> 选择图片
+          <FolderOpen aria-hidden className="size-3.5" /> {t('tools.color_blindness_simulator.choose_image')}
         </Button>
       </div>
       <input
@@ -167,14 +177,18 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
             dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
           } p-3 shadow-card transition-colors`}
         >
-          <span className="mb-2 text-xs text-muted-foreground">原图</span>
+          <span className="mb-2 text-xs text-muted-foreground">{t('tools.color_blindness_simulator.original')}</span>
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
             {srcUrl ? (
-              <img src={srcUrl} alt="原图" className="max-h-full max-w-full object-contain" />
+              <img
+                src={srcUrl}
+                alt={t('tools.color_blindness_simulator.original')}
+                className="max-h-full max-w-full object-contain"
+              />
             ) : (
               <div className="flex flex-col items-center gap-2 text-muted-foreground">
                 <EyeOff aria-hidden className="size-8" />
-                <p className="text-xs">拖放图片到此处,或点击「选择图片」</p>
+                <p className="text-xs">{t('tools.color_blindness_simulator.dropzone_hint')}</p>
               </div>
             )}
           </div>
@@ -186,14 +200,14 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
             className="flex min-h-0 flex-col rounded-lg border border-border bg-card p-3 shadow-card"
           >
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">{LABELS[kind]}</span>
+              <span className="text-xs text-muted-foreground">{t(LABELS[kind])}</span>
               {results ? (
                 <a
                   href={results[kind]}
                   download={`${kind}.png`}
                   className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                 >
-                  <Download aria-hidden className="size-3" /> 保存
+                  <Download aria-hidden className="size-3" /> {t('tools.color_blindness_simulator.save')}
                 </a>
               ) : null}
             </div>
@@ -201,7 +215,7 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
               {results ? (
                 <img
                   src={results[kind]}
-                  alt={LABELS[kind]}
+                  alt={t(LABELS[kind])}
                   data-testid={`cb-${kind}`}
                   className="max-h-full max-w-full object-contain"
                 />

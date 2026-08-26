@@ -1,0 +1,13 @@
+{
+  "tools.list_comparer.mode_intersection": "Intersection (A ∩ B)",
+  "tools.list_comparer.mode_union": "Union (A ∪ B)",
+  "tools.list_comparer.mode_only_a": "Only in A (A - B)",
+  "tools.list_comparer.mode_only_b": "Only in B (B - A)",
+  "tools.list_comparer.case_sensitive": "Case sensitive",
+  "tools.list_comparer.compare_mode": "Compare mode",
+  "tools.list_comparer.trim_whitespace": "Trim whitespace",
+  "tools.list_comparer.trim_whitespace_hint": "Ignore leading/trailing whitespace and blank lines",
+  "tools.list_comparer.list_a": "List A",
+  "tools.list_comparer.list_b": "List B",
+  "tools.list_comparer.result_title": "Result · {{mode}}"
+}

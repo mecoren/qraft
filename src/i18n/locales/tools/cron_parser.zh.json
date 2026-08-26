@@ -1,0 +1,13 @@
+{
+  "tools.cron_parser.include_seconds": "包含秒",
+  "tools.cron_parser.include_seconds_hint": "6 段模式(秒 分 时 日 月 周)",
+  "tools.cron_parser.task_count": "计划任务数量",
+  "tools.cron_parser.expression_label": "Cron 表达式",
+  "tools.cron_parser.empty_hint": "输入表达式后自动解析",
+  "tools.cron_parser.scheduled_dates_aria": "计划的日期",
+  "tools.cron_parser.upcoming_dates": "接下来的计划日期",
+  "tools.cron_parser.error_seconds_required": "包含秒的 Cron 表达式应为 6 段",
+  "tools.cron_parser.error_five_parts_required": "标准 Cron 表达式应为 5 段(分 时 日 月 周)",
+  "tools.cron_parser.error_invalid_expression": "表达式无效: {{message}}",
+  "tools.cron_parser.error_compute_failed": "计算执行时间失败: {{message}}"
+}

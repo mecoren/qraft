@@ -1,0 +1,19 @@
+{
+  "tools.text_compare.config_aria": "Configuration",
+  "tools.text_compare.inline_mode": "Inline view",
+  "tools.text_compare.inline_mode_on": "On",
+  "tools.text_compare.inline_mode_off": "Off",
+  "tools.text_compare.diff_stats": "Diff",
+  "tools.text_compare.diff_none": "No differences",
+  "tools.text_compare.side_original": "Original",
+  "tools.text_compare.side_modified": "Modified",
+  "tools.text_compare.fullscreen_aria": "View diff in fullscreen",
+  "tools.text_compare.loading_editor": "Loading editor…",
+  "tools.text_compare.dialog_diff_title": "Diff",
+  "tools.text_compare.dialog_diff_desc": "Side-by-side diff of the original and modified text",
+  "tools.text_compare.action_paste_aria": "{{label}}: Paste",
+  "tools.text_compare.action_open_file_aria": "{{label}}: Open file",
+  "tools.text_compare.action_clear_aria": "{{label}}: Clear",
+  "tools.text_compare.toast_clipboard_empty": "Clipboard is empty or unavailable",
+  "tools.text_compare.toast_read_file_failed": "Failed to read file"
+}

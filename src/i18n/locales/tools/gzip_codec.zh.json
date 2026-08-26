@@ -1,0 +1,15 @@
+{
+  "tools.gzip_codec.label_convert": "GZip 转换",
+  "tools.gzip_codec.hint_mode": "选择压缩或解压缩",
+  "tools.gzip_codec.mode_compress": "压缩",
+  "tools.gzip_codec.mode_decompress": "解压缩",
+  "tools.gzip_codec.aria_mode_toggle": "压缩/解压缩切换",
+  "tools.gzip_codec.label_ratio": "压缩率",
+  "tools.gzip_codec.title_input": "输入",
+  "tools.gzip_codec.placeholder_compress_input": "输入要压缩的文本",
+  "tools.gzip_codec.placeholder_decompress_input": "输入 gzip base64 数据",
+  "tools.gzip_codec.title_output": "输出",
+  "tools.gzip_codec.ratio_text": "{{before}} → {{after}}(节省 {{pct}}%)",
+  "tools.gzip_codec.error_compress": "压缩失败: {{message}}",
+  "tools.gzip_codec.error_decompress_invalid": "解压失败:输入不是有效的 gzip base64 数据"
+}

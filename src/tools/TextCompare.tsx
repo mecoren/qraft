@@ -27,6 +27,7 @@ import {
 } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { ClipboardPaste, Columns2, FolderOpen, Maximize2, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -93,6 +94,7 @@ function ToolbarButton({
 }
 
 export function TextCompare(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [inlineMode, setInlineMode] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [stats, setStats] = useState<DiffStats>(ZERO_STATS);
@@ -162,7 +164,7 @@ export function TextCompare(_props: ToolProps): JSX.Element {
   const handlePaste = async (target: DiffTarget): Promise<void> => {
     const text = await readClipboardText();
     if (!text) {
-      toast.info('剪贴板为空或不可用');
+      toast.info(t('tools.text_compare.toast_clipboard_empty'));
       return;
     }
     setText(target, text);
@@ -175,7 +177,7 @@ export function TextCompare(_props: ToolProps): JSX.Element {
       const text = await readFileAsText(file);
       setText(fileTargetRef.current, text);
     } catch {
-      toast.error('读取文件失败');
+      toast.error(t('tools.text_compare.toast_read_file_failed'));
     }
     // 允许重复选择同一文件
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -263,21 +265,21 @@ export function TextCompare(_props: ToolProps): JSX.Element {
     <div className="flex items-center gap-0.5" data-search-anchor={`text_compare:${target}`}>
       <span className="mr-0.5 text-xs text-muted-foreground">{label}</span>
       <ToolbarButton
-        label={`${label}：粘贴`}
+        label={t('tools.text_compare.action_paste_aria', { label })}
         testId={`paste-${target}`}
         onClick={() => void handlePaste(target)}
       >
         <ClipboardPaste aria-hidden className="size-3.5" />
       </ToolbarButton>
       <ToolbarButton
-        label={`${label}：打开文件`}
+        label={t('tools.text_compare.action_open_file_aria', { label })}
         testId={`open-${target}`}
         onClick={() => pickFile(target)}
       >
         <FolderOpen aria-hidden className="size-3.5" />
       </ToolbarButton>
       <ToolbarButton
-        label={`${label}：清除`}
+        label={t('tools.text_compare.action_clear_aria', { label })}
         testId={`clear-${target}`}
         onClick={() => clearText(target)}
       >
@@ -289,16 +291,20 @@ export function TextCompare(_props: ToolProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3" data-testid="text-compare">
       {/* 顶部工具栏:行内模式 + 差异统计 + 操作 */}
-      <section aria-label="配置" data-search-anchor="text_compare:config">
+      <section aria-label={t('tools.text_compare.config_aria')} data-search-anchor="text_compare:config">
         <div className="rounded-lg border border-border bg-card shadow-card">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
             <div className="flex items-center gap-3">
               <Columns2 aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-              <span className="text-body-sm">行内模式</span>
-              <span className="text-xs text-muted-foreground">{inlineMode ? '开启' : '关闭'}</span>
+              <span className="text-body-sm">{t('tools.text_compare.inline_mode')}</span>
+              <span className="text-xs text-muted-foreground">
+                {inlineMode
+                  ? t('tools.text_compare.inline_mode_on')
+                  : t('tools.text_compare.inline_mode_off')}
+              </span>
               <Switch
                 data-testid="inline-mode-switch"
-                aria-label="行内模式"
+                aria-label={t('tools.text_compare.inline_mode')}
                 checked={inlineMode}
                 onCheckedChange={setInlineMode}
               />
@@ -308,7 +314,9 @@ export function TextCompare(_props: ToolProps): JSX.Element {
 
             {/* 差异统计 */}
             <div className="flex items-baseline gap-3">
-              <span className="text-body-sm font-semibold">差异</span>
+              <span className="text-body-sm font-semibold">
+                {t('tools.text_compare.diff_stats')}
+              </span>
               {hasDiff ? (
                 <span className="text-xs text-muted-foreground">
                   <span className="text-success">+{stats.added}</span>
@@ -318,15 +326,21 @@ export function TextCompare(_props: ToolProps): JSX.Element {
                   <span>~{stats.modified}</span>
                 </span>
               ) : (
-                <span className="text-xs text-muted-foreground">无差异</span>
+                <span className="text-xs text-muted-foreground">
+                  {t('tools.text_compare.diff_none')}
+                </span>
               )}
             </div>
 
             <div className="ml-auto flex flex-wrap items-center gap-3">
-              {renderActionGroup('原始', 'original')}
-              {renderActionGroup('修改后', 'modified')}
+              {renderActionGroup(t('tools.text_compare.side_original'), 'original')}
+              {renderActionGroup(t('tools.text_compare.side_modified'), 'modified')}
               <div className="h-4 w-px bg-border" aria-hidden />
-              <ToolbarButton label="全屏查看差异" testId="diff-fullscreen" onClick={openFullscreen}>
+              <ToolbarButton
+                label={t('tools.text_compare.fullscreen_aria')}
+                testId="diff-fullscreen"
+                onClick={openFullscreen}
+              >
                 <Maximize2 aria-hidden className="size-3.5" />
               </ToolbarButton>
             </div>
@@ -348,7 +362,7 @@ export function TextCompare(_props: ToolProps): JSX.Element {
           className="h-full"
           loading={
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-              加载编辑器…
+              {t('tools.text_compare.loading_editor')}
             </div>
           }
         />
@@ -357,8 +371,12 @@ export function TextCompare(_props: ToolProps): JSX.Element {
       {/* 全屏差异弹窗(只读快照) */}
       <Dialog open={fullscreen} onOpenChange={closeFullscreen}>
         <DialogContent className="flex h-[85vh] max-w-[90vw] flex-col">
-          <DialogTitle className="text-sm font-semibold">差异</DialogTitle>
-          <DialogDescription className="sr-only">原始文本与修改后文本的并排差异</DialogDescription>
+          <DialogTitle className="text-sm font-semibold">
+            {t('tools.text_compare.dialog_diff_title')}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {t('tools.text_compare.dialog_diff_desc')}
+          </DialogDescription>
           <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-border">
             <DiffEditor
               language="plaintext"
@@ -370,7 +388,7 @@ export function TextCompare(_props: ToolProps): JSX.Element {
               className="h-full"
               loading={
                 <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                  加载编辑器…
+                  {t('tools.text_compare.loading_editor')}
                 </div>
               }
             />

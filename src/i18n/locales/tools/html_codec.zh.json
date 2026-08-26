@@ -1,0 +1,10 @@
+{
+  "tools.html_codec.label_convert": "转换",
+  "tools.html_codec.hint_mode": "选择要使用的转换模式",
+  "tools.html_codec.mode_encode": "编码",
+  "tools.html_codec.mode_decode": "解码",
+  "tools.html_codec.aria_mode_toggle": "编码/解码切换",
+  "tools.html_codec.title_input": "输入",
+  "tools.html_codec.title_output": "输出",
+  "tools.html_codec.error_parse": "解析失败: {{message}}"
+}

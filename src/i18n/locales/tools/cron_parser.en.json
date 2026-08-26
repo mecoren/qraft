@@ -1,0 +1,13 @@
+{
+  "tools.cron_parser.include_seconds": "Include seconds",
+  "tools.cron_parser.include_seconds_hint": "6-field mode (sec min hour day month weekday)",
+  "tools.cron_parser.task_count": "Number of scheduled runs",
+  "tools.cron_parser.expression_label": "Cron expression",
+  "tools.cron_parser.empty_hint": "Enter an expression to parse it automatically",
+  "tools.cron_parser.scheduled_dates_aria": "Scheduled dates",
+  "tools.cron_parser.upcoming_dates": "Upcoming schedule",
+  "tools.cron_parser.error_seconds_required": "A cron expression with seconds must have 6 fields",
+  "tools.cron_parser.error_five_parts_required": "A standard cron expression must have 5 fields (minute hour day month weekday)",
+  "tools.cron_parser.error_invalid_expression": "Invalid expression: {{message}}",
+  "tools.cron_parser.error_compute_failed": "Failed to compute execution times: {{message}}"
+}

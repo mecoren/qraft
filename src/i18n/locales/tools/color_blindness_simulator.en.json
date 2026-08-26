@@ -1,0 +1,13 @@
+{
+  "tools.color_blindness_simulator.deficiency_protanopia": "Protanopia (red-blind)",
+  "tools.color_blindness_simulator.deficiency_deuteranopia": "Deuteranopia (green-blind)",
+  "tools.color_blindness_simulator.deficiency_tritanopia": "Tritanopia (blue-blind)",
+  "tools.color_blindness_simulator.only_image_files": "Only image files are supported",
+  "tools.color_blindness_simulator.read_failed": "Failed to read: {{message}}",
+  "tools.color_blindness_simulator.error_image_load": "Failed to load image",
+  "tools.color_blindness_simulator.source_title": "Source Image",
+  "tools.color_blindness_simulator.choose_image": "Choose Image",
+  "tools.color_blindness_simulator.original": "Original",
+  "tools.color_blindness_simulator.dropzone_hint": "Drop an image here, or click \"Choose Image\"",
+  "tools.color_blindness_simulator.save": "Save"
+}

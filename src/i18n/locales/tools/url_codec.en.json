@@ -1,0 +1,13 @@
+{
+  "tools.url_codec.label_input": "Input",
+  "tools.url_codec.placeholder_input": "Enter text...",
+  "tools.url_codec.label_action": "Action",
+  "tools.url_codec.action_encode": "Encode",
+  "tools.url_codec.action_decode": "Decode",
+  "tools.url_codec.component_encode_aria": "Component encoding",
+  "tools.url_codec.component_encode_label": "Component encoding",
+  "tools.url_codec.execute": "Run",
+  "tools.url_codec.executing": "Running...",
+  "tools.url_codec.label_output": "Output",
+  "tools.url_codec.bytes_unit": "{{input}} → {{output}} bytes · {{ms}}ms"
+}

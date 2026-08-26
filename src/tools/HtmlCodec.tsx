@@ -5,6 +5,7 @@
  */
 
 import { useMemo, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeftRight } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { CodeEditor } from '@/components/ui/code-editor';
@@ -32,6 +33,7 @@ export function decodeHtml(input: string): string {
 }
 
 export function HtmlCodec(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [encodeMode, setEncodeMode] = useState(true);
 
@@ -40,18 +42,22 @@ export function HtmlCodec(_props: ToolProps): JSX.Element {
     try {
       return encodeMode ? encodeHtml(input) : decodeHtml(input);
     } catch (e) {
-      return `解析失败: ${e instanceof Error ? e.message : String(e)}`;
+      return t('tools.html_codec.error_parse', {
+        message: e instanceof Error ? e.message : String(e),
+      });
     }
-  }, [input, encodeMode]);
+  }, [input, encodeMode, t]);
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="html-codec">
       <ConfigSection title="" searchAnchor="html_codec:config">
-        <ConfigRow icon={ArrowLeftRight} label="转换" hint="选择要使用的转换模式">
-          <span className="text-xs text-muted-foreground">{encodeMode ? '编码' : '解码'}</span>
+        <ConfigRow icon={ArrowLeftRight} label={t('tools.html_codec.label_convert')} hint={t('tools.html_codec.hint_mode')}>
+          <span className="text-xs text-muted-foreground">
+            {encodeMode ? t('tools.html_codec.mode_encode') : t('tools.html_codec.mode_decode')}
+          </span>
           <Switch
             data-testid="html-mode-switch"
-            aria-label="编码/解码切换"
+            aria-label={t('tools.html_codec.aria_mode_toggle')}
             checked={encodeMode}
             onCheckedChange={setEncodeMode}
           />
@@ -61,7 +67,7 @@ export function HtmlCodec(_props: ToolProps): JSX.Element {
       <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
           <CodeEditor
-            title="输入"
+            title={t('tools.html_codec.title_input')}
             language="html"
             value={input}
             onChange={setInput}
@@ -73,7 +79,7 @@ export function HtmlCodec(_props: ToolProps): JSX.Element {
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
           <CodeEditor
-            title="输出"
+            title={t('tools.html_codec.title_output')}
             language="html"
             value={output}
             readOnly

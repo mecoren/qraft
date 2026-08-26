@@ -1,0 +1,23 @@
+{
+  "tools.certificate_decoder.title_input": "输入证书(PEM / Base64 DER)",
+  "tools.certificate_decoder.title_output": "解码结果",
+  "tools.certificate_decoder.error_parse_failed": "解析失败:请输入有效的 PEM 或 Base64 DER 格式证书",
+  "tools.certificate_decoder.section_basic": "[基本信息]",
+  "tools.certificate_decoder.field_subject": "主题 (Subject): {{value}}",
+  "tools.certificate_decoder.field_issuer": "颁发者 (Issuer): {{value}}",
+  "tools.certificate_decoder.field_serial": "序列号: {{value}}",
+  "tools.certificate_decoder.field_version": "版本: v3",
+  "tools.certificate_decoder.section_validity": "[有效期]",
+  "tools.certificate_decoder.field_not_before": "生效时间: {{value}}",
+  "tools.certificate_decoder.field_not_after": "过期时间: {{value}}",
+  "tools.certificate_decoder.field_status": "当前状态: {{value}}",
+  "tools.certificate_decoder.status_valid": "有效",
+  "tools.certificate_decoder.status_inactive": "已过期或尚未生效",
+  "tools.certificate_decoder.section_signature": "[签名与公钥]",
+  "tools.certificate_decoder.field_signature_algorithm": "签名算法: {{name}}({{hash}})",
+  "tools.certificate_decoder.field_public_key_algorithm": "公钥算法: {{value}}",
+  "tools.certificate_decoder.section_fingerprints": "[指纹]",
+  "tools.certificate_decoder.section_extensions": "[扩展]",
+  "tools.certificate_decoder.extension_line": "{{type}}{{critical}}",
+  "tools.certificate_decoder.extension_critical": "(关键)"
+}

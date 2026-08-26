@@ -5,6 +5,7 @@
  */
 
 import { useDeferredValue, useMemo, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Database, IndentIncrease, CaseUpper } from 'lucide-react';
 import { format, type SqlLanguage } from 'sql-formatter';
 import {
@@ -20,18 +21,19 @@ import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
 import type { ToolProps } from './registry';
 
-const DIALECTS: Array<{ value: SqlLanguage; label: string }> = [
-  { value: 'sql', label: '标准 SQL' },
-  { value: 'mysql', label: 'MySQL' },
-  { value: 'postgresql', label: 'PostgreSQL' },
-  { value: 'sqlite', label: 'SQLite' },
-  { value: 'mariadb', label: 'MariaDB' },
-  { value: 'transactsql', label: 'SQL Server (T-SQL)' },
-  { value: 'plsql', label: 'Oracle PL/SQL' },
-  { value: 'bigquery', label: 'BigQuery' },
+const DIALECTS: Array<{ value: SqlLanguage; labelKey: string }> = [
+  { value: 'sql', labelKey: 'tools.sql_formatter.dialect_standard_sql' },
+  { value: 'mysql', labelKey: 'tools.sql_formatter.dialect_mysql' },
+  { value: 'postgresql', labelKey: 'tools.sql_formatter.dialect_postgresql' },
+  { value: 'sqlite', labelKey: 'tools.sql_formatter.dialect_sqlite' },
+  { value: 'mariadb', labelKey: 'tools.sql_formatter.dialect_mariadb' },
+  { value: 'transactsql', labelKey: 'tools.sql_formatter.dialect_transactsql' },
+  { value: 'plsql', labelKey: 'tools.sql_formatter.dialect_plsql' },
+  { value: 'bigquery', labelKey: 'tools.sql_formatter.dialect_bigquery' },
 ];
 
 export function SqlFormatter(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [dialect, setDialect] = useState<SqlLanguage>('sql');
   const [indent, setIndent] = useState('2');
@@ -48,14 +50,20 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
         keywordCase,
       });
     } catch (e) {
-      return `格式化失败: ${e instanceof Error ? e.message : String(e)}`;
+      return t('tools.sql_formatter.format_failed', {
+        message: e instanceof Error ? e.message : String(e),
+      });
     }
-  }, [deferredInput, dialect, indent, keywordCase]);
+  }, [deferredInput, dialect, indent, keywordCase, t]);
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="sql-formatter">
       <ConfigSection title="" searchAnchor="sql_formatter:config">
-        <ConfigRow icon={Database} label="语言" hint="选择 SQL 方言">
+        <ConfigRow
+          icon={Database}
+          label={t('tools.sql_formatter.language')}
+          hint={t('tools.sql_formatter.language_hint')}
+        >
           <Select value={dialect} onValueChange={(v) => setDialect(v as SqlLanguage)}>
             <SelectTrigger data-testid="sql-dialect" className="w-44">
               <SelectValue />
@@ -63,24 +71,24 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
             <SelectContent>
               {DIALECTS.map((d) => (
                 <SelectItem key={d.value} value={d.value}>
-                  {d.label}
+                  {t(d.labelKey)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </ConfigRow>
-        <ConfigRow icon={IndentIncrease} label="缩进">
+        <ConfigRow icon={IndentIncrease} label={t('tools.sql_formatter.indent')}>
           <Select value={indent} onValueChange={setIndent}>
             <SelectTrigger data-testid="sql-indent" className="w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="2">2 个空格</SelectItem>
-              <SelectItem value="4">4 个空格</SelectItem>
+              <SelectItem value="2">{t('tools.sql_formatter.indent_2')}</SelectItem>
+              <SelectItem value="4">{t('tools.sql_formatter.indent_4')}</SelectItem>
             </SelectContent>
           </Select>
         </ConfigRow>
-        <ConfigRow icon={CaseUpper} label="关键字大小写">
+        <ConfigRow icon={CaseUpper} label={t('tools.sql_formatter.keyword_case')}>
           <Select
             value={keywordCase}
             onValueChange={(v) => setKeywordCase(v as 'upper' | 'lower' | 'preserve')}
@@ -89,9 +97,9 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="upper">大写</SelectItem>
-              <SelectItem value="lower">小写</SelectItem>
-              <SelectItem value="preserve">保持原样</SelectItem>
+              <SelectItem value="upper">{t('tools.sql_formatter.case_upper')}</SelectItem>
+              <SelectItem value="lower">{t('tools.sql_formatter.case_lower')}</SelectItem>
+              <SelectItem value="preserve">{t('tools.sql_formatter.case_preserve')}</SelectItem>
             </SelectContent>
           </Select>
         </ConfigRow>
@@ -100,7 +108,7 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
-            title="输入"
+            title={t('tools.sql_formatter.input_title')}
             language="sql"
             value={input}
             onChange={setInput}
@@ -112,7 +120,7 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
-            title="输出"
+            title={t('tools.sql_formatter.output_title')}
             language="sql"
             value={output}
             readOnly

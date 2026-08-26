@@ -5,6 +5,7 @@
  */
 
 import { useDeferredValue, useMemo, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { IndentIncrease, WrapText } from 'lucide-react';
 import {
   Select,
@@ -86,7 +87,8 @@ export function formatXml(input: string, mode: IndentMode, attrsOnNewLine: boole
   const doc = new DOMParser().parseFromString(input, 'application/xml');
   const err = doc.querySelector('parsererror');
   if (err) {
-    throw new Error(err.textContent?.trim().split('\n')[0] ?? 'XML 解析错误');
+    // 抛 i18n 键名,由组件层翻译(parseMissingKeyHandler 保证未知文本原样透传)
+    throw new Error(err.textContent?.trim().split('\n')[0] ?? 'tools.xml_formatter.parse_error');
   }
   const unit = indentUnit(mode);
   const decl = /^\s*<\?xml/.test(input)
@@ -96,6 +98,7 @@ export function formatXml(input: string, mode: IndentMode, attrsOnNewLine: boole
 }
 
 export function XmlFormatter(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [mode, setMode] = useState<IndentMode>('2');
   const [attrNewLine, setAttrNewLine] = useState(false);
@@ -107,30 +110,38 @@ export function XmlFormatter(_props: ToolProps): JSX.Element {
     try {
       return formatXml(deferredInput, mode, attrNewLine);
     } catch (e) {
-      return `格式化失败: ${e instanceof Error ? e.message : String(e)}`;
+      const raw = e instanceof Error ? e.message : String(e);
+      // 片段键(如 parse_error 回退)在组件层翻译,浏览器原始解析文本原样透传
+      return t('tools.xml_formatter.format_failed', {
+        message: raw.startsWith('tools.') ? t(raw) : raw,
+      });
     }
-  }, [deferredInput, mode, attrNewLine]);
+  }, [deferredInput, mode, attrNewLine, t]);
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="xml-formatter">
       <ConfigSection title="" searchAnchor="xml_formatter:config">
-        <ConfigRow icon={IndentIncrease} label="缩进">
+        <ConfigRow icon={IndentIncrease} label={t('tools.xml_formatter.indent')}>
           <Select value={mode} onValueChange={(v) => setMode(v as IndentMode)}>
             <SelectTrigger data-testid="xml-indent" className="w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="2">2 个空格</SelectItem>
-              <SelectItem value="4">4 个空格</SelectItem>
-              <SelectItem value="tab">制表符</SelectItem>
-              <SelectItem value="minify">压缩</SelectItem>
+              <SelectItem value="2">{t('tools.xml_formatter.indent_2')}</SelectItem>
+              <SelectItem value="4">{t('tools.xml_formatter.indent_4')}</SelectItem>
+              <SelectItem value="tab">{t('tools.xml_formatter.indent_tab')}</SelectItem>
+              <SelectItem value="minify">{t('tools.xml_formatter.indent_minify')}</SelectItem>
             </SelectContent>
           </Select>
         </ConfigRow>
-        <ConfigRow icon={WrapText} label="属性换行" hint="多个属性时每个属性单独一行">
+        <ConfigRow
+          icon={WrapText}
+          label={t('tools.xml_formatter.attr_newline')}
+          hint={t('tools.xml_formatter.attr_newline_hint')}
+        >
           <Switch
             data-testid="xml-attr-newline"
-            aria-label="属性换行"
+            aria-label={t('tools.xml_formatter.attr_newline')}
             checked={attrNewLine}
             onCheckedChange={setAttrNewLine}
           />
@@ -140,7 +151,7 @@ export function XmlFormatter(_props: ToolProps): JSX.Element {
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
-            title="输入"
+            title={t('tools.xml_formatter.input_title')}
             language="xml"
             value={input}
             onChange={setInput}
@@ -152,7 +163,7 @@ export function XmlFormatter(_props: ToolProps): JSX.Element {
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
-            title="输出"
+            title={t('tools.xml_formatter.output_title')}
             language="xml"
             value={output}
             readOnly

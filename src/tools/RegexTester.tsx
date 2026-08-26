@@ -9,6 +9,7 @@
  * 错误处理遵循新代约定:工具内联 alert 展示于结果区。
  */
 import { useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ListChecks, Play, Regex } from 'lucide-react';
 import { formatError } from '@/lib/format-error';
 import { Input } from '@/components/ui/input';
@@ -37,6 +38,7 @@ interface RegexExtra {
 }
 
 export function RegexTester({ toolId }: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [text, setText] = useState('');
   const [pattern, setPattern] = useState('');
   const [flags, setFlags] = useState('g');
@@ -67,20 +69,28 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3" data-testid="regex-tester">
       <ConfigSection title="" searchAnchor="regex_tester:config">
-        <ConfigRow icon={Regex} label="正则表达式" hint="Rust regex 语法">
+        <ConfigRow
+          icon={Regex}
+          label={t('tools.regex_tester.pattern_label')}
+          hint={t('tools.regex_tester.pattern_hint')}
+        >
           <Input
             id="pattern-input"
-            placeholder="输入正则表达式..."
+            placeholder={t('tools.regex_tester.pattern_placeholder')}
             value={pattern}
             onChange={(e) => setPattern(e.target.value)}
             className="w-80 font-mono text-sm"
             data-testid="pattern"
           />
         </ConfigRow>
-        <ConfigRow icon={ListChecks} label="标志位" hint="g / i / m / s / x;点击左栏工具栏「测试」执行">
+        <ConfigRow
+          icon={ListChecks}
+          label={t('tools.regex_tester.flags_label')}
+          hint={t('tools.regex_tester.flags_hint')}
+        >
           <Input
             id="flags-input"
-            placeholder="标志位"
+            placeholder={t('tools.regex_tester.flags_placeholder')}
             value={flags}
             onChange={(e) => setFlags(e.target.value)}
             className="w-24 font-mono text-sm"
@@ -92,8 +102,8 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
         {/* 左区:测试文本(「测试」动作在工具栏) */}
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
-            title="测试文本"
-            placeholder="输入测试文本..."
+            title={t('tools.regex_tester.text_title')}
+            placeholder={t('tools.regex_tester.text_placeholder')}
             value={text}
             onChange={setText}
             language="plaintext"
@@ -101,9 +111,12 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
             data-testid="input"
             searchAnchor="regex_tester:input"
             actions={
-              <HeaderAction onClick={() => void handleTest()} disabled={loading || !pattern || !text}>
+              <HeaderAction
+                onClick={() => void handleTest()}
+                disabled={loading || !pattern || !text}
+              >
                 <Play aria-hidden className="size-3.5" />
-                {loading ? '测试中' : '测试'}
+                {loading ? t('tools.regex_tester.testing') : t('tools.regex_tester.test')}
               </HeaderAction>
             }
           />
@@ -119,10 +132,12 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
             data-search-anchor="regex_tester:output"
           >
             <div className="flex items-center justify-between border-b border-input px-2 py-0.5">
-              <span className="pl-1 text-xs font-medium">匹配结果</span>
+              <span className="pl-1 text-xs font-medium">
+                {t('tools.regex_tester.result_title')}
+              </span>
               {extra && (
                 <span className="pr-1 text-xs text-muted-foreground">
-                  {extra.match_count} 个匹配
+                  {t('tools.regex_tester.match_count', { count: extra.match_count })}
                 </span>
               )}
             </div>
@@ -148,10 +163,10 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
                       </div>
                       {m.groups.length > 0 && (
                         <div className="mt-1 pl-4 text-xs text-muted-foreground">
-                          分组:{' '}
+                          {t('tools.regex_tester.groups_label')}{' '}
                           {m.groups.map((g, gi) => (
                             <span key={gi} className="font-mono">
-                              [{gi + 1}]={g ?? '<无>'}{' '}
+                              [{gi + 1}]={g ?? t('tools.regex_tester.group_empty')}{' '}
                             </span>
                           ))}
                         </div>
@@ -159,13 +174,15 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
                     </li>
                   ))}
                   {extra.matches.length === 0 && (
-                    <li className="text-sm text-muted-foreground">未找到匹配项。</li>
+                    <li className="text-sm text-muted-foreground">
+                      {t('tools.regex_tester.no_matches')}
+                    </li>
                   )}
                 </ul>
               </ScrollArea>
             ) : (
               <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
-                输入正则与测试文本后点击「测试」
+                {t('tools.regex_tester.empty_state')}
               </div>
             )}
           </div>
@@ -176,4 +193,3 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
 }
 
 /** 把任意异常格式化为可显示的错误文本(CommandError 附带错误码便于排障) */
-

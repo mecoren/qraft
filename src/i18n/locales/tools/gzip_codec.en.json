@@ -1,0 +1,15 @@
+{
+  "tools.gzip_codec.label_convert": "GZip Conversion",
+  "tools.gzip_codec.hint_mode": "Choose compression or decompression",
+  "tools.gzip_codec.mode_compress": "Compress",
+  "tools.gzip_codec.mode_decompress": "Decompress",
+  "tools.gzip_codec.aria_mode_toggle": "Toggle compress/decompress",
+  "tools.gzip_codec.label_ratio": "Compression Ratio",
+  "tools.gzip_codec.title_input": "Input",
+  "tools.gzip_codec.placeholder_compress_input": "Enter text to compress",
+  "tools.gzip_codec.placeholder_decompress_input": "Enter gzip base64 data",
+  "tools.gzip_codec.title_output": "Output",
+  "tools.gzip_codec.ratio_text": "{{before}} → {{after}} (saved {{pct}}%)",
+  "tools.gzip_codec.error_compress": "Compression failed: {{message}}",
+  "tools.gzip_codec.error_decompress_invalid": "Decompression failed: input is not valid gzip base64 data"
+}

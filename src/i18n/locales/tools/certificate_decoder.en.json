@@ -1,0 +1,23 @@
+{
+  "tools.certificate_decoder.title_input": "Input certificate (PEM / Base64 DER)",
+  "tools.certificate_decoder.title_output": "Decoded Result",
+  "tools.certificate_decoder.error_parse_failed": "Failed to parse: please enter a valid PEM or Base64 DER certificate",
+  "tools.certificate_decoder.section_basic": "[Basic Info]",
+  "tools.certificate_decoder.field_subject": "Subject: {{value}}",
+  "tools.certificate_decoder.field_issuer": "Issuer: {{value}}",
+  "tools.certificate_decoder.field_serial": "Serial Number: {{value}}",
+  "tools.certificate_decoder.field_version": "Version: v3",
+  "tools.certificate_decoder.section_validity": "[Validity]",
+  "tools.certificate_decoder.field_not_before": "Not Before: {{value}}",
+  "tools.certificate_decoder.field_not_after": "Not After: {{value}}",
+  "tools.certificate_decoder.field_status": "Current Status: {{value}}",
+  "tools.certificate_decoder.status_valid": "Valid",
+  "tools.certificate_decoder.status_inactive": "Expired or not yet valid",
+  "tools.certificate_decoder.section_signature": "[Signature & Public Key]",
+  "tools.certificate_decoder.field_signature_algorithm": "Signature Algorithm: {{name}} ({{hash}})",
+  "tools.certificate_decoder.field_public_key_algorithm": "Public Key Algorithm: {{value}}",
+  "tools.certificate_decoder.section_fingerprints": "[Fingerprints]",
+  "tools.certificate_decoder.section_extensions": "[Extensions]",
+  "tools.certificate_decoder.extension_line": "{{type}}{{critical}}",
+  "tools.certificate_decoder.extension_critical": " (critical)"
+}

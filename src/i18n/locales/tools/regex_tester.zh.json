@@ -1,0 +1,18 @@
+{
+  "tools.regex_tester.pattern_label": "正则表达式",
+  "tools.regex_tester.pattern_hint": "Rust regex 语法",
+  "tools.regex_tester.pattern_placeholder": "输入正则表达式...",
+  "tools.regex_tester.flags_label": "标志位",
+  "tools.regex_tester.flags_hint": "g / i / m / s / x;点击左栏工具栏「测试」执行",
+  "tools.regex_tester.flags_placeholder": "标志位",
+  "tools.regex_tester.text_title": "测试文本",
+  "tools.regex_tester.text_placeholder": "输入测试文本...",
+  "tools.regex_tester.testing": "测试中",
+  "tools.regex_tester.test": "测试",
+  "tools.regex_tester.result_title": "匹配结果",
+  "tools.regex_tester.match_count": "{{count}} 个匹配",
+  "tools.regex_tester.groups_label": "分组:",
+  "tools.regex_tester.group_empty": "<无>",
+  "tools.regex_tester.no_matches": "未找到匹配项。",
+  "tools.regex_tester.empty_state": "输入正则与测试文本后点击「测试」"
+}

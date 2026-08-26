@@ -3,6 +3,7 @@
  */
 
 import { useMemo, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FileText, ListOrdered, Pilcrow } from 'lucide-react';
 import {
   Select,
@@ -76,6 +77,7 @@ export function generateLorem(
 }
 
 export function LoremIpsum(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [granularity, setGranularity] = useState<Granularity>('paragraphs');
   const [count, setCount] = useState(3);
   const [startWithLorem, setStartWithLorem] = useState(true);
@@ -87,42 +89,48 @@ export function LoremIpsum(_props: ToolProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3" data-testid="lorem-ipsum">
       <ConfigSection title="" searchAnchor="lorem_ipsum:config">
-        <ConfigRow icon={Pilcrow} label="类型" hint="生成粒度">
+        <ConfigRow
+          icon={Pilcrow}
+          label={t('tools.lorem_ipsum.label_type')}
+          hint={t('tools.lorem_ipsum.hint_granularity')}
+        >
           <Select value={granularity} onValueChange={(v) => setGranularity(v as Granularity)}>
             <SelectTrigger data-testid="lorem-type" className="w-28">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="words">单词</SelectItem>
-              <SelectItem value="sentences">句子</SelectItem>
-              <SelectItem value="paragraphs">段落</SelectItem>
+              <SelectItem value="words">{t('tools.lorem_ipsum.granularity_words')}</SelectItem>
+              <SelectItem value="sentences">{t('tools.lorem_ipsum.granularity_sentences')}</SelectItem>
+              <SelectItem value="paragraphs">
+                {t('tools.lorem_ipsum.granularity_paragraphs')}
+              </SelectItem>
             </SelectContent>
           </Select>
         </ConfigRow>
-        <ConfigRow icon={ListOrdered} label="数量">
+        <ConfigRow icon={ListOrdered} label={t('tools.lorem_ipsum.label_count')}>
           <Input
             type="number"
             min={1}
             max={999}
             value={count}
             onChange={(e) => setCount(Number(e.target.value) || 1)}
-            aria-label="生成数量"
+            aria-label={t('tools.lorem_ipsum.count_aria')}
             data-testid="lorem-count"
             className="h-7 w-20 text-right text-body-sm"
           />
         </ConfigRow>
-        <ConfigRow icon={FileText} label={'以 "Lorem ipsum" 开头'}>
+        <ConfigRow icon={FileText} label={t('tools.lorem_ipsum.label_start_with_lorem')}>
           <Switch
             checked={startWithLorem}
             onCheckedChange={setStartWithLorem}
-            aria-label="以 Lorem ipsum 开头"
+            aria-label={t('tools.lorem_ipsum.start_with_lorem_aria')}
             data-testid="lorem-start"
           />
         </ConfigRow>
       </ConfigSection>
 
       <CodeEditor
-        title="生成结果"
+        title={t('tools.lorem_ipsum.output_title')}
         language="plaintext"
         value={output}
         readOnly

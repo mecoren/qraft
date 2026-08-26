@@ -1,0 +1,19 @@
+{
+  "tools.qrcode_tool.error_image_load": "图片加载失败",
+  "tools.qrcode_tool.error_canvas": "Canvas 不可用",
+  "tools.qrcode_tool.error_not_found": "未识别到二维码",
+  "tools.qrcode_tool.tab_generate": "生成二维码",
+  "tools.qrcode_tool.tab_scan": "读取二维码",
+  "tools.qrcode_tool.input_title": "文本",
+  "tools.qrcode_tool.input_placeholder": "输入要编码的文本或链接",
+  "tools.qrcode_tool.preview_title": "二维码",
+  "tools.qrcode_tool.preview_alt": "生成的二维码",
+  "tools.qrcode_tool.preview_empty": "输入文本后自动生成",
+  "tools.qrcode_tool.scan_title": "二维码图片",
+  "tools.qrcode_tool.choose_image": "选择图片",
+  "tools.qrcode_tool.scan_preview_alt": "待识别的二维码图片",
+  "tools.qrcode_tool.dropzone_hint": "拖放二维码图片到此处",
+  "tools.qrcode_tool.result_title": "识别结果",
+  "tools.qrcode_tool.only_image_files": "仅支持图片文件",
+  "tools.qrcode_tool.scan_success": "二维码识别成功"
+}

@@ -8,6 +8,7 @@
  * 输入输出均经 base64 走 Rust `png_compress` 命令;结果展示前后字节数与节省比例。
  */
 import { useCallback, useRef, useState, type DragEvent, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Download, FileImage, FolderOpen, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -39,18 +40,19 @@ interface LoadedImage {
   dataUrl: string;
 }
 
-/** 无损优化等级选项(OxiPNG preset) */
+/** 无损优化等级选项(OxiPNG preset);label 为 i18n 键,渲染时经 t() 翻译 */
 const LOSSLESS_LEVELS = [
-  { value: '1', label: '快速(等级 1)' },
-  { value: '2', label: '标准(等级 2)' },
-  { value: '4', label: '高质量(等级 4)' },
-  { value: '6', label: '极限(等级 6)' },
+  { value: '1', label: 'tools.png_compressor.level_1' },
+  { value: '2', label: 'tools.png_compressor.level_2' },
+  { value: '4', label: 'tools.png_compressor.level_4' },
+  { value: '6', label: 'tools.png_compressor.level_6' },
 ] as const;
 
 /** 有损调色板颜色数选项 */
 const COLOR_OPTIONS = ['64', '128', '192', '255'] as const;
 
 export function PngCompressor(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [image, setImage] = useState<LoadedImage | null>(null);
   const [lossless, setLossless] = useState(true);
   const [level, setLevel] = useState('2');
@@ -61,19 +63,22 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const loadFile = useCallback(async (file: File) => {
-    if (file.type && file.type !== 'image/png' && !file.name.toLowerCase().endsWith('.png')) {
-      toast.error('仅支持 PNG 文件');
-      return;
-    }
-    try {
-      const dataUrl = await readFileAsDataUrl(file);
-      setImage({ name: file.name, size: file.size, dataUrl });
-      setResult(null);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
-    }
-  }, []);
+  const loadFile = useCallback(
+    async (file: File) => {
+      if (file.type && file.type !== 'image/png' && !file.name.toLowerCase().endsWith('.png')) {
+        toast.error(t('tools.png_compressor.only_png_files'));
+        return;
+      }
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        setImage({ name: file.name, size: file.size, dataUrl });
+        setResult(null);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [t],
+  );
 
   const compress = useCallback(async () => {
     if (!image) return;
@@ -92,13 +97,22 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
         },
       });
       setResult(res);
-      toast.success(`压缩完成:${formatBytes(res.inputBytes)} → ${formatBytes(res.outputBytes)}`);
+      toast.success(
+        t('tools.png_compressor.compress_success', {
+          input: formatBytes(res.inputBytes),
+          output: formatBytes(res.outputBytes),
+        }),
+      );
     } catch (e) {
-      toast.error(`压缩失败:${e instanceof Error ? e.message : String(e)}`);
+      toast.error(
+        t('tools.png_compressor.compress_failed', {
+          message: e instanceof Error ? e.message : String(e),
+        }),
+      );
     } finally {
       setBusy(false);
     }
-  }, [image, lossless, level, colors, dither]);
+  }, [image, lossless, level, colors, dither, t]);
 
   const downloadResult = useCallback(() => {
     if (!result || !image) return;
@@ -129,21 +143,25 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
       <ConfigSection title="" searchAnchor="png_compressor:config">
         <ConfigRow
           icon={FileImage}
-          label="压缩模式"
-          hint="无损 OxiPNG / 有损调色板量化(pngquant 思路)"
+          label={t('tools.png_compressor.label_mode')}
+          hint={t('tools.png_compressor.hint_mode')}
         >
           <Select value={lossless ? '1' : '0'} onValueChange={(v) => setLossless(v === '1')}>
             <SelectTrigger data-testid="pc-mode" className="w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">无损(OxiPNG)</SelectItem>
-              <SelectItem value="0">有损(调色板量化)</SelectItem>
+              <SelectItem value="1">{t('tools.png_compressor.mode_lossless')}</SelectItem>
+              <SelectItem value="0">{t('tools.png_compressor.mode_lossy')}</SelectItem>
             </SelectContent>
           </Select>
         </ConfigRow>
         {lossless ? (
-          <ConfigRow icon={FileImage} label="优化等级" hint="等级越高体积越小、耗时越长">
+          <ConfigRow
+            icon={FileImage}
+            label={t('tools.png_compressor.label_level')}
+            hint={t('tools.png_compressor.hint_level')}
+          >
             <Select value={level} onValueChange={setLevel}>
               <SelectTrigger data-testid="pc-level" className="w-40">
                 <SelectValue />
@@ -151,7 +169,7 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
               <SelectContent>
                 {LOSSLESS_LEVELS.map((l) => (
                   <SelectItem key={l.value} value={l.value}>
-                    {l.label}
+                    {t(l.label)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -159,7 +177,11 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
           </ConfigRow>
         ) : (
           <>
-            <ConfigRow icon={FileImage} label="颜色数" hint="调色板条目上限">
+            <ConfigRow
+              icon={FileImage}
+              label={t('tools.png_compressor.label_colors')}
+              hint={t('tools.png_compressor.hint_colors')}
+            >
               <Select value={colors} onValueChange={setColors}>
                 <SelectTrigger data-testid="pc-colors" className="w-40">
                   <SelectValue />
@@ -167,13 +189,17 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
                 <SelectContent>
                   {COLOR_OPTIONS.map((c) => (
                     <SelectItem key={c} value={c}>
-                      {c === '255' ? '255(最高)' : c}
+                      {c === '255' ? t('tools.png_compressor.colors_max') : c}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </ConfigRow>
-            <ConfigRow icon={FileImage} label="抖动" hint="Floyd-Steinberg 抖动,渐变更平滑">
+            <ConfigRow
+              icon={FileImage}
+              label={t('tools.png_compressor.label_dither')}
+              hint={t('tools.png_compressor.hint_dither')}
+            >
               <Switch checked={dither} onCheckedChange={setDither} data-testid="pc-dither" />
             </ConfigRow>
           </>
@@ -182,7 +208,7 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
 
       {/* 图片区 */}
       <div className="flex items-center justify-between" data-search-anchor="png_compressor:image">
-        <h2 className="text-body-sm font-semibold">图片</h2>
+        <h2 className="text-body-sm font-semibold">{t('tools.png_compressor.section_image')}</h2>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -190,7 +216,7 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
             data-testid="pc-open"
             onClick={() => fileRef.current?.click()}
           >
-            <FolderOpen aria-hidden className="size-3.5" /> 选择 PNG
+            <FolderOpen aria-hidden className="size-3.5" /> {t('tools.png_compressor.choose_png')}
           </Button>
           <Button
             variant="ghost"
@@ -202,7 +228,7 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
               setResult(null);
             }}
           >
-            <X aria-hidden className="size-3.5" /> 清除
+            <X aria-hidden className="size-3.5" /> {t('tools.png_compressor.clear')}
           </Button>
           <Button
             size="sm"
@@ -211,7 +237,7 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
             onClick={() => void compress()}
           >
             <Download aria-hidden className="size-3.5" />
-            {busy ? '压缩中…' : '压缩'}
+            {busy ? t('tools.png_compressor.compressing') : t('tools.png_compressor.compress')}
           </Button>
         </div>
       </div>
@@ -249,7 +275,10 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
                 className="max-h-[60%] max-w-full object-contain"
               />
               <p className="text-xs text-muted-foreground" data-testid="pc-info">
-                {image.name} · 原始 {formatBytes(image.size)}
+                {t('tools.png_compressor.original_size', {
+                  name: image.name,
+                  size: formatBytes(image.size),
+                })}
               </p>
               {result && (
                 <div
@@ -265,13 +294,18 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
                     </span>
                     {saving !== null && (
                       <span className="ml-1 text-muted-foreground">
-                        ({saving > 0 ? `节省 ${saving}%` : `增大 ${-saving}%`})
+                        (
+                        {saving > 0
+                          ? t('tools.png_compressor.saving_percent', { percent: saving })
+                          : t('tools.png_compressor.increase_percent', { percent: -saving })}
+                        )
                       </span>
                     )}
                   </span>
                   <span className="text-muted-foreground">
-                    耗时 {result.durationMs}ms
-                    {result.colorsUsed !== null && ` · ${result.colorsUsed} 色`}
+                    {t('tools.png_compressor.duration_ms', { ms: result.durationMs })}
+                    {result.colorsUsed !== null &&
+                      ` · ${result.colorsUsed} ${t('tools.png_compressor.color_unit')}`}
                   </span>
                   <Button
                     size="sm"
@@ -280,7 +314,7 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
                     data-testid="pc-download"
                   >
                     <Download aria-hidden className="size-3.5" />
-                    保存压缩结果
+                    {t('tools.png_compressor.save_result')}
                   </Button>
                 </div>
               )}
@@ -288,7 +322,7 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
           ) : (
             <div className="flex flex-col items-center gap-2 text-muted-foreground">
               <FileImage aria-hidden className="size-8" />
-              <p className="text-xs">拖放 PNG 到此处,或点击「选择 PNG」</p>
+              <p className="text-xs">{t('tools.png_compressor.dropzone_hint')}</p>
             </div>
           )}
         </div>

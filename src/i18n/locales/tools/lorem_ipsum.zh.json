@@ -1,0 +1,12 @@
+{
+  "tools.lorem_ipsum.label_type": "类型",
+  "tools.lorem_ipsum.hint_granularity": "生成粒度",
+  "tools.lorem_ipsum.granularity_words": "单词",
+  "tools.lorem_ipsum.granularity_sentences": "句子",
+  "tools.lorem_ipsum.granularity_paragraphs": "段落",
+  "tools.lorem_ipsum.label_count": "数量",
+  "tools.lorem_ipsum.count_aria": "生成数量",
+  "tools.lorem_ipsum.label_start_with_lorem": "以 \"Lorem ipsum\" 开头",
+  "tools.lorem_ipsum.start_with_lorem_aria": "以 Lorem ipsum 开头",
+  "tools.lorem_ipsum.output_title": "生成结果"
+}
