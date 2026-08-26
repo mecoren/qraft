@@ -13,6 +13,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { changeLocale } from '@/i18n';
 import { TabContextMenu, type TabContextMenuProps } from './TabContextMenu';
 import type { EditorTab } from './schema';
 
@@ -210,5 +211,19 @@ describe('TabContextMenu', () => {
     await openMenu();
 
     expect(screen.queryByTestId('ctx-compare-selected')).not.toBeInTheDocument();
+  });
+
+  it('en-US 下菜单项渲染英文(手动切语言场景,防回退抽测)', async () => {
+    changeLocale('en-US');
+    try {
+      setup();
+      await openMenu();
+
+      expect(screen.getByTestId('ctx-rename')).toHaveTextContent('Rename');
+      expect(screen.getByTestId('ctx-close-others')).toHaveTextContent('Close Others');
+      expect(screen.getByTestId('ctx-reveal')).toHaveTextContent('Reveal in File Explorer');
+    } finally {
+      changeLocale('zh-CN');
+    }
   });
 });
