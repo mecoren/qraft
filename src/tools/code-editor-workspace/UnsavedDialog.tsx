@@ -12,6 +12,7 @@
  * 点遮罩 / Esc 均视为取消(AlertDialog 的 Cancel 按钮自动处理)。
  */
 import type { JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,18 +56,19 @@ export function UnsavedDialog({
   onCancel,
   'data-testid': dataTestId,
 }: UnsavedDialogProps): JSX.Element {
+  const { t } = useTranslation();
   const isSingle = mode === 'close-tab';
   const isPinned = mode === 'close-pinned';
   const title = isSingle
-    ? `是否保存对 "${tabTitle ?? ''}" 的更改?`
+    ? t('tools.text_editor.unsaved_title_single', { title: tabTitle ?? '' })
     : isPinned
-      ? `确定要关闭固定的 "${tabTitle ?? ''}" 吗?`
-      : `有 ${dirtyCount} 个未保存的更改`;
+      ? t('tools.text_editor.unsaved_title_pinned', { title: tabTitle ?? '' })
+      : t('tools.text_editor.unsaved_title_multi', { num: dirtyCount });
   const description = isSingle
-    ? '如果不保存,你的更改将丢失。'
+    ? t('tools.text_editor.unsaved_desc_loss')
     : isPinned
-      ? '固定 Tab 不会被批量关闭操作影响,确认后仍会关闭。'
-      : '如果不保存,你的更改将丢失。';
+      ? t('tools.text_editor.unsaved_desc_pinned')
+      : t('tools.text_editor.unsaved_desc_loss');
 
   return (
     <AlertDialog open={open} onOpenChange={(o) => !o && onCancel()}>
@@ -79,7 +81,7 @@ export function UnsavedDialog({
           {/* 顺序: 保存 → 不保存/关闭 → 取消 */}
           {isSingle && canSave && (
             <AlertDialogAction onClick={onSave} data-testid={`${dataTestId}-save`}>
-              保存
+              {t('tools.text_editor.save')}
             </AlertDialogAction>
           )}
           <AlertDialogAction
@@ -88,10 +90,14 @@ export function UnsavedDialog({
             data-testid={`${dataTestId}-discard`}
             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
           >
-            {isSingle ? '不保存' : isPinned ? '关闭' : '全部不保存'}
+            {isSingle
+              ? t('tools.text_editor.unsaved_discard')
+              : isPinned
+                ? t('tools.text_editor.close')
+                : t('tools.text_editor.unsaved_discard_all')}
           </AlertDialogAction>
           <AlertDialogCancel onClick={onCancel} data-testid={`${dataTestId}-cancel`}>
-            取消
+            {t('tools.text_editor.cancel')}
           </AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
