@@ -1,0 +1,6 @@
+{
+  "tools.ulid_generator.count": "数量",
+  "tools.ulid_generator.count_hint": "1–100,每行一个",
+  "tools.ulid_generator.count_aria": "生成数量",
+  "tools.ulid_generator.generate": "生成"
+}

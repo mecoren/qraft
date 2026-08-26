@@ -3,6 +3,7 @@
  * 26 位 Crockford Base32:前 10 字符 = 48bit 毫秒时间戳,后 16 字符 = 80bit 随机。
  */
 import { useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Fingerprint } from 'lucide-react';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection, HeaderAction } from '@/components/config-card';
@@ -14,6 +15,7 @@ import { generateUlid } from './ulid-utils';
 import type { ToolProps } from './registry';
 
 export function UlidGenerator({ toolId }: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [count, setCount] = useState(5);
   const [output, setOutput] = useState('');
 
@@ -32,9 +34,13 @@ export function UlidGenerator({ toolId }: ToolProps): JSX.Element {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3" data-testid="ulid-generator">
       <ConfigSection title="" searchAnchor="ulid_generator:config">
-        <ConfigRow icon={Fingerprint} label="数量" hint="1–100,每行一个">
+        <ConfigRow
+          icon={Fingerprint}
+          label={t('tools.ulid_generator.count')}
+          hint={t('tools.ulid_generator.count_hint')}
+        >
           <Input
-            aria-label="生成数量"
+            aria-label={t('tools.ulid_generator.count_aria')}
             type="number"
             min={1}
             max={100}
@@ -53,7 +59,7 @@ export function UlidGenerator({ toolId }: ToolProps): JSX.Element {
         searchAnchor="ulid_generator:output"
         actions={
           <>
-            <HeaderAction onClick={() => handleGenerate()}>生成</HeaderAction>
+            <HeaderAction onClick={() => handleGenerate()}>{t('tools.ulid_generator.generate')}</HeaderAction>
             {output && <CopyAction text={output} testId="copy-ulid" />}
           </>
         }

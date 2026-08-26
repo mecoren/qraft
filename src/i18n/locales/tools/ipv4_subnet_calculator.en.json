@@ -1,0 +1,12 @@
+{
+  "tools.ipv4_subnet_calculator.network_address": "Network address",
+  "tools.ipv4_subnet_calculator.netmask": "Subnet mask",
+  "tools.ipv4_subnet_calculator.wildcard_mask": "Wildcard mask",
+  "tools.ipv4_subnet_calculator.broadcast_address": "Broadcast address",
+  "tools.ipv4_subnet_calculator.first_host": "First usable host",
+  "tools.ipv4_subnet_calculator.last_host": "Last usable host",
+  "tools.ipv4_subnet_calculator.total_addresses": "Total addresses",
+  "tools.ipv4_subnet_calculator.usable_hosts": "Usable hosts",
+  "tools.ipv4_subnet_calculator.cidr_hint": "e.g. 192.168.1.10/24; an omitted prefix defaults to /32",
+  "tools.ipv4_subnet_calculator.parse_error": "Unparseable IPv4/CIDR expression"
+}

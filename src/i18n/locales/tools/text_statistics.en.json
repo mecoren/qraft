@@ -1,0 +1,10 @@
+{
+  "tools.text_statistics.chars": "Characters",
+  "tools.text_statistics.chars_no_spaces": "Characters (no whitespace)",
+  "tools.text_statistics.words": "Words",
+  "tools.text_statistics.lines": "Lines",
+  "tools.text_statistics.bytes": "Bytes (UTF-8)",
+  "tools.text_statistics.description": "Statistics update as you type; everything runs locally.",
+  "tools.text_statistics.input_title": "Input",
+  "tools.text_statistics.stats_title": "Statistics"
+}

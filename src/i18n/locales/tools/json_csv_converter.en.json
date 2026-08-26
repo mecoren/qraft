@@ -1,0 +1,8 @@
+{
+  "tools.json_csv_converter.direction": "Direction",
+  "tools.json_csv_converter.direction_hint": "JSON→CSV expects an object or an array of objects",
+  "tools.json_csv_converter.json_input": "JSON input",
+  "tools.json_csv_converter.csv_input": "CSV input",
+  "tools.json_csv_converter.output_title": "Output",
+  "tools.json_csv_converter.convert_failed": "Conversion failed: {{message}}"
+}

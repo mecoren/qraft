@@ -1,0 +1,6 @@
+{
+  "tools.basic_auth_generator.username": "用户名",
+  "tools.basic_auth_generator.password": "密码",
+  "tools.basic_auth_generator.privacy_hint": "仅在本机内存中计算,不落盘不上传",
+  "tools.basic_auth_generator.output_title": "Authorization 头"
+}

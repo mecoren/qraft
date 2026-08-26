@@ -3,6 +3,7 @@
  * 解析纯函数见 ipv4-subnet-utils.ts;本组件仅负责输入与结果展示。
  */
 import { useMemo, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Network } from 'lucide-react';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
@@ -15,23 +16,36 @@ import type { ToolProps } from './registry';
 const fmt = new Intl.NumberFormat('en-US');
 
 export function Ipv4SubnetCalculator({ toolId }: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [raw, setRaw] = useState('');
   const info = useMemo(() => parseCidr(raw), [raw]);
 
   const rows = info
     ? [
         {
-          k: '网络地址',
+          k: t('tools.ipv4_subnet_calculator.network_address'),
           v: `${info.network}/${raw.includes('/') ? raw.split('/')[1] : '32'}`,
           tid: 'subnet-network',
         },
-        { k: '子网掩码', v: info.netmask, tid: undefined },
-        { k: '反掩码', v: info.wildcard, tid: undefined },
-        { k: '广播地址', v: info.broadcast, tid: undefined },
-        { k: '第一个可用主机', v: info.firstHost, tid: undefined },
-        { k: '最后一个可用主机', v: info.lastHost, tid: undefined },
-        { k: '总地址数', v: fmt.format(info.totalAddrs), tid: undefined },
-        { k: '可用主机数', v: fmt.format(info.usableHosts), tid: 'subnet-hosts' },
+        { k: t('tools.ipv4_subnet_calculator.netmask'), v: info.netmask, tid: undefined },
+        { k: t('tools.ipv4_subnet_calculator.wildcard_mask'), v: info.wildcard, tid: undefined },
+        {
+          k: t('tools.ipv4_subnet_calculator.broadcast_address'),
+          v: info.broadcast,
+          tid: undefined,
+        },
+        { k: t('tools.ipv4_subnet_calculator.first_host'), v: info.firstHost, tid: undefined },
+        { k: t('tools.ipv4_subnet_calculator.last_host'), v: info.lastHost, tid: undefined },
+        {
+          k: t('tools.ipv4_subnet_calculator.total_addresses'),
+          v: fmt.format(info.totalAddrs),
+          tid: undefined,
+        },
+        {
+          k: t('tools.ipv4_subnet_calculator.usable_hosts'),
+          v: fmt.format(info.usableHosts),
+          tid: 'subnet-hosts',
+        },
       ]
     : [];
 
@@ -45,7 +59,7 @@ export function Ipv4SubnetCalculator({ toolId }: ToolProps): JSX.Element {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3" data-testid="ipv4-subnet-calculator">
       <ConfigSection title="" searchAnchor="ipv4_subnet_calculator:config">
-        <ConfigRow icon={Network} label="CIDR" hint="如 192.168.1.10/24,省略前缀按 /32">
+        <ConfigRow icon={Network} label="CIDR" hint={t('tools.ipv4_subnet_calculator.cidr_hint')}>
           <Input
             aria-label="CIDR"
             value={raw}
@@ -62,7 +76,7 @@ export function Ipv4SubnetCalculator({ toolId }: ToolProps): JSX.Element {
       >
         {!info && raw.trim() !== '' && (
           <p role="alert" className="text-sm text-destructive">
-            无法解析的 IPv4/CIDR 表达式
+            {t('tools.ipv4_subnet_calculator.parse_error')}
           </p>
         )}
         {info && (

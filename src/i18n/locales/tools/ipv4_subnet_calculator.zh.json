@@ -1,0 +1,12 @@
+{
+  "tools.ipv4_subnet_calculator.network_address": "网络地址",
+  "tools.ipv4_subnet_calculator.netmask": "子网掩码",
+  "tools.ipv4_subnet_calculator.wildcard_mask": "反掩码",
+  "tools.ipv4_subnet_calculator.broadcast_address": "广播地址",
+  "tools.ipv4_subnet_calculator.first_host": "第一个可用主机",
+  "tools.ipv4_subnet_calculator.last_host": "最后一个可用主机",
+  "tools.ipv4_subnet_calculator.total_addresses": "总地址数",
+  "tools.ipv4_subnet_calculator.usable_hosts": "可用主机数",
+  "tools.ipv4_subnet_calculator.cidr_hint": "如 192.168.1.10/24,省略前缀按 /32",
+  "tools.ipv4_subnet_calculator.parse_error": "无法解析的 IPv4/CIDR 表达式"
+}

@@ -1,0 +1,15 @@
+{
+  "tools.color_converter.color_value": "Color value",
+  "tools.color_converter.color_value_hint": "e.g. #ff5733 / rgb(255,87,51) / hsl(11,100%,60%)",
+  "tools.color_converter.input_placeholder": "Enter a color value...",
+  "tools.color_converter.input_format": "Input format",
+  "tools.color_converter.input_format_hint": "Format used to parse the input",
+  "tools.color_converter.convert": "Convert",
+  "tools.color_converter.converting": "Converting...",
+  "tools.color_converter.preview": "Preview",
+  "tools.color_converter.color_sample": "Color sample {{value}}",
+  "tools.color_converter.no_color_sample": "No color sample yet",
+  "tools.color_converter.result_title": "Result",
+  "tools.color_converter.output_placeholder": "Enter a color value and click Convert to see all formats",
+  "tools.color_converter.copy": "Copy"
+}

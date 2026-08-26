@@ -1,0 +1,6 @@
+{
+  "tools.basic_auth_generator.username": "Username",
+  "tools.basic_auth_generator.password": "Password",
+  "tools.basic_auth_generator.privacy_hint": "Computed locally in memory only; never stored or uploaded",
+  "tools.basic_auth_generator.output_title": "Authorization header"
+}

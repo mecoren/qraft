@@ -8,6 +8,7 @@
  * 错误处理遵循新代约定:工具内联 alert 展示。
  */
 import { useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Palette } from 'lucide-react';
 import { formatError } from '@/lib/format-error';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ interface ColorExtra {
 type ColorFormat = 'hex' | 'rgb' | 'hsl';
 
 export function ColorConverter({ toolId }: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [text, setText] = useState('');
   const [fromFormat, setFromFormat] = useState<ColorFormat>('hex');
   const [output, setOutput] = useState<ToolOutput | null>(null);
@@ -71,22 +73,26 @@ export function ColorConverter({ toolId }: ToolProps): JSX.Element {
       <ConfigSection title="" searchAnchor="color_converter:config">
         <ConfigRow
           icon={Palette}
-          label="颜色值"
-          hint="如 #ff5733 / rgb(255,87,51) / hsl(11,100%,60%)"
+          label={t('tools.color_converter.color_value')}
+          hint={t('tools.color_converter.color_value_hint')}
           searchAnchor="color_converter:input"
         >
           <Input
             id="color-input"
-            placeholder="输入颜色值..."
+            placeholder={t('tools.color_converter.input_placeholder')}
             value={text}
             onChange={(e) => setText(e.target.value)}
             className="w-72 font-mono text-sm"
             data-testid="input"
           />
         </ConfigRow>
-        <ConfigRow icon={Palette} label="输入格式" hint="解析输入所用的颜色格式">
+        <ConfigRow
+          icon={Palette}
+          label={t('tools.color_converter.input_format')}
+          hint={t('tools.color_converter.input_format_hint')}
+        >
           <Select value={fromFormat} onValueChange={(v) => setFromFormat(v as ColorFormat)}>
-            <SelectTrigger className="w-32" aria-label="输入格式">
+            <SelectTrigger className="w-32" aria-label={t('tools.color_converter.input_format')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -97,7 +103,7 @@ export function ColorConverter({ toolId }: ToolProps): JSX.Element {
           </Select>
           <span className="h-4 w-px bg-border" aria-hidden />
           <Button onClick={() => void handleConvert()} disabled={loading || !text} size="sm">
-            {loading ? '转换中...' : '转换'}
+            {loading ? t('tools.color_converter.converting') : t('tools.color_converter.convert')}
           </Button>
         </ConfigRow>
       </ConfigSection>
@@ -119,11 +125,17 @@ export function ColorConverter({ toolId }: ToolProps): JSX.Element {
       >
         <div className="flex min-h-0 flex-col gap-3">
           <div className="rounded-lg border p-3 shadow-card">
-            <div className="text-xs font-semibold text-muted-foreground">预览</div>
+            <div className="text-xs font-semibold text-muted-foreground">
+              {t('tools.color_converter.preview')}
+            </div>
             <div
               className="mt-2 h-24 rounded-md border"
               style={{ backgroundColor: extra?.hex }}
-              aria-label={extra ? `颜色样本 ${extra.hex}` : '暂无颜色样本'}
+              aria-label={
+                extra
+                  ? t('tools.color_converter.color_sample', { value: extra.hex })
+                  : t('tools.color_converter.no_color_sample')
+              }
             />
           </div>
           <div className="min-h-0 flex-1 overflow-auto rounded-lg border p-3 text-sm shadow-card">
@@ -142,10 +154,10 @@ export function ColorConverter({ toolId }: ToolProps): JSX.Element {
         </div>
         <CodeEditor
           readOnly
-          title="转换结果"
+          title={t('tools.color_converter.result_title')}
           language="plaintext"
           value={output?.text ?? ''}
-          placeholder="输入颜色值后点击「转换」查看全部格式输出"
+          placeholder={t('tools.color_converter.output_placeholder')}
           className="min-h-0"
           data-testid="output-editor"
           searchAnchor="color_converter:output"
@@ -160,6 +172,7 @@ export function ColorConverter({ toolId }: ToolProps): JSX.Element {
 
 /** 取值行复制按钮:值为空时渲染占位,保持网格对齐 */
 function CopyButton({ value }: { value?: string }): JSX.Element {
+  const { t } = useTranslation();
   if (!value) return <span />;
   return (
     <button
@@ -167,7 +180,7 @@ function CopyButton({ value }: { value?: string }): JSX.Element {
       className="text-xs text-primary hover:underline"
       onClick={() => void copyTextWithFeedback(value)}
     >
-      复制
+      {t('tools.color_converter.copy')}
     </button>
   );
 }

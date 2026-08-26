@@ -3,6 +3,7 @@
  * 仅在本机内存中计算,不落盘不上传;凭据为空时不产出结果。
  */
 import { useMemo, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { KeyRound } from 'lucide-react';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
@@ -15,6 +16,7 @@ import { encodeBasicAuth } from './basic-auth-utils';
 import type { ToolProps } from './registry';
 
 export function BasicAuthGenerator({ toolId }: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [user, setUser] = useState('');
   const [password, setPassword] = useState('');
   // 任一凭据为空则不产出(空串头没有发送意义)
@@ -34,18 +36,22 @@ export function BasicAuthGenerator({ toolId }: ToolProps): JSX.Element {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3" data-testid="basic-auth-generator">
       <ConfigSection title="" searchAnchor="basic_auth_generator:config">
-        <ConfigRow icon={KeyRound} label="用户名">
+        <ConfigRow icon={KeyRound} label={t('tools.basic_auth_generator.username')}>
           <Input
-            aria-label="用户名"
+            aria-label={t('tools.basic_auth_generator.username')}
             value={user}
             onChange={(e) => setUser(e.target.value)}
             autoComplete="off"
             spellCheck={false}
           />
         </ConfigRow>
-        <ConfigRow icon={KeyRound} label="密码" hint="仅在本机内存中计算,不落盘不上传">
+        <ConfigRow
+          icon={KeyRound}
+          label={t('tools.basic_auth_generator.password')}
+          hint={t('tools.basic_auth_generator.privacy_hint')}
+        >
           <Input
-            aria-label="密码"
+            aria-label={t('tools.basic_auth_generator.password')}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -55,7 +61,7 @@ export function BasicAuthGenerator({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
       <CodeEditor
-        title="Authorization 头"
+        title={t('tools.basic_auth_generator.output_title')}
         language="plaintext"
         readOnly
         value={header}

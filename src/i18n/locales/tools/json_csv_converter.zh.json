@@ -1,0 +1,8 @@
+{
+  "tools.json_csv_converter.direction": "方向",
+  "tools.json_csv_converter.direction_hint": "JSON→CSV 需对象或对象数组",
+  "tools.json_csv_converter.json_input": "JSON 输入",
+  "tools.json_csv_converter.csv_input": "CSV 输入",
+  "tools.json_csv_converter.output_title": "输出",
+  "tools.json_csv_converter.convert_failed": "转换失败: {{message}}"
+}

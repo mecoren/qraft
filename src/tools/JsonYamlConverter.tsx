@@ -3,6 +3,7 @@
  */
 
 import { useDeferredValue, useMemo, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeftRight, IndentIncrease } from 'lucide-react';
 import YAML from 'yaml';
 import {
@@ -30,6 +31,7 @@ export function convertJsonYaml(input: string, direction: Direction, indent: num
 }
 
 export function JsonYamlConverter(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [direction, setDirection] = useState<Direction>('json2yaml');
   const [indent, setIndent] = useState('2');
@@ -41,32 +43,42 @@ export function JsonYamlConverter(_props: ToolProps): JSX.Element {
     try {
       return convertJsonYaml(deferredInput, direction, Number(indent));
     } catch (e) {
-      return `转换失败: ${e instanceof Error ? e.message : String(e)}`;
+      return t('tools.json_yaml_converter.convert_failed', {
+        message: e instanceof Error ? e.message : String(e),
+      });
     }
-  }, [deferredInput, direction, indent]);
+  }, [deferredInput, direction, indent, t]);
 
   return (
     <div className="flex h-full flex-col gap-3" data-testid="json-yaml-converter">
       <ConfigSection title="" searchAnchor="json_yaml_converter:config">
-        <ConfigRow icon={ArrowLeftRight} label="转换" hint="选择转换方向">
+        <ConfigRow
+          icon={ArrowLeftRight}
+          label={t('tools.json_yaml_converter.direction_label')}
+          hint={t('tools.json_yaml_converter.direction_hint')}
+        >
           <Select value={direction} onValueChange={(v) => setDirection(v as Direction)}>
             <SelectTrigger data-testid="jy-direction" className="w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="json2yaml">JSON 转 YAML</SelectItem>
-              <SelectItem value="yaml2json">YAML 转 JSON</SelectItem>
+              <SelectItem value="json2yaml">
+                {t('tools.json_yaml_converter.json_to_yaml')}
+              </SelectItem>
+              <SelectItem value="yaml2json">
+                {t('tools.json_yaml_converter.yaml_to_json')}
+              </SelectItem>
             </SelectContent>
           </Select>
         </ConfigRow>
-        <ConfigRow icon={IndentIncrease} label="缩进">
+        <ConfigRow icon={IndentIncrease} label={t('tools.json_yaml_converter.indent')}>
           <Select value={indent} onValueChange={setIndent}>
             <SelectTrigger data-testid="jy-indent" className="w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="2">2 个空格</SelectItem>
-              <SelectItem value="4">4 个空格</SelectItem>
+              <SelectItem value="2">{t('tools.json_yaml_converter.indent_2')}</SelectItem>
+              <SelectItem value="4">{t('tools.json_yaml_converter.indent_4')}</SelectItem>
             </SelectContent>
           </Select>
         </ConfigRow>

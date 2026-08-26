@@ -4,6 +4,7 @@
  * CSV→JSON:状态机解析,首行作表头。
  */
 import { useDeferredValue, useMemo, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Table } from 'lucide-react';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
@@ -13,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import { SendToMenu } from '@/components/send-to-menu';
+import { t as translate } from '@/i18n';
 import { jsonToCsv, csvToJson } from './json-csv-utils';
 import type { ToolProps } from './registry';
 
@@ -38,11 +40,14 @@ function convert(direction: Direction, text: string): string {
     }
     return JSON.stringify(csvToJson(text, true), null, 2);
   } catch (e) {
-    return `转换失败: ${e instanceof Error ? e.message : String(e)}`;
+    return translate('tools.json_csv_converter.convert_failed', {
+      message: e instanceof Error ? e.message : String(e),
+    });
   }
 }
 
 export function JsonCsvConverter({ toolId }: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [direction, setDirection] = useState<Direction>('json_to_csv');
   const [text, setText] = useState('');
   // 大输入降优先级渲染,保持输入跟手
@@ -57,7 +62,11 @@ export function JsonCsvConverter({ toolId }: ToolProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3" data-testid="json-csv-converter">
       <ConfigSection title="" searchAnchor="json_csv_converter:config">
-        <ConfigRow icon={Table} label="方向" hint="JSON→CSV 需对象或对象数组">
+        <ConfigRow
+          icon={Table}
+          label={t('tools.json_csv_converter.direction')}
+          hint={t('tools.json_csv_converter.direction_hint')}
+        >
           <Tabs value={direction} onValueChange={(v) => setDirection(v as Direction)}>
             <TabsList>
               <TabsTrigger value="json_to_csv">JSON → CSV</TabsTrigger>
@@ -69,7 +78,11 @@ export function JsonCsvConverter({ toolId }: ToolProps): JSX.Element {
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         <ResizablePanel defaultSize={50} minSize={20}>
           <CodeEditor
-            title={direction === 'json_to_csv' ? 'JSON 输入' : 'CSV 输入'}
+            title={
+              direction === 'json_to_csv'
+                ? t('tools.json_csv_converter.json_input')
+                : t('tools.json_csv_converter.csv_input')
+            }
             value={text}
             onChange={setText}
             showClear
@@ -81,7 +94,7 @@ export function JsonCsvConverter({ toolId }: ToolProps): JSX.Element {
         <ResizableHandle />
         <ResizablePanel defaultSize={50} minSize={20}>
           <CodeEditor
-            title="输出"
+            title={t('tools.json_csv_converter.output_title')}
             language={direction === 'csv_to_json' ? 'json' : 'plaintext'}
             readOnly
             value={output}

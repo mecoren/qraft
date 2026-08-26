@@ -3,11 +3,13 @@
  */
 
 import { useDeferredValue, useMemo, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { downloadText } from '@/lib/file-utils';
+import { t as translate } from '@/i18n';
 import type { ToolProps } from './registry';
 
 interface TableData {
@@ -23,7 +25,7 @@ function cellText(v: unknown): string {
 
 export function jsonArrayToTable(input: string): TableData {
   const value: unknown = JSON.parse(input);
-  if (!Array.isArray(value)) throw new Error('输入必须是 JSON 数组');
+  if (!Array.isArray(value)) throw new Error(translate('tools.json_array_table.not_array'));
   if (value.length === 0) return { columns: [], rows: [] };
 
   // 汇总所有对象键为列;非对象元素归入 value 列
@@ -69,6 +71,7 @@ export function tableToDelimited(table: TableData, sep: ',' | '\t'): string {
 }
 
 export function JsonArrayTable(_props: ToolProps): JSX.Element {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   // 大数组建表开销大:defer 输入优先,建表低优先级追赶
   const deferredInput = useDeferredValue(input);
@@ -85,7 +88,7 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
   return (
     <div className="grid h-full min-h-0 grid-cols-2 gap-3" data-testid="json-array-table">
       <CodeEditor
-        title="JSON 数组"
+        title={t('tools.json_array_table.input_title')}
         language="json"
         value={input}
         onChange={setInput}
@@ -97,7 +100,7 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
 
       <div className="flex min-h-0 flex-col gap-2" data-search-anchor="json_array_table:table">
         <div className="flex items-center justify-between">
-          <h2 className="text-body-sm font-semibold">表格</h2>
+          <h2 className="text-body-sm font-semibold">{t('tools.json_array_table.table_title')}</h2>
           <div className="flex gap-1">
             <Button
               variant="ghost"
@@ -137,7 +140,7 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
             </p>
           ) : !result.table || result.table.columns.length === 0 ? (
             <p className="px-4 py-3 text-xs text-muted-foreground">
-              输入 JSON 对象数组后自动生成表格
+              {t('tools.json_array_table.empty_state')}
             </p>
           ) : (
             <>
