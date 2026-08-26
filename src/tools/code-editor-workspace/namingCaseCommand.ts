@@ -1,5 +1,6 @@
 import type { editor, IRange, Position } from 'monaco-editor';
 import { toast } from 'sonner';
+import { t } from '@/i18n';
 import { useConfigStore } from '@/store/configStore';
 import { DEFAULT_EDITOR_CONFIG } from '@/types/config';
 import { cycleNamingCase, toggleCase, type NamingConventionId } from '@/lib/naming-convention';
@@ -86,7 +87,7 @@ function executeCycleNamingCase(editorInstance: editor.IStandaloneCodeEditor): v
  */
 export function cycleNamingCaseShortcutHandler(): void {
   if (!activeEditor) {
-    toast.info('请在文本编辑器中选中文字后使用该快捷键');
+    toast.info(t('tools.text_editor.shortcut_needs_selection'));
     return;
   }
   executeCycleNamingCase(activeEditor);
@@ -132,7 +133,7 @@ function executeToggleCase(editorInstance: editor.IStandaloneCodeEditor): void {
  */
 export function toggleCaseShortcutHandler(): void {
   if (!activeEditor) {
-    toast.info('请在文本编辑器中选中文字后使用该快捷键');
+    toast.info(t('tools.text_editor.shortcut_needs_selection'));
     return;
   }
   executeToggleCase(activeEditor);
