@@ -187,6 +187,18 @@ jobs:
       # - TAURI_SIGNING_PRIVATE_KEY 缺失时构建直接失败(预期保护),须先在
       #   repo Secrets 配置签名私钥。
       # ──────────────────────────────────────────────────────────────────────
+      # 临时诊断:确认 Secret 是否注入到构建环境(只输出长度,不泄露内容)。
+      # 定位 "no private key" 报错是 Secret 配置问题还是 tauri-action 层问题。
+      - name: Debug signing key presence
+        run: |
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "key present, length=${#TAURI_SIGNING_PRIVATE_KEY}"
+          else
+            echo "key MISSING or EMPTY"
+          fi
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
       - name: Build & publish via tauri-action
         uses: tauri-apps/tauri-action@v0
         env:
