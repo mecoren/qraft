@@ -361,7 +361,7 @@ jobs:
           # 2) 重写 latest.json:URL 文件名按同一映射替换,并剔除 msi/rpm 条目。
           # 按资产 ID 以 octet-stream 拉取内容,不经 tag 路由。
           ASSET_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
-            jq -r '.[] | select(.name == "latest.json")[0].id')
+            jq -r '[.[] | select(.name == "latest.json")][0].id')
           gh api "$API/releases/assets/$ASSET_ID" \
             -H "Accept: application/octet-stream" > latest.json
           sed -i "${MAP_SED[@]}" latest.json
