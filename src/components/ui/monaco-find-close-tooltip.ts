@@ -133,10 +133,17 @@ export function attachFindCloseTooltip(root: HTMLElement): FindCloseTooltipHandl
 
   // 监听子树新增节点:Monaco 可能在按键绑定更新时重设 title/重建按钮
   const observer = new MutationObserver(sanitize);
-  observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['title'] });
+  observer.observe(root, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['title'],
+  });
   // 补偿观察建立前就已渲染好的查找组件;同时清扫 body 上可能遗留的
   // 孤儿浮层(热更新等异常路径可能只留下 DOM 而失去管理句柄)
-  document.body.querySelectorAll<HTMLElement>('[data-find-close-hint]').forEach((el) => el.remove());
+  document.body
+    .querySelectorAll<HTMLElement>('[data-find-close-hint]')
+    .forEach((el) => el.remove());
   sanitize();
 
   return {

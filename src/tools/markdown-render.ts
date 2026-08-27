@@ -74,12 +74,11 @@ export interface RenderResult {
 export function renderMarkdown(source: string, options: RenderOptions = {}): RenderResult {
   const core: RenderCoreResult = renderMarkdownCore(source, {
     ...options,
-    labels:
-      options.labels ?? {
-        copyCode: t('tools.markdown_preview.core_copy_code'),
-        headingAnchor: t('tools.markdown_preview.core_heading_anchor'),
-        backref: t('tools.markdown_preview.core_backref'),
-      },
+    labels: options.labels ?? {
+      copyCode: t('tools.markdown_preview.core_copy_code'),
+      headingAnchor: t('tools.markdown_preview.core_heading_anchor'),
+      backref: t('tools.markdown_preview.core_backref'),
+    },
   });
   return {
     html: core.html ? sanitizeMarkdownHtml(core.html) : '',

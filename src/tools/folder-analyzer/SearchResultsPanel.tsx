@@ -48,7 +48,10 @@ export function SearchResultsPanel({ report }: Props) {
         {report.truncated ? t('tools.folder_analyzer.search_truncated') : ''}
         {report.cancelled ? t('tools.folder_analyzer.search_cancelled') : ''}
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden rounded-md border" data-testid="search-results-editor">
+      <div
+        className="min-h-0 flex-1 overflow-hidden rounded-md border"
+        data-testid="search-results-editor"
+      >
         <CodeEditor
           value={text}
           readOnly

@@ -19,7 +19,9 @@ describe('SendToMenu', () => {
     render(<SendToMenu text="abc" currentToolId="json_formatter" testId="send-json" />);
     await user.click(screen.getByTestId('send-json'));
     // 目标展示名取自 tool-catalog(LocalizedText 随语言走)
-    expect(await screen.findByRole('menuitem', { name: /哈希 \/ 校验和生成器/ })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('menuitem', { name: /哈希 \/ 校验和生成器/ }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: /JSON 格式化器/ })).not.toBeInTheDocument();
   });
 

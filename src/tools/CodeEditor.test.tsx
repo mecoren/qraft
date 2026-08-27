@@ -37,9 +37,7 @@ vi.mock('@/components/ui/code-editor', () => ({
         ) : (
           title && <span data-testid={testId ? `${testId}-title` : undefined}>{title}</span>
         )}
-        {actions && (
-          <span data-testid={testId ? `${testId}-actions` : undefined}>{actions}</span>
-        )}
+        {actions && <span data-testid={testId ? `${testId}-actions` : undefined}>{actions}</span>}
       </div>
       <span data-testid={testId ? `${testId}-language` : undefined}>{language}</span>
       {sizeBytes !== undefined && (
@@ -268,9 +266,7 @@ describe('CodeEditorTool workspace', () => {
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
-    await waitFor(() =>
-      expect(screen.getByTestId('editor-header')).toHaveTextContent('README.md'),
-    );
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('README.md'));
 
     // 右上角出现 视图切换按钮组(编辑/分屏/预览),默认分屏:编辑器与预览并存
     expect(screen.getByTestId('editor-md-actions')).toBeInTheDocument();

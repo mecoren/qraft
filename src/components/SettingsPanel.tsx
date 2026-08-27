@@ -167,15 +167,11 @@ export function UpdateSection(): JSX.Element {
         toast.success(t('settings.up_to_date_toast', { version: resp.currentVersion }));
       } else if (isManual) {
         // 系统安装版:提示需前往 Releases 手动下载整包(不同安装方式)
-        toast.info(
-          t('settings.manual_install_toast', { mode: resp.installModeLabel ?? '' }),
-        );
+        toast.info(t('settings.manual_install_toast', { mode: resp.installModeLabel ?? '' }));
       }
     } catch (err) {
       // Tauri 命令 Err(AppError) 时以序列化错误对象 reject,需归一化取真实消息
-      toast.error(
-        t('settings.check_failed_toast', { message: normalizeIpcError(err).message }),
-      );
+      toast.error(t('settings.check_failed_toast', { message: normalizeIpcError(err).message }));
     } finally {
       setChecking(false);
     }
@@ -752,11 +748,13 @@ export function GeneralSection(): JSX.Element {
           >
             <div className="flex flex-col gap-0.5">
               <Label htmlFor="smartDetect">{t('settings.smart_detect')}</Label>
-              <p className="text-xs text-muted-foreground">
-                {t('settings.smart_detect_hint')}
-              </p>
+              <p className="text-xs text-muted-foreground">{t('settings.smart_detect_hint')}</p>
             </div>
-            <Switch id="smartDetect" checked={smartDetectionEnabled} onCheckedChange={toggleSmartDetection} />
+            <Switch
+              id="smartDetect"
+              checked={smartDetectionEnabled}
+              onCheckedChange={toggleSmartDetection}
+            />
           </div>
         </CardContent>
       </Card>
@@ -996,26 +994,26 @@ export function ShortcutSection(): JSX.Element {
           type="button"
           variant="outline"
           disabled={resetting}
-            onClick={async () => {
-              setResetting(true);
-              try {
-                // 先把本地表单恢复成默认值,避免等待异步事件期间 UI 出现空值
-                form.reset({ shortcuts: { ...DEFAULT_USER_CONFIG.shortcuts } });
-                const r = await resetConfig('shortcuts');
-                if (r.ok) {
-                  toast.success(t('settings.restored_toast'));
-                } else {
-                  toast.error(t('settings.restore_failed_toast'));
-                }
-              } catch {
-                toast.error(t('settings.restore_error_toast'));
-              } finally {
-                setResetting(false);
+          onClick={async () => {
+            setResetting(true);
+            try {
+              // 先把本地表单恢复成默认值,避免等待异步事件期间 UI 出现空值
+              form.reset({ shortcuts: { ...DEFAULT_USER_CONFIG.shortcuts } });
+              const r = await resetConfig('shortcuts');
+              if (r.ok) {
+                toast.success(t('settings.restored_toast'));
+              } else {
+                toast.error(t('settings.restore_failed_toast'));
               }
-            }}
-          >
-            {resetting ? t('settings.restoring') : t('settings.restore_defaults')}
-          </Button>
+            } catch {
+              toast.error(t('settings.restore_error_toast'));
+            } finally {
+              setResetting(false);
+            }
+          }}
+        >
+          {resetting ? t('settings.restoring') : t('settings.restore_defaults')}
+        </Button>
       </div>
     </form>
   );
@@ -1131,9 +1129,7 @@ export function EditorSection(): JSX.Element {
               </Button>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {t('settings.editor_cycle_hint')}
-          </p>
+          <p className="text-xs text-muted-foreground">{t('settings.editor_cycle_hint')}</p>
         </div>
       </CardContent>
     </Card>

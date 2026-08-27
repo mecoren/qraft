@@ -71,7 +71,6 @@ function base64ToUint8Array(b64: string): Uint8Array {
 import type { OutputMeta, ToolOutput } from '@/types/tool';
 import type { ToolProps } from './registry';
 
-
 /** MIME → 文件扩展名(解码二进制另存为时使用) */
 const MIME_EXT: Record<string, string> = {
   'image/png': 'png',
@@ -306,7 +305,9 @@ function BinaryPreview({
   return (
     <div className="flex h-full min-h-[200px] flex-col overflow-hidden rounded-md border border-input bg-card">
       <div className="flex items-center justify-between border-b border-input px-2 py-0.5">
-        <span className="pl-1 text-xs font-medium text-foreground">{t('tools.base64_codec.preview_title')}</span>
+        <span className="pl-1 text-xs font-medium text-foreground">
+          {t('tools.base64_codec.preview_title')}
+        </span>
         <HeaderAction testId="b64-save" onClick={onSave} disabled={!result}>
           <Save aria-hidden className="size-3.5" /> {t('tools.base64_codec.save_as')}
         </HeaderAction>
@@ -575,10 +576,12 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
             {/* 固定宽度 w-36,与下方模式 SelectTrigger 视觉对齐 */}
             <TabsList className="w-36">
               <TabsTrigger value="encode" data-testid="dir-encode">
-                <ArrowUpFromLine aria-hidden className="size-3.5" /> {t('tools.base64_codec.tab_encode')}
+                <ArrowUpFromLine aria-hidden className="size-3.5" />{' '}
+                {t('tools.base64_codec.tab_encode')}
               </TabsTrigger>
               <TabsTrigger value="decode" data-testid="dir-decode">
-                <ArrowDownToLine aria-hidden className="size-3.5" /> {t('tools.base64_codec.tab_decode')}
+                <ArrowDownToLine aria-hidden className="size-3.5" />{' '}
+                {t('tools.base64_codec.tab_decode')}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -647,7 +650,9 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
           {isTextMode || isFileDecode ? (
             <CodeEditor
               title={
-                isFileDecode ? t('tools.base64_codec.input_title_base64') : t('tools.base64_codec.input_title')
+                isFileDecode
+                  ? t('tools.base64_codec.input_title_base64')
+                  : t('tools.base64_codec.input_title')
               }
               language="plaintext"
               value={text}
@@ -681,7 +686,9 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
             <CodeEditor
               readOnly
               title={
-                isFileEncode ? t('tools.base64_codec.output_title_base64') : t('tools.base64_codec.output_title')
+                isFileEncode
+                  ? t('tools.base64_codec.output_title_base64')
+                  : t('tools.base64_codec.output_title')
               }
               language="plaintext"
               value={output}
@@ -700,7 +707,9 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
                     </span>
                   )}
                   <CopyAction text={output} testId="output-copy" />
-                  {output ? <SendToMenu text={output} currentToolId={toolId} testId="output-send" /> : null}
+                  {output ? (
+                    <SendToMenu text={output} currentToolId={toolId} testId="output-send" />
+                  ) : null}
                 </>
               }
             />

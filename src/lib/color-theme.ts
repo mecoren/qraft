@@ -109,10 +109,7 @@ export function applyPalette(paletteId: PaletteId, customAccent?: string | null)
     // 前景色随 accent 亮度派生(pickAccentForeground):CSS 块中的恒白默认值
     // 在浅色 accent 下会造成「白字浅底」不可读,必须一并覆盖
     root.style.setProperty('--primary-foreground', palette.primaryForeground);
-    root.style.setProperty(
-      '--sidebar-primary-foreground',
-      palette.sidebarPrimaryForeground,
-    );
+    root.style.setProperty('--sidebar-primary-foreground', palette.sidebarPrimaryForeground);
   } else {
     // 预设主题:清除 inline style,让 [data-palette="..."] 选择器接管
     root.style.removeProperty('--primary');

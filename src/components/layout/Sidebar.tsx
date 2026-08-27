@@ -315,7 +315,12 @@ export function Sidebar(): JSX.Element {
         data-testid="sidebar-rail"
         className="flex h-full w-14 shrink-0 flex-col items-center gap-1 border-r border-sidebar-border bg-sidebar-layer py-2 text-sidebar-foreground"
       >
-        <RailButton icon={Menu} label={t('chrome.sidebar.expand')} onClick={toggleSidebar} testId="rail-expand" />
+        <RailButton
+          icon={Menu}
+          label={t('chrome.sidebar.expand')}
+          onClick={toggleSidebar}
+          testId="rail-expand"
+        />
         <RailButton
           icon={Home}
           label={t('chrome.sidebar.tools')}

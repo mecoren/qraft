@@ -52,7 +52,9 @@ export function ToolCard({ entry, onOpen, className }: ToolCardProps): JSX.Eleme
         <Icon className="size-5" strokeWidth={ICON_STROKE_WIDTH} />
       </span>
       <span className="relative flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-body-sm font-semibold leading-tight">{pickText(entry.name)}</span>
+        <span className="truncate text-body-sm font-semibold leading-tight">
+          {pickText(entry.name)}
+        </span>
         <span className="line-clamp-2 text-xs leading-snug text-muted-foreground">
           {pickText(entry.description)}
         </span>

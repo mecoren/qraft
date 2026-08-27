@@ -98,9 +98,15 @@ export function GzipCodec(_props: ToolProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3" data-testid="gzip-codec">
       <ConfigSection title="" searchAnchor="gzip_codec:config">
-        <ConfigRow icon={ArrowLeftRight} label={t('tools.gzip_codec.label_convert')} hint={t('tools.gzip_codec.hint_mode')}>
+        <ConfigRow
+          icon={ArrowLeftRight}
+          label={t('tools.gzip_codec.label_convert')}
+          hint={t('tools.gzip_codec.hint_mode')}
+        >
           <span className="text-xs text-muted-foreground">
-            {compressMode ? t('tools.gzip_codec.mode_compress') : t('tools.gzip_codec.mode_decompress')}
+            {compressMode
+              ? t('tools.gzip_codec.mode_compress')
+              : t('tools.gzip_codec.mode_decompress')}
           </span>
           <Switch
             data-testid="gzip-mode-switch"

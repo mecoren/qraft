@@ -125,7 +125,11 @@ export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element 
       {alerts.length > 0 && (
         <>
           <Separator />
-          <footer role="region" aria-label={t('chrome.tool_panel.warning_aria')} className="max-h-32">
+          <footer
+            role="region"
+            aria-label={t('chrome.tool_panel.warning_aria')}
+            className="max-h-32"
+          >
             <ScrollArea className="h-full">
               <div className="flex flex-col gap-1 p-2">
                 {alerts.map((a, i) => (

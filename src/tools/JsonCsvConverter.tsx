@@ -103,9 +103,7 @@ export function JsonCsvConverter({ toolId }: ToolProps): JSX.Element {
             actions={
               <>
                 {output && <CopyAction text={output} testId="copy-output" />}
-                {output && (
-                  <SendToMenu text={output} currentToolId={toolId} testId="output-send" />
-                )}
+                {output && <SendToMenu text={output} currentToolId={toolId} testId="output-send" />}
               </>
             }
           />

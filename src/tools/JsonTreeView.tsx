@@ -259,10 +259,7 @@ export function JsonTreeView({
             : t('chrome.json_tree.container_nodes', { count: allPaths.length })}
         </span>
       </div>
-      <ScrollArea
-        className="min-h-0 flex-1"
-        aria-label={t('chrome.json_tree.aria')}
-      >
+      <ScrollArea className="min-h-0 flex-1" aria-label={t('chrome.json_tree.aria')}>
         <div className="p-2 font-mono">
           <JsonNode label={null} value={value} path="$" expanded={effective} onToggle={toggle} />
         </div>

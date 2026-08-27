@@ -137,14 +137,17 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
         className="flex items-center justify-between"
         data-search-anchor="color_blindness_simulator:source"
       >
-        <h2 className="text-body-sm font-semibold">{t('tools.color_blindness_simulator.source_title')}</h2>
+        <h2 className="text-body-sm font-semibold">
+          {t('tools.color_blindness_simulator.source_title')}
+        </h2>
         <Button
           variant="ghost"
           size="sm"
           data-testid="cb-open"
           onClick={() => fileRef.current?.click()}
         >
-          <FolderOpen aria-hidden className="size-3.5" /> {t('tools.color_blindness_simulator.choose_image')}
+          <FolderOpen aria-hidden className="size-3.5" />{' '}
+          {t('tools.color_blindness_simulator.choose_image')}
         </Button>
       </div>
       <input
@@ -177,7 +180,9 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
             dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
           } p-3 shadow-card transition-colors`}
         >
-          <span className="mb-2 text-xs text-muted-foreground">{t('tools.color_blindness_simulator.original')}</span>
+          <span className="mb-2 text-xs text-muted-foreground">
+            {t('tools.color_blindness_simulator.original')}
+          </span>
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
             {srcUrl ? (
               <img
@@ -207,7 +212,8 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
                   download={`${kind}.png`}
                   className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                 >
-                  <Download aria-hidden className="size-3" /> {t('tools.color_blindness_simulator.save')}
+                  <Download aria-hidden className="size-3" />{' '}
+                  {t('tools.color_blindness_simulator.save')}
                 </a>
               ) : null}
             </div>

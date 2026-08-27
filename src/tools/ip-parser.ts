@@ -296,7 +296,8 @@ export function analyzeIp(rawInput: string): IpAnalysis {
   // —— IPv4 ——
   if (ipText.includes('.')) {
     const ipValue = parseIpv4(ipText);
-    if (ipValue === null) throw new IpParseError(t('tools.ip_parser.err_bad_ipv4', { value: ipText }));
+    if (ipValue === null)
+      throw new IpParseError(t('tools.ip_parser.err_bad_ipv4', { value: ipText }));
     const prefix = explicitPrefix ?? 32;
     if (explicitPrefix !== null && (explicitPrefix < 0 || explicitPrefix > 32)) {
       throw new IpParseError(t('tools.ip_parser.err_v4_prefix_range', { value: explicitPrefix }));
@@ -349,7 +350,7 @@ export function analyzeIp(rawInput: string): IpAnalysis {
 
   // —— IPv6 ——
   const ipValue = parseIpv6(ipText);
-    if (ipValue === null) throw new IpParseError(t('tools.ip_parser.err_bad_ip', { value: ipText }));
+  if (ipValue === null) throw new IpParseError(t('tools.ip_parser.err_bad_ip', { value: ipText }));
   const prefix = explicitPrefix ?? 128;
   if (explicitPrefix !== null && (explicitPrefix < 0 || explicitPrefix > 128)) {
     throw new IpParseError(t('tools.ip_parser.err_v6_prefix_range', { value: explicitPrefix }));

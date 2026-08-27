@@ -51,7 +51,11 @@ export function HtmlCodec(_props: ToolProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3" data-testid="html-codec">
       <ConfigSection title="" searchAnchor="html_codec:config">
-        <ConfigRow icon={ArrowLeftRight} label={t('tools.html_codec.label_convert')} hint={t('tools.html_codec.hint_mode')}>
+        <ConfigRow
+          icon={ArrowLeftRight}
+          label={t('tools.html_codec.label_convert')}
+          hint={t('tools.html_codec.hint_mode')}
+        >
           <span className="text-xs text-muted-foreground">
             {encodeMode ? t('tools.html_codec.mode_encode') : t('tools.html_codec.mode_decode')}
           </span>

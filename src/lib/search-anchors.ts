@@ -131,7 +131,11 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
     { key: 'output', title: T_OUTPUT, keywords: ['结果', '实体'] },
   ],
   jwt_parser: [
-    { key: 'input', title: { zh: 'JWT 令牌', en: 'JWT token' }, keywords: ['jwt', 'token', '令牌'] },
+    {
+      key: 'input',
+      title: { zh: 'JWT 令牌', en: 'JWT token' },
+      keywords: ['jwt', 'token', '令牌'],
+    },
     {
       key: 'header',
       title: { zh: '头部', en: 'Header' },
@@ -394,7 +398,10 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
     {
       key: 'image',
       title: { zh: '图片', en: 'Image' },
-      description: { zh: '选择或拖放图片,含转换导出', en: 'Pick or drop an image; convert & export' },
+      description: {
+        zh: '选择或拖放图片,含转换导出',
+        en: 'Pick or drop an image; convert & export',
+      },
       keywords: ['选择图片', '拖放', '清除', '转换', '导出', '下载'],
     },
   ],

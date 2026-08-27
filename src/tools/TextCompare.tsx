@@ -291,7 +291,10 @@ export function TextCompare(_props: ToolProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3" data-testid="text-compare">
       {/* 顶部工具栏:行内模式 + 差异统计 + 操作 */}
-      <section aria-label={t('tools.text_compare.config_aria')} data-search-anchor="text_compare:config">
+      <section
+        aria-label={t('tools.text_compare.config_aria')}
+        data-search-anchor="text_compare:config"
+      >
         <div className="rounded-lg border border-border bg-card shadow-card">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
             <div className="flex items-center gap-3">

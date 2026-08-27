@@ -157,7 +157,9 @@ export function getStoredFontSizeLevel(): number {
  * 行高维持 13px 档的 20px 比例(≈1.54)同步缩放。
  */
 export function getEditorFontSize(): { fontSize: number; lineHeight: number } {
-  const scale = FONT_SIZE_LEVELS[Math.max(0, Math.min(FONT_SIZE_LEVELS.length - 1, getStoredFontSizeLevel()))].scale;
+  const scale =
+    FONT_SIZE_LEVELS[Math.max(0, Math.min(FONT_SIZE_LEVELS.length - 1, getStoredFontSizeLevel()))]
+      .scale;
   const fontSize = Math.round(13 * scale);
   return { fontSize, lineHeight: Math.round((fontSize * 20) / 13) };
 }

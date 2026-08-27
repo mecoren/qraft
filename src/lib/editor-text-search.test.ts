@@ -99,7 +99,10 @@ describe('searchTabsText', () => {
   });
 
   it('海量命中:单文件超过收集上限时截断,count 保持真实匹配行数', () => {
-    const content = Array.from({ length: MAX_MATCHES_PER_TAB + 10 }, (_, i) => `find line ${i}`).join('\n');
+    const content = Array.from(
+      { length: MAX_MATCHES_PER_TAB + 10 },
+      (_, i) => `find line ${i}`,
+    ).join('\n');
     const tabs = [makeTab({ id: 'a', content })];
     const groups = searchTabsText(tabs, 'find');
     expect(groups).toHaveLength(1);
@@ -120,7 +123,11 @@ describe('searchTabsText', () => {
   it('海量命中:全局收集上限达到后停止收集后续 tab', () => {
     const tabCount = Math.ceil(MAX_TOTAL_MATCHES / MAX_MATCHES_PER_TAB) + 2;
     const tabs = Array.from({ length: tabCount }, (_, i) =>
-      makeTab({ id: `t${i}`, title: `t${i}.txt`, content: Array.from({ length: 100 }, () => 'hit').join('\n') }),
+      makeTab({
+        id: `t${i}`,
+        title: `t${i}.txt`,
+        content: Array.from({ length: 100 }, () => 'hit').join('\n'),
+      }),
     );
     const groups = searchTabsText(tabs, 'hit');
     // 每组最多 MAX_MATCHES_PER_TAB 条;总收集量不超过 MAX_TOTAL_MATCHES

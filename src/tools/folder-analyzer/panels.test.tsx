@@ -17,16 +17,8 @@ vi.mock('@/components/ui/code-editor', () => ({
     lineNumbers?: boolean;
     'data-testid'?: string;
   }) => (
-    <div
-      data-testid={testId}
-      data-language={language}
-      data-line-numbers={String(lineNumbers)}
-    >
-      <textarea
-        data-testid={testId ? `${testId}-textarea` : undefined}
-        value={value}
-        readOnly
-      />
+    <div data-testid={testId} data-language={language} data-line-numbers={String(lineNumbers)}>
+      <textarea data-testid={testId ? `${testId}-textarea` : undefined} value={value} readOnly />
     </div>
   ),
 }));
@@ -104,9 +96,7 @@ describe('ScanResultsPanel', () => {
   it('en-US:概览卡与截断提示随语言切换(手动切语言场景),结束恢复 zh 桩', () => {
     changeLocale('en-US');
     // 先卸载再切回 zh 桩,避免异步 languageChanged 在 act 环境外触发告警更新
-    const { unmount } = render(
-      <ScanResultsPanel report={{ ...scanFixture, truncated: true }} />,
-    );
+    const { unmount } = render(<ScanResultsPanel report={{ ...scanFixture, truncated: true }} />);
     try {
       expect(screen.getByText('Total files')).toBeInTheDocument();
       expect(screen.getByText('Elapsed')).toBeInTheDocument();
@@ -189,7 +179,15 @@ describe('FileInspectPanel', () => {
   it('hides preview for binary file', () => {
     render(
       <FileInspectPanel
-        report={{ ...r, is_text: false, encoding: null, lines: null, words: null, chars: null, preview: [] }}
+        report={{
+          ...r,
+          is_text: false,
+          encoding: null,
+          lines: null,
+          words: null,
+          chars: null,
+          preview: [],
+        }}
       />,
     );
     expect(screen.queryByTestId('inspect-preview-editor')).toBeNull();

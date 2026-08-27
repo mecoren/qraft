@@ -100,7 +100,9 @@ export function LoremIpsum(_props: ToolProps): JSX.Element {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="words">{t('tools.lorem_ipsum.granularity_words')}</SelectItem>
-              <SelectItem value="sentences">{t('tools.lorem_ipsum.granularity_sentences')}</SelectItem>
+              <SelectItem value="sentences">
+                {t('tools.lorem_ipsum.granularity_sentences')}
+              </SelectItem>
               <SelectItem value="paragraphs">
                 {t('tools.lorem_ipsum.granularity_paragraphs')}
               </SelectItem>

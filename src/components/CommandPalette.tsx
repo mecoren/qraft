@@ -70,8 +70,8 @@ export function CommandPalette({
                       }}
                     >
                       <entry.icon aria-hidden className="h-4 w-4 opacity-50" />
-                <span>{pickText(entry.name)}</span>
-                <span className="ml-auto text-xs text-muted-foreground">{t(d.reason)}</span>
+                      <span>{pickText(entry.name)}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{t(d.reason)}</span>
                     </CommandItem>
                   );
                 })}
@@ -91,12 +91,12 @@ export function CommandPalette({
                   }}
                 >
                   <entry.icon aria-hidden className="h-4 w-4 opacity-50" />
-                <span>{pickText(entry.name)}</span>
-                {entry.description && (
-                  <span className="ml-2 truncate text-xs text-muted-foreground">
-                    {pickText(entry.description)}
-                  </span>
-                )}
+                  <span>{pickText(entry.name)}</span>
+                  {entry.description && (
+                    <span className="ml-2 truncate text-xs text-muted-foreground">
+                      {pickText(entry.description)}
+                    </span>
+                  )}
                 </CommandItem>
               ))}
             </CommandGroup>

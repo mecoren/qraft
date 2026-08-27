@@ -152,7 +152,10 @@ const COMPONENTS: OpenSourceComponent[] = [
     name: 'react',
     version: '^19.2.8',
     source: 'frontend',
-    description: { zh: '用于构建用户界面的声明式库', en: 'Declarative library for building user interfaces' },
+    description: {
+      zh: '用于构建用户界面的声明式库',
+      en: 'Declarative library for building user interfaces',
+    },
     license: 'MIT',
     repository: 'https://github.com/facebook/react',
     homepage: 'https://react.dev',
@@ -236,7 +239,10 @@ const COMPONENTS: OpenSourceComponent[] = [
     name: '@hookform/resolvers',
     version: '^5.5.7',
     source: 'frontend',
-    description: { zh: 'React Hook Form 校验解析器', en: 'Validation resolvers for React Hook Form' },
+    description: {
+      zh: 'React Hook Form 校验解析器',
+      en: 'Validation resolvers for React Hook Form',
+    },
     license: 'MIT',
     repository: 'https://github.com/react-hook-form/resolvers',
   },
@@ -262,7 +268,10 @@ const COMPONENTS: OpenSourceComponent[] = [
     name: '@radix-ui/primitives',
     version: '^1.1.21',
     source: 'frontend',
-    description: { zh: '无头 UI 组件原语(Dialog / Tabs / Select 等)', en: 'Headless UI primitives (Dialog / Tabs / Select etc.)' },
+    description: {
+      zh: '无头 UI 组件原语(Dialog / Tabs / Select 等)',
+      en: 'Headless UI primitives (Dialog / Tabs / Select etc.)',
+    },
     license: 'MIT',
     repository: 'https://github.com/radix-ui/primitives',
     homepage: 'https://www.radix-ui.com',
@@ -271,7 +280,10 @@ const COMPONENTS: OpenSourceComponent[] = [
     name: 'shadcn/ui',
     version: '—',
     source: 'frontend',
-    description: { zh: '基于 Radix + Tailwind 的可复用组件集合', en: 'Reusable components built on Radix + Tailwind' },
+    description: {
+      zh: '基于 Radix + Tailwind 的可复用组件集合',
+      en: 'Reusable components built on Radix + Tailwind',
+    },
     license: 'MIT',
     repository: 'https://github.com/shadcn-ui/ui',
     homepage: 'https://ui.shadcn.com',
@@ -280,7 +292,10 @@ const COMPONENTS: OpenSourceComponent[] = [
     name: 'lucide-react',
     version: '^1.28.0',
     source: 'frontend',
-    description: { zh: 'Lucide 图标库的 React 封装', en: 'React wrapper for the Lucide icon library' },
+    description: {
+      zh: 'Lucide 图标库的 React 封装',
+      en: 'React wrapper for the Lucide icon library',
+    },
     license: 'ISC',
     repository: 'https://github.com/lucide-icons/lucide',
     homepage: 'https://lucide.dev',
@@ -323,7 +338,10 @@ const COMPONENTS: OpenSourceComponent[] = [
     name: 'class-variance-authority',
     version: '^0.7.1',
     source: 'frontend',
-    description: { zh: '类型安全的 className 变体管理', en: 'Type-safe className variant management' },
+    description: {
+      zh: '类型安全的 className 变体管理',
+      en: 'Type-safe className variant management',
+    },
     license: 'Apache-2.0',
     repository: 'https://github.com/joe-bell/cva',
   },
@@ -398,7 +416,10 @@ const COMPONENTS: OpenSourceComponent[] = [
     name: 'typescript',
     version: '^6.0.3',
     source: 'frontend',
-    description: { zh: 'JavaScript 的超集,添加静态类型', en: 'A superset of JavaScript with static types' },
+    description: {
+      zh: 'JavaScript 的超集,添加静态类型',
+      en: 'A superset of JavaScript with static types',
+    },
     license: 'Apache-2.0',
     repository: 'https://github.com/microsoft/TypeScript',
     homepage: 'https://www.typescriptlang.org',
@@ -418,7 +439,10 @@ const COMPONENTS: OpenSourceComponent[] = [
     name: 'tauri',
     version: '2',
     source: 'rust',
-    description: { zh: '构建跨平台桌面应用的 Rust 框架', en: 'Rust framework for cross-platform desktop apps' },
+    description: {
+      zh: '构建跨平台桌面应用的 Rust 框架',
+      en: 'Rust framework for cross-platform desktop apps',
+    },
     license: 'Apache-2.0 / MIT',
     repository: 'https://github.com/tauri-apps/tauri',
     homepage: 'https://tauri.app',
@@ -637,7 +661,10 @@ const COMPONENTS: OpenSourceComponent[] = [
     name: 'window-vibrancy',
     version: '0.8',
     source: 'rust',
-    description: { zh: 'Windows 云母 / macOS 亚克力窗口材质', en: 'Windows Mica / macOS acrylic window materials' },
+    description: {
+      zh: 'Windows 云母 / macOS 亚克力窗口材质',
+      en: 'Windows Mica / macOS acrylic window materials',
+    },
     license: 'MIT',
     repository: 'https://github.com/tauri-apps/window-vibrancy',
   },
@@ -645,7 +672,10 @@ const COMPONENTS: OpenSourceComponent[] = [
     name: 'windows',
     version: '0.61',
     source: 'rust',
-    description: { zh: 'Windows API 绑定(DirectWrite 字体枚举等)', en: 'Windows API bindings (DirectWrite font enumeration etc.)' },
+    description: {
+      zh: 'Windows API 绑定(DirectWrite 字体枚举等)',
+      en: 'Windows API bindings (DirectWrite font enumeration etc.)',
+    },
     license: 'MIT / Apache-2.0',
     repository: 'https://github.com/microsoft/windows-rs',
   },
@@ -808,16 +838,16 @@ function InfoSection(): JSX.Element {
         <Logo className="size-20 rounded-2xl bg-muted/50 p-3 shadow-sm" />
         <div className="text-center">
           <div className="text-base font-semibold text-foreground">Qraft</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {t('chrome.welcome.hero_title')}
-          </div>
+          <div className="mt-1 text-xs text-muted-foreground">{t('chrome.welcome.hero_title')}</div>
         </div>
         <Badge variant="secondary" className="mt-1">
           v{APP_VERSION}
         </Badge>
       </div>
       <div>
-        <h2 className="text-base font-semibold text-foreground">{t('chrome.about.info_heading')}</h2>
+        <h2 className="text-base font-semibold text-foreground">
+          {t('chrome.about.info_heading')}
+        </h2>
         <p className="mt-1 text-sm text-muted-foreground">{t('chrome.about.info_desc')}</p>
       </div>
       <Card>

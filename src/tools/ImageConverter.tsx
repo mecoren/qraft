@@ -176,7 +176,8 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
             data-testid="ic-open"
             onClick={() => fileRef.current?.click()}
           >
-            <FolderOpen aria-hidden className="size-3.5" /> {t('tools.image_converter.choose_image')}
+            <FolderOpen aria-hidden className="size-3.5" />{' '}
+            {t('tools.image_converter.choose_image')}
           </Button>
           <Button
             variant="ghost"
@@ -193,7 +194,8 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
             disabled={!image}
             onClick={() => void convert()}
           >
-            <Download aria-hidden className="size-3.5" /> {t('tools.image_converter.convert_export')}
+            <Download aria-hidden className="size-3.5" />{' '}
+            {t('tools.image_converter.convert_export')}
           </Button>
         </div>
       </div>

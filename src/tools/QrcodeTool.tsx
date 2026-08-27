@@ -181,7 +181,9 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
                 className="max-h-full max-w-full rounded bg-white p-1"
               />
             ) : (
-              <p className="text-xs text-muted-foreground">{t('tools.qrcode_tool.preview_empty')}</p>
+              <p className="text-xs text-muted-foreground">
+                {t('tools.qrcode_tool.preview_empty')}
+              </p>
             )}
           </div>
         </div>
@@ -233,7 +235,9 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
                   className="max-h-full max-w-full object-contain"
                 />
               ) : (
-                <p className="text-xs text-muted-foreground">{t('tools.qrcode_tool.dropzone_hint')}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t('tools.qrcode_tool.dropzone_hint')}
+                </p>
               )}
             </div>
           </ScrollArea>

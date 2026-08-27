@@ -17,8 +17,7 @@ describe('detectClipboardTools', () => {
   });
 
   it('识别 JWT 三段结构', () => {
-    const jwt =
-      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.' + '2bX9ZQ'.repeat(6);
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.' + '2bX9ZQ'.repeat(6);
     expect(idsOf(jwt)).toContain('jwt_parser');
     // 缺签名段(两段式)不识别
     expect(idsOf('eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0=')).not.toContain('jwt_parser');

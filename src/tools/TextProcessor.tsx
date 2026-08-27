@@ -488,9 +488,7 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
       try {
         const next = def.apply(input);
         if (next === input) {
-          toast.info(
-            t('tools.json_minifier.toast_no_change', { label: t(def.labelKey) }),
-          );
+          toast.info(t('tools.json_minifier.toast_no_change', { label: t(def.labelKey) }));
           return;
         }
         setOutput(next);

@@ -254,11 +254,11 @@ export function FontPicker({
         align="start"
       >
         <Command shouldFilter={false} loop>
-            <CommandInput
-              placeholder={t('chrome.font_picker.search')}
-              value={query}
-              onValueChange={setQuery}
-            />
+          <CommandInput
+            placeholder={t('chrome.font_picker.search')}
+            value={query}
+            onValueChange={setQuery}
+          />
           <CommandList>
             {loading || (!options.length && Boolean(onOpen)) ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">

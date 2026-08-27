@@ -86,10 +86,9 @@ describe('ToolPanel', () => {
     ];
     for (const id of tour) {
       rerender(<ToolPanel toolId={id} />);
-      await waitFor(
-        () => expect(document.querySelector(`[data-tool-id="${id}"]`)).not.toBeNull(),
-        { timeout: LAZY_TIMEOUT },
-      );
+      await waitFor(() => expect(document.querySelector(`[data-tool-id="${id}"]`)).not.toBeNull(), {
+        timeout: LAZY_TIMEOUT,
+      });
     }
     // 最旧的 base64_codec 已被淘汰
     expect(document.querySelector('[data-tool-id="base64_codec"]')).toBeNull();

@@ -65,10 +65,7 @@ describe('JsonCsvConverter 端到端', () => {
     // Radix Tabs 触发器在 jsdom 合成点击下不激活,用其键盘激活语义(ArrowRight)
     screen.getByRole('tab', { name: 'JSON → CSV' }).focus();
     await user.keyboard('{ArrowRight}');
-    expect(screen.getByRole('tab', { name: 'CSV → JSON' })).toHaveAttribute(
-      'data-state',
-      'active',
-    );
+    expect(screen.getByRole('tab', { name: 'CSV → JSON' })).toHaveAttribute('data-state', 'active');
     fireEvent.change(screen.getByTestId('input').querySelector('textarea')!, {
       target: { value: 'name,age\nli,18' },
     });

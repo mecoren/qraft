@@ -104,9 +104,7 @@ export function EditorLanguagePicker({
                     )}
                     <LanguageIcon language={lang.id} />
                     <span className="truncate">
-                      {lang.id === 'plaintext'
-                        ? t('tools.text_editor.lang_plaintext')
-                        : lang.label}
+                      {lang.id === 'plaintext' ? t('tools.text_editor.lang_plaintext') : lang.label}
                     </span>
                     <span className="ml-auto truncate text-[10px] text-muted-foreground/60">
                       ({lang.id})

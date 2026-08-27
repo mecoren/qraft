@@ -113,7 +113,13 @@ function buildAllEntries(): SearchEntry[] {
         description: a.description ? pickText(a.description) : undefined,
         keywords: a.keywords ?? [],
         group,
-        matchText: [a.title.zh, a.title.en, a.description?.zh, a.description?.en, ...(a.keywords ?? [])]
+        matchText: [
+          a.title.zh,
+          a.title.en,
+          a.description?.zh,
+          a.description?.en,
+          ...(a.keywords ?? []),
+        ]
           .filter(Boolean)
           .join(' '),
         target: { view: 'tool', toolId, anchor: `${toolId}:${a.key}` },
@@ -130,8 +136,9 @@ function buildAllEntries(): SearchEntry[] {
       description: pickText(s.description),
       keywords: [...s.keywords],
       group: t('chrome.search.group_settings'),
-      matchText: [s.title.zh, s.title.en, s.description.zh, s.description.en, ...s.keywords]
-        .join(' '),
+      matchText: [s.title.zh, s.title.en, s.description.zh, s.description.en, ...s.keywords].join(
+        ' ',
+      ),
       target: { view: 'settings', settingsMenu: s.menuId, anchor: `settings:${s.menuId}` },
     });
   }
@@ -146,13 +153,7 @@ function buildAllEntries(): SearchEntry[] {
       description: f.description ? pickText(f.description) : undefined,
       keywords: [...f.keywords],
       group: section ? pickText(section.title) : t('chrome.search.group_settings'),
-      matchText: [
-        f.title.zh,
-        f.title.en,
-        f.description?.zh,
-        f.description?.en,
-        ...f.keywords,
-      ]
+      matchText: [f.title.zh, f.title.en, f.description?.zh, f.description?.en, ...f.keywords]
         .filter(Boolean)
         .join(' '),
       target: {

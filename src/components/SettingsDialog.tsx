@@ -172,7 +172,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX
           >
             <GripHorizontal className="size-4 text-muted-foreground" />
             <DialogTitle className="text-sm font-semibold">{t('settings.title')}</DialogTitle>
-            <DialogDescription className="sr-only">{t('chrome.settings_dialog.sr_desc')}</DialogDescription>
+            <DialogDescription className="sr-only">
+              {t('chrome.settings_dialog.sr_desc')}
+            </DialogDescription>
             <div className="flex-1" />
             <button
               data-no-drag

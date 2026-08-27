@@ -88,7 +88,11 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3" data-testid="hash-calculator">
       <ConfigSection title="" searchAnchor="hash_calculator:config">
-        <ConfigRow icon={ShieldCheck} label={t('tools.hash_calculator.algorithm')} hint={t('tools.hash_calculator.algorithm_hint')}>
+        <ConfigRow
+          icon={ShieldCheck}
+          label={t('tools.hash_calculator.algorithm')}
+          hint={t('tools.hash_calculator.algorithm_hint')}
+        >
           <Select value={algorithm} onValueChange={(v) => setAlgorithm(v as HashAlgorithm)}>
             <SelectTrigger className="w-32" aria-label={t('tools.hash_calculator.algorithm')}>
               <SelectValue />
@@ -119,7 +123,9 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
             actions={
               <HeaderAction onClick={() => void handleCompute()} disabled={loading || !text}>
                 <Play aria-hidden className="size-3.5" />
-                {loading ? t('tools.hash_calculator.computing') : t('tools.hash_calculator.compute')}
+                {loading
+                  ? t('tools.hash_calculator.computing')
+                  : t('tools.hash_calculator.compute')}
               </HeaderAction>
             }
           />
@@ -133,7 +139,9 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
             {error ? (
               <div className="flex h-full flex-col overflow-hidden rounded-md border border-input bg-card">
                 <div className="border-b border-input px-2 py-0.5">
-                  <span className="pl-1 text-xs font-medium">{t('tools.hash_calculator.output_title')}</span>
+                  <span className="pl-1 text-xs font-medium">
+                    {t('tools.hash_calculator.output_title')}
+                  </span>
                 </div>
                 <div
                   role="alert"
@@ -156,15 +164,22 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
                   <>
                     {output?.meta && (
                       <span className="text-xs text-muted-foreground">
-                        {t('tools.hash_calculator.bytes_unit', { count: output.meta.input_bytes, ms: output.meta.duration_ms })}
+                        {t('tools.hash_calculator.bytes_unit', {
+                          count: output.meta.input_bytes,
+                          ms: output.meta.duration_ms,
+                        })}
                       </span>
                     )}
                     {output?.text && (
-                <>
-                  <CopyAction text={output.text} testId="copy-hash" />
-                  <SendToMenu text={output.text} currentToolId={toolId} testId="output-send" />
-                </>
-              )}
+                      <>
+                        <CopyAction text={output.text} testId="copy-hash" />
+                        <SendToMenu
+                          text={output.text}
+                          currentToolId={toolId}
+                          testId="output-send"
+                        />
+                      </>
+                    )}
                   </>
                 }
               />
@@ -177,4 +192,3 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
 }
 
 /** 把任意异常格式化为可显示的错误文本(CommandError 附带错误码便于排障) */
-

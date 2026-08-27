@@ -182,7 +182,9 @@ describe('FolderAnalyzer orchestration', () => {
       expect(screen.getByTestId('analyzer-mode-search')).toHaveTextContent('Content search');
       expect(screen.getByTestId('analyzer-pick-folder')).toHaveTextContent('Choose folder…');
       expect(screen.getByTestId('analyzer-run')).toHaveTextContent('Analyze');
-      expect(screen.getByText('Read-only analysis: no files are written or modified.')).toBeInTheDocument();
+      expect(
+        screen.getByText('Read-only analysis: no files are written or modified.'),
+      ).toBeInTheDocument();
     } finally {
       unmount();
       changeLocale('zh-CN');

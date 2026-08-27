@@ -208,7 +208,6 @@ function ActionButton({
   );
 }
 
-
 /** 输出视图切换(文本/树形),文本与树形两种输出形态的标题栏共用 */
 function OutputViewToggle({
   mode,
@@ -566,7 +565,9 @@ export function JsonFormatter({ toolId }: ToolProps) {
           break;
         default: {
           const exhaustive: never = format;
-          throw new Error(t('tools.json_formatter.unsupported_format', { format: String(exhaustive) }));
+          throw new Error(
+            t('tools.json_formatter.unsupported_format', { format: String(exhaustive) }),
+          );
         }
       }
       setOutput(converted);
@@ -609,10 +610,26 @@ export function JsonFormatter({ toolId }: ToolProps) {
     {
       id: 'json',
       items: [
-        { id: 'format', label: t('tools.json_formatter.ctx_format_json'), onSelect: () => void runFormat() },
-        { id: 'minify', label: t('tools.json_formatter.ctx_minify_json'), onSelect: () => handleQuickAction('minify') },
-        { id: 'sort-asc', label: t('tools.json_formatter.ctx_sort_az'), onSelect: () => handleSort('alpha', false) },
-        { id: 'sort-desc', label: t('tools.json_formatter.ctx_sort_za'), onSelect: () => handleSort('alpha', true) },
+        {
+          id: 'format',
+          label: t('tools.json_formatter.ctx_format_json'),
+          onSelect: () => void runFormat(),
+        },
+        {
+          id: 'minify',
+          label: t('tools.json_formatter.ctx_minify_json'),
+          onSelect: () => handleQuickAction('minify'),
+        },
+        {
+          id: 'sort-asc',
+          label: t('tools.json_formatter.ctx_sort_az'),
+          onSelect: () => handleSort('alpha', false),
+        },
+        {
+          id: 'sort-desc',
+          label: t('tools.json_formatter.ctx_sort_za'),
+          onSelect: () => handleSort('alpha', true),
+        },
         {
           id: 'to-typescript',
           label: t('tools.json_formatter.ctx_to_typescript'),
@@ -774,7 +791,9 @@ export function JsonFormatter({ toolId }: ToolProps) {
                   disabled={disabled}
                 >
                   <Wand2 aria-hidden className="size-3.5" />
-                  {loading ? t('tools.json_formatter.formatting') : t('tools.json_formatter.format')}
+                  {loading
+                    ? t('tools.json_formatter.formatting')
+                    : t('tools.json_formatter.format')}
                 </ActionButton>
                 <ActionButton
                   testId="btn-minify"

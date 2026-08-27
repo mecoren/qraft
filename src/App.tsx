@@ -109,9 +109,7 @@ export function App(): JSX.Element {
       unlisteners.push(
         await listen<string>('app:open-file-unsupported', (fileName) => {
           if (fileName) {
-            toast.warning(
-              translate('chrome.toast.open_binary_unsupported', { name: fileName }),
-            );
+            toast.warning(translate('chrome.toast.open_binary_unsupported', { name: fileName }));
           }
         }),
       );
@@ -203,10 +201,7 @@ export function App(): JSX.Element {
         setView(currentToolId ? 'tool' : 'welcome');
       } else if (view === 'history' || view === 'extensions') {
         setView(currentToolId ? 'tool' : 'welcome');
-      } else if (
-        e.target instanceof Element &&
-        e.target.closest('.monaco-editor')
-      ) {
+      } else if (e.target instanceof Element && e.target.closest('.monaco-editor')) {
         return false;
       }
     },
@@ -220,70 +215,70 @@ export function App(): JSX.Element {
   return (
     <I18nextProvider i18n={getI18nInstance()}>
       <ErrorBoundary>
-      {/* 顶层:flex-col 让 Titlebar 固定顶部,下方为侧栏 + 主区水平布局
-       * h-screen 撑满视口;overflow-hidden 防止 Mica 透明时溢出滚动 */}
-      <div className="flex h-screen w-screen flex-col overflow-hidden">
-        <Titlebar />
-        <div className="flex min-h-0 flex-1">
-          <Sidebar />
-          <main className="min-w-0 flex-1 bg-background-layer">
-            {/* settings 以弹窗形式悬浮展示,底层仍显示当前页。
-             * 各页面常驻挂载,用 display:none 切换显隐:组件不卸载,DOM 与本地 state 保留,
-             * 因此切换页面再回来时,工具输入/输出数据与滚动位置均不丢失。
-             * 欢迎页激活条件:view=welcome,或 tool 视图下尚未选中工具 */}
-            <div
-              className={cn(
-                'h-full',
-                !(view === 'welcome' || (view === 'tool' && !currentToolId)) && 'hidden',
-              )}
-            >
-              <WelcomePage />
-            </div>
-            <div className={cn('h-full', !(view === 'tool' && currentToolId) && 'hidden')}>
-              <ToolPanel toolId={currentToolId ?? ''} />
-            </div>
-            <div className={cn('h-full', view !== 'extensions' && 'hidden')}>
-              <ExtensionsPage />
-            </div>
-            <div className={cn('h-full', view !== 'history' && 'hidden')}>
-              <HistoryPanel onSelect={handleSelectHistory} />
-            </div>
-          </main>
+        {/* 顶层:flex-col 让 Titlebar 固定顶部,下方为侧栏 + 主区水平布局
+         * h-screen 撑满视口;overflow-hidden 防止 Mica 透明时溢出滚动 */}
+        <div className="flex h-screen w-screen flex-col overflow-hidden">
+          <Titlebar />
+          <div className="flex min-h-0 flex-1">
+            <Sidebar />
+            <main className="min-w-0 flex-1 bg-background-layer">
+              {/* settings 以弹窗形式悬浮展示,底层仍显示当前页。
+               * 各页面常驻挂载,用 display:none 切换显隐:组件不卸载,DOM 与本地 state 保留,
+               * 因此切换页面再回来时,工具输入/输出数据与滚动位置均不丢失。
+               * 欢迎页激活条件:view=welcome,或 tool 视图下尚未选中工具 */}
+              <div
+                className={cn(
+                  'h-full',
+                  !(view === 'welcome' || (view === 'tool' && !currentToolId)) && 'hidden',
+                )}
+              >
+                <WelcomePage />
+              </div>
+              <div className={cn('h-full', !(view === 'tool' && currentToolId) && 'hidden')}>
+                <ToolPanel toolId={currentToolId ?? ''} />
+              </div>
+              <div className={cn('h-full', view !== 'extensions' && 'hidden')}>
+                <ExtensionsPage />
+              </div>
+              <div className={cn('h-full', view !== 'history' && 'hidden')}>
+                <HistoryPanel onSelect={handleSelectHistory} />
+              </div>
+            </main>
+          </div>
         </div>
-      </div>
 
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        onOpenSettings={() => setView('settings')}
-        onOpenHistory={() => setView('history')}
-      />
+        <CommandPalette
+          open={paletteOpen}
+          onOpenChange={setPaletteOpen}
+          onOpenSettings={() => setView('settings')}
+          onOpenHistory={() => setView('history')}
+        />
 
-      {/* 全局搜索弹窗:由 Ctrl+Shift+F 唤起。
-       * key 让每次打开时重挂载,查询输入自动清空(避免上次输入残留) */}
-      <SearchDialog key={`search-${searchOpen}`} open={searchOpen} onOpenChange={setSearchOpen} />
+        {/* 全局搜索弹窗:由 Ctrl+Shift+F 唤起。
+         * key 让每次打开时重挂载,查询输入自动清空(避免上次输入残留) */}
+        <SearchDialog key={`search-${searchOpen}`} open={searchOpen} onOpenChange={setSearchOpen} />
 
-      {/* key 让每次打开时弹窗重挂载,initialRect() 重新按当前视口尺寸居中
-       * 避免小屏→大屏窗口变化后,弹窗停留在原位置(被 resize clamp 在边缘)造成不居中。
-       * 前缀避免两个弹窗的 key 在同时为 false 时冲突。 */}
-      <SettingsDialog
-        key={`settings-${view === 'settings'}`}
-        open={view === 'settings'}
-        onOpenChange={(open) => {
-          if (!open) setView(currentToolId ? 'tool' : 'welcome');
-        }}
-      />
+        {/* key 让每次打开时弹窗重挂载,initialRect() 重新按当前视口尺寸居中
+         * 避免小屏→大屏窗口变化后,弹窗停留在原位置(被 resize clamp 在边缘)造成不居中。
+         * 前缀避免两个弹窗的 key 在同时为 false 时冲突。 */}
+        <SettingsDialog
+          key={`settings-${view === 'settings'}`}
+          open={view === 'settings'}
+          onOpenChange={(open) => {
+            if (!open) setView(currentToolId ? 'tool' : 'welcome');
+          }}
+        />
 
-      {/* 关于弹窗:独立于设置,由侧边栏「关于」入口打开 */}
-      <AboutDialog
-        key={`about-${view === 'about'}`}
-        open={view === 'about'}
-        onOpenChange={(open) => {
-          if (!open) setView(currentToolId ? 'tool' : 'welcome');
-        }}
-      />
+        {/* 关于弹窗:独立于设置,由侧边栏「关于」入口打开 */}
+        <AboutDialog
+          key={`about-${view === 'about'}`}
+          open={view === 'about'}
+          onOpenChange={(open) => {
+            if (!open) setView(currentToolId ? 'tool' : 'welcome');
+          }}
+        />
 
-      <Toaster position="bottom-right" />
+        <Toaster position="bottom-right" />
       </ErrorBoundary>
     </I18nextProvider>
   );

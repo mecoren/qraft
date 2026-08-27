@@ -17,7 +17,9 @@ describe('AboutDialog', () => {
       expect(screen.getByText(latest.summary.en)).toBeInTheDocument();
       expect(screen.getByText(latest.changes[0]!.description.en)).toBeInTheDocument();
       await user.click(screen.getByRole('button', { name: /Components/ }));
-      expect(screen.getByText('Declarative library for building user interfaces')).toBeInTheDocument();
+      expect(
+        screen.getByText('Declarative library for building user interfaces'),
+      ).toBeInTheDocument();
     } finally {
       unmount();
       changeLocale('zh-CN');

@@ -9,7 +9,12 @@
 import { useMemo, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Puzzle } from 'lucide-react';
-import { CATALOG_CATEGORIES, TOOL_ONLY_CATALOG, groupCatalogByCategory, pickText } from '@/lib/tool-catalog';
+import {
+  CATALOG_CATEGORIES,
+  TOOL_ONLY_CATALOG,
+  groupCatalogByCategory,
+  pickText,
+} from '@/lib/tool-catalog';
 import { ICON_STROKE_WIDTH } from '@/lib/icon-constants';
 import { ScrollArea } from '@/components/ui/scroll-area';
 

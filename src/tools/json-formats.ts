@@ -18,7 +18,11 @@ import { t } from '@/i18n';
 export type DataFormatId = 'xml' | 'yaml' | 'toml' | 'json5' | 'properties' | 'urlparams';
 
 /** 转换为菜单「数据格式」分组项(label 存 i18n 键,组件层翻译) */
-export const DATA_FORMAT_ITEMS: ReadonlyArray<{ id: DataFormatId; labelKey?: string; label: string }> = [
+export const DATA_FORMAT_ITEMS: ReadonlyArray<{
+  id: DataFormatId;
+  labelKey?: string;
+  label: string;
+}> = [
   { id: 'xml', label: 'XML' },
   { id: 'yaml', label: 'YAML' },
   { id: 'toml', label: 'TOML' },

@@ -279,7 +279,13 @@ export function parseHexColor(hex: string): [number, number, number] | null {
   const m = /^#([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(hex.trim());
   if (!m) return null;
   const s = m[1];
-  const full = s.length === 3 ? s.split('').map((c) => c + c).join('') : s;
+  const full =
+    s.length === 3
+      ? s
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : s;
   return [
     parseInt(full.slice(0, 2), 16),
     parseInt(full.slice(2, 4), 16),
@@ -307,8 +313,7 @@ const FG_LIGHT_LUM = 0.961;
 export function pickAccentForeground(accentHex: string): string {
   const rgb = parseHexColor(accentHex);
   if (!rgb) return 'oklch(0.99 0 0)';
-  const lum =
-    0.2126 * linearize(rgb[0]) + 0.7152 * linearize(rgb[1]) + 0.0722 * linearize(rgb[2]);
+  const lum = 0.2126 * linearize(rgb[0]) + 0.7152 * linearize(rgb[1]) + 0.0722 * linearize(rgb[2]);
   // 近黑前景的对比度必然随亮度升高而下降,白字不足 3:1 时近黑必然更优,无需再算
   const contrastOnLight = (FG_LIGHT_LUM + 0.05) / (lum + 0.05);
   return contrastOnLight >= 3 ? 'oklch(0.99 0 0)' : 'oklch(0.15 0 0)';

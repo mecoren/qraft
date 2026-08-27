@@ -80,10 +80,12 @@ export function passwordEntropy(opts: PasswordOptions): number {
 
 /** 粗略强度:池大小与长度的信息熵(bit);label 为 i18n 键,渲染时经 t() 翻译 */
 function strengthLabel(entropy: number): { label: string; percent: number } {
-  if (entropy >= 128) return { label: 'tools.password_generator.strength_very_strong', percent: 100 };
+  if (entropy >= 128)
+    return { label: 'tools.password_generator.strength_very_strong', percent: 100 };
   if (entropy >= 80) return { label: 'tools.password_generator.strength_strong', percent: 80 };
   if (entropy >= 60) return { label: 'tools.password_generator.strength_medium', percent: 60 };
-  if (entropy >= 40) return { label: 'tools.password_generator.strength_below_average', percent: 40 };
+  if (entropy >= 40)
+    return { label: 'tools.password_generator.strength_below_average', percent: 40 };
   return { label: 'tools.password_generator.strength_weak', percent: 20 };
 }
 
@@ -161,7 +163,11 @@ export function PasswordGenerator(_props: ToolProps): JSX.Element {
             data-testid="pw-symbols"
           />
         </ConfigRow>
-        <ConfigRow icon={TypeIcon} label={t('tools.password_generator.exclude_ambiguous')} hint="I l 1 O 0 o | `">
+        <ConfigRow
+          icon={TypeIcon}
+          label={t('tools.password_generator.exclude_ambiguous')}
+          hint="I l 1 O 0 o | `"
+        >
           <Switch
             checked={excludeAmbiguous}
             onCheckedChange={setExcludeAmbiguous}
@@ -188,7 +194,9 @@ export function PasswordGenerator(_props: ToolProps): JSX.Element {
         className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5 shadow-card"
         data-search-anchor="password_generator:strength"
       >
-        <span className="text-xs text-muted-foreground">{t('tools.password_generator.strength_title')}</span>
+        <span className="text-xs text-muted-foreground">
+          {t('tools.password_generator.strength_title')}
+        </span>
         <Progress value={noType ? 0 : strength.percent} className="h-1.5 w-40" />
         <span data-testid="pw-strength" className="text-xs">
           {noType

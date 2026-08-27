@@ -83,26 +83,29 @@ export function FolderTreeSection({
   const loadedRef = useRef<Set<string>>(new Set());
 
   /** 懒加载一个目录的子项;已在缓存/加载中时跳过 */
-  const loadChildren = useCallback(async (dirPath: string): Promise<void> => {
-    if (loadedRef.current.has(dirPath)) return;
-    loadedRef.current.add(dirPath);
-    setLoadingDirs((prev) => ({ ...prev, [dirPath]: true }));
-    try {
-      const entries = await readDirectory(dirPath);
-      setChildrenMap((prev) => ({ ...prev, [dirPath]: entries }));
-    } catch (e) {
-      // 清除标记允许下次展开重试;提示具体原因(未授权/不存在等)
-      loadedRef.current.delete(dirPath);
-      toast.error(e instanceof Error ? e.message : t('tools.text_editor.read_dir_failed'));
-    } finally {
-      setLoadingDirs((prev) => {
-        if (!(dirPath in prev)) return prev;
-        const next = { ...prev };
-        delete next[dirPath];
-        return next;
-      });
-    }
-  }, [t]);
+  const loadChildren = useCallback(
+    async (dirPath: string): Promise<void> => {
+      if (loadedRef.current.has(dirPath)) return;
+      loadedRef.current.add(dirPath);
+      setLoadingDirs((prev) => ({ ...prev, [dirPath]: true }));
+      try {
+        const entries = await readDirectory(dirPath);
+        setChildrenMap((prev) => ({ ...prev, [dirPath]: entries }));
+      } catch (e) {
+        // 清除标记允许下次展开重试;提示具体原因(未授权/不存在等)
+        loadedRef.current.delete(dirPath);
+        toast.error(e instanceof Error ? e.message : t('tools.text_editor.read_dir_failed'));
+      } finally {
+        setLoadingDirs((prev) => {
+          if (!(dirPath in prev)) return prev;
+          const next = { ...prev };
+          delete next[dirPath];
+          return next;
+        });
+      }
+    },
+    [t],
+  );
 
   // 所有处于展开状态的目录确保子项已加载:
   // 覆盖挂载还原(重启后 expandedDirs 持久化恢复)与用户展开两个来源

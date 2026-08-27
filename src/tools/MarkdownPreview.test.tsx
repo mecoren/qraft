@@ -164,7 +164,9 @@ describe('MarkdownPreview', () => {
     localStorage.setItem(DRAFT_STORAGE_KEY, '# Hello');
     changeLocale('en-US');
     // 先卸载再切回 zh 桩,避免异步 languageChanged 在 act 环境外触发告警更新
-    const { unmount } = render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    const { unmount } = render(
+      <MarkdownPreview toolId="markdown_preview" metadata={null as never} />,
+    );
     try {
       expect(screen.getByTestId('mode-edit').textContent).toContain('Edit');
       expect(screen.getByTestId('btn-outline').textContent).toContain('Outline');

@@ -690,7 +690,12 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
                 icon: Eye,
                 testId: 'mode-preview',
               },
-            ] as ReadonlyArray<{ id: MdViewMode; labelKey: string; icon: typeof Eye; testId: string }>
+            ] as ReadonlyArray<{
+              id: MdViewMode;
+              labelKey: string;
+              icon: typeof Eye;
+              testId: string;
+            }>
           ).map(({ id, labelKey, icon: Icon, testId }) => {
             const label = t(labelKey);
             return (
@@ -783,19 +788,25 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
                           icon={Bold}
                           title={t('tools.markdown_preview.fmt_bold')}
                           testId="fmt-bold"
-                          onClick={() => applyInline('**', '**', t('tools.markdown_preview.ph_bold'))}
+                          onClick={() =>
+                            applyInline('**', '**', t('tools.markdown_preview.ph_bold'))
+                          }
                         />
                         <MdFormatButton
                           icon={Italic}
                           title={t('tools.markdown_preview.fmt_italic')}
                           testId="fmt-italic"
-                          onClick={() => applyInline('*', '*', t('tools.markdown_preview.ph_italic'))}
+                          onClick={() =>
+                            applyInline('*', '*', t('tools.markdown_preview.ph_italic'))
+                          }
                         />
                         <MdFormatButton
                           icon={Strikethrough}
                           title={t('tools.markdown_preview.fmt_strike')}
                           testId="fmt-strike"
-                          onClick={() => applyInline('~~', '~~', t('tools.markdown_preview.ph_strike'))}
+                          onClick={() =>
+                            applyInline('~~', '~~', t('tools.markdown_preview.ph_strike'))
+                          }
                         />
                         <MdFormatButton
                           icon={Code}

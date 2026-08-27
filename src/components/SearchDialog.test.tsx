@@ -191,7 +191,9 @@ describe('SearchDialog 文本模式', () => {
     await user.click(screen.getByRole('button', { name: '文本' }));
     await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), 'find');
     // 分组徽标展示「前 上限 / 总数 行」
-    expect(await screen.findByText(`前 ${MAX_MATCHES_PER_TAB} / ${lines.length} 行`)).toBeInTheDocument();
+    expect(
+      await screen.findByText(`前 ${MAX_MATCHES_PER_TAB} / ${lines.length} 行`),
+    ).toBeInTheDocument();
     // 底部截断提示
     expect(screen.getByText(/命中结果过多,仅显示部分匹配行/)).toBeInTheDocument();
     // 渲染的 option 数不超过收集上限

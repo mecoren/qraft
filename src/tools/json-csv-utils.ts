@@ -7,11 +7,7 @@
 /** 单字段序列化 */
 function csvField(v: unknown): string {
   const s =
-    v === null || v === undefined
-      ? ''
-      : typeof v === 'object'
-        ? JSON.stringify(v)
-        : String(v);
+    v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

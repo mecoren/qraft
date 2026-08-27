@@ -31,11 +31,7 @@ vi.mock('@/components/ui/code-editor', () => ({
     onChange?: (v: string) => void;
     'data-testid'?: string;
   }) => (
-    <textarea
-      data-testid={testId}
-      value={value}
-      onChange={(e) => onChange?.(e.target.value)}
-    />
+    <textarea data-testid={testId} value={value} onChange={(e) => onChange?.(e.target.value)} />
   ),
 }));
 

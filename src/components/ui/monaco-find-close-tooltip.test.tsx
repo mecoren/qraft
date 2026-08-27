@@ -204,9 +204,7 @@ describe('monaco-find-close-tooltip', () => {
     // 箭头按钮:title 缺失 → 回落 aria-label
     arrowUp.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     await flushObserver();
-    expect(document.body.querySelector('[data-find-close-hint]')?.textContent).toBe(
-      '上一个匹配项',
-    );
+    expect(document.body.querySelector('[data-find-close-hint]')?.textContent).toBe('上一个匹配项');
 
     // 悬停另一个控件时浮层文案切换为新目标
     regexToggle.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));

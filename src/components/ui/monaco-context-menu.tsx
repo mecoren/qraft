@@ -131,7 +131,11 @@ const MENU_DEFS: MenuDef[] = [
   { id: 'undo', labelKey: 'chrome.editor_menu.undo', shortcut: 'Ctrl+Z' },
   { id: 'redo', labelKey: 'chrome.editor_menu.redo', shortcut: 'Ctrl+Y' },
   { id: '__sep__1', labelKey: '' },
-  { id: 'editor.action.clipboardCutAction', labelKey: 'chrome.editor_menu.cut', shortcut: 'Ctrl+X' },
+  {
+    id: 'editor.action.clipboardCutAction',
+    labelKey: 'chrome.editor_menu.cut',
+    shortcut: 'Ctrl+X',
+  },
   {
     id: 'editor.action.clipboardCopyAction',
     labelKey: 'chrome.editor_menu.copy',

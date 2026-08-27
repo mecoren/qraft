@@ -59,7 +59,9 @@ export function UlidGenerator({ toolId }: ToolProps): JSX.Element {
         searchAnchor="ulid_generator:output"
         actions={
           <>
-            <HeaderAction onClick={() => handleGenerate()}>{t('tools.ulid_generator.generate')}</HeaderAction>
+            <HeaderAction onClick={() => handleGenerate()}>
+              {t('tools.ulid_generator.generate')}
+            </HeaderAction>
             {output && <CopyAction text={output} testId="copy-ulid" />}
           </>
         }

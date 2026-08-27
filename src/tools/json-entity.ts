@@ -874,7 +874,9 @@ export function generateEntityCode(
       return emitCSharp(root, rootName);
     default: {
       const exhaustive: never = language;
-      throw new Error(t('tools.json_formatter.entity_lang_unsupported', { value: String(exhaustive) }));
+      throw new Error(
+        t('tools.json_formatter.entity_lang_unsupported', { value: String(exhaustive) }),
+      );
     }
   }
 }

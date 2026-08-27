@@ -34,7 +34,11 @@ function toInfoItems(a: IpAnalysis): InfoItem[] {
       { label: t('tools.ip_parser.field_netmask'), value: a.netmask, testId: 'ip-item-netmask' },
       { label: t('tools.ip_parser.field_wildcard'), value: a.wildcard, testId: 'ip-item-wildcard' },
       { label: t('tools.ip_parser.field_cidr'), value: a.cidr, testId: 'ip-item-cidr' },
-      { label: t('tools.ip_parser.field_prefix_len'), value: `/${a.prefix}`, testId: 'ip-item-prefix' },
+      {
+        label: t('tools.ip_parser.field_prefix_len'),
+        value: `/${a.prefix}`,
+        testId: 'ip-item-prefix',
+      },
       { label: t('tools.ip_parser.field_network'), value: a.network, testId: 'ip-item-network' },
     ];
     if (a.broadcast !== null) {
@@ -66,7 +70,11 @@ function toInfoItems(a: IpAnalysis): InfoItem[] {
         value: t(a.ipClass),
         testId: 'ip-item-class',
       },
-      { label: t('tools.ip_parser.field_int'), value: a.intValue.toString(), testId: 'ip-item-int' },
+      {
+        label: t('tools.ip_parser.field_int'),
+        value: a.intValue.toString(),
+        testId: 'ip-item-int',
+      },
       { label: t('tools.ip_parser.field_hex'), value: a.hex, testId: 'ip-item-hex' },
       { label: t('tools.ip_parser.field_binary'), value: a.binary, testId: 'ip-item-binary' },
     );
@@ -76,13 +84,21 @@ function toInfoItems(a: IpAnalysis): InfoItem[] {
     { label: t('tools.ip_parser.field_ip'), value: a.ip, testId: 'ip-item-address' },
     { label: t('tools.ip_parser.field_full_form'), value: a.full, testId: 'ip-item-full' },
     { label: t('tools.ip_parser.field_cidr'), value: a.cidr, testId: 'ip-item-cidr' },
-    { label: t('tools.ip_parser.field_prefix_len'), value: `/${a.prefix}`, testId: 'ip-item-prefix' },
+    {
+      label: t('tools.ip_parser.field_prefix_len'),
+      value: `/${a.prefix}`,
+      testId: 'ip-item-prefix',
+    },
     {
       label: t('tools.ip_parser.field_network'),
       value: `${a.network}/${a.prefix}`,
       testId: 'ip-item-network',
     },
-    { label: t('tools.ip_parser.field_last_address'), value: a.lastAddress, testId: 'ip-item-last' },
+    {
+      label: t('tools.ip_parser.field_last_address'),
+      value: a.lastAddress,
+      testId: 'ip-item-last',
+    },
     {
       label: t('tools.ip_parser.field_total_addresses'),
       value: a.totalAddresses.toString(),

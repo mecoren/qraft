@@ -366,7 +366,9 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
               <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Esc</kbd>
               {t('chrome.search_dialog.close')}
             </span>
-            <span className="ml-auto">{t('chrome.search_dialog.results_count', { count: total })}</span>
+            <span className="ml-auto">
+              {t('chrome.search_dialog.results_count', { count: total })}
+            </span>
           </div>
         </Command>
       </DialogContent>

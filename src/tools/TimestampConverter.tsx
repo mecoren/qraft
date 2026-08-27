@@ -143,7 +143,9 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
             </SelectContent>
           </Select>
           <Button onClick={() => void handleConvert()} disabled={loading || !text} size="sm">
-            {loading ? t('tools.timestamp_converter.converting') : t('tools.timestamp_converter.convert')}
+            {loading
+              ? t('tools.timestamp_converter.converting')
+              : t('tools.timestamp_converter.convert')}
           </Button>
         </ConfigRow>
       </ConfigSection>
@@ -164,7 +166,9 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
         data-search-anchor="timestamp_converter:result"
       >
         <div className="flex items-center justify-between border-b px-3 py-1.5">
-          <span className="pl-1 text-xs font-medium">{t('tools.timestamp_converter.result_title')}</span>
+          <span className="pl-1 text-xs font-medium">
+            {t('tools.timestamp_converter.result_title')}
+          </span>
           {output?.meta && (
             <span className="text-xs text-muted-foreground">
               {t('tools.timestamp_converter.bytes_unit', {
@@ -178,14 +182,24 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
           <div className="p-4">
             {extra ? (
               <dl className="grid grid-cols-[180px_1fr_auto] gap-x-4 gap-y-3 text-sm">
-                <ResultRow label={t('tools.timestamp_converter.unix_seconds')} value={String(extra.unix_seconds)} />
-                <ResultRow label={t('tools.timestamp_converter.unix_millis')} value={String(extra.unix_millis)} />
+                <ResultRow
+                  label={t('tools.timestamp_converter.unix_seconds')}
+                  value={String(extra.unix_seconds)}
+                />
+                <ResultRow
+                  label={t('tools.timestamp_converter.unix_millis')}
+                  value={String(extra.unix_millis)}
+                />
                 <ResultRow label="ISO 8601" value={extra.iso8601} />
                 <ResultRow
                   label={t('tools.timestamp_converter.local_time', { tz: timezone })}
                   value={extra.local}
                 />
-                <ResultRow label={t('tools.timestamp_converter.relative_time')} value={extra.relative} mono={false} />
+                <ResultRow
+                  label={t('tools.timestamp_converter.relative_time')}
+                  value={extra.relative}
+                  mono={false}
+                />
               </dl>
             ) : (
               <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
@@ -200,4 +214,3 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
 }
 
 /** 把任意异常格式化为可显示的错误文本(CommandError 附带错误码便于排障) */
-

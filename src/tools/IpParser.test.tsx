@@ -212,9 +212,7 @@ describe('scope / classification helpers', () => {
     expect(describeIpv4Scope(parseIpv4('127.0.0.1')!)).toBe('tools.ip_parser.scope_loopback');
     expect(describeIpv4Scope(parseIpv4('224.0.0.1')!)).toBe('tools.ip_parser.scope_multicast');
     expect(describeIpv4Scope(parseIpv4('172.16.5.5')!)).toBe('tools.ip_parser.scope_private');
-    expect(describeIpv4Scope(parseIpv4('169.254.9.9')!)).toBe(
-      'tools.ip_parser.scope_link_local',
-    );
+    expect(describeIpv4Scope(parseIpv4('169.254.9.9')!)).toBe('tools.ip_parser.scope_link_local');
     expect(describeIpv4Scope(parseIpv4('100.100.1.1')!)).toBe('tools.ip_parser.scope_cgnat');
     expect(describeIpv4Class(parseIpv4('10.0.0.1')!)).toBe('tools.ip_parser.class_a');
     expect(describeIpv4Class(parseIpv4('150.1.1.1')!)).toBe('tools.ip_parser.class_b');

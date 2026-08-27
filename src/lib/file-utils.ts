@@ -60,7 +60,8 @@ export function readFileAsDataUrl(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error(t('chrome.code_editor.read_file_failed')));
+    reader.onerror = () =>
+      reject(reader.error ?? new Error(t('chrome.code_editor.read_file_failed')));
     reader.readAsDataURL(file);
   });
 }
@@ -70,7 +71,8 @@ export function readFileAsText(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error(t('chrome.code_editor.read_file_failed')));
+    reader.onerror = () =>
+      reject(reader.error ?? new Error(t('chrome.code_editor.read_file_failed')));
     reader.readAsText(file);
   });
 }

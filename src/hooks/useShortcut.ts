@@ -113,7 +113,11 @@ export type ShortcutHandler = (e: KeyboardEvent) => void | false;
  * @param handler 匹配时执行的回调;返回 false 放行事件(见 ShortcutHandler 说明)
  * @param deps 依赖数组(与 useEffect deps 语义一致),handler 中引用的外部变量需列入
  */
-export function useShortcut(key: ShortcutKey, handler: ShortcutHandler, deps: readonly unknown[]): void {
+export function useShortcut(
+  key: ShortcutKey,
+  handler: ShortcutHandler,
+  deps: readonly unknown[],
+): void {
   // 仅订阅该快捷键对应的单个字符串(而非整个 config 对象),
   // 避免切换主题/字体等无关配置变更时触发本 hook 重渲染并重建监听器。
   const combo = useConfigStore((s) => s.config?.shortcuts[key] ?? DEFAULT_SHORTCUTS[key]);

@@ -16,7 +16,10 @@ describe('configStore locale 同步(general.language 激活)', () => {
 
   it('setConfig("general.language") 同时切换 i18n locale', async () => {
     const { safeInvoke } = await import('@/lib/ipc');
-    (safeInvoke as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true, value: true });
+    (safeInvoke as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      value: true,
+    });
     // 先注入一份非空配置使乐观更新分支生效
     useConfigStore.setState({
       config: {

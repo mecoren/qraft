@@ -314,65 +314,71 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
    *   二进制(ERR_FILE_UNSUPPORTED)→ 弹错误提示,
    *   文件节点保留在树中(组件层不做剔除)
    */
-  const handleOpenTreeFile = useCallback(async (path: string) => {
-    const state = useEditorWorkspaceStore.getState();
-    const existing = state.workspace.tabs.find((t) => t.path === path);
-    if (existing) {
-      state.switchTab(existing.id);
-      setActiveCompareId(null);
-      return;
-    }
-    try {
-      const result = await readTextFileEncoded(path);
-      state.openLocalFile(result.path, result.content, result.encoding);
-      setActiveCompareId(null);
-    } catch (e) {
-      const name = fileNameFromPath(path);
-      if (e instanceof CommandError && e.code === 'ERR_FILE_UNSUPPORTED') {
-        toast.error(t('tools.text_editor.err_file_unsupported', { name }));
-      } else {
-        // 其余失败(未授权/不存在等):展示后端返回的真实错误信息
-        toast.error(
-          t('tools.text_editor.err_open_named', {
-            name,
-            reason: e instanceof Error ? e.message : t('tools.text_editor.err_unknown'),
-          }),
-        );
+  const handleOpenTreeFile = useCallback(
+    async (path: string) => {
+      const state = useEditorWorkspaceStore.getState();
+      const existing = state.workspace.tabs.find((t) => t.path === path);
+      if (existing) {
+        state.switchTab(existing.id);
+        setActiveCompareId(null);
+        return;
       }
-    }
-  }, [t]);
+      try {
+        const result = await readTextFileEncoded(path);
+        state.openLocalFile(result.path, result.content, result.encoding);
+        setActiveCompareId(null);
+      } catch (e) {
+        const name = fileNameFromPath(path);
+        if (e instanceof CommandError && e.code === 'ERR_FILE_UNSUPPORTED') {
+          toast.error(t('tools.text_editor.err_file_unsupported', { name }));
+        } else {
+          // 其余失败(未授权/不存在等):展示后端返回的真实错误信息
+          toast.error(
+            t('tools.text_editor.err_open_named', {
+              name,
+              reason: e instanceof Error ? e.message : t('tools.text_editor.err_unknown'),
+            }),
+          );
+        }
+      }
+    },
+    [t],
+  );
 
   /**
    * 保存指定 Tab:已绑定路径直接写回(按 Tab 记录的编码),untitled 弹「另存为」。
    * 返回是否成功(用户取消另存为 / 保存失败返回 false,供「保存并关闭」判断)。
    */
-  const saveTabById = useCallback(async (id: string): Promise<boolean> => {
-    const state = useEditorWorkspaceStore.getState();
-    const tab = state.workspace.tabs.find((t) => t.id === id);
-    if (!tab) return false;
-    try {
-      if (tab.path) {
-        // 按 Tab 记录的编码写回(状态栏可切换;缺省 UTF-8)
-        await saveToPathEncoded(tab.path, tab.content, tab.encoding ?? 'utf-8');
-        state.markSaved(id, tab.path);
-        toast.success(t('tools.text_editor.toast_saved', { name: tab.title }));
-        return true;
+  const saveTabById = useCallback(
+    async (id: string): Promise<boolean> => {
+      const state = useEditorWorkspaceStore.getState();
+      const tab = state.workspace.tabs.find((t) => t.id === id);
+      if (!tab) return false;
+      try {
+        if (tab.path) {
+          // 按 Tab 记录的编码写回(状态栏可切换;缺省 UTF-8)
+          await saveToPathEncoded(tab.path, tab.content, tab.encoding ?? 'utf-8');
+          state.markSaved(id, tab.path);
+          toast.success(t('tools.text_editor.toast_saved', { name: tab.title }));
+          return true;
+        }
+        // 未绑定路径:文件名缺扩展名时补 .txt,供保存对话框使用
+        const fileName = tab.title.endsWith('.txt') ? tab.title : `${tab.title}.txt`;
+        const path = await saveWithDialog(fileName, tab.content);
+        if (path) {
+          state.markSaved(id, path);
+          toast.success(t('tools.text_editor.toast_saved', { name: fileName }));
+          return true;
+        }
+        // 用户取消保存对话框:保持 dirty 状态
+        return false;
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_save'));
+        return false;
       }
-      // 未绑定路径:文件名缺扩展名时补 .txt,供保存对话框使用
-      const fileName = tab.title.endsWith('.txt') ? tab.title : `${tab.title}.txt`;
-      const path = await saveWithDialog(fileName, tab.content);
-      if (path) {
-        state.markSaved(id, path);
-        toast.success(t('tools.text_editor.toast_saved', { name: fileName }));
-        return true;
-      }
-      // 用户取消保存对话框:保持 dirty 状态
-      return false;
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_save'));
-      return false;
-    }
-  }, [t]);
+    },
+    [t],
+  );
 
   /** 保存激活 Tab(菜单「保存」/ Ctrl+S 快捷键) */
   const handleSave = useCallback(() => {
@@ -1456,9 +1462,7 @@ function SidebarResizeHandle({
       aria-valuemax={SIDEBAR_MAX_WIDTH}
       tabIndex={0}
       title={
-        sidebarVisible
-          ? t('tools.text_editor.resize_hint')
-          : t('tools.text_editor.restore_hint')
+        sidebarVisible ? t('tools.text_editor.resize_hint') : t('tools.text_editor.restore_hint')
       }
       className={cn(
         // 2px 宽点击区,恰好填满 gap-0.5 分割空间;默认完全透明,悬浮时才高亮

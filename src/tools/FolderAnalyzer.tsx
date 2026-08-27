@@ -119,7 +119,11 @@ export function FolderAnalyzer(_props: ToolProps) {
         },
       });
     } else if (mode === 'scan') {
-      await runWithMode({ filePath: target, mode: 'scan', options: { include_hidden: includeHidden } });
+      await runWithMode({
+        filePath: target,
+        mode: 'scan',
+        options: { include_hidden: includeHidden },
+      });
     }
     // file 模式在选中文件后立即运行,无需 Run 按钮
   }, [target, mode, pattern, isRegex, caseInsensitive, includeHidden, runWithMode]);

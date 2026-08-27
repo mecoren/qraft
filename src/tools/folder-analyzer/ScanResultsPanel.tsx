@@ -179,9 +179,7 @@ export function ScanResultsPanel({ report }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-3">
-                  {t('tools.folder_analyzer.col_file_path')}
-                </TableHead>
+                <TableHead className="pl-3">{t('tools.folder_analyzer.col_file_path')}</TableHead>
                 <TableHead className="pr-3 text-right">
                   {t('tools.folder_analyzer.col_size')}
                 </TableHead>
