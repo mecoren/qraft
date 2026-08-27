@@ -268,16 +268,41 @@ jobs:
           pattern: qraft-{portable,sbom}-*
           merge-multiple: true
 
+      # 用裸 gh api 上传:不用 action-gh-release——GitHub 同一 tag 只允许一个
+      # 非草稿 Release,该 Action 在 tag 被强移后(与 Release.target_commitish
+      # 脱节)会走 create/update-a-release 兜底,把 tauri-action 已发布的
+      # Release 挤成 draft,导致公开下载 404 与后续作业连锁失败。
       - name: Append files to release
-        # 锁定 v2:v3 在 tag 与 Release.target_commitish 脱节(强移 tag 重跑)时
-        # 会尝试 PATCH release 元数据,触发 Resource not accessible by integration
-        uses: softprops/action-gh-release@v2
-        with:
-          files: extras/**/*
-          tag_name: ${{ github.ref_name }}
-          fail_on_unmatched_files: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          API="repos/{owner}/{repo}"
+
+          RELEASE_ID=$(gh api "$API/releases" --paginate |
+            jq -r --arg tag "$TAG" '[.[] | select(.tag_name == $tag)][0].id')
+          if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
+            echo "ERROR: no release found for tag $TAG" >&2
+            exit 1
+          fi
+
+          shopt -s nullglob
+          for f in extras/*; do
+            base=$(basename "$f")
+            # GitHub 对同名上传是删旧建新;显式先删避免依赖隐式替换语义
+            OLD_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
+              jq -r --arg n "$base" '[.[] | select(.name == $n)][0].id')
+            if [ -n "$OLD_ID" ] && [ "$OLD_ID" != "null" ]; then
+              gh api -X DELETE "$API/releases/assets/$OLD_ID" >/dev/null
+              echo "removed old: $base"
+            fi
+            gh api -X POST "$API/releases/$RELEASE_ID/assets?name=$base" \
+              -H "Content-Type: application/octet-stream" \
+              --input "$f" > /dev/null
+            echo "uploaded: $base"
+          done
 
   # ──────────────────────────────────────────────────────────────────────────
   # normalize-assets:tag 且非 dry-run 时,统一 Release 资产命名并同步重写
@@ -340,7 +365,27 @@ jobs:
           fi
           echo "release id: $RELEASE_ID"
 
-          # 1) 资产改名(PATCH API 直接改,免重传);msi/rpm 不再产出,直接删除。
+          # 2) 循环前预取 updater manifest 并完成本地重写(URL 按同一映射替换、
+          #    剔除 msi/rpm 条目)。上传推迟到循环之后(资产改名完成后 URL 才有效),
+          #    这样即使循环期间 latest.json 被替换/删除,重写内容也不受影响。
+          #    manifest 缺失时仅告警跳过,不中断。
+          HAS_MANIFEST=0
+          MANIFEST_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
+            jq -r '[.[] | select(.name == "latest.json")][0].id')
+          if [ -n "$MANIFEST_ID" ] && [ "$MANIFEST_ID" != "null" ]; then
+            gh api "$API/releases/assets/$MANIFEST_ID" \
+              -H "Accept: application/octet-stream" > latest.json
+            sed "${MAP_SED[@]}" latest.json > latest.json.tmp
+            jq '.platforms |= with_entries(
+                  select((.value.url | endswith(".msi") or endswith(".rpm")) | not)
+                )' latest.json.tmp > latest.json
+            rm -f latest.json.tmp
+            HAS_MANIFEST=1
+          else
+            echo "WARN: latest.json not found on release, skip manifest rewrite" >&2
+          fi
+
+          # 3) 资产改名(PATCH API 直接改,免重传);msi/rpm 不再产出,直接删除。
           # 先建 现有名 → id 映射:重跑场景下目标名可能已被上一轮占用
           # (GitHub PATCH 重名报 422),改前需先删掉旧的同名资产。
           declare -A EXISTING
@@ -371,31 +416,10 @@ jobs:
             esac
           done
 
-          # 2) 先取 updater manifest(必须在改名循环之前,否则资产重传/替换
-          #    可能恰好在循环期间替换掉 latest.json,导致循环后取不到)。
-          #    manifest 缺失时仅告警跳过,不中断(循环后若出现则照常重写)。
-          MANIFEST_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
-            jq -r '[.[] | select(.name == "latest.json")][0].id')
-          HAS_MANIFEST=0
-          if [ -n "$MANIFEST_ID" ] && [ "$MANIFEST_ID" != "null" ]; then
-            gh api "$API/releases/assets/$MANIFEST_ID" \
-              -H "Accept: application/octet-stream" > latest.json
-            HAS_MANIFEST=1
-          else
-            echo "WARN: latest.json not found on release, skip manifest rewrite" >&2
-          fi
-
-          # 3) 重写 manifest:URL 文件名按同一映射替换,并剔除 msi/rpm 条目。
+          # 4) 上传重写后的 manifest(此步之后 URL 与资产名恢复逐字节一致)。
+          # 按名重新定位旧的 latest.json(循环期间可能被替换换 id),存在则删;
+          # 不存在则直接上传。
           if [ "$HAS_MANIFEST" = "1" ]; then
-            sed -i "${MAP_SED[@]}" latest.json
-            jq '.platforms |= with_entries(
-                  select((.value.url | endswith(".msi") or endswith(".rpm")) | not)
-                )' latest.json > latest.json.tmp
-            mv latest.json.tmp latest.json
-
-            # 4) 覆盖写回(此步之后 URL 与资产名恢复逐字节一致)。
-            # 循环期间 latest.json 可能被并发替换(换 id),按名重新定位;
-            # 不存在则直接上传。
             CUR_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
               jq -r '[.[] | select(.name == "latest.json")][0].id')
             if [ -n "$CUR_ID" ] && [ "$CUR_ID" != "null" ]; then
@@ -406,4 +430,11 @@ jobs:
               --input latest.json > /dev/null
             echo "---- final manifest ----"
             jq -r '.platforms | to_entries[] | "\(.key): \(.value.url)"' latest.json
+          fi
+
+          # 5) 兜底确保发布态(幂等):tauri-action 命中已存在的 draft 时只上传
+          #    资产不会反草稿化。失败不阻断(资产已就绪),但告警提示人工检查。
+          if ! gh api -X PATCH "$API/releases/$RELEASE_ID" \
+               -f draft=false -f prerelease=false > /dev/null; then
+            echo "WARN: failed to enforce published state; check release visibility" >&2
           fi
