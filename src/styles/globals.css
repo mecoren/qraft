@@ -789,11 +789,17 @@
  * Monaco 默认把关闭按钮(.codicon-widget-close)绝对定位在部件顶部
  * (top:5px),而部件紧贴编辑器容器顶缘、上方即外层工具栏,
  * 视觉上按钮「顶」进工具栏下缘,与查找输入行明显错位。
- * 这里把按钮锚定到 34px 部件行的垂直中心(与 ↑↓/输入框同一水平线);
- * 使用 max() 在替换展开等更高形态下仍保持居中。
+ * 查找部件首行(输入框+↑↓/替换展开按钮)固定 34px 高,
+ * 关闭按钮(codicon 16x16)应始终锚定在该行垂直中心:
+ *   (34 - 16) / 2 = 9px。
+ * 之前的 calc((100% - 16px) / 2) 会随替换展开后部件变高而下移,
+ * 导致与首行按钮错位。改为固定 9px 保持与输入行/箭头按钮平齐。
+ * 使用后代选择器覆盖可能的包装层,并加 !important 对抗内联样式。
  * ============================================================ */
-.monaco-editor .find-widget > .codicon-widget-close {
-  top: max(9px, calc((100% - 16px) / 2));
+.monaco-editor .find-widget .codicon-widget-close,
+.monaco-editor .find-widget .codicon-close,
+.monaco-editor .find-widget [class*="widget-close"] {
+  top: 9px !important;
 }
 
 /* ============================================================

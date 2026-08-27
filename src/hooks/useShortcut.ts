@@ -99,13 +99,21 @@ function matchesShortcut(e: KeyboardEvent, sc: ParsedShortcut): boolean {
 }
 
 /**
+ * 快捷键 handler:匹配时执行。
+ * 返回 false 表示不消费该事件(不 preventDefault/不 stopPropagation),
+ * 让按键继续传递给深层组件处理 —— 典型场景:无面板可关时把 Esc 还给
+ * Monaco 查找部件(原生 Esc 关闭)。其余返回值/void 均视为已消费。
+ */
+export type ShortcutHandler = (e: KeyboardEvent) => void | false;
+
+/**
  * 注册全局快捷键。
  *
  * @param key ShortcutBinding 中的键名(如 'toggle_settings')
- * @param handler 匹配时执行的回调
+ * @param handler 匹配时执行的回调;返回 false 放行事件(见 ShortcutHandler 说明)
  * @param deps 依赖数组(与 useEffect deps 语义一致),handler 中引用的外部变量需列入
  */
-export function useShortcut(key: ShortcutKey, handler: () => void, deps: readonly unknown[]): void {
+export function useShortcut(key: ShortcutKey, handler: ShortcutHandler, deps: readonly unknown[]): void {
   // 仅订阅该快捷键对应的单个字符串(而非整个 config 对象),
   // 避免切换主题/字体等无关配置变更时触发本 hook 重渲染并重建监听器。
   const combo = useConfigStore((s) => s.config?.shortcuts[key] ?? DEFAULT_SHORTCUTS[key]);
@@ -118,11 +126,12 @@ export function useShortcut(key: ShortcutKey, handler: () => void, deps: readonl
       // 长按产生的自动重复事件全部忽略:现有绑定均为离散动作(开关面板/执行/复制),
       // 连发只会造成误触。若未来出现需要长按连发的绑定,应单独豁免。
       if (e.repeat) return;
-      if (matchesShortcut(e, parsed)) {
-        e.preventDefault();
-        e.stopPropagation();
-        handler();
-      }
+      if (!matchesShortcut(e, parsed)) return;
+      // 先执行 handler 再决定是否吞事件:若在捕获阶段先 stopPropagation,
+      // Monaco 等深层 DOM 将永远收不到按键,handler 无从"放行"。
+      if (handler(e) === false) return;
+      e.preventDefault();
+      e.stopPropagation();
     };
     // 使用捕获阶段监听:保证在事件到达 Monaco 等深层 DOM 元素之前触发。
     // 冒泡阶段监听可能被编辑器(如 Monaco)在内部 stopPropagation 拦截,

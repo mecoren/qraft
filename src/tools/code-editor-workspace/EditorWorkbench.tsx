@@ -918,7 +918,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     <TooltipProvider delayDuration={200}>
       <div className="flex h-full flex-col bg-background-layer" data-testid="editor-workbench">
         <div
-          className="flex h-full min-h-0 w-full min-w-0 flex-1 gap-1 overflow-hidden"
+          className="flex h-full min-h-0 w-full min-w-0 flex-1 gap-0.5 overflow-hidden"
           data-testid="editor-split"
         >
           {/* 左栏卡片:固定像素宽度,由 sidebarWidth(持久化)控制,收起时宽度 0。
@@ -1461,18 +1461,20 @@ function SidebarResizeHandle({
           : t('tools.text_editor.restore_hint')
       }
       className={cn(
-        // 4px 宽点击区,恰好填满 gap-1 分割空间;默认完全透明,悬浮时才高亮
-        'group relative flex h-full w-1 shrink-0 cursor-col-resize items-center justify-center self-stretch bg-transparent focus-visible:outline-none',
+        // 2px 宽点击区,恰好填满 gap-0.5 分割空间;默认完全透明,悬浮时才高亮
+        'group relative flex h-full w-0.5 shrink-0 cursor-col-resize items-center justify-center self-stretch bg-transparent focus-visible:outline-none',
       )}
     >
       {/*
-       * 高亮竖线:默认透明(中间无分割线);hover/focus/active 时变为
-       * 与分割空间同宽的 4px 主色蓝线,明确指示「此处可拖动」。
+       * 高亮竖线:默认透明(中间无分割线);hover/focus/active 时变为 4px 主色蓝线。
+       * 固定 4px 不随分割空间(gap-0.5)变窄,保持易识别的悬浮/拖拽目标;
+       * shrink-0 防止被 2px 窄容器压缩,由父级 justify-center 居中向两侧各溢出 1px。
+       * rounded-md 对齐项目圆角 token(--radius-md,由 globals.css 的 --radius 派生)。
        */}
       <div
         aria-hidden
         className={cn(
-          'h-full w-full transition-colors duration-150 ease-out',
+          'h-full w-1 shrink-0 rounded-md transition-colors duration-150 ease-out',
           highlighted ? 'bg-primary' : 'bg-transparent',
         )}
       />

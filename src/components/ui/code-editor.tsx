@@ -46,6 +46,7 @@ import {
   type MonacoMenuSection,
 } from './monaco-context-menu';
 import { attachFoldSummary, type FoldSummaryHandle } from './monaco-fold-summary';
+import { attachFindCloseTooltip, type FindCloseTooltipHandle } from './monaco-find-close-tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { Input } from './input';
 
@@ -323,6 +324,8 @@ export function CodeEditor({
   const [editorInstance, setEditorInstance] = useState<MonacoEditor | null>(null);
   // 折叠摘要 handle(JSON 语言启用,生命周期与 editor 绑定;卸载时 dispose)
   const foldSummaryRef = useRef<FoldSummaryHandle | null>(null);
+  // 查找组件关闭按钮自绘提示 handle(移除原生 title 防止窗口边缘裁剪,生命周期同 editor)
+  const findCloseHintRef = useRef<FindCloseTooltipHandle | null>(null);
   // 中文右键菜单:open + 鼠标坐标(受控 Radix ContextMenu)
   const [ctxOpen, setCtxOpen] = useState(false);
   const [ctxPos, setCtxPos] = useState({ x: 0, y: 0 });
@@ -474,6 +477,22 @@ export function CodeEditor({
       foldSummaryRef.current = null;
     };
   }, [language]);
+
+  // 查找组件悬停提示统一样式:抑制 Monaco HoverService 浮层(位置不可控,
+  // 在窗口右上角边缘会被裁剪),改用应用内浮层并覆盖组件内全部可悬停控件。
+  // 以 editorInstance 为依赖的对称 effect:编辑器实例就绪后挂载,卸载/热更新
+  // 重跑时 dispose 后重建 —— handleMount 只触发一次,HMR 后会留下"已断开"
+  // 的观察器(真实事故),必须由 effect 保证任意一次提交后都恰好存活一个。
+  useEffect(() => {
+    const editorDom = editorInstance?.getDomNode();
+    if (!editorDom) return;
+    findCloseHintRef.current?.dispose();
+    findCloseHintRef.current = attachFindCloseTooltip(editorDom);
+    return () => {
+      findCloseHintRef.current?.dispose();
+      findCloseHintRef.current = null;
+    };
+  }, [editorInstance]);
 
   // 在 monaco 实例就绪时定义初始主题
   const handleBeforeMount: BeforeMount = (monaco) => {

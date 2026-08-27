@@ -189,10 +189,12 @@ export function App(): JSX.Element {
   useShortcut('global_search', () => setSearchOpen(true), []);
   // 搜索跳转:订阅 searchStore 的目标,切换视图/打开工具并定位高亮
   useSearchJump();
-  // Esc 关闭当前打开的面板:全局搜索 > 命令面板 > 设置/关于弹窗 > 历史/扩展页 > 回到工具/欢迎页
+  // Esc 关闭当前打开的面板:全局搜索 > 命令面板 > 设置/关于弹窗 > 历史/扩展页 > 回到工具/欢迎页。
+  // 无面板可关且焦点在 Monaco(编辑器/查找部件)内时返回 false 放行事件,
+  // 让编辑器原生行为生效(如 Esc 关闭 Ctrl+F 查找部件)。
   useShortcut(
     'close_panel',
-    () => {
+    (e) => {
       if (searchOpen) {
         setSearchOpen(false);
       } else if (paletteOpen) {
@@ -201,6 +203,11 @@ export function App(): JSX.Element {
         setView(currentToolId ? 'tool' : 'welcome');
       } else if (view === 'history' || view === 'extensions') {
         setView(currentToolId ? 'tool' : 'welcome');
+      } else if (
+        e.target instanceof Element &&
+        e.target.closest('.monaco-editor')
+      ) {
+        return false;
       }
     },
     [searchOpen, paletteOpen, view, currentToolId, setView],

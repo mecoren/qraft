@@ -10,6 +10,7 @@
  * v0.1.0 内容基于 git log(2026-07-25 首提交 至 2026-08-21 00:00)提炼,
  * v0.1.1 内容基于 git log 与代码(2026-08-21 00:00 之后)提炼,
  * v0.1.2 内容基于 git log(v0.1.1 标签之后至 2026-08-23)提炼,
+ * v0.1.5 内容基于 git log(v0.1.2 标签之后至 2026-08-27)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -38,6 +39,100 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.1.5',
+    date: '2026-08-27',
+    summary: {
+      zh: '界面中英双语全面落地,新增五个工具与跨工具传值,性能优化与编辑器 Esc 键修复',
+      en: 'Full bilingual UI, five new tools with cross-tool handoff, performance optimizations and editor Esc key fixes',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: '界面中英双语(i18next 全量落地):设置页新增界面语言切换;侧栏/命令面板/设置/关于/欢迎页/全局搜索锚点及全部工具面板文案双语;目录元数据与搜索索引双语命中;Monaco 内置 UI 随应用语言切换',
+          en: 'Full bilingual UI via i18next: interface language switcher in settings; sidebar, command palette, settings, About, welcome page, search anchors and all tool panels localized; bilingual catalog metadata and search index hits; Monaco built-in UI follows the app language',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '新增 5 个工具:文本统计(字符/词数/行数/字节)、ULID 生成器(Crockford Base32)、Basic Auth 生成器(UTF-8 安全)、IPv4 子网计算器、JSON↔CSV 转换器(RFC 4180)',
+          en: 'Five new tools: text statistics (chars/words/lines/bytes), ULID generator (Crockford Base32), Basic Auth generator (UTF-8 safe), IPv4 subnet calculator and JSON↔CSV converter (RFC 4180)',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '跨工具传值(send-to):输出区新增发送菜单与接收通道,JSON 格式化器/Base64 转换器/哈希计算器率先接入',
+          en: 'Cross-tool handoff (send-to): send menu in tool output areas with receiving channels, adopted first by JSON formatter / Base64 / hash tools',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '剪贴板智能探测(smart-detect,默认关闭):探测 JSON/JWT/Base64/PEM/URL 类型并在命令面板给出推荐',
+          en: 'Clipboard smart detection (opt-in by default off): detects JSON/JWT/Base64/PEM/URL content and surfaces recommendations in the command palette',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '工具全局快捷键:Ctrl+Enter 执行 / Ctrl+L 清空 / Ctrl+Shift+C 复制,配套工具动作注册表,多工具已接入',
+          en: 'Tool global shortcuts: Ctrl+Enter execute / Ctrl+L clear / Ctrl+Shift+C copy with a tool action registry, wired into multiple tools',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '文本编辑器增强:Markdown 分屏预览与视图模式切换、状态栏实时文件大小、Tab 支持重命名与固定、字号跟随设置档位',
+          en: 'Editor enhancements: Markdown split preview with view mode switcher, live file size in status bar, tab rename/pin support and font size following settings',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复文本编辑器 Esc 键被全局快捷键拦截的问题:无面板打开且焦点在编辑器时 Esc 正确交给 Monaco 关闭查找替换框',
+          en: "Fixed the editor's Esc key being swallowed by global shortcuts: with no panel open and focus in the editor, Esc now correctly reaches Monaco to close the find widget",
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '快捷键忽略长按自动重复事件(e.repeat)防止连发;打通工具执行历史落库与事件链路',
+          en: 'Shortcuts ignore auto-repeat events (e.repeat) to prevent rapid-fire; fixed tool execution history persistence and event chain',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '收藏工具平铺至固定「文本编辑器」下方,去除分类分组;固定编辑器不可收藏',
+          en: 'Favorite tools flattened below the pinned text editor without category grouping; the pinned editor cannot be favorited',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '性能优化:启动性能打磨、大输入路径降阻塞(release 启用 LTO/strip)、ToolPanel keepalive 引入 LRU 上限、空闲期预取 Markdown 重型 chunk',
+          en: 'Performance: startup polish, reduced blocking on large inputs (LTO/strip in release), LRU cap for ToolPanel keepalive, idle prefetch of heavy Markdown chunks',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '全局搜索海量命中护栏:单文件/全局收集上限、截断标记与高亮范围限制;7 个工具错误格式化收口为共享模块',
+          en: 'Search flood guards: per-file/global collection caps, truncation markers and highlight limits; consolidated error formatting of 7 tools into a shared module',
+        },
+      },
+      {
+        category: 'chore',
+        description: {
+          zh: '接入 pnpm audit 门禁并升级 dompurify;支持 prefers-reduced-motion 减弱动态效果',
+          en: 'pnpm audit gate with dompurify upgrade; prefers-reduced-motion support for reduced motion',
+        },
+      },
+    ],
+  },
   {
     version: '0.1.2',
     date: '2026-08-23',
