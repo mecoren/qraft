@@ -269,7 +269,9 @@ jobs:
           merge-multiple: true
 
       - name: Append files to release
-        uses: softprops/action-gh-release@v3
+        # 锁定 v2:v3 在 tag 与 Release.target_commitish 脱节(强移 tag 重跑)时
+        # 会尝试 PATCH release 元数据,触发 Resource not accessible by integration
+        uses: softprops/action-gh-release@v2
         with:
           files: extras/**/*
           tag_name: ${{ github.ref_name }}
@@ -369,25 +371,39 @@ jobs:
             esac
           done
 
-          # 2) 重写 latest.json:URL 文件名按同一映射替换,并剔除 msi/rpm 条目。
-          # 按资产 ID 以 octet-stream 拉取内容,不经 tag 路由。
-          ASSET_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
+          # 2) 先取 updater manifest(必须在改名循环之前,否则资产重传/替换
+          #    可能恰好在循环期间替换掉 latest.json,导致循环后取不到)。
+          #    manifest 缺失时仅告警跳过,不中断(循环后若出现则照常重写)。
+          MANIFEST_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
             jq -r '[.[] | select(.name == "latest.json")][0].id')
-          gh api "$API/releases/assets/$ASSET_ID" \
-            -H "Accept: application/octet-stream" > latest.json
-          sed -i "${MAP_SED[@]}" latest.json
-          jq '.platforms |= with_entries(
-                select((.value.url | endswith(".msi") or endswith(".rpm")) | not)
-              )' latest.json > latest.json.tmp
-          mv latest.json.tmp latest.json
+          HAS_MANIFEST=0
+          if [ -n "$MANIFEST_ID" ] && [ "$MANIFEST_ID" != "null" ]; then
+            gh api "$API/releases/assets/$MANIFEST_ID" \
+              -H "Accept: application/octet-stream" > latest.json
+            HAS_MANIFEST=1
+          else
+            echo "WARN: latest.json not found on release, skip manifest rewrite" >&2
+          fi
 
-          # 3) 覆盖写回 manifest(此步之后 URL 与资产名恢复逐字节一致)。
-          # GitHub 对同名资产是「先删旧再传新」,直接重传即等效覆盖。
-          OLD_MANIFEST_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
-            jq -r '[.[] | select(.name == "latest.json")][0].id')
-          gh api -X DELETE "$API/releases/assets/$OLD_MANIFEST_ID" >/dev/null
-          gh api -X POST "$API/releases/$RELEASE_ID/assets?name=latest.json" \
-            -H "Content-Type: application/octet-stream" \
-            --input latest.json > /dev/null
-          echo "---- final manifest ----"
-          jq -r '.platforms | to_entries[] | "\(.key): \(.value.url)"' latest.json
+          # 3) 重写 manifest:URL 文件名按同一映射替换,并剔除 msi/rpm 条目。
+          if [ "$HAS_MANIFEST" = "1" ]; then
+            sed -i "${MAP_SED[@]}" latest.json
+            jq '.platforms |= with_entries(
+                  select((.value.url | endswith(".msi") or endswith(".rpm")) | not)
+                )' latest.json > latest.json.tmp
+            mv latest.json.tmp latest.json
+
+            # 4) 覆盖写回(此步之后 URL 与资产名恢复逐字节一致)。
+            # 循环期间 latest.json 可能被并发替换(换 id),按名重新定位;
+            # 不存在则直接上传。
+            CUR_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
+              jq -r '[.[] | select(.name == "latest.json")][0].id')
+            if [ -n "$CUR_ID" ] && [ "$CUR_ID" != "null" ]; then
+              gh api -X DELETE "$API/releases/assets/$CUR_ID" >/dev/null
+            fi
+            gh api -X POST "$API/releases/$RELEASE_ID/assets?name=latest.json" \
+              -H "Content-Type: application/octet-stream" \
+              --input latest.json > /dev/null
+            echo "---- final manifest ----"
+            jq -r '.platforms | to_entries[] | "\(.key): \(.value.url)"' latest.json
+          fi
