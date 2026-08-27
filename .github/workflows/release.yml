@@ -190,6 +190,7 @@ jobs:
       # 临时诊断:确认 Secret 是否注入到构建环境(只输出长度,不泄露内容)。
       # 定位 "no private key" 报错是 Secret 配置问题还是 tauri-action 层问题。
       - name: Debug signing key presence
+        shell: bash
         run: |
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
             echo "key present, length=${#TAURI_SIGNING_PRIVATE_KEY}"
