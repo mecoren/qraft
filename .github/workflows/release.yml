@@ -324,28 +324,46 @@ jobs:
             -e "s|Qraft_${VER}_aarch64\.AppImage|Qraft-${VER}-Linux-Arm64.AppImage|g"
           )
 
+          # 全程走 Release ID 路由:删 tag 会把既有 Release 转为 draft,而
+          # /releases/tags/{tag} 与 tag 型公开下载 URL 对 draft 均不可用(404),
+          # 只有 /releases 列表能按 tag_name 命中 draft。资产增删改同理必须用
+          # releases/{id}/assets 与 releases/assets/{asset_id} 端点。
+          API="repos/{owner}/{repo}"
+
+          RELEASE_ID=$(gh api "$API/releases" --paginate |
+            jq -r --arg tag "$TAG" '[.[] | select(.tag_name == $tag)][0].id')
+          if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
+            echo "ERROR: no release found for tag $TAG" >&2
+            exit 1
+          fi
+          echo "release id: $RELEASE_ID"
+
           # 1) 资产改名(PATCH API 直接改,免重传);msi/rpm 不再产出,直接删除。
-          gh release view "$TAG" --json assets |
-            jq -r '.assets[] | "\(.id)\t\(.name)"' |
+          gh api "$API/releases/$RELEASE_ID/assets" --paginate |
+            jq -r '.[] | "\(.id)\t\(.name)"' |
           while IFS=$'\t' read -r id name; do
             new_name=$(printf '%s' "$name" | sed "${MAP_SED[@]}")
             case "$new_name" in
               *.msi|*.msi.sig|*.rpm|*.rpm.sig)
-                gh api -X DELETE "repos/{owner}/{repo}/releases/assets/$id" >/dev/null
+                gh api -X DELETE "$API/releases/assets/$id" >/dev/null
                 echo "deleted: $name"
                 ;;
               "$name")
                 echo "keep:    $name"
                 ;;
               *)
-                gh api -X PATCH "repos/{owner}/{repo}/releases/assets/$id" -f name="$new_name" >/dev/null
+                gh api -X PATCH "$API/releases/assets/$id" -f name="$new_name" >/dev/null
                 echo "renamed: $name -> $new_name"
                 ;;
             esac
           done
 
           # 2) 重写 latest.json:URL 文件名按同一映射替换,并剔除 msi/rpm 条目。
-          gh release download "$TAG" --pattern 'latest.json' --clobber
+          # 按资产 ID 以 octet-stream 拉取内容,不经 tag 路由。
+          ASSET_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
+            jq -r '.[] | select(.name == "latest.json")[0].id')
+          gh api "$API/releases/assets/$ASSET_ID" \
+            -H "Accept: application/octet-stream" > latest.json
           sed -i "${MAP_SED[@]}" latest.json
           jq '.platforms |= with_entries(
                 select((.value.url | endswith(".msi") or endswith(".rpm")) | not)
@@ -353,6 +371,12 @@ jobs:
           mv latest.json.tmp latest.json
 
           # 3) 覆盖写回 manifest(此步之后 URL 与资产名恢复逐字节一致)。
-          gh release upload "$TAG" latest.json --clobber
+          # GitHub 对同名资产是「先删旧再传新」,直接重传即等效覆盖。
+          OLD_MANIFEST_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
+            jq -r '[.[] | select(.name == "latest.json")][0].id')
+          gh api -X DELETE "$API/releases/assets/$OLD_MANIFEST_ID" >/dev/null
+          gh api -X POST "$API/releases/$RELEASE_ID/assets?name=latest.json" \
+            -H "Content-Type: application/octet-stream" \
+            --input latest.json > /dev/null
           echo "---- final manifest ----"
           jq -r '.platforms | to_entries[] | "\(.key): \(.value.url)"' latest.json
