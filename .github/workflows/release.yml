@@ -339,21 +339,32 @@ jobs:
           echo "release id: $RELEASE_ID"
 
           # 1) 资产改名(PATCH API 直接改,免重传);msi/rpm 不再产出,直接删除。
-          gh api "$API/releases/$RELEASE_ID/assets" --paginate |
-            jq -r '.[] | "\(.id)\t\(.name)"' |
-          while IFS=$'\t' read -r id name; do
-            new_name=$(printf '%s' "$name" | sed "${MAP_SED[@]}")
+          # 先建 现有名 → id 映射:重跑场景下目标名可能已被上一轮占用
+          # (GitHub PATCH 重名报 422),改前需先删掉旧的同名资产。
+          declare -A EXISTING
+          while IFS=$'\t' read -r aid aname; do EXISTING["$aname"]="$aid"; done < <(
+            gh api "$API/releases/$RELEASE_ID/assets" --paginate |
+              jq -r '.[] | "\(.id)\t\(.name)"'
+          )
+
+          for aname in "${!EXISTING[@]}"; do
+            id="${EXISTING[$aname]}"
+            new_name=$(printf '%s' "$aname" | sed "${MAP_SED[@]}")
             case "$new_name" in
               *.msi|*.msi.sig|*.rpm|*.rpm.sig)
                 gh api -X DELETE "$API/releases/assets/$id" >/dev/null
-                echo "deleted: $name"
+                echo "deleted: $aname"
                 ;;
-              "$name")
-                echo "keep:    $name"
+              "$aname")
+                echo "keep:    $aname"
                 ;;
               *)
+                if [ -n "${EXISTING[$new_name]:-}" ] && [ "${EXISTING[$new_name]}" != "$id" ]; then
+                  gh api -X DELETE "$API/releases/assets/${EXISTING[$new_name]}" >/dev/null
+                  echo "replaced stale: $new_name"
+                fi
                 gh api -X PATCH "$API/releases/assets/$id" -f name="$new_name" >/dev/null
-                echo "renamed: $name -> $new_name"
+                echo "renamed: $aname -> $new_name"
                 ;;
             esac
           done
