@@ -1,11 +1,12 @@
 //! JSON 格式化基准(criterion)
 //!
-//! - `json_format_small`:小输入,走 `Tool::execute` 全链路(含 spawn_blocking 开销)
+//! - `json_format_small`:小输入,走 `Tool::execute` 全链路(含 `spawn_blocking` 开销)
 //! - `json_format_1mb`:1MB 输入,PRD「10MB JSON <500ms」目标的中间档参照
 //!
 //! 运行:`cargo bench --bench json_formatter`(结果写入 target/criterion)。
-//! 注意:`core::test_utils` 为 `#![cfg(test)]`,bench 不可复用,故在此自建 NoopSink。
+//! 注意:`core::test_utils` 为 `#![cfg(test)]`,bench 不可复用,故在此自建 `NoopSink`。
 
+use std::fmt::Write as _;
 use std::sync::Arc;
 
 use criterion::{Criterion, criterion_group, criterion_main};
@@ -43,15 +44,19 @@ fn nested_json(target_bytes: usize) -> String {
         if i > 0 {
             out.push(',');
         }
-        out.push_str(&format!(
+        // 写入目标仅是构造中的 String,write! 到 String 上不会失败,忽略返回值即可
+        let _ = write!(
+            out,
             "{{\"id\":{i},\"name\":\"item-{i}\",\"tags\":[\"alpha\",\"beta\"],\"score\":0.{i:03}}}"
-        ));
+        );
         i += 1;
     }
     out.push_str("]}");
     out
 }
 
+// bench 场景下 runtime 构建失败直接 panic 合理,允许 expect
+#[allow(clippy::expect_used)]
 fn bench_json_formatter(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().expect("failed to build tokio runtime");
     let ctx = bench_context();
@@ -70,14 +75,14 @@ fn bench_json_formatter(c: &mut Criterion) {
         b.iter(|| {
             let outcome = rt.block_on(tool.execute(small.clone(), &ctx));
             debug_assert!(outcome.is_ok(), "small json should format ok");
-        })
+        });
     });
 
     c.bench_function("json_format_1mb", |b| {
         b.iter(|| {
             let outcome = rt.block_on(tool.execute(large.clone(), &ctx));
             debug_assert!(outcome.is_ok(), "large json should format ok");
-        })
+        });
     });
 }
 

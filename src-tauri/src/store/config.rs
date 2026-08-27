@@ -64,7 +64,7 @@ pub struct GeneralConfig {
     pub confirm_on_clear: bool,
 }
 
-/// 界面语言默认值:与前端 DEFAULT_USER_CONFIG 对齐(zh-CN 优先现状)
+/// 界面语言默认值:与前端 `DEFAULT_USER_CONFIG` 对齐(zh-CN 优先现状)
 fn default_language() -> String {
     "zh-CN".to_string()
 }
