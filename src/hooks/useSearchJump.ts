@@ -44,6 +44,9 @@ let lastTextDecoration: { ed: editor.IStandaloneCodeEditor; ids: string[] } | nu
  * 独立导出供 SettingsDialog 等场景复用。
  */
 export function scheduleHighlight(anchor: string, attempts = 0): void {
+  // 环境已拆除时(如测试文件结束后挂起的重试定时器仍触发)静默退出,
+  // 避免 document 不存在导致 unhandled error
+  if (typeof document === 'undefined') return;
   const el = document.querySelector(`[data-search-anchor="${anchor}"]`);
   if (el instanceof HTMLElement) {
     el.scrollIntoView({ block: 'center', behavior: 'smooth' });

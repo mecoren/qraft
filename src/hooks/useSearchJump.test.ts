@@ -244,4 +244,20 @@ describe('scheduleHighlight', () => {
     await new Promise((r) => setTimeout(r, 500));
     expect(el.classList.contains('search-anchor-highlight')).toBe(true);
   });
+
+  it('环境销毁(document 不可用)后,挂起的重试定时器触发不抛错', async () => {
+    // 复现 CI unhandled error:测试文件结束后 jsdom 被拆除,
+    // 仍在排队的高亮重试定时器再次触发时 document 已不存在
+    scheduleHighlight('teardown:anchor'); // 锚点不存在,进入重试链
+    // 直接移除全局 document(vi.stubGlobal 会连带破坏 jsdom 的 localStorage)
+    const desc = Object.getOwnPropertyDescriptor(globalThis, 'document');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (globalThis as any).document;
+    try {
+      await new Promise((r) => setTimeout(r, 200)); // 等下一次(120ms)重试触发
+    } finally {
+      // 立即恢复,避免泄漏到 afterEach(localStorage 清理依赖 jsdom 全局)
+      if (desc) Object.defineProperty(globalThis, 'document', desc);
+    }
+  });
 });
