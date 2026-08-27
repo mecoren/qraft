@@ -181,25 +181,9 @@ jobs:
       #
       # - tagName 为空(workflow_dispatch / dry-run)时只构建、不发布;
       # - includeUpdaterJson 生成 latest.json 并跨矩阵运行合并(全平台共享一份);
-      # - updater 托管产物使用 Tauri 默认命名 —— manifest 内的下载 URL 必须与
-      #   Release 资产名逐字节一致,自定义重命名会导致 404(见 prd/
-      #   updater-tauri-action-migration/design.md §3);
       # - TAURI_SIGNING_PRIVATE_KEY 缺失时构建直接失败(预期保护),须先在
       #   repo Secrets 配置签名私钥。
       # ──────────────────────────────────────────────────────────────────────
-      # 临时诊断:确认 Secret 是否注入到构建环境(只输出长度,不泄露内容)。
-      # 定位 "no private key" 报错是 Secret 配置问题还是 tauri-action 层问题。
-      - name: Debug signing key presence
-        shell: bash
-        run: |
-          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "key present, length=${#TAURI_SIGNING_PRIVATE_KEY}"
-          else
-            echo "key MISSING or EMPTY"
-          fi
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-
       - name: Build & publish via tauri-action
         uses: tauri-apps/tauri-action@v0
         env:
@@ -292,3 +276,83 @@ jobs:
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # normalize-assets:tag 且非 dry-run 时,统一 Release 资产命名并同步重写
+  # latest.json(设计见 prd/asset-naming-normalization/design.md)。
+  #
+  # updater 的下载 URL 必须与 Release 资产名逐字节一致,因此改名的同一步里
+  # 必须回写 latest.json;顺序为先改资产名、后覆盖 latest.json(秒级窗口内
+  # 检查更新可能 404,一次性可接受)。msi/rpm 已从 bundle.targets 移除,
+  # 存量资产在此一并删除。Portable / SBOM / latest.json 本身不改名。
+  # ──────────────────────────────────────────────────────────────────────────
+  normalize-assets:
+    name: Normalize release asset names
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Rename assets & rewrite updater manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+
+          # 版本号取自 tauri.conf.json(与 Windows Portable 打包同源),
+          # 避免本地 conf 与 tag 名脱节导致映射落空。
+          VER=$(jq -r '.version' src-tauri/tauri.conf.json)
+
+          # 旧名 → 新名映射。sed 对主文件名与配套 .sig 同样生效;
+          # 注意 darwin 更新产物名不带版本号(Qraft_x64.app.tar.gz)。
+          MAP_SED=(
+            -e "s|Qraft_${VER}_x64-setup\.exe|Qraft-${VER}-Windows-Amd64-Setup.exe|g"
+            -e "s|Qraft_${VER}_arm64-setup\.exe|Qraft-${VER}-Windows-Arm64-Setup.exe|g"
+            -e "s|Qraft_x64\.app\.tar\.gz|Qraft-${VER}-MacOS-Amd64.app.tar.gz|g"
+            -e "s|Qraft_aarch64\.app\.tar\.gz|Qraft-${VER}-MacOS-Arm64.app.tar.gz|g"
+            -e "s|Qraft_${VER}_x64\.dmg|Qraft-${VER}-MacOS-Amd64.dmg|g"
+            -e "s|Qraft_${VER}_aarch64\.dmg|Qraft-${VER}-MacOS-Arm64.dmg|g"
+            -e "s|Qraft_${VER}_amd64\.deb|Qraft-${VER}-Linux-Amd64.deb|g"
+            -e "s|Qraft_${VER}_arm64\.deb|Qraft-${VER}-Linux-Arm64.deb|g"
+            -e "s|Qraft_${VER}_amd64\.AppImage|Qraft-${VER}-Linux-Amd64.AppImage|g"
+            -e "s|Qraft_${VER}_aarch64\.AppImage|Qraft-${VER}-Linux-Arm64.AppImage|g"
+          )
+
+          # 1) 资产改名(PATCH API 直接改,免重传);msi/rpm 不再产出,直接删除。
+          gh release view "$TAG" --json assets |
+            jq -r '.assets[] | "\(.id)\t\(.name)"' |
+          while IFS=$'\t' read -r id name; do
+            new_name=$(printf '%s' "$name" | sed "${MAP_SED[@]}")
+            case "$new_name" in
+              *.msi|*.msi.sig|*.rpm|*.rpm.sig)
+                gh api -X DELETE "repos/{owner}/{repo}/releases/assets/$id" >/dev/null
+                echo "deleted: $name"
+                ;;
+              "$name")
+                echo "keep:    $name"
+                ;;
+              *)
+                gh api -X PATCH "repos/{owner}/{repo}/releases/assets/$id" -f name="$new_name" >/dev/null
+                echo "renamed: $name -> $new_name"
+                ;;
+            esac
+          done
+
+          # 2) 重写 latest.json:URL 文件名按同一映射替换,并剔除 msi/rpm 条目。
+          gh release download "$TAG" --pattern 'latest.json' --clobber
+          sed -i "${MAP_SED[@]}" latest.json
+          jq '.platforms |= with_entries(
+                select((.value.url | endswith(".msi") or endswith(".rpm")) | not)
+              )' latest.json > latest.json.tmp
+          mv latest.json.tmp latest.json
+
+          # 3) 覆盖写回 manifest(此步之后 URL 与资产名恢复逐字节一致)。
+          gh release upload "$TAG" latest.json --clobber
+          echo "---- final manifest ----"
+          jq -r '.platforms | to_entries[] | "\(.key): \(.value.url)"' latest.json
