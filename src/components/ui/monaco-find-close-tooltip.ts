@@ -116,7 +116,7 @@ export function attachFindCloseTooltip(root: HTMLElement): FindCloseTooltipHandl
     sanitizeButton(btn);
     showHint(btn);
   };
-  const onMouseOut = (e: Event): void => {
+  const onMouseOut = (e: MouseEvent): void => {
     const target = e.target;
     if (!(target instanceof Element)) return;
     if (!target.closest(HINTABLE_SELECTOR)) return;

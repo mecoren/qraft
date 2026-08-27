@@ -120,7 +120,8 @@ describe('en-US 全局走查(切 en-US 扫裸中文)', () => {
   });
 
   it('代表工具:JSON 格式化器(最大工具界面)', async () => {
-    const { JsonFormatter: Tool } = await import('./tools/JsonFormatter');
+    // 动态加载工具模块后再渲染,确保懒加载的文案也被清扫到
+    await import('./tools/JsonFormatter');
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
     // 仅验证无裸中文
     expectNoBareChinese();

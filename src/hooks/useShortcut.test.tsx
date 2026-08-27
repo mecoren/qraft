@@ -57,7 +57,7 @@ describe('useShortcut', () => {
   });
 
   it('handler 返回 false 时不吞事件,交给深层组件处理(如 Monaco 关闭查找部件)', () => {
-    const onFire = vi.fn(() => false);
+    const onFire = vi.fn((): false => false);
     render(<Harness onFire={onFire} />);
     fireKey({ key: 'Enter', ctrlKey: true });
     expect(onFire).toHaveBeenCalledTimes(1);
