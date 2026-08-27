@@ -8,7 +8,7 @@
 
 use std::sync::Arc;
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use tokio_util::sync::CancellationToken;
 
 use qraft_lib::core::context::{HistoryEntry, HistorySink, ToolContext};
