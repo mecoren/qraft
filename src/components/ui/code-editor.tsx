@@ -192,6 +192,12 @@ export interface CodeEditorProps {
   lineNumbers?: boolean;
   /** 测试用 data-testid */
   'data-testid'?: string;
+  /**
+   * 概览标尺泳道数(0-3)。默认 0:隐藏右缘标尺,装饰的 overviewRuler
+   * 刻度不渲染;提供 >0 时装饰可绘制右缘刻度(典型:文本比较的
+   * VSCode 风格红/绿差异刻度)。
+   */
+  overviewRulerLanes?: number;
   /** 全局搜索锚点(完整值 `${toolId}:${key}`),用于搜索跳转定位高亮 */
   searchAnchor?: string;
   /** Monaco 编辑器挂载回调 */
@@ -308,6 +314,7 @@ export function CodeEditor({
   onToggleEol,
   contextMenuSections,
   lineNumbers = true,
+  overviewRulerLanes = 0,
 }: CodeEditorProps): ReactNode {
   const { t } = useTranslation();
   /** 编码展示名:带 labelKey 的条目随语言翻译,其余用静态 label */
@@ -660,7 +667,8 @@ export function CodeEditor({
             stickyScroll: { enabled: true },
             bracketPairColorization: { enabled: true },
             roundedSelection: true,
-            overviewRulerLanes: 0,
+            // 默认 0 隐藏右缘标尺;文本比较等场景经 prop 开启以显示差异刻度
+            overviewRulerLanes,
             scrollBeyondLastColumn: 0,
             // 禁用 Monaco 自带的英文右键菜单,改用 MonacoContextMenu 中文菜单
             contextmenu: false,

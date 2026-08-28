@@ -414,12 +414,6 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
   ],
   text_compare: [
     {
-      key: 'config',
-      title: { zh: '比较配置', en: 'Compare options' },
-      description: { zh: '行内模式与显示选项', en: 'Inline mode and display options' },
-      keywords: ['行内模式', '差异', '原始', '修改后'],
-    },
-    {
       key: 'original',
       title: { zh: '原始文本', en: 'Original text' },
       keywords: ['原文本', 'original'],
@@ -433,7 +427,7 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       key: 'diff',
       title: { zh: '差异结果', en: 'Diff result' },
       description: { zh: 'Diff 对比视图', en: 'Diff comparison view' },
-      keywords: ['diff', '对比', '差异', '全屏'],
+      keywords: ['diff', '对比', '差异', '全屏', '同步滚动'],
     },
   ],
   markdown_preview: [

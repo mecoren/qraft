@@ -769,7 +769,8 @@
   background: transparent;
 }
 
-/* Monaco 编辑器滚动条滑块:圆角 + hover 过渡,与全局滚动条美化观感一致。
+/* ============================================================
+ * Monaco 编辑器滚动条滑块:圆角 + hover 过渡,与全局滚动条美化观感一致。
  * Monaco 使用自绘滚动条(overlay 浮动),颜色由 monaco-theme.ts 的
  * scrollbarSlider.* 控制,这里仅补充圆角、过渡与最小尺寸 */
 .monaco-editor .scrollbar .slider {
@@ -782,6 +783,43 @@
 .monaco-editor .scrollbar.horizontal .slider {
   min-width: 28px;
 }
+
+/* ============================================================
+ * 文本比较工具 —— 差异装饰(VSCode diff 风格)
+ *
+ * 装饰由 TextCompare.tsx 的 buildDiffDecorations 注入(useShadowDOM
+ * 已关闭,外部 CSS 可命中 Monaco 内部 DOM):
+ * - 行级背景:删除行红底 / 新增行绿底(--diff-remove/add-line)
+ * - 词级高亮:修改行内变更片段用更深一档的 emph 色 + 圆角小块
+ * - gutter 色条:行号槽左缘 3px 实色竖条 + 行号加粗着色,
+ *   即使正文背景被滚动到视口外,也能从行号槽一眼识别变更行
+ *   (对齐 VSCode diff 编辑器的 gutter 变更标记)
+ * ============================================================ */
+.text-compare-line-removed {
+  background: var(--diff-remove-line);
+}
+.text-compare-line-added {
+  background: var(--diff-add-line);
+}
+.text-compare-word-removed {
+  background: var(--diff-remove-emph);
+  border-radius: 2px;
+}
+.text-compare-word-added {
+  background: var(--diff-add-emph);
+  border-radius: 2px;
+}
+.text-compare-gutter-removed {
+  box-shadow: inset 3px 0 0 var(--diff-remove-emph);
+}
+.text-compare-gutter-added {
+  box-shadow: inset 3px 0 0 var(--diff-add-emph);
+}
+.text-compare-gutter-removed .line-numbers,
+.text-compare-gutter-added .line-numbers {
+  font-weight: 600;
+}
+
 
 /* ============================================================
  * Monaco 查找组件 —— 关闭按钮垂直对齐

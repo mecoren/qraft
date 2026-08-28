@@ -64,21 +64,55 @@ vi.mock('@monaco-editor/react', () => ({
       onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => props.onChange?.(e.target.value),
     });
   },
-  DiffEditor: function MockMonacoDiffEditor(props: {
+  DiffEditor: function MockMonacoDiffEditor({
+    original,
+    modified,
+    readOnly,
+    options,
+    onMount,
+  }: {
     original?: string;
     modified?: string;
     readOnly?: boolean;
+    options?: { originalEditable?: boolean };
+    onMount?: (editor: unknown, monaco?: unknown) => void;
   }) {
+    // 维护修改侧「已编辑」值:真实组件经 onMount 挂 onDidChangeModelContent
+    // 监听,getValue 必须读到编辑后的值而非滞后的 prop,才能写回文档
+    const modifiedRef = React.useRef(modified ?? '');
+    const listenerRef = React.useRef<(() => void) | null>(null);
+    React.useEffect(() => {
+      modifiedRef.current = modified ?? '';
+    }, [modified]);
+    React.useEffect(() => {
+      onMount?.({
+        getModifiedEditor: () => ({
+          getValue: () => modifiedRef.current,
+          onDidChangeModelContent: (cb: () => void) => {
+            listenerRef.current = cb;
+            return { dispose: () => {} };
+          },
+        }),
+      });
+      // 仅挂载时触发一次(与真实 DiffEditor onMount 语义一致)
+    }, [onMount]);
     return React.createElement(
       'div',
       { 'data-testid': 'monaco-diff-editor' },
       React.createElement('textarea', {
-        value: props.original ?? '',
-        readOnly: props.readOnly,
+        'data-testid': 'monaco-diff-original',
+        value: original ?? '',
+        // 真实 DiffEditor 中 options.originalEditable: false 时原始侧只读,mock 保持同语义
+        readOnly: options?.originalEditable === false,
       }),
       React.createElement('textarea', {
-        value: props.modified ?? '',
-        readOnly: props.readOnly,
+        'data-testid': 'monaco-diff-modified',
+        value: modified ?? '',
+        readOnly,
+        onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+          modifiedRef.current = e.target.value;
+          listenerRef.current?.();
+        },
       }),
     );
   },
