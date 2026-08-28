@@ -58,6 +58,6 @@ export function detectClipboardTools(raw: string): DetectionResult[] {
   if (looksLikeBase64(text))
     results.push({ toolId: 'base64_codec', reason: 'chrome.detect.reason_base64' });
   if (looksLikeUrlEncoded(text))
-    results.push({ toolId: 'url_codec', reason: 'chrome.detect.reason_url_encoded' });
+    results.push({ toolId: 'json_minifier', reason: 'chrome.detect.reason_url_encoded' });
   return results.slice(0, MAX_RESULTS);
 }

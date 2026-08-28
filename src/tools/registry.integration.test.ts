@@ -9,7 +9,6 @@ const P0_TOOL_IDS = [
   'json_formatter',
   'json_minifier',
   'base64_codec',
-  'url_codec',
   'jwt_parser',
   'uuid_generator',
   'hash_calculator',
@@ -19,14 +18,14 @@ const P0_TOOL_IDS = [
 ] as const;
 
 describe('P0 工具 UI 注册集成测试', () => {
-  it('registers all 10 P0 tool components', () => {
+  it('registers all P0 tool components', () => {
     for (const id of P0_TOOL_IDS) {
       const Comp = getToolComponent(id);
       expect(Comp, `tool UI not registered: ${id}`).not.toBeNull();
     }
   });
 
-  it('registers 10 distinct components', () => {
+  it('registers distinct components', () => {
     const seen = new Set();
     for (const id of P0_TOOL_IDS) {
       const Comp = getToolComponent(id);

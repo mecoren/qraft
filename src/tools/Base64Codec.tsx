@@ -151,11 +151,14 @@ function FileDropzone({
 
   return (
     <div
-      className="flex h-full min-h-[200px] flex-col gap-2"
+      className="flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 border-r"
       data-search-anchor="base64_codec:file"
     >
-      <div className="flex items-center justify-between">
-        <h2 className="text-body-sm font-semibold">{t('tools.base64_codec.file_section_title')}</h2>
+      {/* 工具栏与 CodeEditor 工具栏同规格(px-2 py-0.5 + text-xs),对齐合并卡片内两条分隔线 */}
+      <div className="flex shrink-0 items-center justify-between border-b border-input px-2 py-0.5">
+        <h2 className="pl-1 text-xs font-medium text-foreground">
+          {t('tools.base64_codec.file_section_title')}
+        </h2>
         <Button
           variant="ghost"
           size="sm"
@@ -177,6 +180,7 @@ function FileDropzone({
           e.target.value = '';
         }}
       />
+      {/* 拖放区作为合并卡片内的满高面板:自身不再画圆角边框(由外层卡片提供框体) */}
       <ScrollArea
         data-testid="b64-dropzone"
         onDragOver={(e) => {
@@ -185,9 +189,7 @@ function FileDropzone({
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        className={`min-h-0 flex-1 rounded-lg border shadow-card transition-colors ${
-          dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
-        }`}
+        className={`min-h-0 flex-1 transition-colors ${dragOver ? 'bg-primary/5' : ''}`}
       >
         <div className="flex h-full min-h-full items-center justify-center p-4">
           {fileInfo ? (
@@ -303,7 +305,8 @@ function BinaryPreview({
     };
   }, [result]);
   return (
-    <div className="flex h-full min-h-[200px] flex-col overflow-hidden rounded-md border border-input bg-card">
+    // 合并卡片内右面板:只保留朝向中缝的左边框,外框由外层卡片提供(参考 JsonFormatter 输出侧)
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 border-l bg-card">
       <div className="flex items-center justify-between border-b border-input px-2 py-0.5">
         <span className="pl-1 text-xs font-medium text-foreground">
           {t('tools.base64_codec.preview_title')}
@@ -644,7 +647,12 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
 
-      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+      {/* 合并双栏卡片(参考 JsonFormatter,无 Tab 栏):外层 rounded-lg 框体,
+          两侧编辑器只保留朝向中缝的边框,避免双线/双圆角 */}
+      <ResizablePanelGroup
+        orientation="horizontal"
+        className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      >
         {/* 左区:输入 */}
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           {isTextMode || isFileDecode ? (
@@ -657,7 +665,8 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
               language="plaintext"
               value={text}
               onChange={setText}
-              className="h-full"
+              // 只保留右侧边框(朝向中间分隔缝),外三边由外层卡片提供,理由同 JsonFormatter
+              className="h-full rounded-none border-0 border-r"
               data-testid="input"
               searchAnchor="base64_codec:input"
               actions={
@@ -692,7 +701,8 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
               }
               language="plaintext"
               value={output}
-              className="h-full"
+              // 对称:只保留左侧边框(朝向中间分隔缝),理由同输入侧
+              className="h-full rounded-none border-0 border-l"
               data-testid="output"
               searchAnchor="base64_codec:output"
               actions={

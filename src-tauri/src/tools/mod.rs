@@ -7,5 +7,4 @@ pub mod json_formatter;
 pub mod jwt_parser;
 pub mod regex_tester;
 pub mod timestamp_converter;
-pub mod url_codec;
 pub mod uuid_generator;

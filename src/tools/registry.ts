@@ -59,7 +59,6 @@ registerTool('json_minifier', () =>
 registerTool('base64_codec', () =>
   import('./Base64Codec').then((m) => ({ default: m.Base64Codec })),
 );
-registerTool('url_codec', () => import('./UrlCodec').then((m) => ({ default: m.UrlCodec })));
 registerTool('jwt_parser', () => import('./JwtParser').then((m) => ({ default: m.JwtParser })));
 registerTool('uuid_generator', () =>
   import('./UuidGenerator').then((m) => ({ default: m.UuidGenerator })),

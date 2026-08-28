@@ -36,8 +36,9 @@ describe('detectClipboardTools', () => {
   });
 
   it('识别 URL 编码片段', () => {
-    expect(idsOf('hello%20world%21')).toContain('url_codec');
-    expect(idsOf('100% 正常中文')).not.toContain('url_codec');
+    // url_codec 已移除,URL 编解码能力并入文本处理工具(toolId: json_minifier)
+    expect(idsOf('hello%20world%21')).toContain('json_minifier');
+    expect(idsOf('100% 正常中文')).not.toContain('json_minifier');
   });
 
   it('结果去重且不超过 3 条', () => {

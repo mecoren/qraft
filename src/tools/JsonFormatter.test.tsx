@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Mock @/lib/ipc:invokeCommand 用 vi.fn(),CommandError 在 mock 中定义,
@@ -57,8 +57,7 @@ describe('JsonFormatter', () => {
     // 排序 / 转换为 下拉菜单按钮(取代原键升序/键降序/生成实体类)
     expect(screen.getByTestId('btn-sort')).toBeInTheDocument();
     expect(screen.getByTestId('btn-convert')).toBeInTheDocument();
-    // 缩进选择器保留在标题栏中
-    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    // 缩进选择器已从标题栏移除(输出缩进固定 2 空格,编辑器状态栏「空格:N」仅控制编辑显示)
   });
 
   it('formats small JSON on the frontend without IPC, respecting the indent setting', async () => {
@@ -129,6 +128,67 @@ describe('JsonFormatter', () => {
     await waitFor(() => {
       expect(getOutputValue()).toBe('');
     });
+  });
+
+  it('opens a local file into the input editor via the toolbar open button', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    // 打开文件按钮由 CodeEditor 的 showOpenFile 提供(testId = `${dataTestId}-open`)
+    fireEvent.click(screen.getByTestId('input-open'));
+    const fileInput = screen.getByTestId('input').querySelector('input[type="file"]')!;
+    expect(fileInput).not.toBeNull();
+    // 模拟选择文件:readFileAsText 走 FileReader,jsdom 原生支持
+    const file = new File(['{"a":1}'], 'data.json', { type: 'application/json' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    await waitFor(() => {
+      expect(getInputEditor().value).toBe('{"a":1}');
+    });
+  });
+
+  it('clears all history only after confirming in the anchored popover', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    act(() => {
+      useJsonFormatterStore.setState({
+        history: [
+          { id: 'h1', title: 'json', content: '{}', timestamp: Date.now() },
+        ],
+        userTouched: true,
+        ready: true,
+      });
+    });
+    // 历史按钮组在历史面板(Popover 内容)内,先打开面板
+    fireEvent.click(screen.getByTestId('btn-history'));
+    await screen.findByTestId('history-popover');
+    fireEvent.click(screen.getByTestId('history-clear'));
+    // 确认框为锚定 Popover(非居中 modal)
+    const confirm = await screen.findByTestId('history-clear-confirm');
+    expect(confirm).toBeInTheDocument();
+    // 取消:历史保留
+    fireEvent.click(screen.getByTestId('history-clear-confirm-cancel'));
+    expect(useJsonFormatterStore.getState().history).toHaveLength(1);
+    // 确认:清空
+    fireEvent.click(screen.getByTestId('history-clear'));
+    fireEvent.click(await screen.findByTestId('history-clear-confirm-ok'));
+    expect(useJsonFormatterStore.getState().history).toHaveLength(0);
+  });
+
+  it('removes a single history entry only after confirming in the anchored popover', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    act(() => {
+      useJsonFormatterStore.setState({
+        history: [
+          { id: 'h1', title: 'json', content: '{}', timestamp: Date.now() },
+        ],
+        userTouched: true,
+        ready: true,
+      });
+    });
+    fireEvent.click(screen.getByTestId('btn-history'));
+    await screen.findByTestId('history-popover');
+    fireEvent.click(screen.getByTestId('history-item-remove'));
+    const confirm = await screen.findByTestId('history-remove-confirm');
+    expect(confirm).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('history-remove-confirm-ok'));
+    expect(useJsonFormatterStore.getState().history).toHaveLength(0);
   });
 
   it('shows a frontend parse error in the right-side output when the JSON is invalid', async () => {

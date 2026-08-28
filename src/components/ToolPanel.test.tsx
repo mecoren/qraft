@@ -75,7 +75,7 @@ describe('ToolPanel', () => {
     // 依次访问共 9 个工具(base64_codec + 8 个),触发容量上限淘汰 base64_codec。
     // 注意逐个等待:visited 更新走 setTimeout(0),连续同步 rerender 会互相取消定时器
     const tour = [
-      'url_codec',
+      'html_codec',
       'jwt_parser',
       'uuid_generator',
       'hash_calculator',

@@ -2,6 +2,7 @@
   "tools.json_minifier.label_escape": "Escape",
   "tools.json_minifier.label_strip_whitespace": "Strip whitespace",
   "tools.json_minifier.label_url_encode": "URL encode",
+  "tools.json_minifier.label_url_encode_uri": "Encode URI",
   "tools.json_minifier.label_url_decode": "URL decode",
   "tools.json_minifier.label_unicode_to_chinese": "Unicode → Chinese",
   "tools.json_minifier.label_chinese_to_unicode": "Chinese → Unicode",

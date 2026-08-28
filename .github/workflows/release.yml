@@ -316,7 +316,8 @@ jobs:
   # updater 的下载 URL 必须与 Release 资产名逐字节一致,因此改名的同一步里
   # 必须回写 latest.json;顺序为先改资产名、后覆盖 latest.json(秒级窗口内
   # 检查更新可能 404,一次性可接受)。msi/rpm 已从 bundle.targets 移除,
-  # 存量资产在此一并删除。Portable / SBOM / latest.json 本身不改名。
+  # 存量资产在此一并删除;.sig 签名文件同样在此删除(内容已内联于 latest.json)。
+  # Portable / SBOM / latest.json 本身不改名。
   # ──────────────────────────────────────────────────────────────────────────
   normalize-assets:
     name: Normalize release asset names
@@ -390,7 +391,9 @@ jobs:
             echo "WARN: latest.json not found on release, skip manifest rewrite" >&2
           fi
 
-          # 3) 资产改名(PATCH API 直接改,免重传);msi/rpm 不再产出,直接删除。
+          # 3) 资产改名(PATCH API 直接改,免重传);msi/rpm 不再产出,直接删除;
+          #    .sig 签名文件无需作为 Release 资产公开(签名内容已内联在 latest.json
+          #    的 signature 字段,updater 校验只依赖 manifest),一并删除以精简资产列表。
           # 先建 现有名 → id 映射:重跑场景下目标名可能已被上一轮占用
           # (GitHub PATCH 重名报 422),改前需先删掉旧的同名资产。
           declare -A EXISTING
@@ -403,7 +406,12 @@ jobs:
             id="${EXISTING[$aname]}"
             new_name=$(printf '%s' "$aname" | sed "${MAP_SED[@]}")
             case "$new_name" in
-              *.msi|*.msi.sig|*.rpm|*.rpm.sig)
+              # .sig 覆盖所有平台的签名文件(含存量 .msi.sig/.rpm.sig)
+              *.sig)
+                gh api -X DELETE "$API/releases/assets/$id" >/dev/null
+                echo "deleted sig: $aname"
+                ;;
+              *.msi|*.rpm)
                 gh api -X DELETE "$API/releases/assets/$id" >/dev/null
                 echo "deleted: $aname"
                 ;;

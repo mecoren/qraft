@@ -9,11 +9,10 @@
 - [ ] 从 Release 下载 `Qraft-Setup-0.1.0.exe`,双击安装
 - [ ] 安装过程无报错,安装完成后桌面/开始菜单出现 Qraft 快捷方式
 - [ ] 启动 Qraft,主窗口正常显示,标题为 `Qraft`,尺寸 1200×800
-- [ ] 依次打开并验证 10 个 P0 工具:
+- [ ] 依次打开并验证 P0 工具:
   - [ ] `json_formatter`:粘贴 `{"a":1}` → 输出格式化后 JSON
   - [ ] `json_minifier`:粘贴格式化 JSON → 输出单行
   - [ ] `base64_codec`:输入 `hello` → 编码 `aGVsbG8=`,反向解码一致
-  - [ ] `url_codec`:输入 `a b` → 编码 `a%20b`
   - [ ] `jwt_parser`:粘贴示例 JWT → 显示 header/payload 解析
   - [ ] `uuid_generator`:点击生成 → 输出 v4 UUID
   - [ ] `hash_calculator`:输入 `abc` → 输出 SHA-256 哈希

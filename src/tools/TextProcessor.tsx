@@ -76,6 +76,14 @@ export function urlEncode(input: string): string {
   return encodeURIComponent(input);
 }
 
+/**
+ * 整 URL 编码(encodeURI 语义):保留 URL 结构字符(: / ? # & = @ 等),
+ * 仅编码中文、空格等不安全字符;适用于完整链接,区别于组件编码。
+ */
+export function urlEncodeUri(input: string): string {
+  return encodeURI(input);
+}
+
 /** URL 解码(对畸形输入抛出 URIError) */
 export function urlDecode(input: string): string {
   return decodeURIComponent(input);
@@ -298,6 +306,7 @@ type TransformId =
   | 'escape'
   | 'stripWhitespace'
   | 'urlEncode'
+  | 'urlEncodeUri'
   | 'urlDecode'
   | 'unicodeToChinese'
   | 'chineseToUnicode'
@@ -331,6 +340,12 @@ const TRANSFORMS: readonly TransformDef[] = [
     labelKey: 'tools.json_minifier.label_url_encode',
     Icon: Link2,
     apply: urlEncode,
+  },
+  {
+    id: 'urlEncodeUri',
+    labelKey: 'tools.json_minifier.label_url_encode_uri',
+    Icon: Link2,
+    apply: urlEncodeUri,
   },
   {
     id: 'urlDecode',
@@ -423,7 +438,7 @@ const TRANSFORMS: readonly TransformDef[] = [
  */
 const FIRST_ROW_GROUPS: ReadonlyArray<ReadonlyArray<TransformId>> = [
   ['escape', 'stripWhitespace'],
-  ['urlEncode', 'urlDecode'],
+  ['urlEncode', 'urlEncodeUri', 'urlDecode'],
   ['unicodeToChinese', 'chineseToUnicode'],
   ['chineseSymbolToEnglish'],
 ];
@@ -582,14 +597,20 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
 
-      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+      {/* 合并双栏卡片(参考 JsonFormatter,无 Tab 栏):外层 rounded-lg 框体,
+          两侧编辑器只保留朝向中缝的边框,避免双线/双圆角 */}
+      <ResizablePanelGroup
+        orientation="horizontal"
+        className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      >
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.json_minifier.input_title')}
             language="plaintext"
             value={input}
             onChange={setInput}
-            className="h-full"
+            // 只保留右侧边框(朝向中间分隔缝),外三边由外层卡片提供,理由同 JsonFormatter
+            className="h-full rounded-none border-0 border-r"
             data-testid="input"
             searchAnchor="json_minifier:input"
             // 文本工具需要粘贴 / 打开文件 / 清除辅助按钮;编辑器工作区不使用 CodeEditor,
@@ -610,7 +631,8 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
             title={t('tools.json_minifier.output_title')}
             language="plaintext"
             value={output}
-            className="h-full"
+            // 对称:只保留左侧边框(朝向中间分隔缝),理由同输入侧
+            className="h-full rounded-none border-0 border-l"
             data-testid="output"
             searchAnchor="json_minifier:output"
             actions={<CopyAction text={output} testId="output-copy" />}

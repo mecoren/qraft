@@ -35,7 +35,6 @@ import {
   Hash,
   Image,
   KeyRound,
-  Link,
   ListChecks,
   Network,
   Paintbrush,
@@ -203,16 +202,6 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     icon: KeyRound,
     keywords: ['basic auth', 'authorization', '认证', '请求头'],
   },
-  {
-    id: 'url_codec',
-    name: 'URL 编码/解码工具',
-    description: '将所有适用的字符编码或解码为对应的URL输出',
-    category: 'encoder',
-    icon: Link,
-    keywords: ['url', 'uri', 'percent', '链接'],
-    backendId: 'url_codec',
-  },
-
   // —— 测试工具 ——
   {
     id: 'jsonpath_tester',
@@ -576,10 +565,6 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
   basic_auth_generator: {
     name: 'Basic Auth Generator',
     description: 'Build an Authorization header from a username and password (UTF-8 safe)',
-  },
-  url_codec: {
-    name: 'URL Encoder / Decoder',
-    description: 'Encode or decode all applicable characters to URL-safe output',
   },
   jsonpath_tester: { name: 'JSONPath Tester', description: 'Test JSONPath expressions' },
   regex_tester: { name: 'Regex Tester', description: 'Validate and test regular expressions' },

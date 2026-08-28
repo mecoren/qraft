@@ -168,16 +168,6 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       keywords: ['basic auth', '请求头', '结果'],
     },
   ],
-  url_codec: [
-    {
-      key: 'config',
-      title: { zh: '操作', en: 'Action' },
-      description: { zh: '编码 / 解码与组件编码', en: 'Encode / decode and component encoding' },
-      keywords: ['编码', '解码', '组件编码'],
-    },
-    { key: 'input', title: T_INPUT, keywords: ['url', '链接'] },
-    { key: 'output', title: T_OUTPUT, keywords: ['结果'] },
-  ],
   jsonpath_tester: [
     {
       key: 'expression',

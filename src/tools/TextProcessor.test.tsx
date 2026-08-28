@@ -12,6 +12,7 @@ import {
   unicodeToChinese,
   urlDecode,
   urlEncode,
+  urlEncodeUri,
 } from './TextProcessor';
 
 // CodeEditor 内嵌 Monaco,在 jsdom 环境无法加载,替换为简单的 textarea 替身。
@@ -103,6 +104,16 @@ describe('TextProcessor utilities', () => {
     expect(urlDecode(enc)).toBe(s);
   });
 
+  it('urlEncodeUri keeps reserved characters of a full URL (encodeURI semantics)', () => {
+    // 整 URL 编码(encodeURI)::/?&= 等保留字符原样,仅编码中文等不安全字符
+    const url = 'https://a.com/path?q=你好&x=1';
+    const enc = urlEncodeUri(url);
+    expect(enc).toContain('https://a.com/path?q=');
+    expect(enc).toContain('&x=1');
+    expect(enc).not.toContain('你');
+    expect(enc).toContain('%E4%BD%A0');
+  });
+
   it('unicodeToChinese decodes \\uXXXX escapes back to characters', () => {
     expect(unicodeToChinese('\\u4f60\\u597d')).toBe('你好');
   });
@@ -136,7 +147,7 @@ describe('TextProcessor component', () => {
     expect(screen.getByTestId('textproc-button-group-row2')).toBeInTheDocument();
     // 第一排 4 个内层子组
     expect(screen.getByTestId('textproc-group-escape-stripWhitespace')).toBeInTheDocument();
-    expect(screen.getByTestId('textproc-group-urlEncode-urlDecode')).toBeInTheDocument();
+    expect(screen.getByTestId('textproc-group-urlEncode-urlEncodeUri-urlDecode')).toBeInTheDocument();
     expect(
       screen.getByTestId('textproc-group-unicodeToChinese-chineseToUnicode'),
     ).toBeInTheDocument();
@@ -161,9 +172,16 @@ describe('TextProcessor component', () => {
       withinGroup('textproc-group-escape-stripWhitespace', 'textproc-btn-stripWhitespace'),
     ).toBe(true);
 
-    // URL 编 / 解码 —— 同组
-    expect(withinGroup('textproc-group-urlEncode-urlDecode', 'textproc-btn-urlEncode')).toBe(true);
-    expect(withinGroup('textproc-group-urlEncode-urlDecode', 'textproc-btn-urlDecode')).toBe(true);
+    // URL 编 / 解码 —— 同组(编码 / 整体编码 / 解码)
+    expect(
+      withinGroup('textproc-group-urlEncode-urlEncodeUri-urlDecode', 'textproc-btn-urlEncode'),
+    ).toBe(true);
+    expect(
+      withinGroup('textproc-group-urlEncode-urlEncodeUri-urlDecode', 'textproc-btn-urlEncodeUri'),
+    ).toBe(true);
+    expect(
+      withinGroup('textproc-group-urlEncode-urlEncodeUri-urlDecode', 'textproc-btn-urlDecode'),
+    ).toBe(true);
 
     // Unicode <-> 中文 —— 同组
     expect(

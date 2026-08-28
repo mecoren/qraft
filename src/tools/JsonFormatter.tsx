@@ -1,12 +1,13 @@
 import {
+  forwardRef,
   useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type ComponentPropsWithoutRef,
   type KeyboardEvent,
-  type ReactNode,
 } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { formatError } from '@/lib/format-error';
@@ -21,15 +22,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -37,16 +33,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { RenameDialog } from '@/components/RenameDialog';
 import { CopyAction } from '@/components/copy-action';
 import { invokeCommand } from '@/lib/ipc';
@@ -183,30 +169,26 @@ const SORT_MENU_GROUPS: ReadonlyArray<{
   },
 ];
 
-/** 标题栏内的操作按钮,与编辑器工具栏(粘贴/打开/清除)风格完全一致 */
-function ActionButton({
-  onClick,
-  disabled,
-  children,
-  testId,
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  children: ReactNode;
-  testId?: string;
-}) {
+/** 标题栏内的操作按钮,与编辑器工具栏(粘贴/打开/清除)风格完全一致;
+ *  forwardRef + rest 透传:供 Radix TooltipTrigger/PopoverTrigger asChild
+ *  挂载悬浮提示与注入打开处理器(Slot 会把 onClick/aria 等并入子组件 props) */
+const ActionButton = forwardRef<
+  HTMLButtonElement,
+  ComponentPropsWithoutRef<'button'> & { testId?: string }
+>(function ActionButton({ disabled, children, testId, ...rest }, ref) {
   return (
     <button
+      ref={ref}
       type="button"
       data-testid={testId}
-      onClick={onClick}
       disabled={disabled}
       className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+      {...rest}
     >
       {children}
     </button>
   );
-}
+});
 
 /** 输出视图切换(文本/树形),文本与树形两种输出形态的标题栏共用 */
 function OutputViewToggle({
@@ -292,7 +274,9 @@ export function JsonFormatter({ toolId }: ToolProps) {
     [activeDoc, setDocContent],
   );
 
-  const [indent, setIndent] = useState(2);
+  // 格式化输出缩进:固定 2 空格(工具栏缩进下拉框已移除,
+  // 编辑器状态栏的「空格:N」仅作用于编辑显示,不参与输出格式化)
+  const indent = 2;
   const [output, setOutput] = useState('');
   const [outputLanguage, setOutputLanguage] = useState<EditorLanguage>('json');
   const [meta, setMeta] = useState<OutputMeta | null>(null);
@@ -303,6 +287,10 @@ export function JsonFormatter({ toolId }: ToolProps) {
   const [closeTarget, setCloseTarget] = useState<JsonDoc | null>(null);
   /** 待重命名的文档(null = 关闭重命名对话框) */
   const [renameTarget, setRenameTarget] = useState<JsonDoc | null>(null);
+  /** 「清空全部历史」确认 Popover 开关(清空不可恢复,防误触) */
+  const [clearHistoryOpen, setClearHistoryOpen] = useState(false);
+  /** 待确认删除的历史条目 id(null = 关闭;受控单开,同时只允许一个确认框) */
+  const [historyRemoveId, setHistoryRemoveId] = useState<string | null>(null);
 
   const isXmlInput = useMemo(() => text.trim().startsWith('<'), [text]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -651,72 +639,146 @@ export function JsonFormatter({ toolId }: ToolProps) {
   }
 
   return (
-    <div className="flex h-full flex-col" data-testid="json-formatter">
-      {/* —— 多文档 Tab 栏 —— */}
+    // 外层圆角卡片(与文本编辑器 EditorWorkbench 右侧主页面卡片同款):
+    // rounded-lg + border + shadow,overflow-hidden 让 Tab 栏顶角与卡片圆角对齐
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="json-formatter"
+    >
+      {/* —— 多文档 Tab 栏(样式对齐文本编辑器 EditorTabsBar:VSCode 风格全高 Tab) —— */}
       <div
-        className="flex items-center gap-0.5 border-b border-border px-1 py-0.5"
+        className="flex h-9 shrink-0 items-stretch overflow-hidden rounded-t-lg border-b border-border bg-background-layer"
         data-testid="doc-tabs"
       >
         <div
           role="tablist"
           aria-label={t('tools.json_formatter.tabs_aria')}
-          className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+          // overflow-y-hidden:overflow-x:auto 会把 overflow-y 强制计算为 auto,
+          // Tab(h-9)比容器内容盒(36px - 1px border-b = 35px)高 1px 即触发
+          // 纵向滚动条(WebView2 经典滚动条下在窗口右缘显形为一条竖条),
+          // 显式 hidden 裁掉这 1px 溢出
+          className="flex h-full min-w-0 flex-1 items-stretch overflow-x-auto overflow-y-hidden"
         >
           {sortedDocs.map((doc) => {
             const active = doc.id === activeDocId;
             return (
               <ContextMenu key={doc.id}>
-                <ContextMenuTrigger asChild>
-                  <div
-                    role="tab"
-                    aria-selected={active}
-                    tabIndex={0}
-                    data-testid="doc-tab"
-                    data-doc-id={doc.id}
-                    data-pinned={doc.pinned ? 'true' : undefined}
-                    onClick={() => switchDoc(doc.id)}
-                    onKeyDown={(e) => handleTabKeyDown(e, doc.id)}
-                    onMouseDown={(e) => {
-                      // 中键关闭(仿 VSCode):preventDefault 抑制浏览器自动滚动
-                      if (e.button === 1) {
-                        e.preventDefault();
-                        requestCloseDoc(doc.id);
-                      }
-                    }}
-                    className={cn(
-                      'group flex min-w-0 max-w-[200px] shrink-0 cursor-pointer items-center gap-1 rounded border border-transparent px-2 py-1 text-xs outline-none transition-colors',
-                      'focus-visible:ring-1 focus-visible:ring-ring',
-                      active
-                        ? 'border-border bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
-                    )}
-                  >
+                {/* 关闭确认:锚定在 Tab 旁的小 Popover(与历史清空/删除确认同款),
+                    居中 modal 过重;受控 open 挂 closeTarget,三条关闭路径
+                    (X 按钮/中键/右键菜单)统一落到该 Tab 的确认框上 */}
+                <Popover
+                  open={closeTarget?.id === doc.id}
+                  onOpenChange={(o) => {
+                    if (!o) setCloseTarget(null);
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <ContextMenuTrigger asChild>
+                      <div
+                        role="tab"
+                        aria-selected={active}
+                        tabIndex={0}
+                        data-testid="doc-tab"
+                        data-doc-id={doc.id}
+                        data-pinned={doc.pinned ? 'true' : undefined}
+                        onClick={() => switchDoc(doc.id)}
+                        onKeyDown={(e) => handleTabKeyDown(e, doc.id)}
+                        onMouseDown={(e) => {
+                          // 中键关闭(仿 VSCode):preventDefault 抑制浏览器自动滚动
+                          if (e.button === 1) {
+                            e.preventDefault();
+                            requestCloseDoc(doc.id);
+                          }
+                        }}
+                        className={cn(
+                          // 与 EditorTabsBar 一致:全高 36px 热区、右分隔线、
+                          // 激活态顶部 2px 主色条 + bg-card(仿 VSCode 当前 Tab)
+                          'group relative flex h-9 shrink-0 min-w-[120px] max-w-52 cursor-pointer select-none items-center gap-1.5 border-r border-border px-3 text-xs outline-none',
+                          'focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
+                          active
+                            ? 'border-t-2 border-t-primary bg-card text-foreground'
+                            : 'border-t-2 border-t-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                        )}
+                      >
                     {/* 固定 Tab 用 Pin 图标替代 JSON 图标(与编辑器 Tab 语义一致) */}
                     {doc.pinned ? (
                       <Pin
                         aria-label={t('tools.json_formatter.pinned_aria')}
                         data-testid="doc-tab-pin"
-                        className="size-3.5 shrink-0 text-primary"
+                        className={cn(
+                          'size-3.5 shrink-0',
+                          active ? 'text-primary' : 'text-muted-foreground/70',
+                        )}
                       />
                     ) : (
-                      <FileJson aria-hidden className="size-3.5 shrink-0" />
+                      <FileJson
+                        aria-hidden
+                        className={cn(
+                          'size-3.5 shrink-0',
+                          active ? 'text-primary' : 'text-muted-foreground/70',
+                        )}
+                      />
                     )}
-                    <span className="truncate">{doc.title}</span>
-                    <button
-                      type="button"
-                      aria-label={t('tools.json_formatter.close_tab_aria', { title: doc.title })}
-                      title={t('tools.json_formatter.close')}
-                      data-testid="doc-tab-close"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        requestCloseDoc(doc.id);
-                      }}
-                      className="rounded p-0.5 opacity-0 transition-opacity hover:bg-background group-hover:opacity-100 focus-visible:opacity-100"
-                    >
-                      <X aria-hidden className="size-3" />
-                    </button>
-                  </div>
-                </ContextMenuTrigger>
+                    <span className="min-w-0 truncate" title={doc.title}>
+                      {doc.title}
+                    </span>
+                    {/* 关闭按钮槽位:与 EditorTabsBar 一致,悬停 Tab 时在右侧槽位淡入 */}
+                    <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
+                      <button
+                        type="button"
+                        aria-label={t('tools.json_formatter.close_tab_aria', { title: doc.title })}
+                        title={t('tools.json_formatter.close')}
+                        data-testid="doc-tab-close"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          requestCloseDoc(doc.id);
+                        }}
+                        className="absolute inset-0 z-10 flex items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+                      >
+                        <X aria-hidden className="size-3" />
+                      </button>
+                    </span>
+                      </div>
+                    </ContextMenuTrigger>
+                  </PopoverTrigger>
+                  {/* 关闭确认内容:与历史清空/删除确认同款小框,锚定 Tab 下方 */}
+                  <PopoverContent
+                    align="start"
+                    side="bottom"
+                    className="w-56 p-3"
+                    data-testid="doc-close-dialog"
+                  >
+                    <p className="text-xs font-semibold">
+                      {t('tools.json_formatter.close_confirm_title', { title: doc.title })}
+                    </p>
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      {doc.content.trim()
+                        ? t('tools.json_formatter.close_confirm_snapshot_desc')
+                        : t('tools.json_formatter.close_confirm_empty_desc')}
+                    </p>
+                    <div className="mt-2.5 flex justify-end gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs"
+                        onClick={() => setCloseTarget(null)}
+                        data-testid="doc-close-dialog-cancel"
+                      >
+                        {t('tools.json_formatter.cancel')}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs"
+                        onClick={() => confirmCloseDoc()}
+                        data-testid="doc-close-dialog-confirm"
+                      >
+                        {t('tools.json_formatter.close')}
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 {/* Tab 右键菜单:重命名 / 固定 / 关闭 */}
                 <ContextMenuContent className="w-48" data-testid="doc-tab-context-menu">
                   <ContextMenuItem
@@ -755,7 +817,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
             title={t('tools.json_formatter.new_doc')}
             aria-label={t('tools.json_formatter.new_doc')}
             onClick={() => newDoc()}
-            className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="flex size-9 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
           >
             <Plus aria-hidden className="size-3.5" />
           </button>
@@ -769,25 +831,17 @@ export function JsonFormatter({ toolId }: ToolProps) {
             language={isXmlInput ? 'xml' : 'json'}
             value={text}
             onChange={setText}
-            className="h-full"
+            // 只保留右侧边框(朝向中间分隔缝),去掉外三边:外层卡片已提供
+            // rounded-lg 框体,编辑器自带 rounded-md 边框会在卡片左右两边
+            // 叠出双线/双圆角;去掉后边缘单线、四角圆角干净
+            className="h-full rounded-none border-0 border-r"
             data-testid="input"
             searchAnchor="json_formatter:input"
             contextMenuSections={jsonMenuSections}
+            // 输入侧支持打开本地文件(readFileAsText 读取后整体替换当前文档内容)
+            showOpenFile
             actions={
               <>
-                <Select value={String(indent)} onValueChange={(v) => setIndent(Number(v))}>
-                  <SelectTrigger id="indent-select" className="h-7 w-16 px-2 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">0</SelectItem>
-                    <SelectItem value="2">2</SelectItem>
-                    <SelectItem value="4">4</SelectItem>
-                    <SelectItem value="6">6</SelectItem>
-                    <SelectItem value="8">8</SelectItem>
-                  </SelectContent>
-                </Select>
-                <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
                 <ActionButton
                   testId="btn-format"
                   onClick={() => void runFormat()}
@@ -911,23 +965,99 @@ export function JsonFormatter({ toolId }: ToolProps) {
                       <span className="flex-1 text-xs font-semibold">
                         {t('tools.json_formatter.history_title')}
                       </span>
-                      <ActionButton
-                        testId="history-save-current"
-                        onClick={() => {
-                          if (text.trim()) recordHistory(text);
-                        }}
-                      >
-                        <Save aria-hidden className="size-3.5" />
-                        {t('tools.json_formatter.save_current')}
-                      </ActionButton>
-                      <ActionButton
-                        testId="history-clear"
-                        onClick={() => useJsonFormatterStore.getState().clearHistory()}
-                        disabled={history.length === 0}
-                      >
-                        <Trash2 aria-hidden className="size-3.5" />
-                        {t('tools.json_formatter.clear')}
-                      </ActionButton>
+                      <TooltipProvider delayDuration={300}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <ActionButton
+                              testId="history-save-current"
+                              onClick={() => {
+                                if (text.trim()) recordHistory(text);
+                              }}
+                            >
+                              <Save aria-hidden className="size-3.5" />
+                              {t('tools.json_formatter.save_current')}
+                            </ActionButton>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            {t('tools.json_formatter.history_save_tip')}
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            {/* 确认框用 Popover 锚定在按钮旁(参考 shadcn Popover),
+                                不用居中 modal:轻量防误触不打断浏览 */}
+                            <Popover open={clearHistoryOpen} onOpenChange={setClearHistoryOpen}>
+                              <PopoverTrigger asChild>
+                                <ActionButton
+                                  testId="history-clear"
+                                  disabled={history.length === 0}
+                                >
+                                  <Trash2 aria-hidden className="size-3.5" />
+                                  {t('tools.json_formatter.clear')}
+                                </ActionButton>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                align="end"
+                                side="bottom"
+                                className="w-56 p-3"
+                                data-testid="history-clear-confirm"
+                              >
+                                <p className="text-xs font-semibold">
+                                  {t('tools.json_formatter.history_clear_confirm_title')}
+                                </p>
+                                <p className="mt-1 text-[10px] text-muted-foreground">
+                                  {t('tools.json_formatter.history_clear_confirm_desc', {
+                                    count: history.length,
+                                  })}
+                                </p>
+                                <div className="mt-2.5 flex justify-end gap-1">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 px-2.5 text-xs"
+                                    onClick={() => setClearHistoryOpen(false)}
+                                    data-testid="history-clear-confirm-cancel"
+                                  >
+                                    {t('tools.json_formatter.cancel')}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    className="h-7 px-2.5 text-xs"
+                                    onClick={() => {
+                                      useJsonFormatterStore.getState().clearHistory();
+                                      setClearHistoryOpen(false);
+                                    }}
+                                    data-testid="history-clear-confirm-ok"
+                                  >
+                                    {t('tools.json_formatter.clear')}
+                                  </Button>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            {t('tools.json_formatter.history_clear_tip')}
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              data-testid="history-close"
+                              aria-label={t('tools.json_formatter.history_close_aria')}
+                              onClick={() => setHistoryOpen(false)}
+                              className="flex items-center rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              <X aria-hidden className="size-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            {t('tools.json_formatter.history_close_tip')}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                     {history.length === 0 ? (
                       <div
@@ -962,17 +1092,61 @@ export function JsonFormatter({ toolId }: ToolProps) {
                                 })}
                               </span>
                             </button>
-                            <button
-                              type="button"
-                              aria-label={t('tools.json_formatter.delete_history_item_aria')}
-                              data-testid="history-item-remove"
-                              onClick={() =>
-                                useJsonFormatterStore.getState().removeHistory(item.id)
-                              }
-                              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-background hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+                            {/* 单条删除确认:同样锚定在 X 旁的 Popover;
+                                受控 open 按 item.id 单开,避免多条确认框同屏 */}
+                            <Popover
+                              open={historyRemoveId === item.id}
+                              onOpenChange={(o) => setHistoryRemoveId(o ? item.id : null)}
                             >
-                              <X aria-hidden className="size-3" />
-                            </button>
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  aria-label={t('tools.json_formatter.delete_history_item_aria')}
+                                  data-testid="history-item-remove"
+                                  onClick={() => setHistoryRemoveId(item.id)}
+                                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-background hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+                                >
+                                  <X aria-hidden className="size-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                align="end"
+                                side="bottom"
+                                className="w-56 p-3"
+                                data-testid="history-remove-confirm"
+                              >
+                                <p className="text-xs font-semibold">
+                                  {t('tools.json_formatter.history_remove_confirm_title')}
+                                </p>
+                                <p className="mt-1 text-[10px] text-muted-foreground">
+                                  {t('tools.json_formatter.history_remove_confirm_desc')}
+                                </p>
+                                <div className="mt-2.5 flex justify-end gap-1">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 px-2.5 text-xs"
+                                    onClick={() => setHistoryRemoveId(null)}
+                                    data-testid="history-remove-confirm-cancel"
+                                  >
+                                    {t('tools.json_formatter.cancel')}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    className="h-7 px-2.5 text-xs"
+                                    onClick={() => {
+                                      useJsonFormatterStore.getState().removeHistory(item.id);
+                                      setHistoryRemoveId(null);
+                                    }}
+                                    data-testid="history-remove-confirm-ok"
+                                  >
+                                    {t('tools.json_formatter.delete')}
+                                  </Button>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           </li>
                         ))}
                       </ul>
@@ -993,8 +1167,10 @@ export function JsonFormatter({ toolId }: ToolProps) {
 
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           {viewMode === 'tree' ? (
-            <div className="flex h-full flex-col bg-background-layer">
-              <div className="flex items-center gap-2 border-b border-border px-2 py-1">
+            <div className="flex h-full flex-col overflow-hidden rounded-none border-0 border-l border-input bg-background-layer">
+              {/* 与 CodeEditor 工具栏(文本模式)严格同高同色:py-0.5 + border-input,
+                  保证切换 文本/树形 时两条工具栏分隔线完全对齐 */}
+              <div className="flex items-center gap-2 border-b border-input px-2 py-0.5">
                 <span className="flex-1 text-xs font-medium text-muted-foreground">
                   {t('tools.json_formatter.output_title')}
                 </span>
@@ -1007,9 +1183,12 @@ export function JsonFormatter({ toolId }: ToolProps) {
                     })}
                   </span>
                 )}
-                <OutputViewToggle mode={viewMode} onChange={setViewMode} />
-                <CopyAction text={output} testId="output-copy-tree" />
-                <SendToMenu text={output} currentToolId={toolId} testId="output-send-tree" />
+                {/* 与输入侧工具栏自然同高(控件均为 py-1 text-xs ≈ 24px 行高) */}
+                <span className="flex items-center">
+                  <OutputViewToggle mode={viewMode} onChange={setViewMode} />
+                  <CopyAction text={output} testId="output-copy-tree" />
+                  <SendToMenu text={output} currentToolId={toolId} testId="output-send-tree" />
+                </span>
               </div>
               {!output.trim() ? (
                 <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
@@ -1040,12 +1219,12 @@ export function JsonFormatter({ toolId }: ToolProps) {
               title={t('tools.json_formatter.output_title')}
               language={outputLanguage}
               value={output}
-              className="h-full"
+              // 对称:只保留左侧边框(朝向中间分隔缝),理由同输入侧
+              className="h-full rounded-none border-0 border-l"
               data-testid="output"
               searchAnchor="json_formatter:output"
               actions={
                 <>
-                  <OutputViewToggle mode={viewMode} onChange={setViewMode} />
                   {meta && (
                     <span className="text-xs text-muted-foreground">
                       {t('tools.json_formatter.bytes_meta', {
@@ -1055,48 +1234,19 @@ export function JsonFormatter({ toolId }: ToolProps) {
                       })}
                     </span>
                   )}
-                  <CopyAction text={output} testId="output-copy" />
-                  <SendToMenu text={output} currentToolId={toolId} testId="output-send" />
+                  {/* 与输入侧工具栏自然同高:缩进下拉框移除后,两侧控件均为
+                      py-1 text-xs(≈24px 行高),无需再强制 h-7 对齐 */}
+                  <span className="flex items-center">
+                    <OutputViewToggle mode={viewMode} onChange={setViewMode} />
+                    <CopyAction text={output} testId="output-copy" />
+                    <SendToMenu text={output} currentToolId={toolId} testId="output-send" />
+                  </span>
                 </>
               }
             />
           )}
         </ResizablePanel>
       </ResizablePanelGroup>
-
-      {/* —— 关闭确认(所有 Tab):确认后非空内容快照进历史再关闭 —— */}
-      <AlertDialog
-        open={closeTarget !== null}
-        onOpenChange={(o) => {
-          if (!o) setCloseTarget(null);
-        }}
-      >
-        <AlertDialogContent size="sm" data-testid="doc-close-dialog">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t('tools.json_formatter.close_confirm_title', {
-                title: closeTarget?.title ?? '',
-              })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {closeTarget?.content.trim()
-                ? t('tools.json_formatter.close_confirm_snapshot_desc')
-                : t('tools.json_formatter.close_confirm_empty_desc')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={confirmCloseDoc} data-testid="doc-close-dialog-confirm">
-              {t('tools.json_formatter.close')}
-            </AlertDialogAction>
-            <AlertDialogCancel
-              onClick={() => setCloseTarget(null)}
-              data-testid="doc-close-dialog-cancel"
-            >
-              {t('tools.json_formatter.cancel')}
-            </AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* —— 重命名对话框(条件渲染:关闭即卸载,每次打开取最新标题) —— */}
       {renameTarget && (
