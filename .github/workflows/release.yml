@@ -268,10 +268,11 @@ jobs:
           pattern: qraft-{portable,sbom}-*
           merge-multiple: true
 
-      # 用裸 gh api 上传:不用 action-gh-release——GitHub 同一 tag 只允许一个
-      # 非草稿 Release,该 Action 在 tag 被强移后(与 Release.target_commitish
-      # 脱节)会走 create/update-a-release 兜底,把 tauri-action 已发布的
-      # Release 挤成 draft,导致公开下载 404 与后续作业连锁失败。
+      # 不用 action-gh-release——GitHub 同一 tag 只允许一个非草稿 Release,该
+      # Action 在 tag 被强移后(与 Release.target_commitish 脱节)会走
+      # create/update-a-release 兜底,把 tauri-action 已发布的 Release 挤成
+      # draft,导致公开下载 404 与后续作业连锁失败。元数据走 gh api(Release ID
+      # 路由),资产上传走 curl 直传 uploads.github.com(gh api 不支持该域名)。
       - name: Append files to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -298,9 +299,13 @@ jobs:
               gh api -X DELETE "$API/releases/assets/$OLD_ID" >/dev/null
               echo "removed old: $base"
             fi
-            gh api -X POST "$API/releases/$RELEASE_ID/assets?name=$base" \
+            # 上传端点只存在于 uploads.github.com,gh api 只走 api.github.com,
+            # 对该端点裸 POST 恒 404,必须用 curl 直传 uploads 域名
+            curl -fsS -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
               -H "Content-Type: application/octet-stream" \
-              --input "$f" > /dev/null
+              --data-binary @"$f" \
+              "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$base" >/dev/null
             echo "uploaded: $base"
           done
 
@@ -417,17 +422,31 @@ jobs:
           done
 
           # 4) 上传重写后的 manifest(此步之后 URL 与资产名恢复逐字节一致)。
-          # 按名重新定位旧的 latest.json(循环期间可能被替换换 id),存在则删;
-          # 不存在则直接上传。
+          # 上传端点只存在于 uploads.github.com,gh api 只走 api.github.com,
+          # 对该端点裸 POST 恒 404(上一版 latest.json 丢失的直接原因),必须
+          # 用 curl 直传。崩溃安全:先传临时名 latest.json.new,删旧 latest.json,
+          # 再 PATCH 改名——任一步失败,新旧 manifest 至少存活一个,重跑可恢复。
           if [ "$HAS_MANIFEST" = "1" ]; then
+            TMP_NAME="latest.json.new"
+            # 清理上次失败可能残留的临时资产,避免同名上传 422
+            TMP_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
+              jq -r --arg n "$TMP_NAME" '[.[] | select(.name == $n)][0].id')
+            if [ -n "$TMP_ID" ] && [ "$TMP_ID" != "null" ]; then
+              gh api -X DELETE "$API/releases/assets/$TMP_ID" >/dev/null
+            fi
+            curl -fsS -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary @latest.json \
+              "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$TMP_NAME" >/dev/null
             CUR_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
               jq -r '[.[] | select(.name == "latest.json")][0].id')
             if [ -n "$CUR_ID" ] && [ "$CUR_ID" != "null" ]; then
               gh api -X DELETE "$API/releases/assets/$CUR_ID" >/dev/null
             fi
-            gh api -X POST "$API/releases/$RELEASE_ID/assets?name=latest.json" \
-              -H "Content-Type: application/octet-stream" \
-              --input latest.json > /dev/null
+            NEW_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
+              jq -r --arg n "$TMP_NAME" '[.[] | select(.name == $n)][0].id')
+            gh api -X PATCH "$API/releases/assets/$NEW_ID" -f name="latest.json" >/dev/null
             echo "---- final manifest ----"
             jq -r '.platforms | to_entries[] | "\(.key): \(.value.url)"' latest.json
           fi
