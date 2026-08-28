@@ -23,7 +23,12 @@ import {
   useState,
   type JSX,
 } from 'react';
-import { DiffEditor, type DiffBeforeMount, type DiffOnMount, type Monaco } from '@monaco-editor/react';
+import {
+  DiffEditor,
+  type DiffBeforeMount,
+  type DiffOnMount,
+  type Monaco,
+} from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { Link2, Link2Off, Rows3 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -128,7 +133,8 @@ export function TextDiffView({
   const deferredOriginal = useDeferredValue(original);
   const deferredModified = useDeferredValue(modified);
   const includeWordDiff =
-    deferredOriginal.length <= WORD_DIFF_MAX_CHARS && deferredModified.length <= WORD_DIFF_MAX_CHARS;
+    deferredOriginal.length <= WORD_DIFF_MAX_CHARS &&
+    deferredModified.length <= WORD_DIFF_MAX_CHARS;
 
   // 差异结果异步到达:小输入同步快路径(微任务即达,体感同步),大输入在
   // worker 内计算不阻塞主线程;计算期间保留上一次结果,统计与高亮不清空
@@ -382,7 +388,11 @@ export function TextDiffView({
       type="button"
       data-testid={`${testIdPrefix}-sync-scroll`}
       aria-pressed={syncScroll}
-      title={syncScroll ? t('tools.text_compare.sync_scroll_on') : t('tools.text_compare.sync_scroll_off')}
+      title={
+        syncScroll
+          ? t('tools.text_compare.sync_scroll_on')
+          : t('tools.text_compare.sync_scroll_off')
+      }
       aria-label={t('tools.text_compare.sync_scroll_aria')}
       onClick={() => setSyncScroll((v) => !v)}
       className={cn(
@@ -390,7 +400,11 @@ export function TextDiffView({
         syncScroll ? 'text-primary' : 'text-muted-foreground',
       )}
     >
-      {syncScroll ? <Link2 aria-hidden className="size-3.5" /> : <Link2Off aria-hidden className="size-3.5" />}
+      {syncScroll ? (
+        <Link2 aria-hidden className="size-3.5" />
+      ) : (
+        <Link2Off aria-hidden className="size-3.5" />
+      )}
     </button>
   );
 
@@ -403,7 +417,7 @@ export function TextDiffView({
           data-testid={`${testIdPrefix}-inline`}
         >
           {/* 工具栏:与 CodeEditor 标题栏同款样式(行内模式无同步滚动按钮);
-            * 统计/开关紧跟标题(VSCode 风格),不贴工具栏右缘 */}
+           * 统计/开关紧跟标题(VSCode 风格),不贴工具栏右缘 */}
           <div className="flex min-w-0 shrink-0 items-center border-b border-input px-2 py-0.5">
             <span className="flex min-w-0 items-center gap-2 pl-1 text-xs font-medium text-foreground">
               <span className="truncate">{t('tools.text_compare.inline_diff_title')}</span>

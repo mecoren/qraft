@@ -10,13 +10,7 @@
  *   从共享 localStorage 载入主窗口最近一次落盘状态,窗口间不实时同步。
  */
 
-import {
-  Suspense,
-  createElement,
-  useEffect,
-  type ComponentType,
-  type JSX,
-} from 'react';
+import { Suspense, createElement, useEffect, type ComponentType, type JSX } from 'react';
 import { I18nextProvider, useTranslation } from 'react-i18next';
 import { toast, Toaster } from 'sonner';
 import { Loader2 } from 'lucide-react';
@@ -119,7 +113,10 @@ function PopoutShell({ toolId }: PopoutAppProps): JSX.Element {
 
   if (!entry || entry.special || !toolComponent) {
     return (
-      <div role="status" className="flex h-screen w-screen items-center justify-center bg-background-layer text-muted-foreground">
+      <div
+        role="status"
+        className="flex h-screen w-screen items-center justify-center bg-background-layer text-muted-foreground"
+      >
         {t('chrome.tool_panel.not_found')}
       </div>
     );

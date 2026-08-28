@@ -148,9 +148,7 @@ describe('JsonFormatter', () => {
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
     act(() => {
       useJsonFormatterStore.setState({
-        history: [
-          { id: 'h1', title: 'json', content: '{}', timestamp: Date.now() },
-        ],
+        history: [{ id: 'h1', title: 'json', content: '{}', timestamp: Date.now() }],
         userTouched: true,
         ready: true,
       });
@@ -175,9 +173,7 @@ describe('JsonFormatter', () => {
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
     act(() => {
       useJsonFormatterStore.setState({
-        history: [
-          { id: 'h1', title: 'json', content: '{}', timestamp: Date.now() },
-        ],
+        history: [{ id: 'h1', title: 'json', content: '{}', timestamp: Date.now() }],
         userTouched: true,
         ready: true,
       });

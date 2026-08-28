@@ -39,9 +39,7 @@ if (!rootEl) {
 // 两条路径共用上方的主题/字体/平台类初始化。
 const popoutToolId = new URLSearchParams(window.location.search).get(POPOUT_QUERY_KEY);
 
-createRoot(rootEl).render(
-  popoutToolId ? <PopoutApp toolId={popoutToolId} /> : <App />,
-);
+createRoot(rootEl).render(popoutToolId ? <PopoutApp toolId={popoutToolId} /> : <App />);
 
 // 空闲预取重型懒加载链(Markdown 工具 → mermaid/katex/worker),
 // 消除首次进入该工具时的磁盘读取尖峰;dev 与冷启动零影响。

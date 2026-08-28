@@ -172,85 +172,88 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
 
       {/* 内容区:图片工具栏 + 拖放区收进带内边距的滚动区(内卡降级为 rounded-md) */}
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
-      {/* 图片区 */}
-      <div className="flex items-center justify-between" data-search-anchor="image_converter:image">
-        <h2 className="text-body-sm font-semibold">{t('tools.image_converter.section_image')}</h2>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            data-testid="ic-open"
-            onClick={() => fileRef.current?.click()}
-          >
-            <FolderOpen aria-hidden className="size-3.5" />{' '}
-            {t('tools.image_converter.choose_image')}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            data-testid="ic-clear"
-            disabled={!image}
-            onClick={() => setImage(null)}
-          >
-            <X aria-hidden className="size-3.5" /> {t('tools.image_converter.clear')}
-          </Button>
-          <Button
-            size="sm"
-            data-testid="ic-convert"
-            disabled={!image}
-            onClick={() => void convert()}
-          >
-            <Download aria-hidden className="size-3.5" />{' '}
-            {t('tools.image_converter.convert_export')}
-          </Button>
+        {/* 图片区 */}
+        <div
+          className="flex items-center justify-between"
+          data-search-anchor="image_converter:image"
+        >
+          <h2 className="text-body-sm font-semibold">{t('tools.image_converter.section_image')}</h2>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              data-testid="ic-open"
+              onClick={() => fileRef.current?.click()}
+            >
+              <FolderOpen aria-hidden className="size-3.5" />{' '}
+              {t('tools.image_converter.choose_image')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              data-testid="ic-clear"
+              disabled={!image}
+              onClick={() => setImage(null)}
+            >
+              <X aria-hidden className="size-3.5" /> {t('tools.image_converter.clear')}
+            </Button>
+            <Button
+              size="sm"
+              data-testid="ic-convert"
+              disabled={!image}
+              onClick={() => void convert()}
+            >
+              <Download aria-hidden className="size-3.5" />{' '}
+              {t('tools.image_converter.convert_export')}
+            </Button>
+          </div>
         </div>
-      </div>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        data-testid="ic-file"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void loadFile(file);
-          e.target.value = '';
-        }}
-      />
-      <ScrollArea
-        data-testid="ic-dropzone"
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
-        className={`min-h-0 flex-1 rounded-md border ${
-          dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
-        } transition-colors`}
-      >
-        <div className="flex h-full min-h-full flex-col items-center justify-center gap-2 p-4">
-          {image ? (
-            <>
-              <img
-                src={image.dataUrl}
-                alt={image.name}
-                data-testid="ic-preview"
-                className="max-h-[70%] max-w-full object-contain"
-              />
-              <p className="text-xs text-muted-foreground" data-testid="ic-info">
-                {image.name} · {image.width}×{image.height} · {formatBytes(image.size)} ·{' '}
-                {image.type}
-              </p>
-            </>
-          ) : (
-            <div className="flex flex-col items-center gap-2 text-muted-foreground">
-              <FileImage aria-hidden className="size-8" />
-              <p className="text-xs">{t('tools.image_converter.dropzone_hint')}</p>
-            </div>
-          )}
-        </div>
-      </ScrollArea>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          data-testid="ic-file"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void loadFile(file);
+            e.target.value = '';
+          }}
+        />
+        <ScrollArea
+          data-testid="ic-dropzone"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+          className={`min-h-0 flex-1 rounded-md border ${
+            dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
+          } transition-colors`}
+        >
+          <div className="flex h-full min-h-full flex-col items-center justify-center gap-2 p-4">
+            {image ? (
+              <>
+                <img
+                  src={image.dataUrl}
+                  alt={image.name}
+                  data-testid="ic-preview"
+                  className="max-h-[70%] max-w-full object-contain"
+                />
+                <p className="text-xs text-muted-foreground" data-testid="ic-info">
+                  {image.name} · {image.width}×{image.height} · {formatBytes(image.size)} ·{' '}
+                  {image.type}
+                </p>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <FileImage aria-hidden className="size-8" />
+                <p className="text-xs">{t('tools.image_converter.dropzone_hint')}</p>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
       </div>
     </div>
   );

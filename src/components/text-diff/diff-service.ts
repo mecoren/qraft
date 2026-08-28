@@ -70,7 +70,11 @@ export function createDiffService(): DiffService {
         const waiting = [...pendingMap.values()];
         pendingMap.clear();
         for (const entry of waiting) {
-          entry.resolve(computeLineDiff(entry.original, entry.modified, { includeWordDiff: entry.includeWordDiff }));
+          entry.resolve(
+            computeLineDiff(entry.original, entry.modified, {
+              includeWordDiff: entry.includeWordDiff,
+            }),
+          );
         }
       };
       worker = w;

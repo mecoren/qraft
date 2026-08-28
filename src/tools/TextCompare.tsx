@@ -14,14 +14,7 @@
  *   本组件只负责 Tab 工作区状态(hydrate / 防抖持久化 / 关闭确认),
  *   差异渲染与编辑器细节全部内聚在 TextDiffView。
  */
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type JSX,
-  type KeyboardEvent,
-} from 'react';
+import { useCallback, useEffect, useMemo, useState, type JSX, type KeyboardEvent } from 'react';
 import { Check, FileDiff, Pin, Plus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -231,7 +224,9 @@ export function TextCompare(_props: ToolProps): JSX.Element {
                         <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
                           <button
                             type="button"
-                            aria-label={t('tools.text_compare.close_tab_aria', { title: doc.title })}
+                            aria-label={t('tools.text_compare.close_tab_aria', {
+                              title: doc.title,
+                            })}
                             title={t('tools.text_compare.close')}
                             data-testid="doc-tab-close"
                             onClick={(e) => {

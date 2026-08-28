@@ -147,7 +147,9 @@ describe('TextProcessor component', () => {
     expect(screen.getByTestId('textproc-button-group-row2')).toBeInTheDocument();
     // 第一排 4 个内层子组
     expect(screen.getByTestId('textproc-group-escape-stripWhitespace')).toBeInTheDocument();
-    expect(screen.getByTestId('textproc-group-urlEncode-urlEncodeUri-urlDecode')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('textproc-group-urlEncode-urlEncodeUri-urlDecode'),
+    ).toBeInTheDocument();
     expect(
       screen.getByTestId('textproc-group-unicodeToChinese-chineseToUnicode'),
     ).toBeInTheDocument();

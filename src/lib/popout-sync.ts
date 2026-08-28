@@ -18,9 +18,7 @@ import { POPOUT_LABEL_PREFIX } from '@/lib/popout-window';
 
 /** 从窗口 label(`popout-<toolId>`)解析 toolId;非弹窗 label 返回 null */
 export function getPopoutToolIdFromLabel(label: string): string | null {
-  return label.startsWith(POPOUT_LABEL_PREFIX)
-    ? label.slice(POPOUT_LABEL_PREFIX.length)
-    : null;
+  return label.startsWith(POPOUT_LABEL_PREFIX) ? label.slice(POPOUT_LABEL_PREFIX.length) : null;
 }
 
 /**
@@ -36,7 +34,9 @@ export async function flushPopoutToolState(toolId: string): Promise<void> {
     case 'text_editor':
       await (
         await import('@/tools/code-editor-workspace/useEditorWorkspaceStore')
-      ).useEditorWorkspaceStore.getState().persist();
+      ).useEditorWorkspaceStore
+        .getState()
+        .persist();
       return;
     case 'json_formatter': {
       const { useJsonFormatterStore } = await import('@/tools/jsonFormatterStore');
@@ -58,13 +58,21 @@ export async function rehydrateToolStateFromPopout(toolId: string): Promise<void
     case 'text_editor':
       await (
         await import('@/tools/code-editor-workspace/useEditorWorkspaceStore')
-      ).useEditorWorkspaceStore.getState().hydrate(true);
+      ).useEditorWorkspaceStore
+        .getState()
+        .hydrate(true);
       return;
     case 'json_formatter':
-      await (await import('@/tools/jsonFormatterStore')).useJsonFormatterStore.getState().hydrate(true);
+      await (
+        await import('@/tools/jsonFormatterStore')
+      ).useJsonFormatterStore
+        .getState()
+        .hydrate(true);
       return;
     case 'markdown_preview':
-      await (await import('@/tools/markdownPreviewStore')).useMarkdownPreviewStore.persist.rehydrate();
+      await (
+        await import('@/tools/markdownPreviewStore')
+      ).useMarkdownPreviewStore.persist.rehydrate();
       return;
     default:
       return;

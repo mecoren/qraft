@@ -155,7 +155,8 @@ export function computeLineDiff(
     if (part.added) {
       // 纯新增段(前面没有配对的删除段)
       const lines = splitChunkLines(part.value);
-      for (let k = 0; k < lines.length; k++) modifiedDecos.push({ line: modLine + k, wordSpans: [] });
+      for (let k = 0; k < lines.length; k++)
+        modifiedDecos.push({ line: modLine + k, wordSpans: [] });
       stats.added += lines.length;
       modLine += lines.length;
       i += 1;

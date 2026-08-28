@@ -52,7 +52,10 @@ import {
   popoutWindowLabel,
 } from './popout-window';
 
-type ExistingWindowStub = { unminimize: ReturnType<typeof vi.fn>; setFocus: ReturnType<typeof vi.fn> };
+type ExistingWindowStub = {
+  unminimize: ReturnType<typeof vi.fn>;
+  setFocus: ReturnType<typeof vi.fn>;
+};
 
 /** jsdom 下模拟 Tauri 运行时标记 */
 function enableTauri(): void {
@@ -178,11 +181,7 @@ describe('openToolInNewWindow —— Web 模式', () => {
     await openToolInNewWindow('base64_codec');
 
     expect(openSpy).toHaveBeenCalledTimes(1);
-    const [url, target, features] = openSpy.mock.calls[0] as unknown as [
-      string,
-      string,
-      string,
-    ];
+    const [url, target, features] = openSpy.mock.calls[0] as unknown as [string, string, string];
     expect(url).toContain(`${POPOUT_QUERY_KEY}=base64_codec`);
     expect(target).toBe('_blank');
     expect(features).toContain(`width=${DEFAULT_POPOUT_WIDTH}`);

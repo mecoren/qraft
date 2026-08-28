@@ -32,7 +32,14 @@ describe('TextCompare', () => {
     // zustand 模块级单例:每个用例重置为「单个空白文档」初始态,避免跨用例污染
     useTextCompareStore.setState({
       docs: [
-        { id: 'default', title: 'compare-1', autoTitle: 'compare-1', pinned: false, original: '', modified: '' },
+        {
+          id: 'default',
+          title: 'compare-1',
+          autoTitle: 'compare-1',
+          pinned: false,
+          original: '',
+          modified: '',
+        },
       ],
       activeDocId: 'default',
       ready: false,
@@ -129,8 +136,22 @@ describe('TextCompare', () => {
   it('行内模式切换 Tab 后编辑写回新激活文档', () => {
     useTextCompareStore.setState({
       docs: [
-        { id: 'a', title: 'compare-1', autoTitle: 'compare-1', pinned: false, original: 'x', modified: 'y' },
-        { id: 'b', title: 'compare-2', autoTitle: 'compare-2', pinned: false, original: '1', modified: '2' },
+        {
+          id: 'a',
+          title: 'compare-1',
+          autoTitle: 'compare-1',
+          pinned: false,
+          original: 'x',
+          modified: 'y',
+        },
+        {
+          id: 'b',
+          title: 'compare-2',
+          autoTitle: 'compare-2',
+          pinned: false,
+          original: '1',
+          modified: '2',
+        },
       ],
       activeDocId: 'a',
     });

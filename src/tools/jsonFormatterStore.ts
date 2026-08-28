@@ -293,7 +293,9 @@ export const useJsonFormatterStore = create<JsonFormatterWorkspaceState>((set, g
         return {
           ready: true,
           error: errorMessage,
-          ...(restoredDocs ? { docs: restoredDocs.docs, activeDocId: restoredDocs.activeDocId } : {}),
+          ...(restoredDocs
+            ? { docs: restoredDocs.docs, activeDocId: restoredDocs.activeDocId }
+            : {}),
           ...(restoredHistory ? { history: restoredHistory } : {}),
         };
       }

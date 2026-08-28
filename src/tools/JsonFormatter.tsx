@@ -700,44 +700,46 @@ export function JsonFormatter({ toolId }: ToolProps) {
                             : 'border-t-2 border-t-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground',
                         )}
                       >
-                    {/* 固定 Tab 用 Pin 图标替代 JSON 图标(与编辑器 Tab 语义一致) */}
-                    {doc.pinned ? (
-                      <Pin
-                        aria-label={t('tools.json_formatter.pinned_aria')}
-                        data-testid="doc-tab-pin"
-                        className={cn(
-                          'size-3.5 shrink-0',
-                          active ? 'text-primary' : 'text-muted-foreground/70',
+                        {/* 固定 Tab 用 Pin 图标替代 JSON 图标(与编辑器 Tab 语义一致) */}
+                        {doc.pinned ? (
+                          <Pin
+                            aria-label={t('tools.json_formatter.pinned_aria')}
+                            data-testid="doc-tab-pin"
+                            className={cn(
+                              'size-3.5 shrink-0',
+                              active ? 'text-primary' : 'text-muted-foreground/70',
+                            )}
+                          />
+                        ) : (
+                          <FileJson
+                            aria-hidden
+                            className={cn(
+                              'size-3.5 shrink-0',
+                              active ? 'text-primary' : 'text-muted-foreground/70',
+                            )}
+                          />
                         )}
-                      />
-                    ) : (
-                      <FileJson
-                        aria-hidden
-                        className={cn(
-                          'size-3.5 shrink-0',
-                          active ? 'text-primary' : 'text-muted-foreground/70',
-                        )}
-                      />
-                    )}
-                    <span className="min-w-0 truncate" title={doc.title}>
-                      {doc.title}
-                    </span>
-                    {/* 关闭按钮槽位:与 EditorTabsBar 一致,悬停 Tab 时在右侧槽位淡入 */}
-                    <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
-                      <button
-                        type="button"
-                        aria-label={t('tools.json_formatter.close_tab_aria', { title: doc.title })}
-                        title={t('tools.json_formatter.close')}
-                        data-testid="doc-tab-close"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          requestCloseDoc(doc.id);
-                        }}
-                        className="absolute inset-0 z-10 flex items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
-                      >
-                        <X aria-hidden className="size-3" />
-                      </button>
-                    </span>
+                        <span className="min-w-0 truncate" title={doc.title}>
+                          {doc.title}
+                        </span>
+                        {/* 关闭按钮槽位:与 EditorTabsBar 一致,悬停 Tab 时在右侧槽位淡入 */}
+                        <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
+                          <button
+                            type="button"
+                            aria-label={t('tools.json_formatter.close_tab_aria', {
+                              title: doc.title,
+                            })}
+                            title={t('tools.json_formatter.close')}
+                            data-testid="doc-tab-close"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              requestCloseDoc(doc.id);
+                            }}
+                            className="absolute inset-0 z-10 flex items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+                          >
+                            <X aria-hidden className="size-3" />
+                          </button>
+                        </span>
                       </div>
                     </ContextMenuTrigger>
                   </PopoverTrigger>

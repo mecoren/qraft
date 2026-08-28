@@ -40,7 +40,9 @@ describe('diff-service', () => {
     const { createDiffService } = await import('./diff-service');
     const service = createDiffService();
     const result = await service.compute('a\nb\nc\n', 'a\nX\nc\n', true);
-    expect(result.stats).toEqual(computeLineDiff('a\nb\nc\n', 'a\nX\nc\n', { includeWordDiff: true }).stats);
+    expect(result.stats).toEqual(
+      computeLineDiff('a\nb\nc\n', 'a\nX\nc\n', { includeWordDiff: true }).stats,
+    );
     expect(FakeWorker.instances).toHaveLength(0);
     service.dispose();
   });
@@ -95,23 +97,31 @@ describe('diff-service', () => {
     const p2 = service.compute(big, `${big}?`, false);
     expect(FakeWorker.instances).toHaveLength(2);
     FakeWorker.instances[1].onmessage!({
-      data: { id: FakeWorker.instances[1].sent[0].id, result: computeLineDiff(big, `${big}?`, { includeWordDiff: false }) },
+      data: {
+        id: FakeWorker.instances[1].sent[0].id,
+        result: computeLineDiff(big, `${big}?`, { includeWordDiff: false }),
+      },
     });
     await expect(p2).resolves.toBeDefined();
     void p1;
   });
 
   it('Worker 构造失败(如资源加载失败)时同步降级,功能不缺失', async () => {
-    vi.stubGlobal('Worker', class {
-      constructor() {
-        throw new Error('worker unavailable');
-      }
-    });
+    vi.stubGlobal(
+      'Worker',
+      class {
+        constructor() {
+          throw new Error('worker unavailable');
+        }
+      },
+    );
     const { createDiffService } = await import('./diff-service');
     const service = createDiffService();
     const bigA = 'x'.repeat(40_000);
     const result = await service.compute(bigA, `${bigA}!`, false);
-    expect(result.stats).toEqual(computeLineDiff(bigA, `${bigA}!`, { includeWordDiff: false }).stats);
+    expect(result.stats).toEqual(
+      computeLineDiff(bigA, `${bigA}!`, { includeWordDiff: false }).stats,
+    );
     service.dispose();
   });
 });

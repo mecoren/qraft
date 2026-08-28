@@ -506,132 +506,132 @@ export function EditorLeftSidebar({
                         onCancel={() => onUnsavedCancel?.()}
                         data-testid="unsaved-dialog"
                       >
-                      <button
-                        type="button"
-                        data-testid={`${dataTestId}-item-${tab.title}`}
-                        data-tab-id={tab.id}
-                        aria-current={active ? 'true' : undefined}
-                        aria-selected={multiSelected ? 'true' : undefined}
-                        // 拖拽排序:仅传入 onReorder 时启用
-                        onPointerDown={(e) => handlePointerDown(e, tab)}
-                        // 鼠标中键关闭(对齐 Tab 栏/浏览器标签页习惯):
-                        // - 用 onMouseDown 而非 onAuxClick:auxclick 在部分 WebView2
-                        //   版本上不触发,且能在「中键自动滚动」前 preventDefault 拦截
-                        // - e.button === 1 仅响应中键,左/右键不受影响;
-                        //   拖拽不受影响(handlePointerDown 对非左键直接返回)
-                        onMouseDown={(e) => {
-                          if (e.button === 1) {
-                            e.preventDefault();
-                            onClose?.(tab.id);
-                          }
-                        }}
-                        onClick={(e) => {
-                          // 拖拽结束后抑制紧随的 click,避免误切换文件
-                          if (suppressClickRef.current) {
-                            suppressClickRef.current = false;
-                            return;
-                          }
-                          // Ctrl/Cmd+点击:追加/取消多选并激活;普通点击:单选并激活
-                          if (onSelectMany) {
-                            onSelectMany(tab.id, e.ctrlKey || e.metaKey);
-                          } else {
-                            onSelect(tab.id);
-                          }
-                        }}
-                        onContextMenu={() => {
-                          // 右键文件:若不在当前多选中则仅选中它(对齐 VSCode);
-                          // 已在多选中则保持整组选中,使「比较所选内容」可用
-                          if (!multiSelected && !active && onSelectMany) {
-                            onSelectMany(tab.id, false);
-                          }
-                        }}
-                        title={tab.path ?? tab.title}
-                        className={cn(
-                          // VSCode 行高紧凑,relative 供关闭按钮绝对定位到圆点槽位
-                          'group relative flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs transition-colors',
-                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                          active
-                            ? 'bg-sidebar-primary/15 font-medium text-sidebar-primary'
-                            : selected
-                              ? 'bg-sidebar-primary/10 text-sidebar-primary'
-                              : 'text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
-                          // 连续多选合并为整块:与相邻选中项贴合的边去掉圆角,
-                          // 消除两块高亮之间的分隔效果(仿 VSCode 多选外观)
-                          selected && prevSelected && 'rounded-t-none',
-                          selected && nextSelected && 'rounded-b-none',
-                          // 拖拽中的文件项半透明(仿 VSCode 拖起效果)
-                          dragId === tab.id && 'opacity-40',
-                        )}
-                      >
-                        {/* 插入位置指示线:拖拽时在该文件项上方画主色横线 */}
-                        {dropBeforeId === tab.id && (
-                          <span
-                            aria-hidden
-                            data-testid={`${dataTestId}-drop-before-${tab.title}`}
-                            className="absolute right-2 top-0 left-2 h-0.5 rounded-full bg-primary"
-                          />
-                        )}
-                        {/* 插入位置指示线:拖到末尾时在最后一个文件项下方画横线 */}
-                        {dropBeforeId === null && index === tabs.length - 1 && (
-                          <span
-                            aria-hidden
-                            data-testid={`${dataTestId}-drop-end`}
-                            className="absolute right-2 bottom-0 left-2 h-0.5 rounded-full bg-primary"
-                          />
-                        )}
-                        {/*
-                         * 圆点槽位(固定宽度):未悬浮时显示未保存圆点(有 dirty)或留空;
-                         * hover 时圆点淡出,关闭按钮在同一位置出现。
-                         */}
-                        <span className="flex w-3.5 shrink-0 items-center justify-center transition-opacity group-hover:opacity-0">
-                          {dirty && (
+                        <button
+                          type="button"
+                          data-testid={`${dataTestId}-item-${tab.title}`}
+                          data-tab-id={tab.id}
+                          aria-current={active ? 'true' : undefined}
+                          aria-selected={multiSelected ? 'true' : undefined}
+                          // 拖拽排序:仅传入 onReorder 时启用
+                          onPointerDown={(e) => handlePointerDown(e, tab)}
+                          // 鼠标中键关闭(对齐 Tab 栏/浏览器标签页习惯):
+                          // - 用 onMouseDown 而非 onAuxClick:auxclick 在部分 WebView2
+                          //   版本上不触发,且能在「中键自动滚动」前 preventDefault 拦截
+                          // - e.button === 1 仅响应中键,左/右键不受影响;
+                          //   拖拽不受影响(handlePointerDown 对非左键直接返回)
+                          onMouseDown={(e) => {
+                            if (e.button === 1) {
+                              e.preventDefault();
+                              onClose?.(tab.id);
+                            }
+                          }}
+                          onClick={(e) => {
+                            // 拖拽结束后抑制紧随的 click,避免误切换文件
+                            if (suppressClickRef.current) {
+                              suppressClickRef.current = false;
+                              return;
+                            }
+                            // Ctrl/Cmd+点击:追加/取消多选并激活;普通点击:单选并激活
+                            if (onSelectMany) {
+                              onSelectMany(tab.id, e.ctrlKey || e.metaKey);
+                            } else {
+                              onSelect(tab.id);
+                            }
+                          }}
+                          onContextMenu={() => {
+                            // 右键文件:若不在当前多选中则仅选中它(对齐 VSCode);
+                            // 已在多选中则保持整组选中,使「比较所选内容」可用
+                            if (!multiSelected && !active && onSelectMany) {
+                              onSelectMany(tab.id, false);
+                            }
+                          }}
+                          title={tab.path ?? tab.title}
+                          className={cn(
+                            // VSCode 行高紧凑,relative 供关闭按钮绝对定位到圆点槽位
+                            'group relative flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs transition-colors',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                            active
+                              ? 'bg-sidebar-primary/15 font-medium text-sidebar-primary'
+                              : selected
+                                ? 'bg-sidebar-primary/10 text-sidebar-primary'
+                                : 'text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
+                            // 连续多选合并为整块:与相邻选中项贴合的边去掉圆角,
+                            // 消除两块高亮之间的分隔效果(仿 VSCode 多选外观)
+                            selected && prevSelected && 'rounded-t-none',
+                            selected && nextSelected && 'rounded-b-none',
+                            // 拖拽中的文件项半透明(仿 VSCode 拖起效果)
+                            dragId === tab.id && 'opacity-40',
+                          )}
+                        >
+                          {/* 插入位置指示线:拖拽时在该文件项上方画主色横线 */}
+                          {dropBeforeId === tab.id && (
                             <span
-                              aria-label={t('tools.text_editor.unsaved_aria')}
-                              data-testid={`${dataTestId}-dirty-${tab.title}`}
-                              className="size-2 rounded-full bg-primary"
+                              aria-hidden
+                              data-testid={`${dataTestId}-drop-before-${tab.title}`}
+                              className="absolute right-2 top-0 left-2 h-0.5 rounded-full bg-primary"
                             />
                           )}
-                        </span>
-                        {/* 文件图标:始终显示,不随 hover 消失(按文件类型区分,仿 VSCode) */}
-                        <FileIcon path={tab.path} />
-                        {/* 文件名:超出可用空间时显示 ... */}
-                        <span className="min-w-0 truncate">{tab.title}</span>
-                        {/*
-                         * 描述:名称后跟原始位置/自动名(VSCode 样式)。
-                         * flex-1 占满行剩余宽度(最大宽度即整行);
-                         * 空间不足时描述先截断(...),名称保持完整。
-                         */}
-                        {description && (
-                          <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                            {description}
-                          </span>
-                        )}
-                        {/* 固定图标:ml-auto 锚定在行最右侧(与 Tab 栏/标题区关闭图标一致),
-                            随侧边栏宽度变化而移动位置 */}
-                        {tab.pinned && (
-                          <Pin
-                            aria-label={t('tools.text_editor.pinned_aria')}
-                            data-testid={`${dataTestId}-pin-${tab.title}`}
-                            className={cn(
-                              'ml-auto size-3 shrink-0',
-                              active ? 'text-primary' : 'text-muted-foreground/70',
+                          {/* 插入位置指示线:拖到末尾时在最后一个文件项下方画横线 */}
+                          {dropBeforeId === null && index === tabs.length - 1 && (
+                            <span
+                              aria-hidden
+                              data-testid={`${dataTestId}-drop-end`}
+                              className="absolute right-2 bottom-0 left-2 h-0.5 rounded-full bg-primary"
+                            />
+                          )}
+                          {/*
+                           * 圆点槽位(固定宽度):未悬浮时显示未保存圆点(有 dirty)或留空;
+                           * hover 时圆点淡出,关闭按钮在同一位置出现。
+                           */}
+                          <span className="flex w-3.5 shrink-0 items-center justify-center transition-opacity group-hover:opacity-0">
+                            {dirty && (
+                              <span
+                                aria-label={t('tools.text_editor.unsaved_aria')}
+                                data-testid={`${dataTestId}-dirty-${tab.title}`}
+                                className="size-2 rounded-full bg-primary"
+                              />
                             )}
+                          </span>
+                          {/* 文件图标:始终显示,不随 hover 消失(按文件类型区分,仿 VSCode) */}
+                          <FileIcon path={tab.path} />
+                          {/* 文件名:超出可用空间时显示 ... */}
+                          <span className="min-w-0 truncate">{tab.title}</span>
+                          {/*
+                           * 描述:名称后跟原始位置/自动名(VSCode 样式)。
+                           * flex-1 占满行剩余宽度(最大宽度即整行);
+                           * 空间不足时描述先截断(...),名称保持完整。
+                           */}
+                          {description && (
+                            <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                              {description}
+                            </span>
+                          )}
+                          {/* 固定图标:ml-auto 锚定在行最右侧(与 Tab 栏/标题区关闭图标一致),
+                            随侧边栏宽度变化而移动位置 */}
+                          {tab.pinned && (
+                            <Pin
+                              aria-label={t('tools.text_editor.pinned_aria')}
+                              data-testid={`${dataTestId}-pin-${tab.title}`}
+                              className={cn(
+                                'ml-auto size-3 shrink-0',
+                                active ? 'text-primary' : 'text-muted-foreground/70',
+                              )}
+                            />
+                          )}
+                          {/* 关闭按钮:hover 时在圆点位置出现,替代圆点(通过负 margin 定位到圆点槽位) */}
+                          <X
+                            aria-label={t('tools.text_editor.close')}
+                            role="button"
+                            data-testid={`${dataTestId}-close-${tab.title}`}
+                            // 关闭按钮按下拖动不应触发列表项拖拽(配合 handleDragStart 守卫)
+                            data-sidebar-close
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onClose?.(tab.id);
+                            }}
+                            className="absolute left-2 z-10 size-3.5 shrink-0 cursor-pointer rounded-sm opacity-0 transition-opacity group-hover:opacity-100 hover:bg-sidebar-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           />
-                        )}
-                        {/* 关闭按钮:hover 时在圆点位置出现,替代圆点(通过负 margin 定位到圆点槽位) */}
-                        <X
-                          aria-label={t('tools.text_editor.close')}
-                          role="button"
-                          data-testid={`${dataTestId}-close-${tab.title}`}
-                          // 关闭按钮按下拖动不应触发列表项拖拽(配合 handleDragStart 守卫)
-                          data-sidebar-close
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onClose?.(tab.id);
-                          }}
-                          className="absolute left-2 z-10 size-3.5 shrink-0 cursor-pointer rounded-sm opacity-0 transition-opacity group-hover:opacity-100 hover:bg-sidebar-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        />
-                      </button>
+                        </button>
                       </UnsavedPopover>
                     </TabContextMenu>
                   </li>

@@ -379,115 +379,115 @@ export function EditorTabsBar({
                       onCancel={() => onUnsavedCancel?.()}
                       data-testid="unsaved-dialog"
                     >
-                    <div
-                      role="tab"
-                      aria-selected={active}
-                      data-active={active ? 'true' : 'false'}
-                      data-tab-id={tab.id}
-                      data-testid={`${dataTestId}-tab-${tab.title}`}
-                      // 拖拽排序:仅传入 onReorder 时启用(对比 Tab 不参与)
-                      onPointerDown={(e) => handlePointerDown(e, tab)}
-                      onClick={() => {
-                        // 拖拽结束后抑制紧随的 click,避免误切换 Tab
-                        if (suppressClickRef.current) {
-                          suppressClickRef.current = false;
-                          return;
-                        }
-                        onSelect(tab.id);
-                      }}
-                      // 鼠标中键关闭(仿 VSCode / Chrome 标签页):在 Tab 任意位置
-                      // 按下中键即可关闭该 Tab,无需精确点中右上角 × 按钮。
-                      // - 使用 onMouseDown 而非 onAuxClick:auxclick 在部分 WebView2
-                      //   版本上不触发,而 mousedown 是底层通用事件,且能在浏览器
-                      //   默认的「中键自动滚动」发生前用 preventDefault 拦截
-                      // - e.button === 1:仅响应中键(左键=0,中键=1,右键=2)
-                      // - 左键 / 右键不受影响,仍走 onClick 选中
-                      onMouseDown={(e) => {
-                        if (e.button === 1) {
-                          e.preventDefault();
-                          onClose(tab.id);
-                        }
-                      }}
-                      className={cn(
-                        // 顶部 2px 主色条:激活时显示,与 VSCode 当前 Tab 顶条一致
-                        // shrink-0 + min-w-[120px]:Tab 数量多时不被压缩到几乎不可见,
-                        // 让 Viewport 触发横向滚动
-                        // h-9(36px)显式高度:点击区域覆盖整个标题栏高度,与
-                        // ScrollArea Root 等高,用户点击标签顶部到底部都是热区
-                        // items-center 让文字 / 圆点 / 关闭按钮在 36px 内垂直居中
-                        'group relative flex h-9 shrink-0 min-w-[120px] max-w-52 cursor-pointer select-none items-center gap-1.5 border-r border-border px-3 text-xs',
-                        active
-                          ? 'border-t-2 border-t-primary bg-card text-foreground'
-                          : 'border-t-2 border-t-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground',
-                        // 拖拽中的 Tab 半透明(仿 VSCode 拖起效果)
-                        dragId === tab.id && 'opacity-40',
-                      )}
-                    >
-                      {/* 插入位置指示线:拖拽时在该 Tab 左侧画主色竖线 */}
-                      {dropBeforeId === tab.id && (
-                        <span
-                          aria-hidden
-                          data-testid={`${dataTestId}-drop-before-${tab.title}`}
-                          className="absolute top-1.5 bottom-1.5 left-0 w-0.5 rounded-full bg-primary"
-                        />
-                      )}
-                      {/* 插入位置指示线:拖到末尾时在最后一个 Tab 右侧画竖线 */}
-                      {dropBeforeId === null && index === sortedTabs.length - 1 && (
-                        <span
-                          aria-hidden
-                          data-testid={`${dataTestId}-drop-end`}
-                          className="absolute top-1.5 bottom-1.5 right-0 w-0.5 rounded-full bg-primary"
-                        />
-                      )}
-                      {/*
-                       * Tab 依次:图标 → 文件名 → 未保存圆点/关闭按钮共用槽位。
-                       * 固定 Tab 用 Pin 图标替代文件图标(对齐 VSCode 语义)。
-                       */}
-                      {tab.pinned ? (
-                        <Pin
-                          aria-label={t('tools.text_editor.pinned_aria')}
-                          data-testid={`${dataTestId}-pin-${tab.title}`}
-                          className={cn(
-                            'size-3.5 shrink-0',
-                            active ? 'text-primary' : 'text-muted-foreground/70',
-                          )}
-                        />
-                      ) : (
-                        <FileIcon path={tab.path} />
-                      )}
-                      <span className="min-w-0 truncate" title={tab.title}>
-                        {tab.title}
-                      </span>
-                      {/*
-                       * 未保存圆点 / 关闭按钮 共用槽位(ml-auto 锚定右侧):
-                       * 平时显示未保存圆点(有未保存改动时),悬停 Tab 时
-                       * 圆点淡出、关闭按钮在同一位置淡入(仿 VSCode)。
-                       * 无未保存改动时槽位留空,悬停同样出现关闭按钮。
-                       */}
-                      <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
-                        {dirty && (
+                      <div
+                        role="tab"
+                        aria-selected={active}
+                        data-active={active ? 'true' : 'false'}
+                        data-tab-id={tab.id}
+                        data-testid={`${dataTestId}-tab-${tab.title}`}
+                        // 拖拽排序:仅传入 onReorder 时启用(对比 Tab 不参与)
+                        onPointerDown={(e) => handlePointerDown(e, tab)}
+                        onClick={() => {
+                          // 拖拽结束后抑制紧随的 click,避免误切换 Tab
+                          if (suppressClickRef.current) {
+                            suppressClickRef.current = false;
+                            return;
+                          }
+                          onSelect(tab.id);
+                        }}
+                        // 鼠标中键关闭(仿 VSCode / Chrome 标签页):在 Tab 任意位置
+                        // 按下中键即可关闭该 Tab,无需精确点中右上角 × 按钮。
+                        // - 使用 onMouseDown 而非 onAuxClick:auxclick 在部分 WebView2
+                        //   版本上不触发,而 mousedown 是底层通用事件,且能在浏览器
+                        //   默认的「中键自动滚动」发生前用 preventDefault 拦截
+                        // - e.button === 1:仅响应中键(左键=0,中键=1,右键=2)
+                        // - 左键 / 右键不受影响,仍走 onClick 选中
+                        onMouseDown={(e) => {
+                          if (e.button === 1) {
+                            e.preventDefault();
+                            onClose(tab.id);
+                          }
+                        }}
+                        className={cn(
+                          // 顶部 2px 主色条:激活时显示,与 VSCode 当前 Tab 顶条一致
+                          // shrink-0 + min-w-[120px]:Tab 数量多时不被压缩到几乎不可见,
+                          // 让 Viewport 触发横向滚动
+                          // h-9(36px)显式高度:点击区域覆盖整个标题栏高度,与
+                          // ScrollArea Root 等高,用户点击标签顶部到底部都是热区
+                          // items-center 让文字 / 圆点 / 关闭按钮在 36px 内垂直居中
+                          'group relative flex h-9 shrink-0 min-w-[120px] max-w-52 cursor-pointer select-none items-center gap-1.5 border-r border-border px-3 text-xs',
+                          active
+                            ? 'border-t-2 border-t-primary bg-card text-foreground'
+                            : 'border-t-2 border-t-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                          // 拖拽中的 Tab 半透明(仿 VSCode 拖起效果)
+                          dragId === tab.id && 'opacity-40',
+                        )}
+                      >
+                        {/* 插入位置指示线:拖拽时在该 Tab 左侧画主色竖线 */}
+                        {dropBeforeId === tab.id && (
                           <span
-                            aria-label={t('tools.text_editor.unsaved_aria')}
-                            data-testid={`${dataTestId}-dirty-${tab.title}`}
-                            className="size-2 rounded-full bg-primary transition-opacity group-hover:opacity-0"
+                            aria-hidden
+                            data-testid={`${dataTestId}-drop-before-${tab.title}`}
+                            className="absolute top-1.5 bottom-1.5 left-0 w-0.5 rounded-full bg-primary"
                           />
                         )}
-                        <button
-                          type="button"
-                          // 从关闭按钮按下拖动不应触发 Tab 拖拽(见 handlePointerDown 守卫)
-                          aria-label={t('tools.text_editor.close_tab_aria', { title: tab.title })}
-                          data-testid={`${dataTestId}-close-${tab.title}`}
-                          onClick={(e) => {
-                            // 阻止冒泡,避免同时触发 Tab 切换
-                            e.stopPropagation();
-                            onClose(tab.id);
-                          }}
-                          className="absolute inset-0 z-10 flex items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
-                        >
-                          <X aria-hidden className="size-3" />
-                        </button>
-                      </span>
-                    </div>
+                        {/* 插入位置指示线:拖到末尾时在最后一个 Tab 右侧画竖线 */}
+                        {dropBeforeId === null && index === sortedTabs.length - 1 && (
+                          <span
+                            aria-hidden
+                            data-testid={`${dataTestId}-drop-end`}
+                            className="absolute top-1.5 bottom-1.5 right-0 w-0.5 rounded-full bg-primary"
+                          />
+                        )}
+                        {/*
+                         * Tab 依次:图标 → 文件名 → 未保存圆点/关闭按钮共用槽位。
+                         * 固定 Tab 用 Pin 图标替代文件图标(对齐 VSCode 语义)。
+                         */}
+                        {tab.pinned ? (
+                          <Pin
+                            aria-label={t('tools.text_editor.pinned_aria')}
+                            data-testid={`${dataTestId}-pin-${tab.title}`}
+                            className={cn(
+                              'size-3.5 shrink-0',
+                              active ? 'text-primary' : 'text-muted-foreground/70',
+                            )}
+                          />
+                        ) : (
+                          <FileIcon path={tab.path} />
+                        )}
+                        <span className="min-w-0 truncate" title={tab.title}>
+                          {tab.title}
+                        </span>
+                        {/*
+                         * 未保存圆点 / 关闭按钮 共用槽位(ml-auto 锚定右侧):
+                         * 平时显示未保存圆点(有未保存改动时),悬停 Tab 时
+                         * 圆点淡出、关闭按钮在同一位置淡入(仿 VSCode)。
+                         * 无未保存改动时槽位留空,悬停同样出现关闭按钮。
+                         */}
+                        <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
+                          {dirty && (
+                            <span
+                              aria-label={t('tools.text_editor.unsaved_aria')}
+                              data-testid={`${dataTestId}-dirty-${tab.title}`}
+                              className="size-2 rounded-full bg-primary transition-opacity group-hover:opacity-0"
+                            />
+                          )}
+                          <button
+                            type="button"
+                            // 从关闭按钮按下拖动不应触发 Tab 拖拽(见 handlePointerDown 守卫)
+                            aria-label={t('tools.text_editor.close_tab_aria', { title: tab.title })}
+                            data-testid={`${dataTestId}-close-${tab.title}`}
+                            onClick={(e) => {
+                              // 阻止冒泡,避免同时触发 Tab 切换
+                              e.stopPropagation();
+                              onClose(tab.id);
+                            }}
+                            className="absolute inset-0 z-10 flex items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+                          >
+                            <X aria-hidden className="size-3" />
+                          </button>
+                        </span>
+                      </div>
                     </UnsavedPopover>
                   </TabContextMenu>
                 );

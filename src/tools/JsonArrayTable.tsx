@@ -104,10 +104,7 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
         searchAnchor="json_array_table:input"
       />
 
-      <div
-        className="flex min-h-0 flex-col gap-2 p-2"
-        data-search-anchor="json_array_table:table"
-      >
+      <div className="flex min-h-0 flex-col gap-2 p-2" data-search-anchor="json_array_table:table">
         <div className="flex items-center justify-between">
           <h2 className="text-body-sm font-semibold">{t('tools.json_array_table.table_title')}</h2>
           <div className="flex gap-1">

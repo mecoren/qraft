@@ -147,11 +147,7 @@ export function FolderAnalyzer(_props: ToolProps) {
     >
       {/* 顶部扁平配置区:模式 Tab / 目标与参数 / 只读说明,逐行以分隔线区分 */}
       <div className="divide-y divide-border border-b border-border">
-        <Tabs
-          value={mode}
-          onValueChange={(v) => setMode(v as AnalyzerMode)}
-          className="px-4 py-3"
-        >
+        <Tabs value={mode} onValueChange={(v) => setMode(v as AnalyzerMode)} className="px-4 py-3">
           <TabsList>
             <TabsTrigger value="scan" data-testid="analyzer-mode-scan">
               {t('tools.folder_analyzer.tab_scan')}
@@ -256,10 +252,7 @@ export function FolderAnalyzer(_props: ToolProps) {
               className="flex-1"
               aria-label={t('tools.folder_analyzer.progress_aria')}
             />
-            <span
-              className="text-xs text-muted-foreground"
-              data-testid="analyzer-progress-message"
-            >
+            <span className="text-xs text-muted-foreground" data-testid="analyzer-progress-message">
               {state.message}
             </span>
             <Button

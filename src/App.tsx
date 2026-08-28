@@ -26,10 +26,7 @@ import { listen } from '@/lib/ipc';
 import { cn } from '@/lib/utils';
 import { pullPendingOpenFiles, type PendingOpenFile } from '@/tools/code-editor-workspace/fileOps';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
-import {
-  getPopoutToolIdFromLabel,
-  rehydrateToolStateFromPopout,
-} from '@/lib/popout-sync';
+import { getPopoutToolIdFromLabel, rehydrateToolStateFromPopout } from '@/lib/popout-sync';
 import {
   cycleNamingCaseShortcutHandler,
   toggleCaseShortcutHandler,

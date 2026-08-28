@@ -212,127 +212,132 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
 
       {/* 内容区:图片工具栏 + 拖放区收进带内边距的滚动区(内卡降级为 rounded-md) */}
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
-      {/* 图片区 */}
-      <div className="flex items-center justify-between" data-search-anchor="png_compressor:image">
-        <h2 className="text-body-sm font-semibold">{t('tools.png_compressor.section_image')}</h2>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            data-testid="pc-open"
-            onClick={() => fileRef.current?.click()}
-          >
-            <FolderOpen aria-hidden className="size-3.5" /> {t('tools.png_compressor.choose_png')}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            data-testid="pc-clear"
-            disabled={!image}
-            onClick={() => {
-              setImage(null);
-              setResult(null);
-            }}
-          >
-            <X aria-hidden className="size-3.5" /> {t('tools.png_compressor.clear')}
-          </Button>
-          <Button
-            size="sm"
-            data-testid="pc-compress"
-            disabled={!image || busy}
-            onClick={() => void compress()}
-          >
-            <Download aria-hidden className="size-3.5" />
-            {busy ? t('tools.png_compressor.compressing') : t('tools.png_compressor.compress')}
-          </Button>
+        {/* 图片区 */}
+        <div
+          className="flex items-center justify-between"
+          data-search-anchor="png_compressor:image"
+        >
+          <h2 className="text-body-sm font-semibold">{t('tools.png_compressor.section_image')}</h2>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              data-testid="pc-open"
+              onClick={() => fileRef.current?.click()}
+            >
+              <FolderOpen aria-hidden className="size-3.5" /> {t('tools.png_compressor.choose_png')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              data-testid="pc-clear"
+              disabled={!image}
+              onClick={() => {
+                setImage(null);
+                setResult(null);
+              }}
+            >
+              <X aria-hidden className="size-3.5" /> {t('tools.png_compressor.clear')}
+            </Button>
+            <Button
+              size="sm"
+              data-testid="pc-compress"
+              disabled={!image || busy}
+              onClick={() => void compress()}
+            >
+              <Download aria-hidden className="size-3.5" />
+              {busy ? t('tools.png_compressor.compressing') : t('tools.png_compressor.compress')}
+            </Button>
+          </div>
         </div>
-      </div>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/png,.png"
-        className="hidden"
-        data-testid="pc-file"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void loadFile(file);
-          e.target.value = '';
-        }}
-      />
-      <ScrollArea
-        data-testid="pc-dropzone"
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
-        className={`min-h-0 flex-1 rounded-md border ${
-          dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
-        } transition-colors`}
-      >
-        <div className="flex h-full min-h-full flex-col items-center justify-center gap-2 p-4">
-          {image ? (
-            <>
-              <img
-                src={image.dataUrl}
-                alt={image.name}
-                data-testid="pc-preview"
-                className="max-h-[60%] max-w-full object-contain"
-              />
-              <p className="text-xs text-muted-foreground" data-testid="pc-info">
-                {t('tools.png_compressor.original_size', {
-                  name: image.name,
-                  size: formatBytes(image.size),
-                })}
-              </p>
-              {result && (
-                <div
-                  className="flex flex-col items-center gap-1 rounded-md border bg-background px-4 py-2 text-xs"
-                  data-testid="pc-result"
-                >
-                  <span>
-                    {formatBytes(result.inputBytes)} →{' '}
-                    <span
-                      className={saving !== null && saving > 0 ? 'font-semibold text-primary' : ''}
-                    >
-                      {formatBytes(result.outputBytes)}
-                    </span>
-                    {saving !== null && (
-                      <span className="ml-1 text-muted-foreground">
-                        (
-                        {saving > 0
-                          ? t('tools.png_compressor.saving_percent', { percent: saving })
-                          : t('tools.png_compressor.increase_percent', { percent: -saving })}
-                        )
-                      </span>
-                    )}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {t('tools.png_compressor.duration_ms', { ms: result.durationMs })}
-                    {result.colorsUsed !== null &&
-                      ` · ${result.colorsUsed} ${t('tools.png_compressor.color_unit')}`}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={downloadResult}
-                    data-testid="pc-download"
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/png,.png"
+          className="hidden"
+          data-testid="pc-file"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void loadFile(file);
+            e.target.value = '';
+          }}
+        />
+        <ScrollArea
+          data-testid="pc-dropzone"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+          className={`min-h-0 flex-1 rounded-md border ${
+            dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
+          } transition-colors`}
+        >
+          <div className="flex h-full min-h-full flex-col items-center justify-center gap-2 p-4">
+            {image ? (
+              <>
+                <img
+                  src={image.dataUrl}
+                  alt={image.name}
+                  data-testid="pc-preview"
+                  className="max-h-[60%] max-w-full object-contain"
+                />
+                <p className="text-xs text-muted-foreground" data-testid="pc-info">
+                  {t('tools.png_compressor.original_size', {
+                    name: image.name,
+                    size: formatBytes(image.size),
+                  })}
+                </p>
+                {result && (
+                  <div
+                    className="flex flex-col items-center gap-1 rounded-md border bg-background px-4 py-2 text-xs"
+                    data-testid="pc-result"
                   >
-                    <Download aria-hidden className="size-3.5" />
-                    {t('tools.png_compressor.save_result')}
-                  </Button>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="flex flex-col items-center gap-2 text-muted-foreground">
-              <FileImage aria-hidden className="size-8" />
-              <p className="text-xs">{t('tools.png_compressor.dropzone_hint')}</p>
-            </div>
-          )}
-        </div>
-      </ScrollArea>
+                    <span>
+                      {formatBytes(result.inputBytes)} →{' '}
+                      <span
+                        className={
+                          saving !== null && saving > 0 ? 'font-semibold text-primary' : ''
+                        }
+                      >
+                        {formatBytes(result.outputBytes)}
+                      </span>
+                      {saving !== null && (
+                        <span className="ml-1 text-muted-foreground">
+                          (
+                          {saving > 0
+                            ? t('tools.png_compressor.saving_percent', { percent: saving })
+                            : t('tools.png_compressor.increase_percent', { percent: -saving })}
+                          )
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {t('tools.png_compressor.duration_ms', { ms: result.durationMs })}
+                      {result.colorsUsed !== null &&
+                        ` · ${result.colorsUsed} ${t('tools.png_compressor.color_unit')}`}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={downloadResult}
+                      data-testid="pc-download"
+                    >
+                      <Download aria-hidden className="size-3.5" />
+                      {t('tools.png_compressor.save_result')}
+                    </Button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <FileImage aria-hidden className="size-8" />
+                <p className="text-xs">{t('tools.png_compressor.dropzone_hint')}</p>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
       </div>
     </div>
   );
