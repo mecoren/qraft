@@ -787,7 +787,7 @@
 /* ============================================================
  * 文本比较工具 —— 差异装饰(VSCode diff 风格)
  *
- * 装饰由 TextCompare.tsx 的 buildDiffDecorations 注入(useShadowDOM
+ * 装饰由 components/text-diff 的 buildDiffDecorations 注入(useShadowDOM
  * 已关闭,外部 CSS 可命中 Monaco 内部 DOM):
  * - 行级背景:删除行红底 / 新增行绿底(--diff-remove/add-line)
  * - 词级高亮:修改行内变更片段用更深一档的 emph 色 + 圆角小块

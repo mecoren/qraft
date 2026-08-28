@@ -18,22 +18,13 @@
  * - 卸载时清空 Titlebar 菜单栏(由 useToolMenus effect cleanup 自动处理)
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { DiffEditor, type Monaco, type MonacoDiffEditor } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
-import {
-  Columns2,
-  Eye,
-  FilePlus2,
-  Folder,
-  FolderOpen,
-  GitCompareArrows,
-  PenLine,
-} from 'lucide-react';
+import { Columns2, Eye, FilePlus2, Folder, FolderOpen, PenLine } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
-import { MonacoContextMenu, type MonacoEditor } from '@/components/ui/monaco-context-menu';
+import { TextDiffView } from '@/components/text-diff/TextDiffView';
 import { Button } from '@/components/ui/button';
 import { RenameDialog } from '@/components/RenameDialog';
 import {
@@ -44,10 +35,8 @@ import {
 } from './namingCaseCommand';
 import { registerTabEditor, clearTabEditors } from '@/lib/editor-search-registry';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { defineThemeFor, getThemeName, useMonacoTheme } from '@/components/ui/monaco-theme';
 import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
 import { useShortcut } from '@/hooks/useShortcut';
-import { useEditorFontSize } from '@/hooks/useEditorFontSize';
 import { listen, safeInvoke, CommandError } from '@/lib/ipc';
 import { writeClipboardText } from '@/lib/clipboard';
 import type { ToolProps } from '@/tools/registry';
@@ -57,9 +46,9 @@ import { useEditorWorkspaceStore, folderNameFromPath } from './useEditorWorkspac
 import { EditorTabsBar } from './EditorTabsBar';
 import { EditorLeftSidebar } from './EditorLeftSidebar';
 import { PathBreadcrumb } from './PathBreadcrumb';
-import { UnsavedDialog, type UnsavedMode } from './UnsavedDialog';
+import { type UnsavedMode, type UnsavedSource } from './UnsavedPopover';
 import { EditorLanguagePicker } from './EditorLanguagePicker';
-import { LANGUAGE_LABELS, fileNameFromPath } from './languageMap';
+import { LANGUAGE_LABELS, fileNameFromPath, inferLanguageFromPath } from './languageMap';
 import { LanguageIcon } from './languageIcons';
 import {
   openTextFileDialog,
@@ -103,11 +92,13 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const workspace = useEditorWorkspaceStore((s) => s.workspace);
   const ready = useEditorWorkspaceStore((s) => s.ready);
   const hydrate = useEditorWorkspaceStore((s) => s.hydrate);
-  /** 未保存对话框状态(null = 关闭);batchAction 记录批量关闭意图 */
+  /** 未保存确认状态(null = 关闭);batchAction 记录批量关闭意图,
+   * source 记录发起区域(确认 Popover 锚定在对应区域的条目上) */
   const [unsaved, setUnsaved] = useState<{
     mode: UnsavedMode;
     tabId?: string;
     batchAction?: BatchCloseAction;
+    source: UnsavedSource;
   } | null>(null);
   /** 重命名对话框目标(null = 关闭);打开时预填该 Tab 当前显示名 */
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
@@ -397,15 +388,15 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
    * - 固定 Tab(无论是否未保存)→ 弹「关闭 / 取消」确认
    * - 其余干净 Tab → 直接关闭
    */
-  const requestCloseTab = useCallback((id: string) => {
+  const requestCloseTab = useCallback((id: string, source: UnsavedSource = 'tabs') => {
     const state = useEditorWorkspaceStore.getState();
     const tab = state.workspace.tabs.find((t) => t.id === id);
     if (!tab) return;
     if (tab.pinned) {
       // 固定 Tab 关闭一律确认,避免误关用户特意保留的 Tab
-      setUnsaved({ mode: 'close-pinned', tabId: id });
+      setUnsaved({ mode: 'close-pinned', tabId: id, source });
     } else if (tab.content !== tab.savedContent) {
-      setUnsaved({ mode: 'close-tab', tabId: id });
+      setUnsaved({ mode: 'close-tab', tabId: id, source });
     } else {
       state.closeTab(id);
     }
@@ -420,11 +411,14 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   }, [requestCloseTab]);
 
   /** 请求全部关闭:存在未保存的非固定 Tab 时先弹确认,干净则直接关闭 */
-  const requestCloseAll = useCallback(() => {
+  const requestCloseAll = useCallback((source: UnsavedSource = 'tabs') => {
     const state = useEditorWorkspaceStore.getState();
     const hasDirty = state.workspace.tabs.some((t) => !t.pinned && t.content !== t.savedContent);
     if (hasDirty) {
-      setUnsaved({ mode: 'close-all' });
+      // 确认 Popover 需要锚点条目:优先当前激活 Tab,否则退回第一个 Tab
+      const anchorId = state.workspace.activeTabId ?? state.workspace.tabs[0]?.id;
+      if (!anchorId) return;
+      setUnsaved({ mode: 'close-all', tabId: anchorId, source });
     } else {
       state.closeAllTabs();
     }
@@ -434,25 +428,28 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
    * 请求批量关闭(关闭其他 / 关闭右侧):
    * 将要被关闭的 Tab 中存在未保存时先弹确认,干净则直接执行。
    */
-  const requestCloseBatch = useCallback((action: BatchCloseAction, targetId: string) => {
-    const state = useEditorWorkspaceStore.getState();
-    const { tabs } = state.workspace;
-    const targetIndex = tabs.findIndex((t) => t.id === targetId);
-    const willClose = tabs.filter((t) => {
-      if (t.pinned) return false;
-      if (action === 'close-others') return t.id !== targetId;
-      if (action === 'close-right') return targetIndex >= 0 && tabs.indexOf(t) > targetIndex;
-      return false;
-    });
-    const hasDirty = willClose.some((t) => t.content !== t.savedContent);
-    if (hasDirty) {
-      setUnsaved({ mode: 'close-batch', tabId: targetId, batchAction: action });
-    } else if (action === 'close-others') {
-      state.closeOtherTabs(targetId);
-    } else {
-      state.closeRightTabs(targetId);
-    }
-  }, []);
+  const requestCloseBatch = useCallback(
+    (action: BatchCloseAction, targetId: string, source: UnsavedSource = 'tabs') => {
+      const state = useEditorWorkspaceStore.getState();
+      const { tabs } = state.workspace;
+      const targetIndex = tabs.findIndex((t) => t.id === targetId);
+      const willClose = tabs.filter((t) => {
+        if (t.pinned) return false;
+        if (action === 'close-others') return t.id !== targetId;
+        if (action === 'close-right') return targetIndex >= 0 && tabs.indexOf(t) > targetIndex;
+        return false;
+      });
+      const hasDirty = willClose.some((t) => t.content !== t.savedContent);
+      if (hasDirty) {
+        setUnsaved({ mode: 'close-batch', tabId: targetId, batchAction: action, source });
+      } else if (action === 'close-others') {
+        state.closeOtherTabs(targetId);
+      } else {
+        state.closeRightTabs(targetId);
+      }
+    },
+    [],
+  );
 
   /** 关闭已保存:只关干净的非固定 Tab,无需确认 */
   const requestCloseSaved = useCallback(() => {
@@ -734,7 +731,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                 id: 'close-all',
                 label: t('tools.text_editor.close_all'),
                 shortcut: 'Ctrl+Shift+W',
-                onSelect: requestCloseAll,
+                // 显式传 'tabs':菜单 onSelect 会带首个参数,不能让它误当 source
+                onSelect: () => requestCloseAll('tabs'),
                 disabled: workspace.tabs.length === 0,
                 testId: 'toolbar-close-all',
               },
@@ -843,10 +841,16 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   }, [unsaved]);
 
   const dirtyCount = workspace.tabs.filter((t) => t.content !== t.savedContent).length;
-  const unsavedTabTitle =
-    (unsaved?.mode === 'close-tab' || unsaved?.mode === 'close-pinned') && unsaved.tabId
-      ? workspace.tabs.find((t) => t.id === unsaved.tabId)?.title
-      : undefined;
+  /** 未保存关闭确认:按发起区域(source)分发,同一确认框只锚定在对应区域的条目上 */
+  const unsavedConfirm = unsaved
+    ? {
+        tabId: unsaved.tabId ?? '',
+        mode: unsaved.mode,
+        dirtyCount,
+        canSave: unsaved.mode === 'close-tab',
+        source: unsaved.source,
+      }
+    : null;
 
   // 移除原顶部工具栏:打开/新建/保存/关闭等操作已迁入 Titlebar 菜单栏。
   // 空状态仍保留「打开文件 / 新建」快捷按钮(无 Tab 时无菜单可用,作为兜底入口)。
@@ -956,9 +960,10 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               onSelectCompare={handleSelectCompare}
               onCloseCompare={handleCloseCompare}
               onCloseAllCompares={handleCloseAllCompares}
-              onClose={requestCloseTab}
-              onCloseOthers={(id) => requestCloseBatch('close-others', id)}
-              onCloseRight={(id) => requestCloseBatch('close-right', id)}
+              // 左栏发起的关闭:确认框锚定在左栏列表项上(source='sidebar')
+              onClose={(id) => requestCloseTab(id, 'sidebar')}
+              onCloseOthers={(id) => requestCloseBatch('close-others', id, 'sidebar')}
+              onCloseRight={(id) => requestCloseBatch('close-right', id, 'sidebar')}
               onCloseSaved={requestCloseSaved}
               onTogglePin={handleTogglePin}
               onRename={handleRenameRequest}
@@ -971,7 +976,12 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               }
               onNewTab={handleNewTab}
               onSaveAll={() => void handleSaveAll()}
-              onCloseAll={requestCloseAll}
+              onCloseAll={() => requestCloseAll('sidebar')}
+              // 左栏发起的关闭确认:锚定在对应列表项下方
+              unsavedConfirm={unsavedConfirm?.source === 'sidebar' ? unsavedConfirm : null}
+              onUnsavedSave={handleUnsavedSave}
+              onUnsavedDiscard={handleUnsavedDiscard}
+              onUnsavedCancel={handleUnsavedCancel}
               saveAllDisabled={workspace.tabs.length === 0}
               closeAllDisabled={workspace.tabs.length === 0}
               // 拖拽分隔条期间强制按钮/徽章保持显示(避免鼠标移出面板导致闪烁)
@@ -1005,6 +1015,12 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               onSave={(id) => void saveTabById(id)}
               onRevealInExplorer={handleRevealInExplorer}
               onCopyPath={handleCopyPath}
+              // 未保存/固定 Tab 关闭确认:锚定在目标 Tab 下方的小 Popover
+              // (仅本区域发起时显示;左栏发起的锚到左栏列表项)
+              unsavedConfirm={unsavedConfirm?.source === 'tabs' ? unsavedConfirm : null}
+              onUnsavedSave={handleUnsavedSave}
+              onUnsavedDiscard={handleUnsavedDiscard}
+              onUnsavedCancel={handleUnsavedCancel}
               data-testid="editor-tabs"
             />
 
@@ -1089,19 +1105,6 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
           </div>
         </div>
 
-        {/* 未保存更改确认对话框(关闭 Tab / 全部关闭) */}
-        <UnsavedDialog
-          open={unsaved !== null}
-          mode={unsaved?.mode ?? 'close-tab'}
-          tabTitle={unsavedTabTitle}
-          dirtyCount={dirtyCount}
-          canSave={unsaved?.mode === 'close-tab'}
-          onSave={handleUnsavedSave}
-          onDiscard={handleUnsavedDiscard}
-          onCancel={handleUnsavedCancel}
-          data-testid="unsaved-dialog"
-        />
-
         {/* 重命名对话框(条件渲染:关闭即卸载,每次打开预填当前显示名) */}
         {renaming && (
           <RenameDialog
@@ -1135,62 +1138,15 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   );
 }
 
-/** 对比差异视图的 Monaco DiffEditor 基础配置(与文本比较工具一致,两侧均可编辑)。
- * 字号不在此处写死:由 FileCompareView 内经 useEditorFontSize 随设置档位注入 */
-const diffBaseOptions: editor.IDiffEditorConstructionOptions = {
-  originalEditable: true,
-  readOnly: false,
-  renderSideBySide: true,
-  useShadowDOM: false,
-  fontFamily:
-    "var(--app-mono-font-family, 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace)",
-  fontLigatures: true,
-  lineNumbers: 'on',
-  glyphMargin: false,
-  // 与 CodeEditor 保持一致:启用代码折叠,对比视图两侧 gutter 可折叠,
-  // 右键菜单中的「折叠 / 展开」菜单组才能生效
-  folding: true,
-  minimap: { enabled: false },
-  scrollBeyondLastLine: false,
-  automaticLayout: true,
-  wordWrap: 'on',
-  diffWordWrap: 'on',
-  renderLineHighlight: 'all',
-  renderWhitespace: 'selection',
-  smoothScrolling: true,
-  cursorBlinking: 'smooth',
-  cursorSmoothCaretAnimation: 'on',
-  padding: { top: 10, bottom: 10 },
-  scrollbar: {
-    verticalScrollbarSize: 10,
-    horizontalScrollbarSize: 10,
-    verticalSliderSize: 6,
-    horizontalSliderSize: 6,
-    useShadows: false,
-  },
-  guides: {
-    indentation: true,
-    highlightActiveIndentation: true,
-  },
-  bracketPairColorization: { enabled: true },
-  roundedSelection: true,
-  overviewRulerLanes: 0,
-  scrollBeyondLastColumn: 0,
-  contextmenu: false,
-  fixedOverflowWidgets: true,
-  hideUnchangedRegions: { enabled: false },
-};
-
 /**
  * 文件对比差异视图 —— 两个已打开文件的内容并排 Diff(直接嵌入主区域)
  *
- * - 左侧为「原文件」,右侧为「目标文件」,由 Monaco DiffEditor 渲染,
- *   差异行高亮,差异区域可折叠。
- * - 与文本比较工具一致:**两侧均可直接编辑**,编辑内容实时写回对应
- *   文件 Tab(通过 onChangeLeft / onChangeRight 回调),diff 差异实时重算。
- * - 非受控策略(参考 TextCompare):挂载时用初始值 setValue 一次,
- *   之后内容保存在 Monaco model 内,不通过 props 重建,避免每次按键重建 diff。
- * - 顶部以「左 文件 A ↔ 右 文件 B」的形式展示对比双方文件名。
+ * - 渲染复用共享组件 TextDiffView(components/text-diff),与文本比较工具
+ *   同一套观感:行级红绿背景 + 词级高亮 + gutter 色条 + 右缘标尺刻度 +
+ *   差异统计 / 行内切换 / 滚动同步。
+ * - 两侧均可直接编辑,编辑内容实时写回对应文件 Tab(onChangeLeft/Right)。
+ * - 语言按各文件扩展名分别推断(旧实现写死 plaintext,此处顺带修复),
+ *   未识别扩展名回退纯文本。
  */
 function FileCompareView({
   left,
@@ -1207,119 +1163,19 @@ function FileCompareView({
   onChangeRight: (value: string) => void;
   'data-testid'?: string;
 }): JSX.Element {
-  const { t } = useTranslation();
-  const themeName = useMonacoTheme();
-  const monacoRef = useRef<Monaco | null>(null);
-  // 字号随设置档位缩放;options 变化时 @monaco-editor/react 会热更新已挂载实例
-  const editorFontSize = useEditorFontSize();
-  const diffOptions = useMemo<editor.IDiffEditorConstructionOptions>(
-    () => ({
-      ...diffBaseOptions,
-      fontSize: editorFontSize.fontSize,
-      lineHeight: editorFontSize.lineHeight,
-    }),
-    [editorFontSize],
-  );
-  // 挂载时的初始内容快照(仅在首次挂载时写入编辑器)
-  const initialRef = useRef({ left: left.content, right: right.content });
-  // 对比视图右键菜单:DiffEditor 的 options.contextmenu: false 关闭了原生
-  // 英文菜单,这里由 MonacoContextMenu 接管;两侧编辑器共用同一菜单状态,
-  // 右键时记录具体是哪一个编辑器实例,菜单动作作用于该实例。
-  const [ctxOpen, setCtxOpen] = useState(false);
-  const [ctxPos, setCtxPos] = useState({ x: 0, y: 0 });
-  const [ctxEditor, setCtxEditor] = useState<MonacoEditor | null>(null);
-
-  const handleBeforeMount = useCallback((monaco: Monaco) => {
-    monacoRef.current = monaco;
-    defineThemeFor(monaco, getThemeName());
-  }, []);
-
-  // 主题变化时重新定义并切换 Monaco 主题(无需重挂载编辑器)
-  useEffect(() => {
-    const monaco = monacoRef.current;
-    if (!monaco) return;
-    defineThemeFor(monaco, themeName);
-    monaco.editor.setTheme(themeName);
-  }, [themeName]);
-
-  /** 挂载 DiffEditor:写入初始内容,并订阅两侧内容变化写回 */
-  const handleMount = useCallback(
-    (diff: MonacoDiffEditor, monaco: Monaco) => {
-      monacoRef.current = monaco;
-      const originalEditor = diff.getOriginalEditor();
-      const modifiedEditor = diff.getModifiedEditor();
-      originalEditor.setValue(initialRef.current.left);
-      modifiedEditor.setValue(initialRef.current.right);
-      originalEditor.onDidChangeModelContent(() => {
-        onChangeLeft(originalEditor.getValue());
-      });
-      modifiedEditor.onDidChangeModelContent(() => {
-        onChangeRight(modifiedEditor.getValue());
-      });
-      // 与 CodeEditor 同模式:拦截两侧编辑器的原生右键菜单,弹出中文菜单。
-      // e.event 是 Monaco 封装的 IMouseEvent,browserEvent 才是原生 MouseEvent,
-      // 其 clientX/clientY 为视口坐标,供 fixed 定位的菜单使用。
-      const attachContextMenu = (ed: MonacoEditor): void => {
-        ed.onContextMenu((e) => {
-          const native = e.event.browserEvent;
-          native.preventDefault();
-          setCtxEditor(ed);
-          setCtxPos({ x: native.clientX, y: native.clientY });
-          setCtxOpen(true);
-        });
-      };
-      attachContextMenu(originalEditor);
-      attachContextMenu(modifiedEditor);
-    },
-    [onChangeLeft, onChangeRight],
-  );
-
   return (
     <div data-testid={dataTestId} className="flex h-full min-h-0 w-full min-w-0 flex-col">
-      {/* 对比双方文件名头 */}
-      <div
-        data-testid={`${dataTestId}-headers`}
-        className="flex shrink-0 items-center gap-2 border-b border-input px-2 py-1 text-xs"
-      >
-        <span
-          data-testid={`${dataTestId}-left-title`}
-          className="min-w-0 flex-1 truncate rounded px-1.5 py-0.5 bg-muted text-muted-foreground"
-          title={left.path ?? left.title}
-        >
-          {left.title}
-        </span>
-        <GitCompareArrows aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-        <span
-          data-testid={`${dataTestId}-right-title`}
-          className="min-w-0 flex-1 truncate rounded px-1.5 py-0.5 bg-muted text-muted-foreground"
-          title={right.path ?? right.title}
-        >
-          {right.title}
-        </span>
-      </div>
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <DiffEditor
-          language="plaintext"
-          theme={themeName}
-          beforeMount={handleBeforeMount}
-          onMount={handleMount}
-          options={diffOptions}
-          className="h-full"
-          loading={
-            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-              {t('tools.text_editor.diff_loading')}
-            </div>
-          }
-        />
-      </div>
-      {/* 中文右键菜单:两侧编辑器共用;动作作用于右键时所点的编辑器实例 */}
-      <MonacoContextMenu
-        editor={ctxEditor}
-        readOnly={false}
-        open={ctxOpen}
-        position={ctxPos}
-        onClose={() => setCtxOpen(false)}
-        data-testid={dataTestId ? `${dataTestId}-context-menu` : undefined}
+      <TextDiffView
+        original={left.content}
+        modified={right.content}
+        onOriginalChange={onChangeLeft}
+        onModifiedChange={onChangeRight}
+        originalTitle={left.title}
+        modifiedTitle={right.title}
+        originalLanguage={inferLanguageFromPath(left.path ?? left.title)}
+        modifiedLanguage={inferLanguageFromPath(right.path ?? right.title)}
+        folding
+        testIdPrefix={dataTestId ?? 'compare-view'}
       />
     </div>
   );

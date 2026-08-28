@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeLineDiff } from './text-compare-utils';
+import { buildDiffDecorations, computeLineDiff } from './diff-utils';
 
 /** 便捷:只取每侧行号列表 */
 function lines(decos: ReadonlyArray<{ line: number }>): number[] {
@@ -106,5 +106,93 @@ describe('computeLineDiff', () => {
     expect(r.stats).toEqual({ added: 0, removed: 0, modified: 0 });
     expect(r.originalDecos).toEqual([]);
     expect(r.modifiedDecos).toEqual([]);
+  });
+});
+
+/** 构建最小 Monaco 编辑器实例桩:按行内容数组模拟 model 行数与最大列号 */
+function mockEditorInstance(lines: string[]) {
+  return {
+    getModel: () => ({
+      getLineCount: () => lines.length,
+      getLineMaxColumn: (line: number) => (lines[line - 1]?.length ?? 0) + 1,
+    }),
+  } as unknown as Parameters<typeof buildDiffDecorations>[0];
+}
+
+describe('buildDiffDecorations', () => {
+  it('差异行同时产出整行背景类与 VSCode 风格 gutter 色条类', () => {
+    const editor = mockEditorInstance(['a', 'b']);
+    const out = buildDiffDecorations(editor, [{ line: 2, wordSpans: [] }], 'original');
+    expect(out).toHaveLength(1);
+    expect(out[0].options).toEqual({
+      isWholeLine: true,
+      className: 'text-compare-line-removed',
+      marginClassName: 'text-compare-gutter-removed',
+    });
+    expect(out[0].range).toMatchObject({ startLineNumber: 2, endLineNumber: 2 });
+
+    const added = buildDiffDecorations(editor, [{ line: 1, wordSpans: [] }], 'modified');
+    expect(added[0].options).toEqual({
+      isWholeLine: true,
+      className: 'text-compare-line-added',
+      marginClassName: 'text-compare-gutter-added',
+    });
+  });
+
+  it('词级区间映射为行内装饰,原始侧与修改侧用各自的词级类', () => {
+    const editor = mockEditorInstance(['hello world']);
+    const out = buildDiffDecorations(
+      editor,
+      [{ line: 1, wordSpans: [{ start: 7, end: 12 }] }],
+      'modified',
+    );
+    // 1 个整行装饰 + 1 个词级装饰
+    expect(out).toHaveLength(2);
+    expect(out[1].options).toEqual({ className: 'text-compare-word-added' });
+    expect(out[1].range).toMatchObject({ startLineNumber: 1, startColumn: 7, endColumn: 12 });
+
+    const orig = buildDiffDecorations(
+      editor,
+      [{ line: 1, wordSpans: [{ start: 1, end: 6 }] }],
+      'original',
+    );
+    expect(orig[1].options).toEqual({ className: 'text-compare-word-removed' });
+  });
+
+  it('越界行号跳过(deferred 值滞后时不刷到别的行),词级列号夹取到行宽', () => {
+    const editor = mockEditorInstance(['one line']);
+    // 行号 2 超出模型行数:整行装饰与词级装饰一并跳过
+    expect(
+      buildDiffDecorations(editor, [{ line: 2, wordSpans: [{ start: 1, end: 3 }] }], 'original'),
+    ).toEqual([]);
+
+    // 词级 end 超出该行最大列号(9):夹取到 9
+    const out = buildDiffDecorations(
+      editor,
+      [{ line: 1, wordSpans: [{ start: 4, end: 99 }] }],
+      'modified',
+    );
+    expect(out[1].range).toMatchObject({ startColumn: 4, endColumn: 9 });
+  });
+
+  it('提供标尺色时差异行携带右缘概览标尺刻度(VSCode 对齐)', () => {
+    const editor = mockEditorInstance(['a']);
+    const out = buildDiffDecorations(editor, [{ line: 1, wordSpans: [] }], 'modified', {
+      added: '#0a0',
+      removed: '#a00',
+    });
+    // toEqual 忽略 undefined 属性:未传 rulerColors 时不产生 overviewRuler 键
+    expect(out[0].options).toMatchObject({
+      overviewRuler: { color: '#0a0', position: 7 },
+    });
+    const removed = buildDiffDecorations(editor, [{ line: 1, wordSpans: [] }], 'original', {
+      added: '#0a0',
+      removed: '#a00',
+    });
+    expect(removed[0].options).toMatchObject({
+      overviewRuler: { color: '#a00', position: 7 },
+    });
+    const noColors = buildDiffDecorations(editor, [{ line: 1, wordSpans: [] }], 'modified');
+    expect(noColors[0].options).not.toHaveProperty('overviewRuler', expect.anything());
   });
 });

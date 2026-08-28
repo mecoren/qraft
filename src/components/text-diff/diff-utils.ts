@@ -1,9 +1,11 @@
 /**
- * 文本比较差异计算 —— jsdiff 纯函数封装
+ * 文本差异计算与装饰构建 —— jsdiff 纯函数封装(TextDiffView 共享)
+ *
+ * 消费方:TextDiffView(文本比较工具 / 文本编辑器文件对比共用)。
  *
  * 职责:
  * - 把 jsdiff 的 diffLines 输出规整为「每侧行号 → 差异装饰」结构,
- *   供 TextCompare 的两个 Monaco 编辑器直接渲染装饰(整行背景 + 行内词级高亮)。
+ *   供双 Monaco 编辑器直接渲染装饰(整行背景 + 行内词级高亮)。
  * - 统计口径与旧版 summarizeLineChanges(Monaco getLineChanges)一致:
  *   连续 removed/added 段按行数取 min 配对为「修改行」,余量为纯新增/纯删除。
  *

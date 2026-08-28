@@ -71,7 +71,6 @@
   "tools.text_editor.ctx_toggle_case": "切换大小写",
   "tools.text_editor.action_open_file": "打开文件",
   "tools.text_editor.action_open_folder": "打开文件夹",
-  "tools.text_editor.diff_loading": "加载编辑器…",
   "tools.text_editor.resize_hint": "拖动调整文件列表宽度",
   "tools.text_editor.restore_hint": "向右拖动显示文件列表",
   "tools.text_editor.shortcut_needs_selection": "请在文本编辑器中选中文字后使用该快捷键"

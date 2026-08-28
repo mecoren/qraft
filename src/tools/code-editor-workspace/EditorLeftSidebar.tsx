@@ -40,6 +40,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { TabContextMenu } from './TabContextMenu';
+import { UnsavedPopover, type UnsavedMode } from './UnsavedPopover';
 import { dirNameFromPath } from './languageMap';
 import { FolderTreeSection } from './FolderTreeSection';
 import type { ComparePair, EditorTab, WorkspaceFolder } from './schema';
@@ -105,6 +106,17 @@ export interface EditorLeftSidebarProps {
   onSaveAll?: () => void;
   /** 标题区动作:关闭所有 Tab(已接入未保存确认) */
   onCloseAll?: () => void;
+  /** 未保存/固定 Tab 关闭确认(null = 无确认框);锚定在对应列表项下方的小 Popover */
+  unsavedConfirm?: {
+    tabId: string;
+    mode: UnsavedMode;
+    dirtyCount: number;
+    canSave: boolean;
+  } | null;
+  /** 确认框回调:保存并关闭 / 不保存关闭 / 取消 */
+  onUnsavedSave?: () => void;
+  onUnsavedDiscard?: () => void;
+  onUnsavedCancel?: () => void;
   /** 全部保存按钮禁用条件(无任何 Tab 时禁用) */
   saveAllDisabled?: boolean;
   /** 全部关闭按钮禁用条件(无任何 Tab 时禁用) */
@@ -150,6 +162,10 @@ export function EditorLeftSidebar({
   onNewTab,
   onSaveAll,
   onCloseAll,
+  unsavedConfirm = null,
+  onUnsavedSave,
+  onUnsavedDiscard,
+  onUnsavedCancel,
   saveAllDisabled,
   closeAllDisabled,
   actionsForced = false,
@@ -476,6 +492,20 @@ export function EditorLeftSidebar({
                       onRevealInExplorer={() => onRevealInExplorer?.(tab.id)}
                       onCopyPath={() => onCopyPath?.(tab.id)}
                     >
+                      {/* 关闭确认:锚定在列表项下方的小 Popover(与顶栏 Tab 同款)。
+                          仅本区域(source='sidebar')发起关闭时显示,让确认框
+                          出现在鼠标操作位置而不是顶部 Tab 栏 */}
+                      <UnsavedPopover
+                        open={unsavedConfirm?.tabId === tab.id}
+                        mode={unsavedConfirm?.mode ?? 'close-tab'}
+                        tabTitle={tab.title}
+                        dirtyCount={unsavedConfirm?.dirtyCount ?? 0}
+                        canSave={unsavedConfirm?.canSave ?? false}
+                        onSave={() => onUnsavedSave?.()}
+                        onDiscard={() => onUnsavedDiscard?.()}
+                        onCancel={() => onUnsavedCancel?.()}
+                        data-testid="unsaved-dialog"
+                      >
                       <button
                         type="button"
                         data-testid={`${dataTestId}-item-${tab.title}`}
@@ -602,6 +632,7 @@ export function EditorLeftSidebar({
                           className="absolute left-2 z-10 size-3.5 shrink-0 cursor-pointer rounded-sm opacity-0 transition-opacity group-hover:opacity-100 hover:bg-sidebar-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         />
                       </button>
+                      </UnsavedPopover>
                     </TabContextMenu>
                   </li>
                 );

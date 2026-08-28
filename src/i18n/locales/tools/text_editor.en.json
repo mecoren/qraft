@@ -70,9 +70,8 @@
   "tools.text_editor.ctx_naming_case": "Cycle Naming Case",
   "tools.text_editor.ctx_toggle_case": "Toggle Case",
   "tools.text_editor.action_open_file": "Open File",
-  "tools.text_editor.action_open_folder": "Open Folder",
-  "tools.text_editor.diff_loading": "Loading editor...",
-  "tools.text_editor.resize_hint": "Drag to resize the file list width",
+  "tools.text_editor.action_open_folder": "Open folder",
+  "tools.text_editor.resize_hint": "Drag to resize file list",
   "tools.text_editor.restore_hint": "Drag right to show the file list",
   "tools.text_editor.shortcut_needs_selection": "Select text in the editor before using this shortcut"
 }

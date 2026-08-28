@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FileIcon } from './FileIcon';
 import { TabContextMenu } from './TabContextMenu';
+import { UnsavedPopover, type UnsavedMode } from './UnsavedPopover';
 import type { ComparePair, EditorTab } from './schema';
 
 export interface EditorTabsBarProps {
@@ -58,6 +59,17 @@ export interface EditorTabsBarProps {
   onRevealInExplorer?: (id: string) => void;
   /** 复制路径到剪贴板 */
   onCopyPath?: (id: string) => void;
+  /** 未保存/固定 Tab 关闭确认(null = 无确认框);锚定在对应 Tab 下方的小 Popover */
+  unsavedConfirm?: {
+    tabId: string;
+    mode: UnsavedMode;
+    dirtyCount: number;
+    canSave: boolean;
+  } | null;
+  /** 确认框回调:保存并关闭 / 不保存关闭 / 取消 */
+  onUnsavedSave?: () => void;
+  onUnsavedDiscard?: () => void;
+  onUnsavedCancel?: () => void;
   /** 测试定位用 */
   'data-testid'?: string;
 }
@@ -81,6 +93,10 @@ export function EditorTabsBar({
   onSave,
   onRevealInExplorer,
   onCopyPath,
+  unsavedConfirm = null,
+  onUnsavedSave,
+  onUnsavedDiscard,
+  onUnsavedCancel,
   'data-testid': dataTestId,
 }: EditorTabsBarProps): JSX.Element {
   const { t } = useTranslation();
@@ -349,6 +365,20 @@ export function EditorTabsBar({
                     onRevealInExplorer={() => onRevealInExplorer?.(tab.id)}
                     onCopyPath={() => onCopyPath?.(tab.id)}
                   >
+                    {/* 关闭确认:锚定在 Tab 下方的小 Popover(与 JSON 格式化器
+                        的关闭确认同款),受控 open 挂 unsavedConfirm.tabId,
+                        X 按钮/中键/右键菜单/批量关闭统一落到该 Tab 的确认框 */}
+                    <UnsavedPopover
+                      open={unsavedConfirm?.tabId === tab.id}
+                      mode={unsavedConfirm?.mode ?? 'close-tab'}
+                      tabTitle={tab.title}
+                      dirtyCount={unsavedConfirm?.dirtyCount ?? 0}
+                      canSave={unsavedConfirm?.canSave ?? false}
+                      onSave={() => onUnsavedSave?.()}
+                      onDiscard={() => onUnsavedDiscard?.()}
+                      onCancel={() => onUnsavedCancel?.()}
+                      data-testid="unsaved-dialog"
+                    >
                     <div
                       role="tab"
                       aria-selected={active}
@@ -458,6 +488,7 @@ export function EditorTabsBar({
                         </button>
                       </span>
                     </div>
+                    </UnsavedPopover>
                   </TabContextMenu>
                 );
               })}
