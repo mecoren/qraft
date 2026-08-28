@@ -139,7 +139,11 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
       : null;
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="png-compressor">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与内容区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="png-compressor"
+    >
       <ConfigSection title="" searchAnchor="png_compressor:config">
         <ConfigRow
           icon={FileImage}
@@ -206,6 +210,8 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
         )}
       </ConfigSection>
 
+      {/* 内容区:图片工具栏 + 拖放区收进带内边距的滚动区(内卡降级为 rounded-md) */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
       {/* 图片区 */}
       <div className="flex items-center justify-between" data-search-anchor="png_compressor:image">
         <h2 className="text-body-sm font-semibold">{t('tools.png_compressor.section_image')}</h2>
@@ -261,9 +267,9 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        className={`min-h-0 flex-1 rounded-lg border ${
+        className={`min-h-0 flex-1 rounded-md border ${
           dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
-        } shadow-card transition-colors`}
+        } transition-colors`}
       >
         <div className="flex h-full min-h-full flex-col items-center justify-center gap-2 p-4">
           {image ? (
@@ -327,6 +333,7 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
           )}
         </div>
       </ScrollArea>
+      </div>
     </div>
   );
 }

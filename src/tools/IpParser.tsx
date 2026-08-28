@@ -230,38 +230,12 @@ export function IpParser(_props: ToolProps): JSX.Element {
   const geoItems = geo.status === 'done' ? toGeoItems(geo.info) : [];
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="ip-parser">
-      {/* 查询摘要头部:大号 IP + 类型徽章 */}
-      {parsed.result ? (
-        <section
-          aria-label={t('tools.ip_parser.summary_aria')}
-          data-search-anchor="ip_parser:summary"
-          className="rounded-lg border border-border bg-card px-4 py-3 shadow-card"
-        >
-          <p className="mb-1 text-xs font-medium tracking-wide text-primary uppercase">
-            {t('tools.ip_parser.summary_heading')}
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 data-testid="ip-summary-address" className="break-all font-mono text-2xl font-bold">
-              {parsed.result.ip}
-            </h2>
-            <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-              IPv{parsed.result.version}
-            </span>
-            <span
-              data-testid="ip-summary-type"
-              className={
-                IP_PUBLIC_SCOPE_KEYS.has(parsed.result.scope)
-                  ? 'rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400'
-                  : 'rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400'
-              }
-            >
-              {t(parsed.result.scope)}
-            </span>
-          </div>
-        </section>
-      ) : null}
-
+    // 外层 shell 卡片:输入区固定为顶部扁平配置区,
+    // 摘要 / 错误 / 归属地 / 信息卡收进下方统一滚动内容区
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="ip-parser"
+    >
       <ConfigSection title="" searchAnchor="ip_parser:input">
         <div className="flex items-center gap-3 px-4 py-2.5">
           <Globe2 aria-hidden className="size-4 shrink-0 text-muted-foreground" />
@@ -283,115 +257,153 @@ export function IpParser(_props: ToolProps): JSX.Element {
         </div>
       </ConfigSection>
 
-      {parsed.error ? (
-        <p
-          data-testid="ip-error"
-          role="alert"
-          className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-body-sm text-destructive"
-        >
-          {parsed.error}
-        </p>
-      ) : null}
-
-      {!parsed.result && !parsed.error ? (
-        <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
-          {t('tools.ip_parser.empty_state')}
-        </p>
-      ) : null}
-
-      {/* 归属地与运营商(联网查询,手动触发):布局对齐 iplocation.net Lookup Summary */}
-      <section
-        aria-label={t('tools.ip_parser.geo_section_aria')}
-        data-search-anchor="ip_parser:geo"
-        className="flex flex-col gap-2"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-body-sm font-semibold">{t('tools.ip_parser.geo_heading')}</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void handleGeoQuery()}
-            disabled={geo.status === 'loading'}
-            data-testid="ip-geo-query"
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+        {/* 查询摘要头部:大号 IP + 类型徽章 */}
+        {parsed.result ? (
+          <section
+            aria-label={t('tools.ip_parser.summary_aria')}
+            data-search-anchor="ip_parser:summary"
+            className="rounded-md border border-border bg-card px-4 py-3"
           >
-            {geo.status === 'loading' ? (
-              <Loader2 aria-hidden className="size-3.5 animate-spin" />
-            ) : (
-              <Globe2 aria-hidden className="size-3.5" />
-            )}
-            {geo.status === 'loading'
-              ? t('tools.ip_parser.geo_querying')
-              : t('tools.ip_parser.geo_query_btn')}
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">{t('tools.ip_parser.geo_hint')}</p>
+            <p className="mb-1 text-xs font-medium tracking-wide text-primary uppercase">
+              {t('tools.ip_parser.summary_heading')}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2
+                data-testid="ip-summary-address"
+                className="break-all font-mono text-2xl font-bold"
+              >
+                {parsed.result.ip}
+              </h2>
+              <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
+                IPv{parsed.result.version}
+              </span>
+              <span
+                data-testid="ip-summary-type"
+                className={
+                  IP_PUBLIC_SCOPE_KEYS.has(parsed.result.scope)
+                    ? 'rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400'
+                    : 'rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400'
+                }
+              >
+                {t(parsed.result.scope)}
+              </span>
+            </div>
+          </section>
+        ) : null}
 
-        {geo.status === 'error' ? (
+        {parsed.error ? (
           <p
-            data-testid="ip-geo-error"
+            data-testid="ip-error"
             role="alert"
             className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-body-sm text-destructive"
           >
-            {geo.message}
+            {parsed.error}
           </p>
         ) : null}
 
-        {geoItems.length > 0 ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2">
-            {geoItems.map((item) => (
-              <div
-                key={item.testId}
-                data-testid={item.testId}
-                className="group rounded-lg border border-border bg-card px-4 py-3 shadow-card"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold tracking-wide text-primary uppercase">
-                    {item.label}
-                  </p>
-                  <span className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-                    <CopyAction text={item.copyText} testId={`${item.testId}-copy`} />
-                  </span>
-                </div>
-                <div className="mt-1 break-all text-body-sm font-bold">{item.value}</div>
-              </div>
-            ))}
-          </div>
+        {!parsed.result && !parsed.error ? (
+          <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
+            {t('tools.ip_parser.empty_state')}
+          </p>
         ) : null}
-      </section>
 
-      {/* 信息卡网格 */}
-      {infoItems.length > 0 ? (
+        {/* 归属地与运营商(联网查询,手动触发):布局对齐 iplocation.net Lookup Summary */}
         <section
-          aria-label={t('tools.ip_parser.info_section_aria')}
-          data-search-anchor="ip_parser:result"
-          className="flex min-h-0 flex-1 flex-col"
+          aria-label={t('tools.ip_parser.geo_section_aria')}
+          data-search-anchor="ip_parser:geo"
+          className="flex flex-col gap-2"
         >
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2 overflow-y-auto pr-0.5">
-            {infoItems.map((item) => (
-              <div
-                key={item.testId}
-                data-testid={item.testId}
-                className="group rounded-lg border border-border bg-card px-4 py-3 shadow-card"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    {item.label}
-                  </p>
-                  <span className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-                    <CopyAction text={item.value} testId={`${item.testId}-copy`} />
-                  </span>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-body-sm font-semibold">{t('tools.ip_parser.geo_heading')}</h2>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void handleGeoQuery()}
+              disabled={geo.status === 'loading'}
+              data-testid="ip-geo-query"
+            >
+              {geo.status === 'loading' ? (
+                <Loader2 aria-hidden className="size-3.5 animate-spin" />
+              ) : (
+                <Globe2 aria-hidden className="size-3.5" />
+              )}
+              {geo.status === 'loading'
+                ? t('tools.ip_parser.geo_querying')
+                : t('tools.ip_parser.geo_query_btn')}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">{t('tools.ip_parser.geo_hint')}</p>
+
+          {geo.status === 'error' ? (
+            <p
+              data-testid="ip-geo-error"
+              role="alert"
+              className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-body-sm text-destructive"
+            >
+              {geo.message}
+            </p>
+          ) : null}
+
+          {geoItems.length > 0 ? (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2">
+              {geoItems.map((item) => (
+                <div
+                  key={item.testId}
+                  data-testid={item.testId}
+                  className="group rounded-md border border-border bg-card px-4 py-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold tracking-wide text-primary uppercase">
+                      {item.label}
+                    </p>
+                    <span className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                      <CopyAction text={item.copyText} testId={`${item.testId}-copy`} />
+                    </span>
+                  </div>
+                  <div className="mt-1 break-all text-body-sm font-bold">{item.value}</div>
                 </div>
-                <p className="mt-1 break-all font-mono text-body-sm font-semibold">{item.value}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Network aria-hidden className="size-3.5" />
-            {t('tools.ip_parser.offline_note')}
-          </div>
+              ))}
+            </div>
+          ) : null}
         </section>
-      ) : null}
+
+        {/* 信息卡网格:滚动由外层内容区承担 */}
+        {infoItems.length > 0 ? (
+          <section
+            aria-label={t('tools.ip_parser.info_section_aria')}
+            data-search-anchor="ip_parser:result"
+            className="flex flex-col"
+          >
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2">
+              {infoItems.map((item) => (
+                <div
+                  key={item.testId}
+                  data-testid={item.testId}
+                  className="group rounded-md border border-border bg-card px-4 py-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                      {item.label}
+                    </p>
+                    <span className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                      <CopyAction text={item.value} testId={`${item.testId}-copy`} />
+                    </span>
+                  </div>
+                  <p className="mt-1 break-all font-mono text-body-sm font-semibold">
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Network aria-hidden className="size-3.5" />
+              {t('tools.ip_parser.offline_note')}
+            </div>
+          </section>
+        ) : null}
+      </div>
     </div>
   );
 }

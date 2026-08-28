@@ -7,8 +7,8 @@
  * - Decoders:Text / ASCII / Hex / Basic Auth(文本类,走 Rust 后端)+ File / Image /
  *   Audio / Video / PDF(二进制类,Rust 校验嗅探 MIME + 前端 Blob 预览)
  *
- * 布局参考 TextProcessor / JsonFormatter:
- * - 顶部「配置」卡片:方向 Tabs + 模式 Select + 按模式动态出现的微开关
+ * 布局参考 TextProcessor / JsonFormatter(外层统一 shell 卡片):
+ * - 顶部扁平「配置」区:方向 Tabs + 模式 Select + 按模式动态出现的微开关
  * - 下方 ResizablePanelGroup 双栏工作区
  * - 文本类模式:输入防抖自动执行(400ms),错误写入输出框,meta 统计 + 复制
  * - 文件类 encode:拖放 / 选择文件 → data URL / 纯 base64 输出
@@ -259,7 +259,7 @@ function PreviewBody({
   return (
     <div
       data-testid="b64-preview"
-      className="flex flex-col items-center gap-3 rounded-lg border border-border bg-background p-6"
+      className="flex flex-col items-center gap-3 rounded-md border border-border bg-background p-6"
     >
       <FileDown aria-hidden className="size-10 text-primary" />
       <p className="text-sm font-medium">decoded.{ext}</p>
@@ -568,7 +568,11 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
   const executeDisabled = loading || !text;
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="base64-codec">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与双栏工作区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="base64-codec"
+    >
       <ConfigSection title="" searchAnchor="base64_codec:config">
         <ConfigRow
           icon={Binary}
@@ -647,12 +651,9 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
 
-      {/* 合并双栏卡片(参考 JsonFormatter,无 Tab 栏):外层 rounded-lg 框体,
+      {/* 双栏工作区直接置于 shell 卡片内(外框由根元素提供):
           两侧编辑器只保留朝向中缝的边框,避免双线/双圆角 */}
-      <ResizablePanelGroup
-        orientation="horizontal"
-        className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-background shadow-sm"
-      >
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         {/* 左区:输入 */}
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           {isTextMode || isFileDecode ? (

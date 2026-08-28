@@ -87,7 +87,11 @@ export function LoremIpsum(_props: ToolProps): JSX.Element {
   }, [granularity, count, startWithLorem]);
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="lorem-ipsum">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与输出编辑器收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="lorem-ipsum"
+    >
       <ConfigSection title="" searchAnchor="lorem_ipsum:config">
         <ConfigRow
           icon={Pilcrow}
@@ -137,7 +141,7 @@ export function LoremIpsum(_props: ToolProps): JSX.Element {
         value={output}
         readOnly
         data-testid="lorem-output"
-        className="min-h-0 flex-1"
+        className="min-h-0 flex-1 rounded-none border-0"
         searchAnchor="lorem_ipsum:output"
         actions={<CopyAction text={output} testId="lorem-copy" />}
       />

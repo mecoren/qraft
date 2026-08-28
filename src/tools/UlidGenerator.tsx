@@ -32,7 +32,11 @@ export function UlidGenerator({ toolId }: ToolProps): JSX.Element {
   });
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3" data-testid="ulid-generator">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与输出编辑器收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="ulid-generator"
+    >
       <ConfigSection title="" searchAnchor="ulid_generator:config">
         <ConfigRow
           icon={Fingerprint}
@@ -55,6 +59,7 @@ export function UlidGenerator({ toolId }: ToolProps): JSX.Element {
         language="plaintext"
         readOnly
         value={output}
+        className="min-h-0 flex-1 rounded-none border-0"
         data-testid="output"
         searchAnchor="ulid_generator:output"
         actions={

@@ -1,8 +1,8 @@
 /**
  * UUID 生成器 —— 新代统一布局
  *
- * 结构(与 Base64Codec / JsonFormatter 一致):
- * - 顶部「配置」卡片:版本 / 数量 / 格式(大写·连字符)三行
+ * 结构(对齐 JsonFormatter 基准):
+ * - 外层 shell 卡片,顶部为扁平「配置」区:版本 / 数量 / 格式(大写·连字符)三行
  * - 下方全高输出编辑器:「生成」动作在编辑器工具栏,结果区带「全部复制」
  *
  * 错误处理遵循新代约定:执行失败信息直接写入输出编辑器。
@@ -61,7 +61,12 @@ export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
   }
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="uuid-generator">
+    // 外层 shell 卡片(对齐 JsonFormatter / EditorWorkbench 基准):
+    // rounded-lg + border + shadow,配置区与输出编辑器收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="uuid-generator"
+    >
       <ConfigSection title="" searchAnchor="uuid_generator:config">
         <ConfigRow
           icon={Fingerprint}
@@ -117,7 +122,7 @@ export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
         language="plaintext"
         value={output}
         placeholder={t('tools.uuid_generator.output_placeholder')}
-        className="min-h-0 flex-1"
+        className="min-h-0 flex-1 rounded-none border-0"
         data-testid="output"
         searchAnchor="uuid_generator:output"
         actions={

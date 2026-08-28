@@ -57,7 +57,11 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
   }, [deferredInput, dialect, indent, keywordCase, t]);
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="sql-formatter">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区 + 横向双栏工作区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="sql-formatter"
+    >
       <ConfigSection title="" searchAnchor="sql_formatter:config">
         <ConfigRow
           icon={Database}
@@ -113,7 +117,7 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
             value={input}
             onChange={setInput}
             data-testid="sql-input"
-            className="h-full"
+            className="h-full rounded-none border-0 border-r"
             searchAnchor="sql_formatter:input"
           />
         </ResizablePanel>
@@ -125,7 +129,7 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
             value={output}
             readOnly
             data-testid="sql-output"
-            className="h-full"
+            className="h-full rounded-none border-0 border-l"
             searchAnchor="sql_formatter:output"
             actions={<CopyAction text={output} testId="sql-copy" />}
           />

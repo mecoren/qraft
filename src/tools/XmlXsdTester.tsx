@@ -107,12 +107,16 @@ export function XmlXsdTester(_props: ToolProps): JSX.Element {
   }, [deferredXml, xsd, t]);
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="xml-xsd-tester">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):校验结论扁平区 + 双栏编辑器收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="xml-xsd-tester"
+    >
       {/* 校验结论 */}
       <div
         data-testid="xsd-verdict"
         data-search-anchor="xml_xsd_tester:verdict"
-        className="flex items-start gap-2 rounded-lg border border-border bg-card px-4 py-3 shadow-card"
+        className="flex items-start gap-2 border-b border-border px-4 py-3"
       >
         {verdict === null ? (
           <p className="text-xs text-muted-foreground">{t('tools.xml_xsd_tester.idle_hint')}</p>
@@ -142,7 +146,7 @@ export function XmlXsdTester(_props: ToolProps): JSX.Element {
             onChange={setXsd}
             placeholder={'<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">…'}
             data-testid="xsd-input"
-            className="h-full"
+            className="h-full rounded-none border-0 border-r"
             searchAnchor="xml_xsd_tester:xsd"
           />
         </ResizablePanel>
@@ -154,7 +158,7 @@ export function XmlXsdTester(_props: ToolProps): JSX.Element {
             value={xml}
             onChange={setXml}
             data-testid="xml-input"
-            className="h-full"
+            className="h-full rounded-none border-0 border-l"
             searchAnchor="xml_xsd_tester:xml"
           />
         </ResizablePanel>

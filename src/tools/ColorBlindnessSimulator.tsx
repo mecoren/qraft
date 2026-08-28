@@ -132,9 +132,13 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
   );
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="color-blindness-simulator">
+    // 外层 shell 卡片:来源选择为顶部扁平区,四宫格预览收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="color-blindness-simulator"
+    >
       <div
-        className="flex items-center justify-between"
+        className="flex items-center justify-between border-b border-border px-4 py-3"
         data-search-anchor="color_blindness_simulator:source"
       >
         <h2 className="text-body-sm font-semibold">
@@ -164,7 +168,7 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
       />
 
       <div
-        className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3"
+        className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3 p-3"
         data-search-anchor="color_blindness_simulator:preview"
       >
         {/* 原图 / 拖放区 */}
@@ -176,9 +180,9 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
           }}
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
-          className={`flex min-h-0 flex-col rounded-lg border ${
+          className={`flex min-h-0 flex-col rounded-md border ${
             dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
-          } p-3 shadow-card transition-colors`}
+          } p-3 transition-colors`}
         >
           <span className="mb-2 text-xs text-muted-foreground">
             {t('tools.color_blindness_simulator.original')}
@@ -202,7 +206,7 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
         {(Object.keys(LABELS) as Deficiency[]).map((kind) => (
           <div
             key={kind}
-            className="flex min-h-0 flex-col rounded-lg border border-border bg-card p-3 shadow-card"
+            className="flex min-h-0 flex-col rounded-md border border-border bg-card p-3"
           >
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs text-muted-foreground">{t(LABELS[kind])}</span>

@@ -67,7 +67,11 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
   const extra = output?.extra as RegexExtra | undefined;
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="regex-tester">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区 + 双栏工作区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="regex-tester"
+    >
       <ConfigSection title="" searchAnchor="regex_tester:config">
         <ConfigRow
           icon={Regex}
@@ -107,7 +111,7 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
             value={text}
             onChange={setText}
             language="plaintext"
-            className="h-full"
+            className="h-full rounded-none border-0 border-r"
             data-testid="input"
             searchAnchor="regex_tester:input"
             actions={
@@ -127,7 +131,7 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
         {/* 右区:匹配结果(内联错误 / 列表 / 空态) */}
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <div
-            className="flex h-full flex-col overflow-hidden rounded-md border border-input bg-card"
+            className="flex h-full flex-col overflow-hidden rounded-none border-0 border-l bg-card"
             data-testid="output"
             data-search-anchor="regex_tester:output"
           >

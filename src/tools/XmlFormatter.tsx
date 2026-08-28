@@ -119,7 +119,11 @@ export function XmlFormatter(_props: ToolProps): JSX.Element {
   }, [deferredInput, mode, attrNewLine, t]);
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="xml-formatter">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区 + 横向双栏工作区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="xml-formatter"
+    >
       <ConfigSection title="" searchAnchor="xml_formatter:config">
         <ConfigRow icon={IndentIncrease} label={t('tools.xml_formatter.indent')}>
           <Select value={mode} onValueChange={(v) => setMode(v as IndentMode)}>
@@ -156,7 +160,7 @@ export function XmlFormatter(_props: ToolProps): JSX.Element {
             value={input}
             onChange={setInput}
             data-testid="xmlfmt-input"
-            className="h-full"
+            className="h-full rounded-none border-0 border-r"
             searchAnchor="xml_formatter:input"
           />
         </ResizablePanel>
@@ -168,7 +172,7 @@ export function XmlFormatter(_props: ToolProps): JSX.Element {
             value={output}
             readOnly
             data-testid="xmlfmt-output"
-            className="h-full"
+            className="h-full rounded-none border-0 border-l"
             searchAnchor="xml_formatter:output"
             actions={<CopyAction text={output} testId="xmlfmt-copy" />}
           />

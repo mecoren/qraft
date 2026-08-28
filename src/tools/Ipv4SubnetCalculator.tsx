@@ -57,7 +57,11 @@ export function Ipv4SubnetCalculator({ toolId }: ToolProps): JSX.Element {
   });
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3" data-testid="ipv4-subnet-calculator">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与结果区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="ipv4-subnet-calculator"
+    >
       <ConfigSection title="" searchAnchor="ipv4_subnet_calculator:config">
         <ConfigRow icon={Network} label="CIDR" hint={t('tools.ipv4_subnet_calculator.cidr_hint')}>
           <Input
@@ -69,32 +73,35 @@ export function Ipv4SubnetCalculator({ toolId }: ToolProps): JSX.Element {
           />
         </ConfigRow>
       </ConfigSection>
-      <div
-        className="min-h-0 flex-1 overflow-auto rounded-lg border bg-card p-3"
-        data-testid="output"
-        data-search-anchor="ipv4_subnet_calculator:output"
-      >
-        {!info && raw.trim() !== '' && (
-          <p role="alert" className="text-sm text-destructive">
-            {t('tools.ipv4_subnet_calculator.parse_error')}
-          </p>
-        )}
-        {info && (
-          <dl className="grid gap-2">
-            {rows.map((r) => (
-              <div
-                key={r.k}
-                className="flex items-center justify-between rounded border px-3 py-1.5"
-              >
-                <dt className="text-xs text-muted-foreground">{r.k}</dt>
-                <dd className="flex items-center gap-2 font-mono text-sm" data-testid={r.tid}>
-                  {r.v}
-                  <CopyAction text={r.v} />
-                </dd>
-              </div>
-            ))}
-          </dl>
-        )}
+      {/* 结果区收进带内边距的 wrapper,卡片内部自行滚动(对齐 shell 布局基准) */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+        <div
+          className="min-h-0 flex-1 overflow-auto rounded-md border border-border bg-card p-3"
+          data-testid="output"
+          data-search-anchor="ipv4_subnet_calculator:output"
+        >
+          {!info && raw.trim() !== '' && (
+            <p role="alert" className="text-sm text-destructive">
+              {t('tools.ipv4_subnet_calculator.parse_error')}
+            </p>
+          )}
+          {info && (
+            <dl className="grid gap-2">
+              {rows.map((r) => (
+                <div
+                  key={r.k}
+                  className="flex items-center justify-between rounded border px-3 py-1.5"
+                >
+                  <dt className="text-xs text-muted-foreground">{r.k}</dt>
+                  <dd className="flex items-center gap-2 font-mono text-sm" data-testid={r.tid}>
+                    {r.v}
+                    <CopyAction text={r.v} />
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
       </div>
     </div>
   );

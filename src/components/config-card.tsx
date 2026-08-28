@@ -36,9 +36,9 @@ export function ConfigSection({
       {resolvedTitle ? (
         <h2 className="mb-1.5 text-body-sm font-semibold">{resolvedTitle}</h2>
       ) : null}
-      <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-card">
-        {children}
-      </div>
+      {/* 扁平配置区:作为工具 shell 卡片内的顶部区块,不再自带独立卡片外观
+          (圆角/边框/阴影由外层 shell 提供,这里只用 border-b 与主内容区分隔) */}
+      <div className="divide-y divide-border border-b border-border">{children}</div>
     </section>
   );
 }

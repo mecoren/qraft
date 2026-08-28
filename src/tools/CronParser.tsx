@@ -74,7 +74,11 @@ export function CronParser(_props: ToolProps): JSX.Element {
   const nextText = parsed && 'next' in parsed ? parsed.next.join('\n') : '';
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="cron-parser">
+    // 外层 shell 卡片:开关/数量为顶部扁平配置区,表达式与结果收进滚动内容区
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="cron-parser"
+    >
       <ConfigSection title="" searchAnchor="cron_parser:config">
         <ConfigRow
           icon={Clock}
@@ -102,67 +106,69 @@ export function CronParser(_props: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
 
-      <section
-        aria-label={t('tools.cron_parser.expression_label')}
-        data-search-anchor="cron_parser:expression"
-      >
-        <h2 className="mb-1.5 text-body-sm font-semibold">
-          {t('tools.cron_parser.expression_label')}
-        </h2>
-        <Input
-          value={expr}
-          onChange={(e) => setExpr(e.target.value)}
-          placeholder={withSeconds ? '0 0 0 * * *' : '0 0 * * *'}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+        <section
           aria-label={t('tools.cron_parser.expression_label')}
-          data-testid="cron-expr"
-          className="h-9 font-mono text-body-sm"
-        />
-      </section>
+          data-search-anchor="cron_parser:expression"
+        >
+          <h2 className="mb-1.5 text-body-sm font-semibold">
+            {t('tools.cron_parser.expression_label')}
+          </h2>
+          <Input
+            value={expr}
+            onChange={(e) => setExpr(e.target.value)}
+            placeholder={withSeconds ? '0 0 0 * * *' : '0 0 * * *'}
+            aria-label={t('tools.cron_parser.expression_label')}
+            data-testid="cron-expr"
+            className="h-9 font-mono text-body-sm"
+          />
+        </section>
 
-      {/* 描述 */}
-      <div className="flex items-start gap-2 rounded-lg border border-border bg-card px-4 py-3 shadow-card">
-        <CalendarClock aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-        {parsed === null ? (
-          <p className="text-xs text-muted-foreground">{t('tools.cron_parser.empty_hint')}</p>
-        ) : 'error' in parsed ? (
-          <p data-testid="cron-error" className="text-body-sm text-destructive">
-            {parsed.error}
-          </p>
-        ) : (
-          <p data-testid="cron-description" className="text-body-sm">
-            {parsed.description}
-          </p>
-        )}
-      </div>
-
-      {/* 下次执行时间 */}
-      <section
-        aria-label={t('tools.cron_parser.scheduled_dates_aria')}
-        className="flex min-h-0 flex-1 flex-col"
-        data-search-anchor="cron_parser:result"
-      >
-        <div className="mb-1.5 flex items-center justify-between">
-          <h2 className="text-body-sm font-semibold">{t('tools.cron_parser.upcoming_dates')}</h2>
-          <CopyAction text={nextText} testId="cron-copy" />
-        </div>
-        <ScrollArea className="min-h-0 flex-1 rounded-lg border border-border bg-card shadow-card">
-          {parsed && 'next' in parsed ? (
-            <ul className="divide-y divide-border">
-              {parsed.next.map((t) => (
-                <li
-                  key={t}
-                  className="px-4 py-2 font-mono text-body-sm"
-                  data-testid="cron-next-item"
-                >
-                  {t}
-                </li>
-              ))}
-            </ul>
+        {/* 描述 */}
+        <div className="flex items-start gap-2 rounded-md border border-border bg-card px-4 py-3">
+          <CalendarClock aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          {parsed === null ? (
+            <p className="text-xs text-muted-foreground">{t('tools.cron_parser.empty_hint')}</p>
+          ) : 'error' in parsed ? (
+            <p data-testid="cron-error" className="text-body-sm text-destructive">
+              {parsed.error}
+            </p>
           ) : (
-            <p className="px-4 py-3 text-xs text-muted-foreground">-</p>
+            <p data-testid="cron-description" className="text-body-sm">
+              {parsed.description}
+            </p>
           )}
-        </ScrollArea>
-      </section>
+        </div>
+
+        {/* 下次执行时间:列表自然展开,滚动由外层内容区承担 */}
+        <section
+          aria-label={t('tools.cron_parser.scheduled_dates_aria')}
+          className="flex flex-col"
+          data-search-anchor="cron_parser:result"
+        >
+          <div className="mb-1.5 flex items-center justify-between">
+            <h2 className="text-body-sm font-semibold">{t('tools.cron_parser.upcoming_dates')}</h2>
+            <CopyAction text={nextText} testId="cron-copy" />
+          </div>
+          <ScrollArea className="rounded-md border border-border bg-card">
+            {parsed && 'next' in parsed ? (
+              <ul className="divide-y divide-border">
+                {parsed.next.map((t) => (
+                  <li
+                    key={t}
+                    className="px-4 py-2 font-mono text-body-sm"
+                    data-testid="cron-next-item"
+                  >
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-4 py-3 text-xs text-muted-foreground">-</p>
+            )}
+          </ScrollArea>
+        </section>
+      </div>
     </div>
   );
 }

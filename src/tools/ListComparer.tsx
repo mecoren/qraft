@@ -90,7 +90,11 @@ export function ListComparer(_props: ToolProps): JSX.Element {
   }, [deferredA, deferredB, mode, caseSensitive, trimItems]);
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="list-comparer">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区 + 三栏工作区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="list-comparer"
+    >
       <ConfigSection title="" searchAnchor="list_comparer:config">
         <ConfigRow icon={CaseSensitive} label={t('tools.list_comparer.case_sensitive')}>
           <Switch
@@ -136,7 +140,8 @@ export function ListComparer(_props: ToolProps): JSX.Element {
             value={listA}
             onChange={setListA}
             data-testid="lc-a"
-            className="h-full"
+            // 三栏最左:只保留右侧边框(朝向与 B 列的分隔缝),外三边由 shell 提供
+            className="h-full rounded-none border-0 border-r"
             searchAnchor="list_comparer:a"
           />
         </ResizablePanel>
@@ -148,7 +153,8 @@ export function ListComparer(_props: ToolProps): JSX.Element {
             value={listB}
             onChange={setListB}
             data-testid="lc-b"
-            className="h-full"
+            // 三栏居中:保留左右两侧边框(分别朝向 A/C 两列的分隔缝)
+            className="h-full rounded-none border-0 border-r border-l"
             searchAnchor="list_comparer:b"
           />
         </ResizablePanel>
@@ -160,7 +166,8 @@ export function ListComparer(_props: ToolProps): JSX.Element {
             value={result}
             readOnly
             data-testid="lc-result"
-            className="h-full"
+            // 三栏最右:只保留左侧边框(朝向与 B 列的分隔缝),外三边由 shell 提供
+            className="h-full rounded-none border-0 border-l"
             searchAnchor="list_comparer:result"
             actions={<CopyAction text={result} testId="lc-copy" />}
           />

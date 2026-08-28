@@ -50,7 +50,11 @@ export function JsonYamlConverter(_props: ToolProps): JSX.Element {
   }, [deferredInput, direction, indent, t]);
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="json-yaml-converter">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区 + 双栏工作区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="json-yaml-converter"
+    >
       <ConfigSection title="" searchAnchor="json_yaml_converter:config">
         <ConfigRow
           icon={ArrowLeftRight}
@@ -92,7 +96,8 @@ export function JsonYamlConverter(_props: ToolProps): JSX.Element {
             value={input}
             onChange={setInput}
             data-testid="jy-input"
-            className="h-full"
+            // 只保留右侧边框(朝向中间分隔缝),外三边由外层 shell 卡片提供
+            className="h-full rounded-none border-0 border-r"
             searchAnchor="json_yaml_converter:input"
           />
         </ResizablePanel>
@@ -104,7 +109,8 @@ export function JsonYamlConverter(_props: ToolProps): JSX.Element {
             value={output}
             readOnly
             data-testid="jy-output"
-            className="h-full"
+            // 对称:只保留左侧边框(朝向中间分隔缝),理由同输入侧
+            className="h-full rounded-none border-0 border-l"
             searchAnchor="json_yaml_converter:output"
             actions={<CopyAction text={output} testId="jy-copy" />}
           />

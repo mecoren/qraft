@@ -49,7 +49,11 @@ export function HtmlCodec(_props: ToolProps): JSX.Element {
   }, [input, encodeMode, t]);
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="html-codec">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区 + 纵向双栏工作区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="html-codec"
+    >
       <ConfigSection title="" searchAnchor="html_codec:config">
         <ConfigRow
           icon={ArrowLeftRight}
@@ -76,7 +80,7 @@ export function HtmlCodec(_props: ToolProps): JSX.Element {
             value={input}
             onChange={setInput}
             data-testid="html-input"
-            className="h-full"
+            className="h-full rounded-none border-0"
             searchAnchor="html_codec:input"
           />
         </ResizablePanel>
@@ -88,7 +92,7 @@ export function HtmlCodec(_props: ToolProps): JSX.Element {
             value={output}
             readOnly
             data-testid="html-output"
-            className="h-full"
+            className="h-full rounded-none border-0"
             searchAnchor="html_codec:output"
             actions={<CopyAction text={output} testId="html-copy" />}
           />

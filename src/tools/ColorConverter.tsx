@@ -69,7 +69,11 @@ export function ColorConverter({ toolId }: ToolProps): JSX.Element {
   const extra = output?.extra as ColorExtra | undefined;
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="color-converter">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区 + 结果区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="color-converter"
+    >
       <ConfigSection title="" searchAnchor="color_converter:config">
         <ConfigRow
           icon={Palette}
@@ -108,63 +112,65 @@ export function ColorConverter({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
 
-      {error && (
-        <div
-          role="alert"
-          className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
-        >
-          {error}
-        </div>
-      )}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+        {error && (
+          <div
+            role="alert"
+            className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
+          >
+            {error}
+          </div>
+        )}
 
-      {/* 结果区:左预览/取值 + 右输出编辑器;锚点保持 color_converter:result */}
-      <div
-        className="grid min-h-0 flex-1 grid-cols-2 gap-3"
-        data-testid="output"
-        data-search-anchor="color_converter:result"
-      >
-        <div className="flex min-h-0 flex-col gap-3">
-          <div className="rounded-lg border p-3 shadow-card">
-            <div className="text-xs font-semibold text-muted-foreground">
-              {t('tools.color_converter.preview')}
+        {/* 结果区:左预览/取值 + 右输出编辑器;锚点保持 color_converter:result */}
+        <div
+          className="grid min-h-0 flex-1 grid-cols-2 gap-3"
+          data-testid="output"
+          data-search-anchor="color_converter:result"
+        >
+          <div className="flex min-h-0 flex-col gap-3">
+            <div className="rounded-md border border-border bg-card p-3">
+              <div className="text-xs font-semibold text-muted-foreground">
+                {t('tools.color_converter.preview')}
+              </div>
+              <div
+                className="mt-2 h-24 rounded-md border"
+                style={{ backgroundColor: extra?.hex }}
+                aria-label={
+                  extra
+                    ? t('tools.color_converter.color_sample', { value: extra.hex })
+                    : t('tools.color_converter.no_color_sample')
+                }
+              />
             </div>
-            <div
-              className="mt-2 h-24 rounded-md border"
-              style={{ backgroundColor: extra?.hex }}
-              aria-label={
-                extra
-                  ? t('tools.color_converter.color_sample', { value: extra.hex })
-                  : t('tools.color_converter.no_color_sample')
-              }
-            />
-          </div>
-          <div className="min-h-0 flex-1 overflow-auto rounded-lg border p-3 text-sm shadow-card">
-            <div className="grid grid-cols-[60px_1fr_auto] gap-x-3 gap-y-2">
-              <span className="font-semibold">HEX</span>
-              <code className="break-all font-mono">{extra?.hex ?? '—'}</code>
-              <CopyButton value={extra?.hex} />
-              <span className="font-semibold">RGB</span>
-              <code className="break-all font-mono">{extra?.rgb ?? '—'}</code>
-              <CopyButton value={extra?.rgb} />
-              <span className="font-semibold">HSL</span>
-              <code className="break-all font-mono">{extra?.hsl ?? '—'}</code>
-              <CopyButton value={extra?.hsl} />
+            <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border bg-card p-3 text-sm">
+              <div className="grid grid-cols-[60px_1fr_auto] gap-x-3 gap-y-2">
+                <span className="font-semibold">HEX</span>
+                <code className="break-all font-mono">{extra?.hex ?? '—'}</code>
+                <CopyButton value={extra?.hex} />
+                <span className="font-semibold">RGB</span>
+                <code className="break-all font-mono">{extra?.rgb ?? '—'}</code>
+                <CopyButton value={extra?.rgb} />
+                <span className="font-semibold">HSL</span>
+                <code className="break-all font-mono">{extra?.hsl ?? '—'}</code>
+                <CopyButton value={extra?.hsl} />
+              </div>
             </div>
           </div>
+          <CodeEditor
+            readOnly
+            title={t('tools.color_converter.result_title')}
+            language="plaintext"
+            value={output?.text ?? ''}
+            placeholder={t('tools.color_converter.output_placeholder')}
+            className="min-h-0"
+            data-testid="output-editor"
+            searchAnchor="color_converter:output"
+            actions={
+              output?.text ? <CopyAction text={output.text} testId="output-copy" /> : undefined
+            }
+          />
         </div>
-        <CodeEditor
-          readOnly
-          title={t('tools.color_converter.result_title')}
-          language="plaintext"
-          value={output?.text ?? ''}
-          placeholder={t('tools.color_converter.output_placeholder')}
-          className="min-h-0"
-          data-testid="output-editor"
-          searchAnchor="color_converter:output"
-          actions={
-            output?.text ? <CopyAction text={output.text} testId="output-copy" /> : undefined
-          }
-        />
       </div>
     </div>
   );

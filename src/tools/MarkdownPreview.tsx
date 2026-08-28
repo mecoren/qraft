@@ -659,7 +659,11 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
   const showPreview = viewMode !== 'edit';
 
   return (
-    <div className="flex h-full min-h-0 flex-col" data-testid="markdown-preview">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):顶部工具条 + 分栏工作区收进同一卡片
+    <div
+      className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="markdown-preview"
+    >
       {/* —— 顶部工具条:视图模式 / 大纲开关 / 打字机 / 同步滚动(打印隐藏)—— */}
       <div
         className="flex items-center gap-2 border-b border-border px-1.5 py-1 print:hidden"
@@ -773,7 +777,10 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
                     onChange={setInput}
                     placeholder={t('tools.markdown_preview.editor_placeholder')}
                     data-testid="md-input"
-                    className="h-full"
+                    // 嵌入 shell:去掉编辑器自带圆角/边框(外框由 shell 提供);
+                    // 分屏时仅在朝向预览的一侧保留 border-r 作分栏分隔线,
+                    // 纯编辑模式下两侧都与 shell 边缘齐平
+                    className={cn('h-full rounded-none border-0', showPreview && 'border-r')}
                     searchAnchor="markdown_preview:input"
                     showPaste
                     showOpenFile

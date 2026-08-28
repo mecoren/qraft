@@ -107,36 +107,38 @@ export function CertificateDecoder(_props: ToolProps): JSX.Element {
   }, [input, t]);
 
   return (
-    <ResizablePanelGroup
-      orientation="vertical"
-      className="min-h-0 flex-1"
+    // 外层 shell 卡片:无配置区,纵向双编辑器面板组直接填充
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="certificate-decoder"
     >
-      <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
-        <CodeEditor
-          title={t('tools.certificate_decoder.title_input')}
-          language="plaintext"
-          value={input}
-          onChange={setInput}
-          placeholder={'-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'}
-          data-testid="cert-input"
-          className="h-full"
-          searchAnchor="certificate_decoder:input"
-        />
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
-        <CodeEditor
-          title={t('tools.certificate_decoder.title_output')}
-          language="plaintext"
-          value={output}
-          readOnly
-          data-testid="cert-output"
-          className="h-full"
-          searchAnchor="certificate_decoder:output"
-          actions={<CopyAction text={output} testId="cert-copy" />}
-        />
-      </ResizablePanel>
-    </ResizablePanelGroup>
+      <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
+        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
+          <CodeEditor
+            title={t('tools.certificate_decoder.title_input')}
+            language="plaintext"
+            value={input}
+            onChange={setInput}
+            placeholder={'-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'}
+            data-testid="cert-input"
+            className="h-full rounded-none border-0"
+            searchAnchor="certificate_decoder:input"
+          />
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
+          <CodeEditor
+            title={t('tools.certificate_decoder.title_output')}
+            language="plaintext"
+            value={output}
+            readOnly
+            data-testid="cert-output"
+            className="h-full rounded-none border-0"
+            searchAnchor="certificate_decoder:output"
+            actions={<CopyAction text={output} testId="cert-copy" />}
+          />
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </div>
   );
 }

@@ -36,7 +36,11 @@ export function TextStatistics({ toolId }: ToolProps): JSX.Element {
   });
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="text-statistics">
+    // 外层 shell 卡片:说明为顶部扁平配置区,双栏工作区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="text-statistics"
+    >
       <ConfigSection title="" searchAnchor="text_statistics:config">
         <p className="px-4 py-2 text-xs text-muted-foreground">
           {t('tools.text_statistics.description')}
@@ -50,6 +54,7 @@ export function TextStatistics({ toolId }: ToolProps): JSX.Element {
             onChange={(v) => setText(v)}
             showClear
             language="plaintext"
+            className="h-full rounded-none border-0 border-r"
             searchAnchor="text_statistics:input"
             data-testid="input"
           />
@@ -57,7 +62,7 @@ export function TextStatistics({ toolId }: ToolProps): JSX.Element {
         <ResizableHandle />
         <ResizablePanel defaultSize={45} minSize={20}>
           <div
-            className="flex h-full flex-col"
+            className="flex h-full flex-col border-l border-border"
             data-testid="output"
             data-search-anchor="text_statistics:output"
           >

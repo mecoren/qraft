@@ -86,7 +86,11 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
   useToolHandoff(toolId, (incoming) => setText(incoming));
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="hash-calculator">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区 + 双栏工作区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="hash-calculator"
+    >
       <ConfigSection title="" searchAnchor="hash_calculator:config">
         <ConfigRow
           icon={ShieldCheck}
@@ -117,7 +121,7 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
             value={text}
             onChange={setText}
             language="plaintext"
-            className="h-full"
+            className="h-full rounded-none border-0 border-r"
             data-testid="input"
             searchAnchor="hash_calculator:input"
             actions={
@@ -137,7 +141,7 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <div className="relative h-full">
             {error ? (
-              <div className="flex h-full flex-col overflow-hidden rounded-md border border-input bg-card">
+              <div className="flex h-full flex-col overflow-hidden rounded-none border-0">
                 <div className="border-b border-input px-2 py-0.5">
                   <span className="pl-1 text-xs font-medium">
                     {t('tools.hash_calculator.output_title')}
@@ -157,7 +161,7 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
                 language="plaintext"
                 value={output?.text ?? ''}
                 placeholder={t('tools.hash_calculator.output_placeholder')}
-                className="h-full"
+                className="h-full rounded-none border-0 border-l"
                 data-testid="output"
                 searchAnchor="hash_calculator:output"
                 actions={

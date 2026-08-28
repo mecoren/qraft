@@ -117,7 +117,11 @@ export function PasswordGenerator(_props: ToolProps): JSX.Element {
   }, [opts, count, noType]);
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="password-generator">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与输出编辑器收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="password-generator"
+    >
       <ConfigSection title="" searchAnchor="password_generator:config">
         <ConfigRow icon={KeyRound} label={t('tools.password_generator.length')}>
           <Input
@@ -189,9 +193,9 @@ export function PasswordGenerator(_props: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
 
-      {/* 强度与生成 */}
+      {/* 强度与生成:并入顶部扁平配置区(无独立卡片外观,仅以 border-b 与输出区隔开) */}
       <div
-        className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5 shadow-card"
+        className="flex items-center gap-3 border-b border-border px-4 py-2.5"
         data-search-anchor="password_generator:strength"
       >
         <span className="text-xs text-muted-foreground">
@@ -218,7 +222,7 @@ export function PasswordGenerator(_props: ToolProps): JSX.Element {
         value={output}
         readOnly
         data-testid="pw-output"
-        className="min-h-0 flex-1"
+        className="min-h-0 flex-1 rounded-none border-0"
         searchAnchor="password_generator:output"
         actions={<CopyAction text={output} testId="pw-copy" />}
       />

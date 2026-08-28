@@ -44,15 +44,22 @@ export function JsonPathTester(_props: ToolProps): JSX.Element {
   }, [deferredJson, path, t]);
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="jsonpath-tester">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):表达式输入作为顶部扁平区
+    // (border-b 分隔,同 ConfigSection),下方纵向双编辑器贴边成区
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="jsonpath-tester"
+    >
       <section
         aria-label={t('tools.jsonpath_tester.expression_title')}
         data-search-anchor="jsonpath_tester:expression"
+        className="border-b border-border px-4 py-2.5"
       >
         <h2 className="mb-1.5 text-body-sm font-semibold">
           {t('tools.jsonpath_tester.expression_title')}
         </h2>
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 shadow-card">
+        {/* 表达式输入:保留轻量卡片外观但去阴影,浮于扁平区内 */}
+        <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
           <Parentheses aria-hidden className="size-4 shrink-0 text-muted-foreground" />
           <Input
             value={path}
@@ -73,7 +80,8 @@ export function JsonPathTester(_props: ToolProps): JSX.Element {
             value={json}
             onChange={setJson}
             data-testid="jsonpath-json"
-            className="h-full"
+            // 纵向堆叠:去掉编辑器自带边框/圆角,外框由外层 shell 卡片提供
+            className="h-full rounded-none border-0"
             searchAnchor="jsonpath_tester:input"
           />
         </ResizablePanel>
@@ -85,7 +93,8 @@ export function JsonPathTester(_props: ToolProps): JSX.Element {
             value={result}
             readOnly
             data-testid="jsonpath-result"
-            className="h-full"
+            // 纵向堆叠:同输入侧,外框由外层 shell 卡片提供
+            className="h-full rounded-none border-0"
             searchAnchor="jsonpath_tester:output"
             actions={<CopyAction text={result} testId="jsonpath-copy" />}
           />

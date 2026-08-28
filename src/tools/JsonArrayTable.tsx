@@ -86,7 +86,12 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
   }, [deferredInput]);
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-2 gap-3" data-testid="json-array-table">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):左侧输入编辑器贴边成区,
+    // 右侧为带内边距的结果面板,表格卡片去阴影后浮于其中
+    <div
+      className="grid h-full min-h-0 grid-cols-2 overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="json-array-table"
+    >
       <CodeEditor
         title={t('tools.json_array_table.input_title')}
         language="json"
@@ -94,11 +99,15 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
         onChange={setInput}
         placeholder='[{"name":"Alice","age":30},{"name":"Bob","age":25}]'
         data-testid="jat-input"
-        className="min-h-0"
+        // 只保留右侧边框(朝向右侧面板),外三边由外层 shell 卡片提供
+        className="min-h-0 rounded-none border-0 border-r"
         searchAnchor="json_array_table:input"
       />
 
-      <div className="flex min-h-0 flex-col gap-2" data-search-anchor="json_array_table:table">
+      <div
+        className="flex min-h-0 flex-col gap-2 p-2"
+        data-search-anchor="json_array_table:table"
+      >
         <div className="flex items-center justify-between">
           <h2 className="text-body-sm font-semibold">{t('tools.json_array_table.table_title')}</h2>
           <div className="flex gap-1">
@@ -133,7 +142,7 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
           </div>
         </div>
 
-        <ScrollArea className="min-h-0 flex-1 rounded-lg border border-border bg-card shadow-card">
+        <ScrollArea className="min-h-0 flex-1 rounded-md border border-border bg-card">
           {result.error ? (
             <p data-testid="jat-error" className="px-4 py-3 text-xs text-destructive">
               {result.error}

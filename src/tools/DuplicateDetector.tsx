@@ -303,11 +303,15 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
   };
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="duplicate-detector">
-      {/* 顶栏:全部配置 + 按钮合并在一行 */}
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):扁平配置区 + 双栏工作区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="duplicate-detector"
+    >
+      {/* 顶栏:全部配置 + 按钮合并在一行(扁平区,外框由 shell 提供) */}
       <section
         aria-label={t('tools.duplicate_detector.config_aria')}
-        className="rounded-lg border border-border bg-card shadow-card"
+        className="border-b border-border"
         data-search-anchor="duplicate_detector:config"
       >
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2">
@@ -429,7 +433,7 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
             value={input}
             onChange={setInput}
             language="plaintext"
-            className="h-full"
+            className="h-full rounded-none border-0 border-r"
             data-testid="dd-input"
             searchAnchor="duplicate_detector:input"
           />
@@ -493,10 +497,10 @@ export function DuplicatesTable({
       data-testid={testId}
       data-slot="duplicates-table"
       data-search-anchor={searchAnchor}
-      className="flex h-full flex-col overflow-hidden rounded-md border border-input"
+      className="flex h-full flex-col overflow-hidden rounded-none border-0 border-l"
     >
       {/* 顶部 汇总 */}
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-input bg-card px-3 py-1.5 text-xs">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-3 py-1.5 text-xs">
         <span className="font-medium text-foreground">
           {t('tools.duplicate_detector.result_title')}
         </span>
@@ -521,11 +525,11 @@ export function DuplicatesTable({
 
       {/* 表格头(值 + 数量两列) */}
       <div
-        className="grid shrink-0 border-b border-input bg-muted/40 text-xs font-medium text-muted-foreground"
+        className="grid shrink-0 border-b border-border bg-muted/40 text-xs font-medium text-muted-foreground"
         style={{ gridTemplateColumns: '1fr 72px' }}
       >
         <div className="px-3 py-1.5">{t('tools.duplicate_detector.col_value')}</div>
-        <div className="border-l border-input px-3 py-1.5 text-right tabular-nums">
+        <div className="border-l border-border px-3 py-1.5 text-right tabular-nums">
           {t('tools.duplicate_detector.col_count')}
         </div>
       </div>
@@ -570,7 +574,7 @@ export function DuplicatesTable({
                     )}
                   </div>
                   <div
-                    className="border-l border-input px-3 py-1.5 text-right tabular-nums text-foreground"
+                    className="border-l border-border px-3 py-1.5 text-right tabular-nums text-foreground"
                     data-testid="dd-row-count"
                   >
                     {r.count}

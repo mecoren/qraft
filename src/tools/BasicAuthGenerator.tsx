@@ -34,7 +34,11 @@ export function BasicAuthGenerator({ toolId }: ToolProps): JSX.Element {
   });
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3" data-testid="basic-auth-generator">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与输出编辑器收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="basic-auth-generator"
+    >
       <ConfigSection title="" searchAnchor="basic_auth_generator:config">
         <ConfigRow icon={KeyRound} label={t('tools.basic_auth_generator.username')}>
           <Input
@@ -65,6 +69,7 @@ export function BasicAuthGenerator({ toolId }: ToolProps): JSX.Element {
         language="plaintext"
         readOnly
         value={header}
+        className="min-h-0 flex-1 rounded-none border-0"
         data-testid="auth-output"
         searchAnchor="basic_auth_generator:output"
         actions={

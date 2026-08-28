@@ -96,7 +96,11 @@ export function GzipCodec(_props: ToolProps): JSX.Element {
   }, [ratio, t]);
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="gzip-codec">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区 + 纵向双栏工作区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="gzip-codec"
+    >
       <ConfigSection title="" searchAnchor="gzip_codec:config">
         <ConfigRow
           icon={ArrowLeftRight}
@@ -137,7 +141,7 @@ export function GzipCodec(_props: ToolProps): JSX.Element {
                 : t('tools.gzip_codec.placeholder_decompress_input')
             }
             data-testid="gzip-input"
-            className="h-full"
+            className="h-full rounded-none border-0"
             searchAnchor="gzip_codec:input"
           />
         </ResizablePanel>
@@ -149,7 +153,7 @@ export function GzipCodec(_props: ToolProps): JSX.Element {
             value={error ?? output}
             readOnly
             data-testid="gzip-output"
-            className="h-full"
+            className="h-full rounded-none border-0"
             searchAnchor="gzip_codec:output"
             actions={<CopyAction text={output} testId="gzip-copy" />}
           />

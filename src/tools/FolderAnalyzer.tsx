@@ -140,138 +140,166 @@ export function FolderAnalyzer(_props: ToolProps) {
     !!target && state.status !== 'running' && (mode !== 'search' || pattern.trim().length > 0);
 
   return (
-    <div className="flex flex-col gap-4 h-full" data-testid="folder-analyzer">
-      <Tabs value={mode} onValueChange={(v) => setMode(v as AnalyzerMode)}>
-        <TabsList>
-          <TabsTrigger value="scan" data-testid="analyzer-mode-scan">
-            {t('tools.folder_analyzer.tab_scan')}
-          </TabsTrigger>
-          <TabsTrigger value="search" data-testid="analyzer-mode-search">
-            {t('tools.folder_analyzer.tab_search')}
-          </TabsTrigger>
-          <TabsTrigger value="file" data-testid="analyzer-mode-file">
-            {t('tools.folder_analyzer.tab_file')}
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+    // 外层 shell 卡片:模式 Tab + 参数行为顶部扁平配置区,进度/结果收进下方内容区
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="folder-analyzer"
+    >
+      {/* 顶部扁平配置区:模式 Tab / 目标与参数 / 只读说明,逐行以分隔线区分 */}
+      <div className="divide-y divide-border border-b border-border">
+        <Tabs
+          value={mode}
+          onValueChange={(v) => setMode(v as AnalyzerMode)}
+          className="px-4 py-3"
+        >
+          <TabsList>
+            <TabsTrigger value="scan" data-testid="analyzer-mode-scan">
+              {t('tools.folder_analyzer.tab_scan')}
+            </TabsTrigger>
+            <TabsTrigger value="search" data-testid="analyzer-mode-search">
+              {t('tools.folder_analyzer.tab_search')}
+            </TabsTrigger>
+            <TabsTrigger value="file" data-testid="analyzer-mode-file">
+              {t('tools.folder_analyzer.tab_file')}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-      <div className="flex flex-wrap items-end gap-4" data-search-anchor="folder_analyzer:config">
-        {(mode === 'scan' || mode === 'search') && (
-          <div className="flex flex-col gap-1">
-            <Button variant="outline" onClick={handlePickFolder} data-testid="analyzer-pick-folder">
-              {t('tools.folder_analyzer.pick_folder')}
+        <div
+          className="flex flex-wrap items-end gap-4 px-4 py-3"
+          data-search-anchor="folder_analyzer:config"
+        >
+          {(mode === 'scan' || mode === 'search') && (
+            <div className="flex flex-col gap-1">
+              <Button
+                variant="outline"
+                onClick={handlePickFolder}
+                data-testid="analyzer-pick-folder"
+              >
+                {t('tools.folder_analyzer.pick_folder')}
+              </Button>
+            </div>
+          )}
+          {mode === 'file' && (
+            <Button variant="outline" onClick={handlePickFile} data-testid="analyzer-pick-file">
+              {t('tools.folder_analyzer.pick_file')}
+            </Button>
+          )}
+          {mode === 'search' && (
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="analyzer-pattern-input" className="text-xs">
+                {t('tools.folder_analyzer.label_pattern')}
+              </Label>
+              <Input
+                id="analyzer-pattern-input"
+                value={pattern}
+                onChange={(e) => setPattern(e.target.value)}
+                placeholder={t('tools.folder_analyzer.placeholder_pattern')}
+                className="w-64"
+                data-testid="analyzer-pattern"
+              />
+            </div>
+          )}
+          <div className="flex items-center gap-2 pb-1">
+            <Switch id="hidden-switch" checked={includeHidden} onCheckedChange={setIncludeHidden} />
+            <Label htmlFor="hidden-switch" className="text-xs">
+              {t('tools.folder_analyzer.label_hidden')}
+            </Label>
+          </div>
+          {mode === 'search' && (
+            <>
+              <div className="flex items-center gap-2 pb-1">
+                <Switch id="regex-switch" checked={isRegex} onCheckedChange={setIsRegex} />
+                <Label htmlFor="regex-switch" className="text-xs">
+                  {t('tools.folder_analyzer.label_regex')}
+                </Label>
+              </div>
+              <div className="flex items-center gap-2 pb-1">
+                <Switch
+                  id="case-switch"
+                  checked={caseInsensitive}
+                  onCheckedChange={setCaseInsensitive}
+                />
+                <Label htmlFor="case-switch" className="text-xs">
+                  {t('tools.folder_analyzer.label_case_insensitive')}
+                </Label>
+              </div>
+            </>
+          )}
+          {mode !== 'file' && (
+            <Button onClick={() => void handleRun()} disabled={!canRun} data-testid="analyzer-run">
+              {state.status === 'running'
+                ? t('tools.folder_analyzer.run_running')
+                : t('tools.folder_analyzer.run_start')}
+            </Button>
+          )}
+          <span
+            className="text-xs text-muted-foreground truncate max-w-[40ch]"
+            title={target ?? ''}
+          >
+            {target
+              ? t('tools.folder_analyzer.target_set', { path: target })
+              : t('tools.folder_analyzer.target_none')}
+          </span>
+        </div>
+
+        <p className="px-4 py-2.5 text-xs text-muted-foreground">
+          {t('tools.folder_analyzer.readonly_notice')}
+        </p>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+        {state.status === 'running' && (
+          <div className="flex items-center gap-3">
+            <Progress
+              value={undefined}
+              className="flex-1"
+              aria-label={t('tools.folder_analyzer.progress_aria')}
+            />
+            <span
+              className="text-xs text-muted-foreground"
+              data-testid="analyzer-progress-message"
+            >
+              {state.message}
+            </span>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => void cancel()}
+              data-testid="analyzer-cancel"
+            >
+              {t('tools.folder_analyzer.cancel')}
             </Button>
           </div>
         )}
-        {mode === 'file' && (
-          <Button variant="outline" onClick={handlePickFile} data-testid="analyzer-pick-file">
-            {t('tools.folder_analyzer.pick_file')}
-          </Button>
-        )}
-        {mode === 'search' && (
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="analyzer-pattern-input" className="text-xs">
-              {t('tools.folder_analyzer.label_pattern')}
-            </Label>
-            <Input
-              id="analyzer-pattern-input"
-              value={pattern}
-              onChange={(e) => setPattern(e.target.value)}
-              placeholder={t('tools.folder_analyzer.placeholder_pattern')}
-              className="w-64"
-              data-testid="analyzer-pattern"
-            />
+
+        {state.error && (
+          <div
+            role="alert"
+            className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
+          >
+            {state.error}
           </div>
         )}
-        <div className="flex items-center gap-2 pb-1">
-          <Switch id="hidden-switch" checked={includeHidden} onCheckedChange={setIncludeHidden} />
-          <Label htmlFor="hidden-switch" className="text-xs">
-            {t('tools.folder_analyzer.label_hidden')}
-          </Label>
-        </div>
-        {mode === 'search' && (
-          <>
-            <div className="flex items-center gap-2 pb-1">
-              <Switch id="regex-switch" checked={isRegex} onCheckedChange={setIsRegex} />
-              <Label htmlFor="regex-switch" className="text-xs">
-                {t('tools.folder_analyzer.label_regex')}
-              </Label>
-            </div>
-            <div className="flex items-center gap-2 pb-1">
-              <Switch
-                id="case-switch"
-                checked={caseInsensitive}
-                onCheckedChange={setCaseInsensitive}
-              />
-              <Label htmlFor="case-switch" className="text-xs">
-                {t('tools.folder_analyzer.label_case_insensitive')}
-              </Label>
-            </div>
-          </>
+
+        {/* 结果面板仅在「结果所属模式」下渲染:报告结构互不兼容,切换 Tab 后不显示旧结果。
+            min-h-0 flex-1 给 Monaco 等内容提供有界高度,内部自行滚动 */}
+        {state.status === 'done' && resultMode === 'scan' && mode === 'scan' && (
+          <div className="min-h-0 flex-1">
+            <ScanResultsPanel report={state.result as ScanReport} />
+          </div>
         )}
-        {mode !== 'file' && (
-          <Button onClick={() => void handleRun()} disabled={!canRun} data-testid="analyzer-run">
-            {state.status === 'running'
-              ? t('tools.folder_analyzer.run_running')
-              : t('tools.folder_analyzer.run_start')}
-          </Button>
+        {state.status === 'done' && resultMode === 'search' && mode === 'search' && (
+          <div className="min-h-0 flex-1">
+            <SearchResultsPanel report={state.result as SearchReport} />
+          </div>
         )}
-        <span className="text-xs text-muted-foreground truncate max-w-[40ch]" title={target ?? ''}>
-          {target
-            ? t('tools.folder_analyzer.target_set', { path: target })
-            : t('tools.folder_analyzer.target_none')}
-        </span>
+        {state.status === 'done' && resultMode === 'file' && mode === 'file' && (
+          <div className="min-h-0 flex-1">
+            <FileInspectPanel report={state.result as FileInspectReport} />
+          </div>
+        )}
       </div>
-
-      <p className="text-xs text-muted-foreground">{t('tools.folder_analyzer.readonly_notice')}</p>
-
-      {state.status === 'running' && (
-        <div className="flex items-center gap-3">
-          <Progress
-            value={undefined}
-            className="flex-1"
-            aria-label={t('tools.folder_analyzer.progress_aria')}
-          />
-          <span className="text-xs text-muted-foreground" data-testid="analyzer-progress-message">
-            {state.message}
-          </span>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => void cancel()}
-            data-testid="analyzer-cancel"
-          >
-            {t('tools.folder_analyzer.cancel')}
-          </Button>
-        </div>
-      )}
-
-      {state.error && (
-        <div
-          role="alert"
-          className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
-        >
-          {state.error}
-        </div>
-      )}
-
-      {/* 结果面板仅在「结果所属模式」下渲染:报告结构互不兼容,切换 Tab 后不显示旧结果。
-          min-h-0 flex-1 给 Monaco 等内容提供有界高度,内部自行滚动 */}
-      {state.status === 'done' && resultMode === 'scan' && mode === 'scan' && (
-        <div className="min-h-0 flex-1">
-          <ScanResultsPanel report={state.result as ScanReport} />
-        </div>
-      )}
-      {state.status === 'done' && resultMode === 'search' && mode === 'search' && (
-        <div className="min-h-0 flex-1">
-          <SearchResultsPanel report={state.result as SearchReport} />
-        </div>
-      )}
-      {state.status === 'done' && resultMode === 'file' && mode === 'file' && (
-        <div className="min-h-0 flex-1">
-          <FileInspectPanel report={state.result as FileInspectReport} />
-        </div>
-      )}
     </div>
   );
 }

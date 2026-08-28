@@ -226,6 +226,8 @@ export function JsonTreeView({
   const isRootPrimitive = !Array.isArray(value) && (value === null || typeof value !== 'object');
 
   return (
+    // 嵌入式子视图(仅被 JsonFormatter 树形输出面板使用):
+    // 外框由调用方面板提供,这里只保留工具栏 + 树滚动区,避免卡片套卡片
     <div
       className={cn('flex h-full min-h-0 flex-col bg-background', className)}
       data-testid={dataTestId}

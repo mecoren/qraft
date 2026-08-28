@@ -112,7 +112,11 @@ export function NumberBaseConverter(_props: ToolProps): JSX.Element {
   }, [input, inputBase, grouped, t]);
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="number-base-converter">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区 + 输入/结果收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="number-base-converter"
+    >
       <ConfigSection title="" searchAnchor="number_base_converter:config">
         <ConfigRow
           icon={LayoutList}
@@ -142,61 +146,64 @@ export function NumberBaseConverter(_props: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
 
-      <section
-        aria-label={t('tools.number_base_converter.input_title')}
-        data-search-anchor="number_base_converter:input"
-      >
-        <h2 className="mb-1.5 text-body-sm font-semibold">
-          {t('tools.number_base_converter.input_title')}
-        </h2>
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={
-            inputBase === 16
-              ? t('tools.number_base_converter.placeholder_hex')
-              : t('tools.number_base_converter.placeholder_default')
-          }
-          aria-label={t('tools.number_base_converter.input_aria')}
-          data-testid="nb-input"
-          className="h-9 font-mono text-body-sm"
-        />
-        {results?.error ? (
-          <p data-testid="nb-error" className="mt-1 text-xs text-destructive">
-            {results.error}
-          </p>
-        ) : null}
-      </section>
+      {/* 配置区下方内容收进带内边距的滚动 wrapper(对齐 shell 布局基准) */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+        <section
+          aria-label={t('tools.number_base_converter.input_title')}
+          data-search-anchor="number_base_converter:input"
+        >
+          <h2 className="mb-1.5 text-body-sm font-semibold">
+            {t('tools.number_base_converter.input_title')}
+          </h2>
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={
+              inputBase === 16
+                ? t('tools.number_base_converter.placeholder_hex')
+                : t('tools.number_base_converter.placeholder_default')
+            }
+            aria-label={t('tools.number_base_converter.input_aria')}
+            data-testid="nb-input"
+            className="h-9 font-mono text-body-sm"
+          />
+          {results?.error ? (
+            <p data-testid="nb-error" className="mt-1 text-xs text-destructive">
+              {results.error}
+            </p>
+          ) : null}
+        </section>
 
-      <section
-        aria-label={t('tools.number_base_converter.result_title')}
-        className="flex flex-col gap-2"
-        data-search-anchor="number_base_converter:result"
-      >
-        <h2 className="text-body-sm font-semibold">
-          {t('tools.number_base_converter.result_title')}
-        </h2>
-        {([16, 10, 8, 2] as Base[]).map((b, i) => {
-          const text = results && !results.error ? results.values[i].text : '';
-          return (
-            <div
-              key={b}
-              className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5 shadow-card"
-            >
-              <span className="w-16 shrink-0 text-xs text-muted-foreground">
-                {t(BASE_LABEL_KEY[b])}
-              </span>
-              <code
-                data-testid={`nb-result-${b}`}
-                className="min-w-0 flex-1 truncate font-mono text-body-sm"
+        <section
+          aria-label={t('tools.number_base_converter.result_title')}
+          className="flex flex-col gap-2"
+          data-search-anchor="number_base_converter:result"
+        >
+          <h2 className="text-body-sm font-semibold">
+            {t('tools.number_base_converter.result_title')}
+          </h2>
+          {([16, 10, 8, 2] as Base[]).map((b, i) => {
+            const text = results && !results.error ? results.values[i].text : '';
+            return (
+              <div
+                key={b}
+                className="flex items-center gap-3 rounded-md border border-border bg-card px-4 py-2.5"
               >
-                {text || '-'}
-              </code>
-              <CopyAction text={text} testId={`nb-copy-${b}`} />
-            </div>
-          );
-        })}
-      </section>
+                <span className="w-16 shrink-0 text-xs text-muted-foreground">
+                  {t(BASE_LABEL_KEY[b])}
+                </span>
+                <code
+                  data-testid={`nb-result-${b}`}
+                  className="min-w-0 flex-1 truncate font-mono text-body-sm"
+                >
+                  {text || '-'}
+                </code>
+                <CopyAction text={text} testId={`nb-copy-${b}`} />
+              </div>
+            );
+          })}
+        </section>
+      </div>
     </div>
   );
 }

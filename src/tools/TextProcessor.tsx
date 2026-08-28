@@ -555,7 +555,11 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
   }
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="text-processor">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与双栏工作区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="text-processor"
+    >
       <ConfigSection title="" searchAnchor="json_minifier:config">
         <ConfigRow
           icon={Wand2}
@@ -597,12 +601,9 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
 
-      {/* 合并双栏卡片(参考 JsonFormatter,无 Tab 栏):外层 rounded-lg 框体,
+      {/* 双栏工作区直接置于 shell 卡片内(外框由根元素提供):
           两侧编辑器只保留朝向中缝的边框,避免双线/双圆角 */}
-      <ResizablePanelGroup
-        orientation="horizontal"
-        className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-background shadow-sm"
-      >
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.json_minifier.input_title')}

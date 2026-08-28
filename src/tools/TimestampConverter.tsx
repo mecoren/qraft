@@ -1,8 +1,8 @@
 /**
  * 日期/时间戳转换器 —— 新代统一布局
  *
- * 结构(与 Base64Codec / JsonFormatter 一致):
- * - 顶部「配置」卡片:输入(Unix 秒 / 毫秒 / 日期字符串)+ 时区 + 执行按钮
+ * 结构(对齐 JsonFormatter 基准):
+ * - 外层 shell 卡片,顶部为扁平「配置」区:输入(Unix 秒 / 毫秒 / 日期字符串)+ 时区 + 执行按钮
  * - 下方结果区:带标题栏的卡片,字段逐行展示并支持单独复制
  *
  * 错误处理遵循新代约定:工具内联 alert 展示。
@@ -108,7 +108,11 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
   const extra = output?.extra as TimestampExtra | undefined;
 
   return (
-    <div className="flex h-full flex-col gap-3" data-testid="timestamp-converter">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与结果区收进同一卡片
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      data-testid="timestamp-converter"
+    >
       <ConfigSection title="" searchAnchor="timestamp_converter:config">
         <ConfigRow
           icon={CalendarClock}
@@ -150,64 +154,67 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
 
-      {error && (
-        <div
-          role="alert"
-          className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
-        >
-          {error}
-        </div>
-      )}
+      {/* 配置区下方内容收进带内边距的滚动 wrapper(对齐 shell 布局基准) */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+        {error && (
+          <div
+            role="alert"
+            className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
+          >
+            {error}
+          </div>
+        )}
 
-      {/* 结果区:常驻卡片承载,空态给引导文案;锚点保持 timestamp_converter:result */}
-      <div
-        className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border shadow-card"
-        data-testid="output"
-        data-search-anchor="timestamp_converter:result"
-      >
-        <div className="flex items-center justify-between border-b px-3 py-1.5">
-          <span className="pl-1 text-xs font-medium">
-            {t('tools.timestamp_converter.result_title')}
-          </span>
-          {output?.meta && (
-            <span className="text-xs text-muted-foreground">
-              {t('tools.timestamp_converter.bytes_unit', {
-                count: output.meta.input_bytes,
-                ms: output.meta.duration_ms,
-              })}
+        {/* 结果区:常驻卡片承载,空态给引导文案;锚点保持 timestamp_converter:result */}
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border bg-card"
+          data-testid="output"
+          data-search-anchor="timestamp_converter:result"
+        >
+          <div className="flex items-center justify-between border-b px-3 py-1.5">
+            <span className="pl-1 text-xs font-medium">
+              {t('tools.timestamp_converter.result_title')}
             </span>
-          )}
-        </div>
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="p-4">
-            {extra ? (
-              <dl className="grid grid-cols-[180px_1fr_auto] gap-x-4 gap-y-3 text-sm">
-                <ResultRow
-                  label={t('tools.timestamp_converter.unix_seconds')}
-                  value={String(extra.unix_seconds)}
-                />
-                <ResultRow
-                  label={t('tools.timestamp_converter.unix_millis')}
-                  value={String(extra.unix_millis)}
-                />
-                <ResultRow label="ISO 8601" value={extra.iso8601} />
-                <ResultRow
-                  label={t('tools.timestamp_converter.local_time', { tz: timezone })}
-                  value={extra.local}
-                />
-                <ResultRow
-                  label={t('tools.timestamp_converter.relative_time')}
-                  value={extra.relative}
-                  mono={false}
-                />
-              </dl>
-            ) : (
-              <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
-                {t('tools.timestamp_converter.empty_state')}
-              </div>
+            {output?.meta && (
+              <span className="text-xs text-muted-foreground">
+                {t('tools.timestamp_converter.bytes_unit', {
+                  count: output.meta.input_bytes,
+                  ms: output.meta.duration_ms,
+                })}
+              </span>
             )}
           </div>
-        </ScrollArea>
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="p-4">
+              {extra ? (
+                <dl className="grid grid-cols-[180px_1fr_auto] gap-x-4 gap-y-3 text-sm">
+                  <ResultRow
+                    label={t('tools.timestamp_converter.unix_seconds')}
+                    value={String(extra.unix_seconds)}
+                  />
+                  <ResultRow
+                    label={t('tools.timestamp_converter.unix_millis')}
+                    value={String(extra.unix_millis)}
+                  />
+                  <ResultRow label="ISO 8601" value={extra.iso8601} />
+                  <ResultRow
+                    label={t('tools.timestamp_converter.local_time', { tz: timezone })}
+                    value={extra.local}
+                  />
+                  <ResultRow
+                    label={t('tools.timestamp_converter.relative_time')}
+                    value={extra.relative}
+                    mono={false}
+                  />
+                </dl>
+              ) : (
+                <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+                  {t('tools.timestamp_converter.empty_state')}
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
       </div>
     </div>
   );
