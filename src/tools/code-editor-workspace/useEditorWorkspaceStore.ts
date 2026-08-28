@@ -9,6 +9,8 @@
  *   避免"启动时用默认空工作区覆盖已存数据"。
  * - `userTouched` 标志:hydrate 完成前用户已主动操作(新建/打开/关闭/编辑)时
  *   置位;hydrate 据此保留用户操作,不覆盖(即使操作结果是空工作区)。
+ *   注意"用户主动"不含系统自动打开:文件关联 / 命令行启动时走
+ *   `openLocalFileFromSystem`,它不置位该标志,hydrate 会把历史 Tab 合并回来。
  * - dirty 判定:`content !== savedContent`,由编辑器层读取比较,store 不存布尔。
  */
 import { create } from 'zustand';
@@ -94,6 +96,77 @@ function nextUntitledNumber(tabs: readonly EditorTab[]): number {
   return max + 1;
 }
 
+/**
+ * 把一个本地文件打开到工作区并激活:同路径 Tab 已存在则仅激活,否则追加新 Tab。
+ * 抽为纯函数供「用户主动打开」与「系统自动打开」两个入口共用,
+ * 二者唯一差别是是否置位 `userTouched`(见 openLocalFileFromSystem 的说明)。
+ */
+function openFileIntoWorkspace(
+  workspace: Workspace,
+  path: string,
+  content: string,
+  encoding?: string,
+): Workspace {
+  const existing = workspace.tabs.find((t) => t.path === path);
+  if (existing) return { ...workspace, activeTabId: existing.id };
+
+  const tab: EditorTab = {
+    id: createId(),
+    title: fileNameFromPath(path),
+    path,
+    language: inferLanguageFromPath(path),
+    content,
+    savedContent: content,
+    pinned: false,
+    ...(encoding ? { encoding } : {}),
+  };
+  return { ...workspace, tabs: [...workspace.tabs, tab], activeTabId: tab.id };
+}
+
+/**
+ * 把 hydrate 前已自动打开的 Tab 合并进从 config 还原出的工作区。
+ *
+ * 背景:通过文件关联 / 命令行参数启动时,App 会在 `EditorWorkbench` 挂载
+ * (即 hydrate)之前就调用 `openLocalFile` 打开目标文件。若此时直接以任一
+ * 侧为准,另一侧就会丢失 —— 历史 Tab 被清空正是由此而来。
+ *
+ * 合并规则(以持久化列表为基底,保持原有顺序与固定状态):
+ * - 同路径已在持久化列表中:复用还原出的 Tab(保留 pinned / 未保存草稿 /
+ *   编码等状态),仅在其内容与磁盘一致(无未保存修改)时同步为磁盘最新内容,
+ *   避免用磁盘内容顶掉用户上次退出时未保存的编辑
+ * - 新路径:追加到列表末尾
+ * - 激活项:以本次自动打开的文件为准(用户的直接意图是查看它)
+ */
+function mergeAutoOpenedTabs(restored: Workspace, current: Workspace): Workspace {
+  if (current.tabs.length === 0) return restored;
+
+  const tabs = [...restored.tabs];
+  // 记录最后一个自动打开文件对应的 Tab id,作为合并后的激活项
+  let activeTabId: string | null = null;
+
+  for (const opened of current.tabs) {
+    const index = tabs.findIndex((t) => t.path !== null && t.path === opened.path);
+    if (index < 0) {
+      tabs.push(opened);
+      activeTabId = opened.id;
+      continue;
+    }
+    const existing = tabs[index];
+    // 持久化快照中存在未保存修改时保留草稿;否则用刚读出的磁盘内容刷新
+    const isDirty = existing.content !== existing.savedContent;
+    tabs[index] = isDirty
+      ? existing
+      : { ...existing, content: opened.content, savedContent: opened.savedContent };
+    activeTabId = existing.id;
+  }
+
+  return {
+    ...restored,
+    tabs,
+    activeTabId: activeTabId ?? restored.activeTabId,
+  };
+}
+
 interface WorkspaceState {
   workspace: Workspace;
   /** 是否已完成 hydrate(从 Rust config 还原);false 时禁止持久化 */
@@ -107,6 +180,15 @@ interface WorkspaceState {
   hydrate: () => Promise<void>;
   /** 打开本地文件:存在同路径 Tab 则激活,否则新建(encoding 为探测到的编码标识) */
   openLocalFile: (path: string, content: string, encoding?: string) => void;
+  /**
+   * 由系统触发打开本地文件(文件关联双击 / 命令行参数),行为同 `openLocalFile`
+   * 但**不**置位 `userTouched`。
+   *
+   * 原因:这类调用发生在 `EditorWorkbench` 懒加载挂载(即 hydrate)之前,
+   * 若按"用户主动操作"处理会让 hydrate 直接放弃持久化数据,上次打开的
+   * Tab 列表随即被防抖 persist 永久覆盖。不置位后由 hydrate 走合并分支。
+   */
+  openLocalFileFromSystem: (path: string, content: string, encoding?: string) => void;
   /** 打开拖入/粘贴的文本内容:以无路径 Tab 打开(标题为文件名,保存时另存为) */
   openDroppedText: (title: string, content: string) => void;
   /** 新建 untitled Tab 并激活 */
@@ -179,7 +261,10 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
       set((s) => {
         // 若 hydrate 完成前用户已主动操作(含 closeAllTabs 等清空操作),
         // 保留用户操作,避免异步恢复覆盖用户意图;否则用持久化数据还原
-        const workspace = s.userTouched ? s.workspace : normalizeWorkspace(r.value);
+        if (s.userTouched) return { workspace: s.workspace, ready: true, error: null };
+        // userTouched 为 false 但已有 Tab:只可能来自文件关联/命令行的自动打开
+        // (其余增删 Tab 的 action 都会置位 userTouched),需与持久化列表合并而非互相覆盖
+        const workspace = mergeAutoOpenedTabs(normalizeWorkspace(r.value), s.workspace);
         return { workspace, ready: true, error: null };
       });
     } else {
@@ -188,33 +273,15 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   openLocalFile: (path, content, encoding) => {
-    const { workspace } = get();
-    const existing = workspace.tabs.find((t) => t.path === path);
-    if (existing) {
-      set({
-        workspace: { ...workspace, activeTabId: existing.id },
-        userTouched: true,
-      });
-      return;
-    }
-    const tab: EditorTab = {
-      id: createId(),
-      title: fileNameFromPath(path),
-      path,
-      language: inferLanguageFromPath(path),
-      content,
-      savedContent: content,
-      pinned: false,
-      ...(encoding ? { encoding } : {}),
-    };
     set({
-      workspace: {
-        ...workspace,
-        tabs: [...workspace.tabs, tab],
-        activeTabId: tab.id,
-      },
+      workspace: openFileIntoWorkspace(get().workspace, path, content, encoding),
       userTouched: true,
     });
+  },
+
+  // 系统自动打开:刻意不置位 userTouched,让 hydrate 走合并分支保住历史 Tab
+  openLocalFileFromSystem: (path, content, encoding) => {
+    set({ workspace: openFileIntoWorkspace(get().workspace, path, content, encoding) });
   },
 
   openDroppedText: (title, content) => {

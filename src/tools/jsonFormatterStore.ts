@@ -9,6 +9,8 @@
  *   避免"启动时用默认空状态覆盖已存数据"。
  * - `userTouched` 标志:hydrate 完成前用户已主动操作时置位;
  *   hydrate 据此保留用户操作,不覆盖。
+ *   注意"用户主动"不含跨工具注入:「发送到…」走 `injectDocFromTool`,
+ *   它不置位该标志,hydrate 会把历史文档与历史记录合并回来。
  * - 历史:工具本地维护完整内容的最近文档快照(全局历史仅存截断预览,
  *   无法还原内容,故不复用);按内容去重、条数与大小编量上限。
  */
@@ -186,6 +188,16 @@ interface JsonFormatterWorkspaceState {
   hydrate: () => Promise<void>;
   /** 新建空白文档并激活;content 可选(用于从历史/粘贴创建) */
   newDoc: (content?: string) => void;
+  /**
+   * 由其他工具注入内容(「发送到…」),写入当前激活文档,行为近似
+   * `setDocContent` 但**不**置位 `userTouched`。
+   *
+   * 原因:这类调用发生在 `JsonFormatter` 懒加载挂载时——`useToolHandoff` 的
+   * effect 同步消费载荷,而同一轮挂载里 `hydrate()` 还是个未落地的 Promise。
+   * 若按"用户主动操作"处理会让 hydrate 直接放弃持久化数据,上次的文档列表
+   * 与整份本地历史随即被防抖 persist 永久覆盖。不置位后由 hydrate 走合并分支。
+   */
+  injectDocFromTool: (content: string) => void;
   /** 关闭文档,激活态自动跳到相邻 */
   closeDoc: (id: string) => void;
   /** 切换激活文档 */
@@ -223,6 +235,37 @@ function createDefaultDocs(): FormatterDocs {
   };
 }
 
+/**
+ * 把跨工具注入的内容合并进 hydrate 还原出的文档列表。
+ *
+ * 只在「userTouched 为 false 但当前文档已有内容」时调用,即内容只可能来自
+ * `injectDocFromTool`(其余增删改文档的 action 都会置位 userTouched)。
+ * 与编辑器工作区不同:JsonDoc 无 path 字段,无法按路径去重,因此把注入内容
+ * 一律作为新文档追加到还原列表末尾并激活;初始那个空白默认文档不参与合并。
+ */
+function mergeInjectedDocs(restored: FormatterDocs, current: FormatterDocs): FormatterDocs {
+  const injected = current.docs.filter((d) => d.content.trim() !== '');
+  if (injected.length === 0) return restored;
+  const docs = [...restored.docs];
+  let activeDocId = restored.activeDocId;
+  for (const doc of injected) {
+    // 默认文档 id 固定为 DEFAULT_DOC_ID 且会被持久化,还原列表里可能已存在同 id,
+    // 撞 id 会导致 React key 冲突与 closeDoc/switchDoc 定位歧义,故换发新 id
+    const id = docs.some((d) => d.id === doc.id) ? createId() : doc.id;
+    // 自动命名的注入文档沿用还原后列表的序号空间重新编号,避免与还原出的 json-N 撞名
+    const autoTitle = doc.autoTitle !== undefined ? `json-${nextAutoNumber(docs)}` : undefined;
+    docs.push({
+      ...doc,
+      id,
+      ...(autoTitle !== undefined
+        ? { autoTitle, title: deriveTitleFromContent(doc.content) ?? autoTitle }
+        : {}),
+    });
+    activeDocId = id;
+  }
+  return { docs, activeDocId };
+}
+
 export const useJsonFormatterStore = create<JsonFormatterWorkspaceState>((set, get) => ({
   ...createDefaultDocs(),
   history: [],
@@ -245,10 +288,15 @@ export const useJsonFormatterStore = create<JsonFormatterWorkspaceState>((set, g
     set((s) => {
       // 若 hydrate 完成前用户已主动操作,保留用户操作,避免异步恢复覆盖用户意图
       if (s.userTouched) return { ready: true, error: errorMessage };
+      // userTouched 为 false 但文档已有内容:只可能来自跨工具「发送到…」的注入
+      // (其余改动文档的 action 都会置位 userTouched),需与持久化列表合并而非互相覆盖
+      const merged = restoredDocs
+        ? mergeInjectedDocs(restoredDocs, { docs: s.docs, activeDocId: s.activeDocId })
+        : null;
       return {
         ready: true,
         error: errorMessage,
-        ...(restoredDocs ? { docs: restoredDocs.docs, activeDocId: restoredDocs.activeDocId } : {}),
+        ...(merged ? { docs: merged.docs, activeDocId: merged.activeDocId } : {}),
         ...(restoredHistory ? { history: restoredHistory } : {}),
       };
     });
@@ -268,6 +316,34 @@ export const useJsonFormatterStore = create<JsonFormatterWorkspaceState>((set, g
       docs: [...s.docs, doc],
       activeDocId: doc.id,
       userTouched: true,
+    }));
+  },
+
+  injectDocFromTool: (content) => {
+    const { docs, activeDocId } = get();
+    // 无激活文档(例如全部关闭后)时新建一个承载注入内容;同样不置位 userTouched
+    if (activeDocId === null || !docs.some((d) => d.id === activeDocId)) {
+      const derived = deriveTitleFromContent(content);
+      const doc: JsonDoc = {
+        id: createId(),
+        title: derived ?? `json-${nextAutoNumber(docs)}`,
+        ...(derived ? {} : { autoTitle: `json-${nextAutoNumber(docs)}` }),
+        pinned: false,
+        content,
+      };
+      set((s) => ({ docs: [...s.docs, doc], activeDocId: doc.id }));
+      return;
+    }
+    set((s) => ({
+      docs: s.docs.map((d) => {
+        if (d.id !== activeDocId) return d;
+        // 与 setDocContent 一致:自动命名 Tab 随注入内容派生标题
+        if (d.autoTitle !== undefined || /^json-\d+$/.test(d.title)) {
+          const autoTitle = d.autoTitle ?? d.title;
+          return { ...d, content, autoTitle, title: deriveTitleFromContent(content) ?? autoTitle };
+        }
+        return { ...d, content };
+      }),
     }));
   },
 

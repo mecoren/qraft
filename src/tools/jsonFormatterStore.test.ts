@@ -323,6 +323,70 @@ describe('hydrate / persist', () => {
     expect(s.docs.map((d) => d.id)).toEqual(['u1']);
   });
 
+  it('merges tool-injected content into the restored docs instead of dropping them', async () => {
+    // 「发送到…→JSON 格式化器」在 hydrate 完成前注入内容(工具首次懒加载时的真实时序)
+    useJsonFormatterStore.getState().injectDocFromTool('{"from":"other-tool"}');
+    expect(useJsonFormatterStore.getState().userTouched).toBe(false);
+
+    invokeMock
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          docs: [{ id: 'd1', title: 'saved', pinned: false, content: '{"v":1}' }],
+          activeDocId: 'd1',
+        },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: [{ id: 'h1', title: 'saved', content: '{"v":1}', timestamp: 123 }],
+      });
+
+    await useJsonFormatterStore.getState().hydrate();
+    const s = useJsonFormatterStore.getState();
+    // 历史文档必须保留,注入内容作为额外文档追加并激活
+    expect(s.docs.map((d) => d.content)).toEqual(['{"v":1}', '{"from":"other-tool"}']);
+    expect(s.docs.find((d) => d.id === s.activeDocId)?.content).toBe('{"from":"other-tool"}');
+    // 注入不涉及历史,持久化的历史必须完整还原
+    expect(s.history.map((h) => h.id)).toEqual(['h1']);
+  });
+
+  it('keeps user actions over tool-injected content when both happened before hydrate', async () => {
+    useJsonFormatterStore.getState().injectDocFromTool('{"from":"other-tool"}');
+    // 用户随后主动关闭了注入的文档:用户意图优先,hydrate 不得把它合并回来
+    const injected = useJsonFormatterStore.getState().activeDocId as string;
+    useJsonFormatterStore.getState().closeDoc(injected);
+    invokeMock.mockResolvedValue({ success: true, data: { docs: [], activeDocId: null } });
+
+    await useJsonFormatterStore.getState().hydrate();
+    expect(useJsonFormatterStore.getState().docs).toEqual([]);
+  });
+
+  it('gives the injected doc a fresh id when it collides with a restored doc', async () => {
+    // 默认文档 id 固定为 'default' 且会被持久化,所以还原列表里可能已存在同 id;
+    // 合并必须保证 id 唯一,否则 React key 冲突、closeDoc/switchDoc 定位歧义
+    useJsonFormatterStore.getState().injectDocFromTool('{"from":"other-tool"}');
+    invokeMock
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          docs: [
+            { id: 'default', title: 'json-1', autoTitle: 'json-1', pinned: false, content: '' },
+          ],
+          activeDocId: 'default',
+        },
+      })
+      .mockResolvedValueOnce({ success: true, data: [] });
+
+    await useJsonFormatterStore.getState().hydrate();
+    const s = useJsonFormatterStore.getState();
+    const ids = s.docs.map((d) => d.id);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+    // 激活的必须是注入的那一份,且能被 id 唯一定位
+    expect(s.docs.filter((d) => d.id === s.activeDocId)).toHaveLength(1);
+    expect(s.docs.find((d) => d.id === s.activeDocId)?.content).toBe('{"from":"other-tool"}');
+  });
+
   it('sets error but stays usable on failure', async () => {
     invokeMock.mockRejectedValue(new Error('ipc down'));
     await useJsonFormatterStore.getState().hydrate();

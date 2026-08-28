@@ -108,6 +108,134 @@ describe('useEditorWorkspaceStore.hydrate', () => {
     await useEditorWorkspaceStore.getState().hydrate();
     expect(safeInvokeMock).not.toHaveBeenCalled();
   });
+
+  it('merges files auto-opened before hydrate finishes into the restored tabs', async () => {
+    const saved = {
+      tabs: [
+        {
+          id: 't1',
+          title: 'old.txt',
+          path: '/old.txt',
+          language: 'plaintext',
+          content: 'old',
+          savedContent: 'old',
+        },
+        {
+          id: 't2',
+          title: 'notes.md',
+          path: '/notes.md',
+          language: 'markdown',
+          content: '# notes',
+          savedContent: '# notes',
+        },
+      ],
+      activeTabId: 't1',
+      leftSidebarVisible: true,
+    };
+    safeInvokeMock.mockResolvedValueOnce({ ok: true, value: saved });
+
+    // 模拟文件关联启动:hydrate 尚未完成时,App 已把命令行传入的文件打开
+    useEditorWorkspaceStore.getState().openLocalFileFromSystem('/new.ts', 'const x = 1');
+    await useEditorWorkspaceStore.getState().hydrate();
+
+    const s = useEditorWorkspaceStore.getState();
+    // 历史 Tab 必须恢复,新打开的文件追加在末尾并保持激活
+    expect(s.workspace.tabs.map((t) => t.path)).toEqual(['/old.txt', '/notes.md', '/new.ts']);
+    const newTab = s.workspace.tabs.find((t) => t.path === '/new.ts')!;
+    expect(s.workspace.activeTabId).toBe(newTab.id);
+    expect(s.ready).toBe(true);
+  });
+
+  it('activates the restored tab when the auto-opened file was already persisted', async () => {
+    const saved = {
+      tabs: [
+        {
+          id: 't1',
+          title: 'old.txt',
+          path: '/old.txt',
+          language: 'plaintext',
+          content: 'old',
+          savedContent: 'old',
+        },
+        {
+          id: 't2',
+          title: 'dup.ts',
+          path: '/dup.ts',
+          language: 'typescript',
+          content: 'const a = 1',
+          savedContent: 'const a = 1',
+        },
+      ],
+      activeTabId: 't1',
+      leftSidebarVisible: true,
+    };
+    safeInvokeMock.mockResolvedValueOnce({ ok: true, value: saved });
+
+    // 自动打开的文件在持久化列表中已存在:不应产生重复 Tab,而是激活已恢复的那个
+    useEditorWorkspaceStore.getState().openLocalFileFromSystem('/dup.ts', 'const a = 2');
+    await useEditorWorkspaceStore.getState().hydrate();
+
+    const s = useEditorWorkspaceStore.getState();
+    expect(s.workspace.tabs.map((t) => t.path)).toEqual(['/old.txt', '/dup.ts']);
+    expect(s.workspace.activeTabId).toBe('t2');
+    // 磁盘上的最新内容优先于持久化快照
+    expect(s.workspace.tabs.find((t) => t.path === '/dup.ts')!.content).toBe('const a = 2');
+  });
+
+  it('keeps unsaved edits in the restored tab instead of overwriting with disk content', async () => {
+    const saved = {
+      tabs: [
+        {
+          id: 't1',
+          title: 'dirty.ts',
+          path: '/dirty.ts',
+          language: 'typescript',
+          content: 'const draft = 1',
+          savedContent: 'const a = 1',
+        },
+      ],
+      activeTabId: 't1',
+      leftSidebarVisible: true,
+    };
+    safeInvokeMock.mockResolvedValueOnce({ ok: true, value: saved });
+
+    // 自动打开的正是一个有未保存修改的 Tab:必须保留草稿,不能被磁盘内容顶掉
+    useEditorWorkspaceStore.getState().openLocalFileFromSystem('/dirty.ts', 'const a = 1');
+    await useEditorWorkspaceStore.getState().hydrate();
+
+    const s = useEditorWorkspaceStore.getState();
+    expect(s.workspace.tabs).toHaveLength(1);
+    expect(s.workspace.tabs[0].content).toBe('const draft = 1');
+    expect(s.workspace.tabs[0].savedContent).toBe('const a = 1');
+    expect(s.workspace.activeTabId).toBe('t1');
+  });
+
+  it('keeps user close intent over auto-opened files when both happened before hydrate', async () => {
+    const saved = {
+      tabs: [
+        {
+          id: 't1',
+          title: 'old.txt',
+          path: '/old.txt',
+          language: 'plaintext',
+          content: 'old',
+          savedContent: 'old',
+        },
+      ],
+      activeTabId: 't1',
+      leftSidebarVisible: true,
+    };
+    safeInvokeMock.mockResolvedValueOnce({ ok: true, value: saved });
+
+    // 自动打开后用户又主动清空:用户意图优先,不再恢复历史 Tab
+    useEditorWorkspaceStore.getState().openLocalFileFromSystem('/new.ts', 'const x = 1');
+    useEditorWorkspaceStore.getState().closeAllTabs();
+    await useEditorWorkspaceStore.getState().hydrate();
+
+    const s = useEditorWorkspaceStore.getState();
+    expect(s.workspace.tabs).toEqual([]);
+    expect(s.workspace.activeTabId).toBeNull();
+  });
 });
 
 describe('useEditorWorkspaceStore.openLocalFile', () => {

@@ -454,9 +454,12 @@ export function JsonFormatter({ toolId }: ToolProps) {
     copyOutput: output ? () => void copyTextWithFeedback(output) : undefined,
   });
 
-  // 「发送到…」接收端:成为激活工具时注入当前文档
+  // 「发送到…」接收端:成为激活工具时注入当前文档。
+  // 必须走 injectDocFromTool 而非 setDocContent:本工具首次懒加载时,该 effect
+  // 会在 hydrate() 这个 Promise 落地之前同步执行,置位 userTouched 会让 hydrate
+  // 丢弃持久化数据,随后防抖 persist 把上次的文档与整份本地历史永久覆盖。
   useToolHandoff(toolId, (incoming) => {
-    if (activeDocId) setDocContent(activeDocId, incoming);
+    useJsonFormatterStore.getState().injectDocFromTool(incoming);
   });
 
   // 输入或缩进变化后自动格式化到右侧输出(防抖,避免每次按键都调用)

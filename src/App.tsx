@@ -41,10 +41,16 @@ import type {
 } from '@/types/ipc';
 import type { HistoryEntry } from '@/types/history';
 
-/** 在代码编辑器工作区中打开一个本地文件:先切到编辑器工具,再打开文件 Tab */
+/**
+ * 在代码编辑器工作区中打开一个本地文件:先切到编辑器工具,再打开文件 Tab。
+ *
+ * 这里的调用一律来自系统侧(文件关联双击 / 命令行参数 / 「用 Qraft 打开」),
+ * 因此必须走 `openLocalFileFromSystem`:该入口不置位 `userTouched`,
+ * 让随后挂载的编辑器 hydrate 把上次的 Tab 列表合并回来而不是整体丢弃。
+ */
 function openFileInEditor(path: string, content: string): void {
   useUiStore.getState().openTool(DEFAULT_TOOL_ID);
-  useEditorWorkspaceStore.getState().openLocalFile(path, content);
+  useEditorWorkspaceStore.getState().openLocalFileFromSystem(path, content);
 }
 
 export function App(): JSX.Element {
