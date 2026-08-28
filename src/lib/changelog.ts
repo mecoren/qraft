@@ -11,6 +11,7 @@
  * v0.1.1 内容基于 git log 与代码(2026-08-21 00:00 之后)提炼,
  * v0.1.2 内容基于 git log(v0.1.1 标签之后至 2026-08-23)提炼,
  * v0.1.5 内容基于 git log(v0.1.2 标签之后至 2026-08-27)提炼,
+ * v0.2.0 内容基于 git log(v0.1.5 标签之后至 2026-08-28)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -39,6 +40,79 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.2.0',
+    date: '2026-08-28',
+    summary: {
+      zh: '工具可弹出为独立窗口(关闭时回写主窗口)、文本比较全面重构与差异计算 Web Worker 化、全量工具样式统一',
+      en: 'Tools pop out to separate windows with write-back on close, text compare rebuilt with Web Worker diffing, unified tool styling',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: '工具弹出新窗口(pop-out):任意工具可弹出为独立系统窗口,弹窗与主窗口共享 localStorage 持久层,关闭弹窗时把弹窗内的最后编辑回写主窗口;标题栏/命令面板/侧栏右键菜单三处入口,每工具单实例(重复打开自动聚焦)',
+          en: 'Pop-out windows: any tool can pop out to a separate OS window sharing the localStorage persistence layer, with the last edits written back to the main window on close; entries in titlebar, command palette and sidebar context menu, one instance per tool (reopening focuses)',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '文本比较工具全量重构:对齐 JSON 格式化器工作区样式(多 Tab 增删与持久化、按输入派生 Tab 名),差异展示与 VSCode 原生 DiffEditor 对齐(行级红/绿背景、词级高亮、行号色条、右缘概览标尺)',
+          en: 'Text compare rebuilt: workspace style aligned with the JSON formatter (persistent tabs, names derived from input), diff visuals aligned with VSCode native DiffEditor (row-level red/green, word-level highlights, gutter bars, overview ruler)',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '新增共享差异对比视图组件 TextDiffView(并排/行内布局、差异高亮、统计徽标、滚动同步),文本比较与文本编辑器「文件对比」共用,文件对比按扩展名推断语言',
+          en: 'New shared TextDiffView component (side-by-side/inline layouts, diff highlights, stats badge, scroll sync) used by both text compare and the editor file-compare view, which now infers language by extension',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复系统级文件打开会清空编辑器文件列表的问题:打开文件与持久化历史 Tab 改为合并水合,并区分用户主动与系统自动打开入口',
+          en: 'Fixed system file opens wiping the editor tab list: files now merge-hydrate with persisted history tabs, distinguishing user-initiated from system-initiated opens',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '差异计算 Web Worker 化:TextDiffView 差异计算迁移至 Web Worker(小输入同步快路径),大文档对比不再阻塞 UI(实测长任务 140 次/54s → 0 次)',
+          en: 'Diff computation moved to a Web Worker (sync fast path for small inputs): large-document diffs no longer block the UI (measured long tasks 140/54s → 0)',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '全量工具样式统一至 JsonFormatter 基准:统一工具 shell 卡片、扁平顶部配置区与次级卡片规范,40+ 工具面板视觉一致',
+          en: 'All tool styles unified to the JsonFormatter baseline: consistent tool shell cards, flat top config area and inner-card rules across 40+ tools',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '移除 url_codec 独立工具,URL 编码/解码能力整合进 JSON 格式化器(JsonFormatter)',
+          en: 'Removed the standalone url_codec tool; URL encode/decode is now integrated into the JSON formatter',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '编辑器未保存确认由居中对话框改为锚定小 Popover,与关闭 Tab/清空历史等确认交互统一',
+          en: 'Unsaved-changes confirmation in the editor changed from a centered dialog to an anchored popover, consistent with tab-close/history-clear confirmations',
+        },
+      },
+      {
+        category: 'chore',
+        description: {
+          zh: '修复 Rust clippy 冗余 clone 警告,全量代码通过 Prettier 格式化与 ESLint 门禁',
+          en: 'Fixed a Rust clippy redundant-clone warning; all code passes Prettier formatting and ESLint gates',
+        },
+      },
+    ],
+  },
   {
     version: '0.1.5',
     date: '2026-08-27',
