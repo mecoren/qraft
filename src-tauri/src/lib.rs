@@ -311,7 +311,7 @@ pub fn run() -> anyhow::Result<()> {
                 event: WindowEvent::Destroyed,
                 ..
             } if label.starts_with("popout-") => {
-                let _ = app_handle.emit("app:popout-closed", label.clone());
+                let _ = app_handle.emit("app:popout-closed", label);
             }
             _ => {}
         });
