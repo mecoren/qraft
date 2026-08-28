@@ -137,8 +137,8 @@ interface TextCompareWorkspaceState {
   /** 最近一次持久化错误(仅用于诊断,不影响使用) */
   error: string | null;
 
-  /** 从 Rust config 还原;已还原时再次调用为 no-op */
-  hydrate: () => Promise<void>;
+  /** 从 Rust config 还原;已还原时再次调用为 no-op;force=true 强制重读(弹窗回写) */
+  hydrate: (force?: boolean) => Promise<void>;
   /** 新建空白文档并激活 */
   newDoc: () => void;
   /** 关闭文档,激活态自动跳到相邻 */
@@ -180,20 +180,20 @@ export const useTextCompareStore = create<TextCompareWorkspaceState>((set, get) 
   userTouched: false,
   error: null,
 
-  hydrate: async () => {
-    // 已还原则不重复读取,防止多次挂载时竞态覆盖用户正在编辑的内容
-    if (get().ready) return;
+  hydrate: async (force = false) => {
+    // 已还原则不重复读取,防止多次挂载时竞态覆盖用户正在编辑的内容;
+    // force=true 仅用于弹出窗口关闭后的回写:忽略幂等与 userTouched,
+    // 直接以持久化数据为准(弹窗的最后落盘状态胜出)
+    if (get().ready && !force) return;
     const res = await safeInvoke<unknown>('config_get', { key: DOCS_CONFIG_KEY });
     const restored = res.ok ? normalizeDocs(res.value) : null;
-    set((s) => {
-      // 若 hydrate 完成前用户已主动操作,保留用户操作,避免异步恢复覆盖用户意图
-      if (s.userTouched) return { ready: true, error: res.ok ? null : res.error.message };
-      return {
-        ready: true,
-        error: res.ok ? null : res.error.message,
-        ...(restored ? { docs: restored.docs, activeDocId: restored.activeDocId } : {}),
-      };
-    });
+    set((s) => ({
+      ready: true,
+      error: res.ok ? null : res.error.message,
+      ...(restored && (force || !s.userTouched)
+        ? { docs: restored.docs, activeDocId: restored.activeDocId }
+        : {}),
+    }));
   },
 
   newDoc: () => {

@@ -2,6 +2,6 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "shell",
   "description": "Capability for shell: open external URLs (http/https only, validated in app layer)",
-  "windows": ["main"],
+  "windows": ["main", "popout-*"],
   "permissions": ["shell:allow-open"]
 }

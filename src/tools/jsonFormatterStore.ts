@@ -185,7 +185,7 @@ interface JsonFormatterWorkspaceState {
   error: string | null;
 
   /** 从 Rust config 还原;已还原时再次调用为 no-op */
-  hydrate: () => Promise<void>;
+  hydrate: (force?: boolean) => Promise<void>;
   /** 新建空白文档并激活;content 可选(用于从历史/粘贴创建) */
   newDoc: (content?: string) => void;
   /**
@@ -273,9 +273,11 @@ export const useJsonFormatterStore = create<JsonFormatterWorkspaceState>((set, g
   userTouched: false,
   error: null,
 
-  hydrate: async () => {
-    // 已还原则不重复读取,防止多次挂载时竞态覆盖用户正在编辑的内容
-    if (get().ready) return;
+  hydrate: async (force = false) => {
+    // 已还原则不重复读取,防止多次挂载时竞态覆盖用户正在编辑的内容;
+    // force=true 仅用于弹出窗口关闭后的回写:忽略幂等与 userTouched,
+    // 直接以持久化数据为准(弹窗的最后落盘状态胜出)
+    if (get().ready && !force) return;
     const [docsRes, historyRes] = await Promise.all([
       safeInvoke<unknown>('config_get', { key: DOCS_CONFIG_KEY }),
       safeInvoke<unknown>('config_get', { key: HISTORY_CONFIG_KEY }),
@@ -286,6 +288,15 @@ export const useJsonFormatterStore = create<JsonFormatterWorkspaceState>((set, g
     if (!docsRes.ok) errorMessage = docsRes.error.message;
     else if (!historyRes.ok) errorMessage = historyRes.error.message;
     set((s) => {
+      if (force) {
+        // 回写场景:直接以持久化数据为准,不做注入合并
+        return {
+          ready: true,
+          error: errorMessage,
+          ...(restoredDocs ? { docs: restoredDocs.docs, activeDocId: restoredDocs.activeDocId } : {}),
+          ...(restoredHistory ? { history: restoredHistory } : {}),
+        };
+      }
       // 若 hydrate 完成前用户已主动操作,保留用户操作,避免异步恢复覆盖用户意图
       if (s.userTouched) return { ready: true, error: errorMessage };
       // userTouched 为 false 但文档已有内容:只可能来自跨工具「发送到…」的注入

@@ -195,9 +195,24 @@ pub fn run() -> anyhow::Result<()> {
 
             Ok(())
         })
-        // 窗口关闭拦截:前端已就绪且未在确认流程时,阻止关闭并通知前端冲刷缓存后退出
+        // 窗口关闭拦截:
+        // - 弹出窗口(popout-*):拦截一次并定向通知弹窗前端冲刷待落盘数据,
+        //   由前端冲刷完成后自行 destroy;不触碰主窗口的 WindowCloseGuard 单例。
+        // - 主窗口:前端已就绪且未在确认流程时,阻止关闭并通知前端冲刷缓存后退出。
+        //   必须按 label 区分:WindowCloseGuard 是 app 级单例,且 window.emit 为
+        //   全局广播,若放任弹窗走主窗口流程,关闭弹窗会广播 app:close-requested,
+        //   主窗口 EditorWorkbench 收到后调用 app_quit,导致关闭弹窗反而退出整个
+        //   应用(见 prd/tool-popout-window/design.md)。
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label().starts_with("popout-") {
+                    api.prevent_close();
+                    let _ = window.emit_to(window.label(), "app:popout-close-requested", ());
+                    return;
+                }
+                if window.label() != "main" {
+                    return;
+                }
                 let guard = window.state::<WindowCloseGuard>();
                 let Ok(mut g) = guard.inner.lock() else {
                     return;
@@ -288,6 +303,15 @@ pub fn run() -> anyhow::Result<()> {
                     .map(|p| sanitize_dropped_path(&p.to_string_lossy()).to_string())
                     .collect();
                 open_dropped_files(app_handle, &authorized, &pending, &cleaned);
+            }
+            // 弹出窗口销毁后广播:主窗口据此把弹窗写入的持久化状态重新水合回
+            // 内存 store(快照式模型的关闭时回写,载荷为窗口 label popout-<toolId>)
+            RunEvent::WindowEvent {
+                label,
+                event: WindowEvent::Destroyed,
+                ..
+            } if label.starts_with("popout-") => {
+                let _ = app_handle.emit("app:popout-closed", label.clone());
             }
             _ => {}
         });

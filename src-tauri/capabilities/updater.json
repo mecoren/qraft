@@ -2,6 +2,6 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "updater",
   "description": "Capability for Tauri Updater plugin. Auto-update is the only network egress allowed by Qraft (see PRD 13-security.md §3.1).",
-  "windows": ["main"],
+  "windows": ["main", "popout-*"],
   "permissions": ["updater:default", "updater:allow-check", "updater:allow-download"]
 }

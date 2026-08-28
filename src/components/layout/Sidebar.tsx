@@ -28,6 +28,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { openToolInNewWindow } from '@/lib/popout-window';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -138,6 +139,10 @@ function ToolContextMenuContent({ entry }: { entry: CatalogEntry }): JSX.Element
 
   return (
     <>
+      <ContextMenuItem onSelect={() => void openToolInNewWindow(entry.id)}>
+        {t('chrome.sidebar.popout')}
+      </ContextMenuItem>
+      <ContextMenuSeparator />
       <ContextMenuItem onSelect={() => toggleFavorite(entry.id)}>
         {isFavorite ? t('chrome.sidebar.unfavorite') : t('chrome.sidebar.favorite')}
       </ContextMenuItem>

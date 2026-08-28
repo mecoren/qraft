@@ -1,5 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { PopoutApp } from './PopoutApp';
+import { POPOUT_QUERY_KEY } from '@/lib/popout-window';
 import { initThemeOnStartup, initFontSettingsOnStartup } from './lib/theme';
 import { applyPlatformClass } from './lib/platform';
 import { scheduleIdlePrefetch } from './lib/idle-prefetch';
@@ -32,11 +34,21 @@ if (!rootEl) {
   throw new Error('Root element #root not found in index.html');
 }
 
-createRoot(rootEl).render(<App />);
+// 启动分支:URL 携带 ?popout=<toolId> 时渲染弹窗壳(PopoutApp 内部校验 toolId,
+// 非法值显示「未找到工具」),否则渲染完整主窗口应用。
+// 两条路径共用上方的主题/字体/平台类初始化。
+const popoutToolId = new URLSearchParams(window.location.search).get(POPOUT_QUERY_KEY);
+
+createRoot(rootEl).render(
+  popoutToolId ? <PopoutApp toolId={popoutToolId} /> : <App />,
+);
 
 // 空闲预取重型懒加载链(Markdown 工具 → mermaid/katex/worker),
 // 消除首次进入该工具时的磁盘读取尖峰;dev 与冷启动零影响。
-scheduleIdlePrefetch({
-  dev: import.meta.env.DEV,
-  loaders: [() => import('./tools/MarkdownPreview')],
-});
+// 弹窗窗口按需加载自身工具即可,不参与主窗口的预取。
+if (!popoutToolId) {
+  scheduleIdlePrefetch({
+    dev: import.meta.env.DEV,
+    loaders: [() => import('./tools/MarkdownPreview')],
+  });
+}

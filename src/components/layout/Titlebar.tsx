@@ -24,17 +24,21 @@
  */
 
 import { type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ExternalLink } from 'lucide-react';
 import { WindowControls } from '@/components/ui/window-controls';
 import { Logo } from '@/components/Logo';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getCatalogEntry, pickText } from '@/lib/tool-catalog';
 import { ICON_STROKE_WIDTH } from '@/lib/icon-constants';
+import { isPopoutSupported, openToolInNewWindow } from '@/lib/popout-window';
 import { useUiStore } from '@/store/uiStore';
 import { useToolStateStore } from '@/store/toolStateStore';
 import { useToolMenusStore } from '@/store/toolMenubarStore';
 import { ToolMenuBar } from './ToolMenuBar';
 
 export function Titlebar(): JSX.Element {
+  const { t } = useTranslation();
   const view = useUiStore((s) => s.view);
   const currentToolId = useToolStateStore((s) => s.currentToolId);
   // 当前激活工具是否注册了菜单(用于决定左段渲染菜单栏 vs 工具名)
@@ -70,6 +74,25 @@ export function Titlebar(): JSX.Element {
             </Tooltip>
           )}
           {hasMenus && <ToolMenuBar />}
+          {/* 弹出新窗口入口:工具名/菜单栏右侧,与 DevToys pop-out 对齐 */}
+          {entry && currentToolId && isPopoutSupported(currentToolId) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="titlebar-tool"
+                  data-testid="titlebar-popout"
+                  aria-label={t('chrome.titlebar.popout')}
+                  onClick={() => void openToolInNewWindow(currentToolId)}
+                >
+                  <ExternalLink aria-hidden className="size-4" strokeWidth={ICON_STROKE_WIDTH} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={6}>
+                {t('chrome.titlebar.popout')}
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
 
         {/* 拖拽填充区:撑满剩余宽度,维持标题栏可拖拽面积 */}

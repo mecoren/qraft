@@ -2,6 +2,6 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "clipboard",
   "description": "Capability for clipboard access: read/write text only",
-  "windows": ["main"],
+  "windows": ["main", "popout-*"],
   "permissions": ["clipboard-manager:allow-read-text", "clipboard-manager:allow-write-text"]
 }

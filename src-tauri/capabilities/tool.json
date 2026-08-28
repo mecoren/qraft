@@ -2,6 +2,6 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "tool",
   "description": "Capability for tool_* commands: list/metadata/execute/stream/cancel (custom commands, no plugin permissions needed)",
-  "windows": ["main"],
+  "windows": ["main", "popout-*"],
   "permissions": []
 }

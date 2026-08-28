@@ -17,7 +17,8 @@
       "nav_aria": "Tool navigation",
       "settings": "Settings",
       "about": "About",
-      "manage_extensions": "Manage extensions"
+      "manage_extensions": "Manage extensions",
+      "popout": "Open in new window"
     },
     "palette": {
       "placeholder": "Search tools or actions...",
@@ -28,7 +29,11 @@
       "back_home": "Back to all tools",
       "open_settings": "Open settings",
       "open_history": "Open history",
-      "clear_history": "Clear history"
+      "clear_history": "Clear history",
+      "popout_current": "Open current tool in new window"
+    },
+    "titlebar": {
+      "popout": "Open in new window"
     },
     "welcome": {
       "hero_title": "Local-first developer toolbox",
@@ -53,7 +58,9 @@
       "copy_failed": "Copy failed",
       "copied_with_preview": "Copied: {{preview}}",
       "tool_failed": "Tool execution failed: {{message}}",
-      "open_binary_unsupported": "Cannot open \"{{name}}\" in the editor: it may be binary or an unsupported format"
+      "open_binary_unsupported": "Cannot open \"{{name}}\" in the editor: it may be binary or an unsupported format",
+      "popout_failed": "Could not open a new window, please try again",
+      "popout_blocked": "The new window was blocked by the browser, please allow pop-ups and try again"
     },
     "window": {
       "minimize": "Minimize",

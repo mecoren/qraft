@@ -115,6 +115,8 @@ export interface CatalogEntry {
   backendId?: string;
   /** 应用内特殊页面(非工具) */
   special?: 'settings' | 'extensions';
+  /** 弹出新窗口的首选尺寸(Tauri 逻辑像素);缺省用 900×640 默认值 */
+  popoutSize?: { width: number; height: number };
 }
 
 /**
@@ -368,6 +370,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'text',
     icon: Diff,
     keywords: ['diff', 'compare', '比较', '对比', '差异'],
+    popoutSize: { width: 1100, height: 720 },
   },
   {
     id: 'markdown_preview',
@@ -376,6 +379,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'text',
     icon: FileText,
     keywords: ['markdown', 'md', '预览', '公式', 'katex', 'mermaid', '大纲', '导出 html'],
+    popoutSize: { width: 1000, height: 720 },
   },
   {
     id: 'list_comparer',
@@ -430,6 +434,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
       '打开文件',
       '本地文件',
     ],
+    popoutSize: { width: 1100, height: 720 },
   },
 
   // —— 转换器 ——

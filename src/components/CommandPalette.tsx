@@ -9,9 +9,11 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { History, Home, Settings, Trash2 } from 'lucide-react';
+import { ExternalLink, History, Home, Settings, Trash2 } from 'lucide-react';
 import { useHistoryStore } from '@/store/historyStore';
+import { useToolStateStore } from '@/store/toolStateStore';
 import { useUiStore } from '@/store/uiStore';
+import { isPopoutSupported, openToolInNewWindow } from '@/lib/popout-window';
 import { TOOL_CATALOG, pickText } from '@/lib/tool-catalog';
 
 export interface CommandPaletteProps {
@@ -34,6 +36,8 @@ export function CommandPalette({
   const goWelcome = useUiStore((s) => s.goWelcome);
   // Smart Detection:剪贴板探测结果(仅在用户开启开关后有内容)
   const detected = useUiStore((s) => s.detectedTools);
+  // 当前工具:为空(欢迎页)时隐藏「弹出新窗口」动作
+  const currentToolId = useToolStateStore((s) => s.currentToolId);
   const { t } = useTranslation();
 
   // Esc 关闭由 Dialog 内部 Radix 处理,此处仅作冗余兜底
@@ -101,6 +105,18 @@ export function CommandPalette({
               ))}
             </CommandGroup>
             <CommandGroup heading={t('chrome.palette.group_actions')}>
+              {currentToolId && isPopoutSupported(currentToolId) && (
+                <CommandItem
+                  value="popout new window open current tool 在新窗口打开 弹出"
+                  onSelect={() => {
+                    void openToolInNewWindow(currentToolId);
+                    onOpenChange(false);
+                  }}
+                >
+                  <ExternalLink aria-hidden className="h-4 w-4 opacity-50" />
+                  <span>{t('chrome.palette.popout_current')}</span>
+                </CommandItem>
+              )}
               <CommandItem
                 value="home welcome 所有工具 首页 all tools home"
                 onSelect={() => {

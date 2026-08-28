@@ -17,7 +17,8 @@
       "nav_aria": "工具导航",
       "settings": "设置",
       "about": "关于",
-      "manage_extensions": "管理扩展"
+      "manage_extensions": "管理扩展",
+      "popout": "在新窗口打开"
     },
     "palette": {
       "placeholder": "搜索工具或操作...",
@@ -28,7 +29,11 @@
       "back_home": "返回所有工具",
       "open_settings": "打开设置",
       "open_history": "打开历史",
-      "clear_history": "清空历史"
+      "clear_history": "清空历史",
+      "popout_current": "在新窗口打开当前工具"
+    },
+    "titlebar": {
+      "popout": "在新窗口打开"
     },
     "welcome": {
       "hero_title": "本地优先的开发者工具箱",
@@ -53,7 +58,9 @@
       "copy_failed": "复制失败",
       "copied_with_preview": "已复制到剪贴板:{{preview}}",
       "tool_failed": "工具执行失败:{{message}}",
-      "open_binary_unsupported": "无法在编辑器中打开「{{name}}」:可能是二进制或不受支持的格式"
+      "open_binary_unsupported": "无法在编辑器中打开「{{name}}」:可能是二进制或不受支持的格式",
+      "popout_failed": "无法打开新窗口,请重试",
+      "popout_blocked": "新窗口被浏览器拦截,请允许弹出窗口后重试"
     },
     "window": {
       "minimize": "最小化",

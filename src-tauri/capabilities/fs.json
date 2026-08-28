@@ -2,6 +2,6 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "fs",
   "description": "Capability for fs commands and dialog: file picker dialogs (fs_read_file/fs_write_file validated via AuthorizedPaths in app layer)",
-  "windows": ["main"],
+  "windows": ["main", "popout-*"],
   "permissions": ["dialog:allow-open", "dialog:allow-save"]
 }

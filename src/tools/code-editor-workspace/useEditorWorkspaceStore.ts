@@ -177,7 +177,7 @@ interface WorkspaceState {
   error: string | null;
 
   /** 从 Rust config 还原工作区;已还原时再次调用为 no-op */
-  hydrate: () => Promise<void>;
+  hydrate: (force?: boolean) => Promise<void>;
   /** 打开本地文件:存在同路径 Tab 则激活,否则新建(encoding 为探测到的编码标识) */
   openLocalFile: (path: string, content: string, encoding?: string) => void;
   /**
@@ -253,19 +253,22 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
   userTouched: false,
   error: null,
 
-  hydrate: async () => {
-    // 已还原则不重复读取,防止多次挂载时竞态覆盖用户正在编辑的内容
-    if (get().ready) return;
+  hydrate: async (force = false) => {
+    // 已还原则不重复读取,防止多次挂载时竞态覆盖用户正在编辑的内容;
+    // force=true 仅用于弹出窗口关闭后的回写:忽略幂等与 userTouched,
+    // 直接以持久化工作区为准(不做 auto-open 合并,弹窗的最后落盘状态胜出)
+    if (get().ready && !force) return;
     const r = await safeInvoke<unknown>('config_get', { key: WORKSPACE_CONFIG_KEY });
     if (r.ok) {
       set((s) => {
+        const restored = normalizeWorkspace(r.value);
+        if (force) return { workspace: restored, ready: true, error: null };
         // 若 hydrate 完成前用户已主动操作(含 closeAllTabs 等清空操作),
         // 保留用户操作,避免异步恢复覆盖用户意图;否则用持久化数据还原
-        if (s.userTouched) return { workspace: s.workspace, ready: true, error: null };
+        if (s.userTouched) return { ready: true, error: null };
         // userTouched 为 false 但已有 Tab:只可能来自文件关联/命令行的自动打开
         // (其余增删 Tab 的 action 都会置位 userTouched),需与持久化列表合并而非互相覆盖
-        const workspace = mergeAutoOpenedTabs(normalizeWorkspace(r.value), s.workspace);
-        return { workspace, ready: true, error: null };
+        return { workspace: mergeAutoOpenedTabs(restored, s.workspace), ready: true, error: null };
       });
     } else {
       set({ ready: true, error: r.error.message });

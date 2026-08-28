@@ -27,6 +27,10 @@ import { cn } from '@/lib/utils';
 import { pullPendingOpenFiles, type PendingOpenFile } from '@/tools/code-editor-workspace/fileOps';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
 import {
+  getPopoutToolIdFromLabel,
+  rehydrateToolStateFromPopout,
+} from '@/lib/popout-sync';
+import {
   cycleNamingCaseShortcutHandler,
   toggleCaseShortcutHandler,
 } from '@/tools/code-editor-workspace/namingCaseCommand';
@@ -117,6 +121,14 @@ export function App(): JSX.Element {
           if (fileName) {
             toast.warning(translate('chrome.toast.open_binary_unsupported', { name: fileName }));
           }
+        }),
+      );
+      // 弹窗关闭后回写:主窗口把弹窗写入的持久化状态重新水合进内存 store,
+      // 快照式模型下让弹窗中的最后编辑在主窗口可见(Rust 在 popout 销毁时广播该事件)
+      unlisteners.push(
+        await listen<string>('app:popout-closed', (label) => {
+          const toolId = getPopoutToolIdFromLabel(label);
+          if (toolId) void rehydrateToolStateFromPopout(toolId);
         }),
       );
     })();
