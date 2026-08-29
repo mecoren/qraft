@@ -5,6 +5,17 @@ All notable changes to Qraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-08-29
+
+### Added
+
+- Windows 文件关联图标与应用内视觉统一:资源管理器中的关联图标改为与「打开的编辑器」标签栏同一套 material-icon-theme 图标(同一批 SVG,经 `scripts/generate-file-icons.mjs` 生成 16–256 七尺寸 ICO);文件关联按语言拆分为 22 个 ProgID(json/md/csv/log/xml/yaml/toml/配置/js/ts/jsx·tsx/py/rs/go/java/c/cpp/shell/sql/vue/svelte/txt),每个 ProgID 的 `DefaultIcon` 与应用内 `getFileIconName` 映射一一对应;安装完成广播 `SHCNE_ASSOCCHANGED` 即时刷新;历史遗留的 "Source Code File" 分组 ProgID 在安装/卸载时自动清理
+
+### Changed
+
+- NSIS 安装器改用项目定制模板 `src-tauri/windows/installer.nsi`(基于 tauri-cli v2.11.4 官方模板):检测到已安装旧版本时跳过「Uninstall before installing / Do not uninstall」选择页,直接覆盖安装以保留用户配置与数据;从 WiX(MSI) 迁移场景仍保留卸载流程
+- 安装器与卸载器界面图标显式配置为项目 `icons/icon.ico`,消除 NSIS 默认占位图标
+
 ## [0.2.0] - 2026-08-28
 
 ### Added
@@ -100,6 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tauri Updater 签名验证(ed25519)
 - MVP 阶段:Windows/macOS 使用占位签名(ad-hoc),正式发布需 EV 证书与 Apple Developer ID
 
+[0.2.2]: https://github.com/qraft/qraft/compare/v0.2.0...v0.2.2
 [0.2.0]: https://github.com/qraft/qraft/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/qraft/qraft/compare/v0.1.2...v0.1.5
 [0.1.0]: https://github.com/qraft/qraft/releases/tag/v0.1.0

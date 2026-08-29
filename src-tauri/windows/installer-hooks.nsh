@@ -23,6 +23,14 @@
   WriteRegStr SHCTX "Software\Classes\${_KEY}\shell\Qraft\command" "" `"$INSTDIR\${MAINBINARYNAME}.exe" ${_ARG}`
 !macroend
 
+;; 覆盖写入文件关联 ProgID 的专属类型图标。
+;; 模板默认把所有类型的 DefaultIcon 统一指向主程序 exe,导致资源管理器中
+;; 各类型文件全部显示应用图标;此处按类型改写为 $INSTDIR\icons\file-assoc\ 下的 ICO。
+;; ProgID 名称须与 tauri.conf.json → bundle.fileAssociations[].name 严格一致。
+!macro _Qraft_AssocTypeIcon _FILECLASS _ICON
+  WriteRegStr SHCTX "Software\Classes\${_FILECLASS}\DefaultIcon" "" "$INSTDIR\icons\file-assoc\${_ICON},0"
+!macroend
+
 !macro NSIS_HOOK_POSTINSTALL
   ; ---- 右键菜单动词(文件 / 文件夹 / 空白处)----
   !insertmacro _Qraft_WriteOpenKey "*" '"%1"'
@@ -34,6 +42,38 @@
   WriteRegStr SHCTX "Software\Classes\Applications\${MAINBINARYNAME}.exe" "FriendlyAppName" "${PRODUCTNAME}"
   WriteRegStr SHCTX "Software\Classes\Applications\${MAINBINARYNAME}.exe\DefaultIcon" "" "$INSTDIR\${MAINBINARYNAME}.exe,0"
   WriteRegStr SHCTX "Software\Classes\Applications\${MAINBINARYNAME}.exe\shell\open\command" "" `"$INSTDIR\${MAINBINARYNAME}.exe" "%1"`
+
+  ; ---- 各文件类型的专属图标 ----
+  ; 图标 = material-icon-theme 同源 SVG 生成的 ICO(scripts/generate-file-icons.mjs),
+  ; 与应用内「打开的编辑器」标签栏图标(fileIcons.ts)一一对应。
+  !insertmacro _Qraft_AssocTypeIcon "Text Document" "file.ico"
+  !insertmacro _Qraft_AssocTypeIcon "JSON Document" "json.ico"
+  !insertmacro _Qraft_AssocTypeIcon "Markdown Document" "markdown.ico"
+  !insertmacro _Qraft_AssocTypeIcon "CSV Document" "table.ico"
+  !insertmacro _Qraft_AssocTypeIcon "Log File" "log.ico"
+  !insertmacro _Qraft_AssocTypeIcon "XML Document" "xml.ico"
+  !insertmacro _Qraft_AssocTypeIcon "YAML Document" "yaml.ico"
+  !insertmacro _Qraft_AssocTypeIcon "TOML Document" "toml.ico"
+  !insertmacro _Qraft_AssocTypeIcon "Configuration Text File" "settings.ico"
+  !insertmacro _Qraft_AssocTypeIcon "JavaScript Document" "javascript.ico"
+  !insertmacro _Qraft_AssocTypeIcon "TypeScript Document" "typescript.ico"
+  !insertmacro _Qraft_AssocTypeIcon "React Document" "react.ico"
+  !insertmacro _Qraft_AssocTypeIcon "Python Document" "python.ico"
+  !insertmacro _Qraft_AssocTypeIcon "Rust Document" "rust.ico"
+  !insertmacro _Qraft_AssocTypeIcon "Go Document" "go.ico"
+  !insertmacro _Qraft_AssocTypeIcon "Java Document" "java.ico"
+  !insertmacro _Qraft_AssocTypeIcon "C Document" "c.ico"
+  !insertmacro _Qraft_AssocTypeIcon "C++ Document" "cpp.ico"
+  !insertmacro _Qraft_AssocTypeIcon "Shell Script Document" "console.ico"
+  !insertmacro _Qraft_AssocTypeIcon "SQL Document" "database.ico"
+  !insertmacro _Qraft_AssocTypeIcon "Vue Document" "vue.ico"
+  !insertmacro _Qraft_AssocTypeIcon "Svelte Document" "svelte.ico"
+
+  ; ---- 清理历史版本遗留的分组 ProgID(源代码文件统一图标已被按语言拆分取代)----
+  DeleteRegKey SHCTX "Software\Classes\Source Code File"
+
+  ; ---- 通知资源管理器刷新图标/关联缓存(SHCNE_ASSOCCHANGED)----
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
@@ -41,4 +81,6 @@
   DeleteRegKey SHCTX "Software\Classes\Directory\shell\Qraft"
   DeleteRegKey SHCTX "Software\Classes\Directory\Background\shell\Qraft"
   DeleteRegKey SHCTX "Software\Classes\Applications\${MAINBINARYNAME}.exe"
+  ; 历史版本遗留的分组 ProgID
+  DeleteRegKey SHCTX "Software\Classes\Source Code File"
 !macroend

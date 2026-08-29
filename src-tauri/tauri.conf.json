@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Qraft",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "identifier": "cn.wait.qraft",
   "build": {
     "frontendDist": "../dist",
@@ -32,7 +32,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "nsis", "dmg", "deb", "appimage"],
+    "targets": [
+      "app",
+      "nsis",
+      "dmg",
+      "deb",
+      "appimage"
+    ],
     "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
@@ -41,7 +47,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [],
+    "resources": [
+      "icons/file-assoc"
+    ],
     "externalBin": [],
     "fileAssociations": [
       {
@@ -49,7 +57,7 @@
           "txt"
         ],
         "name": "Text Document",
-        "description": "Plain text files",
+        "description": "纯文本文件",
         "mimeType": "text/plain",
         "role": "Editor"
       },
@@ -58,7 +66,7 @@
           "json"
         ],
         "name": "JSON Document",
-        "description": "JavaScript Object Notation data files",
+        "description": "JSON 数据文件",
         "mimeType": "application/json",
         "role": "Editor"
       },
@@ -68,7 +76,7 @@
           "markdown"
         ],
         "name": "Markdown Document",
-        "description": "Markdown plain text files",
+        "description": "Markdown 文档",
         "mimeType": "text/markdown",
         "role": "Editor"
       },
@@ -77,7 +85,7 @@
           "csv"
         ],
         "name": "CSV Document",
-        "description": "Comma-separated values files",
+        "description": "CSV 表格文件",
         "mimeType": "text/csv",
         "role": "Editor"
       },
@@ -86,47 +94,167 @@
           "log"
         ],
         "name": "Log File",
-        "description": "Plain text log files",
+        "description": "日志文件",
         "mimeType": "text/plain",
         "role": "Editor"
       },
       {
         "ext": [
-          "xml",
+          "xml"
+        ],
+        "name": "XML Document",
+        "description": "XML 文档",
+        "mimeType": "application/xml",
+        "role": "Editor"
+      },
+      {
+        "ext": [
           "yaml",
-          "yml",
-          "toml",
+          "yml"
+        ],
+        "name": "YAML Document",
+        "description": "YAML 文档",
+        "mimeType": "application/yaml",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "toml"
+        ],
+        "name": "TOML Document",
+        "description": "TOML 文档",
+        "mimeType": "text/plain",
+        "role": "Editor"
+      },
+      {
+        "ext": [
           "ini",
           "conf",
           "env"
         ],
         "name": "Configuration Text File",
-        "description": "Configuration and data text files",
+        "description": "配置文本文件",
         "mimeType": "text/plain",
         "role": "Editor"
       },
       {
         "ext": [
-          "js",
-          "ts",
+          "js"
+        ],
+        "name": "JavaScript Document",
+        "description": "JavaScript 源码文件",
+        "mimeType": "text/javascript",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "ts"
+        ],
+        "name": "TypeScript Document",
+        "description": "TypeScript 源码文件",
+        "mimeType": "text/typescript",
+        "role": "Editor"
+      },
+      {
+        "ext": [
           "jsx",
-          "tsx",
-          "py",
-          "rs",
-          "go",
-          "java",
+          "tsx"
+        ],
+        "name": "React Document",
+        "description": "React JSX/TSX 文件",
+        "mimeType": "text/plain",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "py"
+        ],
+        "name": "Python Document",
+        "description": "Python 源码文件",
+        "mimeType": "text/x-python",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "rs"
+        ],
+        "name": "Rust Document",
+        "description": "Rust 源码文件",
+        "mimeType": "text/rust",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "go"
+        ],
+        "name": "Go Document",
+        "description": "Go 源码文件",
+        "mimeType": "text/x-go",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "java"
+        ],
+        "name": "Java Document",
+        "description": "Java 源码文件",
+        "mimeType": "text/x-java-source",
+        "role": "Editor"
+      },
+      {
+        "ext": [
           "c",
-          "h",
+          "h"
+        ],
+        "name": "C Document",
+        "description": "C 源码与头文件",
+        "mimeType": "text/plain",
+        "role": "Editor"
+      },
+      {
+        "ext": [
           "cpp",
-          "hpp",
+          "hpp"
+        ],
+        "name": "C++ Document",
+        "description": "C++ 源码与头文件",
+        "mimeType": "text/plain",
+        "role": "Editor"
+      },
+      {
+        "ext": [
           "sh",
-          "bash",
-          "sql",
-          "vue",
+          "bash"
+        ],
+        "name": "Shell Script Document",
+        "description": "Shell 脚本",
+        "mimeType": "application/x-sh",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "sql"
+        ],
+        "name": "SQL Document",
+        "description": "SQL 脚本",
+        "mimeType": "application/sql",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "vue"
+        ],
+        "name": "Vue Document",
+        "description": "Vue 单文件组件",
+        "mimeType": "text/plain",
+        "role": "Editor"
+      },
+      {
+        "ext": [
           "svelte"
         ],
-        "name": "Source Code File",
-        "description": "Source code files",
+        "name": "Svelte Document",
+        "description": "Svelte 组件",
         "mimeType": "text/plain",
         "role": "Editor"
       }
@@ -144,8 +272,11 @@
       "nsis": {
         "installMode": "currentUser",
         "languages": [
-          "English"
+          "SimpChinese"
         ],
+        "template": "./windows/installer.nsi",
+        "installerIcon": "./icons/icon.ico",
+        "uninstallerIcon": "./icons/icon.ico",
         "installerHooks": "./windows/installer-hooks.nsh"
       },
       "webviewInstallMode": {

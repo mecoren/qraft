@@ -6,8 +6,11 @@
 
 ### 1.1 Windows(Windows 10/11 x64)
 
-- [ ] 从 Release 下载 `Qraft-Setup-0.1.0.exe`,双击安装
+- [ ] 从 Release 下载 `Qraft_<版本>_x64-setup.exe`,双击安装
 - [ ] 安装过程无报错,安装完成后桌面/开始菜单出现 Qraft 快捷方式
+- [ ] 安装器向导各页面(欢迎页/右上角图标/任务栏)均显示 Qraft 项目图标,无 NSIS 默认占位图标
+- [ ] 覆盖安装:在已装有旧版本 Qraft 的机器上直接运行新安装包,不出现「Uninstall before installing」选择页,直接覆盖安装且用户配置与历史数据保留
+- [ ] 文件类型图标:对 json/md/csv/log/xml/yaml/toml/ini/js/ts/jsx/tsx/py/rs/go/java/c/cpp/sh/sql/vue/svelte/txt 等扩展名在「打开方式 → 始终使用」设为 Qraft 后,资源管理器中各类型文件显示与应用内一致的 material-icon-theme 图标(如 json 为橙色花括号、java 为红色咖啡杯),而非统一的应用图标
 - [ ] 启动 Qraft,主窗口正常显示,标题为 `Qraft`,尺寸 1200×800
 - [ ] 依次打开并验证 P0 工具:
   - [ ] `json_formatter`:粘贴 `{"a":1}` → 输出格式化后 JSON
@@ -89,6 +92,7 @@
 ## 6. 版本与发布物料
 
 - [ ] `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json` 版本号一致(用 `scripts/bump-version.sh` 同步)
+- [ ] CI 已配置 `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`(updater 签名产物 *.sig / latest.json 所需;本地构建无该变量时签名步骤报错属预期,setup 包在此之前已产出)
 - [ ] `CHANGELOG.md` 已更新本次版本条目
 - [ ] SBOM(`qraft-rust-sbom.json`、`qraft-npm-sbom.json`)已生成并附加到 Release
 - [ ] `latest.json` 已自动由 tauri-action 生成并附加到 Release

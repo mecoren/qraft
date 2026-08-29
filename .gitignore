@@ -4,11 +4,14 @@ node_modules/
 # Build outputs
 dist/
 dist-ssr/
+# 构建产物被运行中的 dev server 占用时的锁定副本(Windows 文件锁),同样不入库
+dist.locked-*/
 *.local
 
 # Monaco editor assets — 由 scripts/copy-monaco.mjs 在 dev/build 前
 # 从 node_modules/monaco-editor 重新生成,不纳入版本控制。
 public/monaco/
+public/monaco.locked-*/
 
 # Rust / Tauri
 src-tauri/target/

@@ -28,6 +28,13 @@ Rust Core → Tauri Shell → React UI；IPC 用 `invoke` / `listen`。
 
 ## 品牌图标 / Logo
 - **单一来源**：`prd/logo/icon.svg`（512×512，透明背景，窗口+代码符号）。
+- **文件类型图标**：与「打开的编辑器」标签栏统一，直接用 material-icon-theme 同批 SVG；`scripts/generate-file-icons.mjs` 产出 `src-tauri/icons/file-assoc/*.ico`（16-256 七尺寸 PNG 容器 ICO，22 枚）。重生成：`NODE_OPTIONS='' node scripts/generate-file-icons.mjs`。**ProgID 按语言拆分 22 组**（tauri.conf.json ↔ installer-hooks.nsh ↔ 脚本 ICON_NAMES 三处同步），映射对齐 `fileIcons.ts` 的 `getFileIconName`；"Source Code File" 为废弃 ProgID，hooks 中已做清理。
+
+## NSIS 安装器（2026-08 定稿，已构建验证）
+- **定制模板**：`src-tauri/windows/installer.nsi`（tauri-cli v2.11.4 官方模板 + 补丁），`bundle.windows.nsis.template` 接入。补丁：`PageReinstall` 中非 WiX 旧安装直接 Abort → **覆盖安装、不再弹“先卸载”页**，保留用户数据；`installerIcon`/`uninstallerIcon` 已显式配置（否则 MUI2 回退默认占位图标）。
+- **文件关联图标**：模板默认把所有 ProgID 的 DefaultIcon 写成主程序 exe；由 `installer-hooks.nsh` POSTINSTALL 中 `_Qraft_AssocTypeIcon` 按 ProgID（= `fileAssociations[].name`，如 "Text Document"）覆盖为 `$INSTDIR\icons\file-assoc\<type>.ico,0`，并以 `SHChangeNotify(SHCNE_ASSOCCHANGED)` 刷新。资源经 `bundle.resources: ["icons/file-assoc"]` 安装。**增删关联类型时须同步 hooks 中 ProgID↔ICO 映射**。
+- 官方模板获取（raw/jsdelivr 被阻断）：`curl -H "Accept: application/vnd.github.raw" "https://api.github.com/repos/tauri-apps/tauri/contents/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi?ref=tauri-cli-v<CLI版本>"`。本机 Git Bash `/tmp` 不可写，用 `%LOCALAPPDATA%\Temp`。
+- 本地构建末尾 `TAURI_SIGNING_PRIVATE_KEY` 报错属预期（updater 签名步骤），setup exe 已产出即验证通过。
 - **主控 SVG**：`assets/app-icon.svg` 由 `prd/logo/icon.svg` 缩放至 1024×1024 得到，应保持同步。
 - **光栅主图**：`assets/source-icon.png`（1024×1024）作为 `tauri icon` 的输入源。
 - **Tauri 完整图标集**：运行 `./node_modules/.bin/tauri icon assets/source-icon.png` 重新生成 `src-tauri/icons/`（含 Windows Store logos、Android mipmap、iOS AppIcon、icon.ico、icon.icns）。

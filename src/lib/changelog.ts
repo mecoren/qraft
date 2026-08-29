@@ -12,6 +12,7 @@
  * v0.1.2 内容基于 git log(v0.1.1 标签之后至 2026-08-23)提炼,
  * v0.1.5 内容基于 git log(v0.1.2 标签之后至 2026-08-27)提炼,
  * v0.2.0 内容基于 git log(v0.1.5 标签之后至 2026-08-28)提炼,
+ * v0.2.2 内容基于 git log(v0.2.0 标签之后至 2026-08-29)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -40,6 +41,30 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.2.2',
+    date: '2026-08-29',
+    summary: {
+      zh: 'Windows 文件关联图标与应用内视觉统一,NSIS 安装器覆盖安装与界面图标定制',
+      en: 'Unified Windows file association icons with the app visuals, NSIS overwrite-install and icon customization',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: 'Windows 文件关联图标与应用内视觉统一:资源管理器中的关联图标改为与「打开的编辑器」标签栏同一套 material-icon-theme 图标(脚本生成 16–256 七尺寸 ICO);文件关联按语言拆分为 22 个 ProgID,每个 ProgID 的 DefaultIcon 与应用内 getFileIconName 映射一一对应;安装完成广播 SHCNE_ASSOCCHANGED 即时刷新;历史遗留的 "Source Code File" 分组 ProgID 在安装/卸载时自动清理',
+          en: 'Unified Windows file association icons: Explorer icons now match the material-icon-theme icons in editor tabs (generated at 16–256px); associations split into 22 language ProgIDs whose DefaultIcon maps 1:1 to the in-app getFileIconName; SHCNE_ASSOCCHANGED broadcast refreshes icons instantly; legacy "Source Code File" ProgIDs auto-cleaned on install/uninstall',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: 'NSIS 安装器改用项目定制模板:检测到已安装旧版本时跳过「Uninstall before installing / Do not uninstall」选择页,直接覆盖安装以保留用户配置与数据;从 WiX(MSI) 迁移场景仍保留卸载流程;安装器与卸载器界面图标显式配置为项目图标,消除 NSIS 默认占位图标',
+          en: 'Custom NSIS installer template: skips the "uninstall first?" page on existing installations for a straight overwrite install that preserves user data; uninstall flow retained for WiX (MSI) migration; installer/uninstaller icons set to the project icon, removing NSIS placeholder icons',
+        },
+      },
+    ],
+  },
   {
     version: '0.2.0',
     date: '2026-08-28',
