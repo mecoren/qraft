@@ -201,14 +201,22 @@ async function collectReachable(vsDir) {
 
 /**
  * 执行裁剪:保留闭包 + 白名单,删除其余,返回释放字节数。
- * 白名单:loader.js(AMD 引导)、editor.main.css(样式)、basic-languages/**(语言
- * 贡献动态注册兜底)、nls/lang/zh-cn.js(index.html 经典 script 直引,无 define)。
+ * 白名单:loader.js(AMD 引导)、editor/main.css(样式)、basic-languages/**(语言
+ * 贡献动态注册兜底)、nls/lang/zh-cn.js(index.html 经典 script 直引,无 define)、
+ * base/browser/ui/codicons/**(codicon 图标 CSS/TTF,前端 ensureMonacoStyles 注入,
+ * 闭包分析只覆盖 .js,若不加入白名单会被误删,导致折叠/查找等图标显示为方框叉)。
  */
 async function trimUnreachable(vsDir) {
   const reachable = await collectReachable(vsDir);
   const whitelist = new Set(['loader.js', 'editor/editor.main.css']);
   for (const rel of await listFilesRel(vsDir)) {
-    if (rel.startsWith('basic-languages/') || rel === 'nls/lang/zh-cn.js') whitelist.add(rel);
+    if (
+      rel.startsWith('basic-languages/') ||
+      rel === 'nls/lang/zh-cn.js' ||
+      rel.startsWith('base/browser/ui/codicons/')
+    ) {
+      whitelist.add(rel);
+    }
   }
   let freed = 0;
   let deleted = 0;
@@ -277,6 +285,9 @@ async function main() {
     'editor/editor.main.js',
     'editor/editor.main.css',
     'nls/lang/zh-cn.js',
+    // codicon 图标资源:曾被 trim 误删导致折叠/查找按钮显示为方框叉,列入核验防回归
+    'base/browser/ui/codicons/codicon/codicon.css',
+    'base/browser/ui/codicons/codicon/codicon.ttf',
   ]) {
     if (!existsSync(path.join(DEST, rel))) {
       throw new Error(`裁剪后缺少运行时关键文件: ${rel}`);
