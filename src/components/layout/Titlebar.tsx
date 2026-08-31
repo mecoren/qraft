@@ -7,20 +7,20 @@
  * - 双击标题栏切换最大化(Tauri 内置)
  *
  * 布局:.titlebar(flex, 相对定位)
- *   → .titlebar-left(左段:当前工具图标 + 名称[工具页时] + 工具菜单栏[有菜单时,紧随标题右侧])
+ *   → .titlebar-left(左段:应用 Logo + "Qraft" + 工具菜单栏[有菜单时,紧随品牌右侧])
  *   → .titlebar-fill(flex:1 拖拽填充区)
- *   → .titlebar-center(中段:Logo + "Qraft",绝对居中)
+ *   → .titlebar-center(中段:当前工具图标 + 名称[工具页时] + 弹出新窗口按钮,绝对居中)
  *   → <WindowControls />
  *
  * 工具菜单栏:
  * - 工具组件挂载时调用 useToolMenus(toolId, ...) 注册自己的菜单(File / Edit / View)
  * - 页面/工具 keepalive 常驻,因此仅当「注册菜单的工具 === 当前激活工具」时,
- *   在工具名右侧展示 ToolMenuBar;其他功能(欢迎页/历史/扩展/其他工具)一律不显示菜单栏
- * - 工具图标 + 名称始终展示(仅工具页),有菜单时位于菜单栏左侧(原行为)
+ *   在品牌名右侧展示 ToolMenuBar;其他功能(欢迎页/历史/扩展/其他工具)一律不显示菜单栏
+ * - 菜单栏归属左段(品牌区),与中段的功能名分离
  *
  * 拖拽适配:
  * - 菜单栏内的 Trigger / Content 已通过 .menubar-root 选择器置 no-drag,
- *   拖拽面积由 fill 与 center 维持
+ *   中段整体 pointer-events:none,仅直接子元素恢复交互,拖拽面积由 fill 维持
  */
 
 import { type JSX } from 'react';
@@ -48,7 +48,7 @@ export function Titlebar(): JSX.Element {
   const ownerToolId = useToolMenusStore((s) => s.ownerToolId);
   const hasMenus =
     view === 'tool' && currentToolId !== null && ownerToolId === currentToolId && menus.length > 0;
-  // 仅工具页且已选中工具时,标题栏左侧展示当前工具图标 + 名称(无菜单时降级显示)
+  // 仅工具页且已选中工具时,标题栏中段展示当前工具图标 + 名称(无菜单时降级显示)
   const entry = view === 'tool' && currentToolId ? getCatalogEntry(currentToolId) : null;
   // 提取为局部变量,符合 JSX PascalCase 组件约定
   const ToolIcon = entry?.icon;
@@ -56,8 +56,18 @@ export function Titlebar(): JSX.Element {
   return (
     <TooltipProvider delayDuration={500}>
       <header className="titlebar" data-testid="titlebar">
-        {/* 左段:当前工具图标 + 名称,右侧(有菜单时)为工具菜单栏 */}
+        {/* 左段:应用 Logo + 名称,右侧(有菜单时)为工具菜单栏 */}
         <div className="titlebar-left">
+          <Logo className="size-4" />
+          <span className="titlebar-title">Qraft</span>
+          {hasMenus && <ToolMenuBar />}
+        </div>
+
+        {/* 拖拽填充区:撑满剩余宽度,维持标题栏可拖拽面积 */}
+        <div className="titlebar-fill" data-tauri-drag-region />
+
+        {/* 中段:当前工具图标 + 名称(工具页时),绝对居中 */}
+        <div className="titlebar-center">
           {entry && ToolIcon && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -68,13 +78,12 @@ export function Titlebar(): JSX.Element {
                   </span>
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom" sideOffset={6}>
+              <TooltipContent side="bottom" sideOffset={6} className="bg-popover!">
                 {pickText(entry.description)}
               </TooltipContent>
             </Tooltip>
           )}
-          {hasMenus && <ToolMenuBar />}
-          {/* 弹出新窗口入口:工具名/菜单栏右侧,与 DevToys pop-out 对齐 */}
+          {/* 弹出新窗口入口:工具名右侧,与 DevToys pop-out 对齐 */}
           {entry && currentToolId && isPopoutSupported(currentToolId) && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -88,20 +97,11 @@ export function Titlebar(): JSX.Element {
                   <ExternalLink aria-hidden className="size-4" strokeWidth={ICON_STROKE_WIDTH} />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom" sideOffset={6}>
+              <TooltipContent side="bottom" sideOffset={6} className="bg-popover!">
                 {t('chrome.titlebar.popout')}
               </TooltipContent>
             </Tooltip>
           )}
-        </div>
-
-        {/* 拖拽填充区:撑满剩余宽度,维持标题栏可拖拽面积 */}
-        <div className="titlebar-fill" data-tauri-drag-region />
-
-        {/* 中段:应用 Logo + 名称,绝对居中 */}
-        <div className="titlebar-center" data-tauri-drag-region>
-          <Logo className="size-4" />
-          <span className="titlebar-title">Qraft</span>
         </div>
 
         <WindowControls />

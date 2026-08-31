@@ -1695,9 +1695,9 @@
  *
  * - .titlebar:整个标题栏,使用 L2 半透明背景(--bg-sidebar-layer),
  *   与侧边栏同源保持一致;高度 32px;relative 供中段绝对居中
- * - .titlebar-left:左段,展示当前工具图标 + 名称(仅工具页),悬浮弹描述 Tooltip
+ * - .titlebar-left:左段,展示应用 Logo + 名称 "Qraft" + 工具菜单栏(有菜单时)
  * - .titlebar-fill:拖拽填充区(data-tauri-drag-region),flex:1 撑满剩余宽度
- * - .titlebar-center:中段,Logo + "Qraft",absolute 水平居中
+ * - .titlebar-center:中段,当前工具图标 + 名称(仅工具页) + 弹出新窗口按钮,absolute 水平居中
  * - .titlebar-tool:工具名悬浮区,按钮化重置,hover 背景 alpha 微提升
  * - .window-control:单个窗口控制按钮,命中区 48×36px
  * - .window-control--close:hover 反色警示(--destructive 红底白图标)
@@ -1749,8 +1749,9 @@
  *   避免菜单触发器误触发原生窗口拖拽
  * ============================================================ */
 
-/* 拖拽适配:整个菜单栏子树均 no-drag,仅 titlebar-fill / titlebar-center
- * 区域可拖拽(由 data-tauri-drag-region 控制) */
+/* 拖拽适配:整个菜单栏子树均 no-drag;titlebar-fill 为唯一拖拽区,
+ * titlebar-center pointer-events:none 使空白处点击穿透到 fill,
+ * 其直接子元素恢复 pointer-events:auto 以保留交互 */
 .menubar-root,
 .menubar-root * {
   -webkit-app-region: no-drag;
@@ -1761,6 +1762,12 @@
 .menubar-root {
   font-family: inherit;
   color: var(--foreground);
+}
+
+/* 左段「品牌名 + 菜单栏」组合:菜单栏与品牌之间留出比默认 gap 更大的间距,
+ * 视觉上区分「应用品牌」与「工具菜单」两组语义 */
+.titlebar-left .menubar-root {
+  margin-left: var(--space-2);
 }
 
 /* 触发器在 titlebar 中的视觉微调:
@@ -1799,6 +1806,11 @@
   align-items: center;
   gap: var(--space-2);
   height: 100%;
+  pointer-events: none;
+}
+
+.titlebar-center > * {
+  pointer-events: auto;
 }
 
 .titlebar-tool {

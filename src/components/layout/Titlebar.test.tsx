@@ -40,13 +40,13 @@ beforeEach(() => {
 });
 
 describe('Titlebar', () => {
-  it('shows the current tool icon + name on the left in tool view', () => {
+  it('shows the project Logo + name on the left and the current tool icon + name in the center in tool view', () => {
     useUiStore.setState({ view: 'tool' });
     useToolStateStore.setState({ currentToolId: 'base64_codec' });
     render(<Titlebar />);
-    // 左区展示当前工具名,中间品牌 Qraft 仍在
-    expect(screen.getByTestId('titlebar-tool-name')).toHaveTextContent(/Base64/i);
+    // 左区展示品牌 Qraft,中区展示当前工具名
     expect(screen.getByText('Qraft')).toBeInTheDocument();
+    expect(screen.getByTestId('titlebar-tool-name')).toHaveTextContent(/Base64/i);
   });
 
   it('hides the tool title on non-tool views (e.g. welcome)', () => {
@@ -68,16 +68,18 @@ describe('Titlebar', () => {
     expect(tooltip).toHaveTextContent(/Base64/i);
   });
 
-  it('shows the tool icon + name followed by the menubar when the active tool owns menus', () => {
+  it('places the menubar next to the brand in the left segment, with the tool name centered', () => {
     useUiStore.setState({ view: 'tool' });
     useToolStateStore.setState({ currentToolId: 'text_editor' });
     registerMenus('text_editor');
     render(<Titlebar />);
-    // 工具名与菜单栏同时存在,且工具名位于菜单栏左侧
+    // 左段为「品牌 Qraft + 菜单栏」,中段为「工具名」,菜单栏在 DOM 中先于工具名
+    const brand = screen.getByText('Qraft');
     const tool = screen.getByTestId('titlebar-tool');
     const menubar = screen.getByTestId('tool-menubar');
     expect(screen.getByTestId('titlebar-tool-name')).toHaveTextContent(/文本编辑器/i);
-    expect(tool.compareDocumentPosition(menubar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(brand.compareDocumentPosition(menubar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(menubar.compareDocumentPosition(tool) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('hides the menubar when menus belong to another (previously visited) tool', () => {
