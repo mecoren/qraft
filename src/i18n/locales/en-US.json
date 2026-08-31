@@ -223,6 +223,7 @@
       "lines_count": "{{count}} lines",
       "sr_title": "Global search",
       "sr_desc": "Search everything; press Enter to jump",
+      "sr_desc_text": "Search opened file contents; press Enter to jump",
       "placeholder_text": "Search editor text...",
       "placeholder_global": "Search features, tools, settings...",
       "aria_text": "Text search",

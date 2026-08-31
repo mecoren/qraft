@@ -249,8 +249,11 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
       header={
         <>
           <DialogTitle className="sr-only">{t('chrome.search_dialog.sr_title')}</DialogTitle>
+          {/* 无障碍描述随模式变化(默认文本模式) */}
           <DialogDescription className="sr-only">
-            {t('chrome.search_dialog.sr_desc')}
+            {mode === 'text'
+              ? t('chrome.search_dialog.sr_desc_text')
+              : t('chrome.search_dialog.sr_desc')}
           </DialogDescription>
           {/* 统一样式:复用 CommandInput,模式切换按钮嵌入 leading 前导区
            * (注:查询由自身 state 管理 + shouldFilter=false,cmdk 仅负责结果

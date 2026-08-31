@@ -223,6 +223,7 @@
       "lines_count": "{{count}} 行",
       "sr_title": "全局搜索",
       "sr_desc": "搜索所有功能,回车跳转",
+      "sr_desc_text": "搜索已打开文件的内容,回车跳转",
       "placeholder_text": "搜索编辑器文本...",
       "placeholder_global": "搜索所有功能、工具、设置...",
       "aria_text": "文本搜索",
