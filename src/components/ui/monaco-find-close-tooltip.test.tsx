@@ -273,13 +273,15 @@ describe('monaco-find-close-tooltip', () => {
       value: 1080,
     });
 
-    btn.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    // 鼠标悬停在按钮上(clientX 贴近视口右缘),浮层横向跟随鼠标
+    btn.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: 1050, clientY: 18 }));
     await flushObserver();
 
     const hint = document.body.querySelector<HTMLElement>('[data-find-close-hint]');
     expect(hint).not.toBeNull();
     // fixed 定位:left+预估宽度不应超过视口宽度
     const left = Number.parseFloat(hint?.style.left ?? '0');
+    expect(left).toBeLessThan(1050);
     expect(left + 200).toBeLessThanOrEqual(1080);
   });
 

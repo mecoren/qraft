@@ -1,3 +1,5 @@
+import { createHintLayer, type HintPoint } from './hint-tooltip-layer';
+
 /**
  * Monaco 查找组件悬停提示 —— 应用内自绘(统一样式)
  *
@@ -28,12 +30,8 @@ const HINTABLE_SELECTOR = [
 ].join(', ');
 /** 文案缓存用的 data 属性名 */
 const HINT_TEXT_ATTR = 'findHintText';
-/** 浮层预估最大宽度(px):测量前决定是否向内翻转 */
-const ESTIMATED_MAX_WIDTH = 200;
-/** 浮层与按钮的间距(px) */
-const GAP = 6;
-/** 视口最小留白(px),保证浮层不贴死窗口边缘 */
-const VIEWPORT_PADDING = 8;
+/** 浮层标记属性:查找组件专属浮层的孤儿清扫依据 */
+const HINT_MARKER_ATTR = 'data-find-close-hint';
 
 export interface FindCloseTooltipHandle {
   dispose(): void;
@@ -49,36 +47,13 @@ export function attachFindCloseTooltip(root: HTMLElement): FindCloseTooltipHandl
     sourceBtn = null;
   }
 
-  function showHint(btn: HTMLElement): void {
+  function showHint(btn: HTMLElement, at?: HintPoint): void {
     const text = btn.dataset[HINT_TEXT_ATTR];
     if (!text) return;
     hideHint();
-
-    const rect = btn.getBoundingClientRect();
-    const viewportW = document.documentElement.clientWidth || window.innerWidth;
-    // 翻转判定用常量而非实测宽度(测试环境无布局,真实文案较短也足够准)
-    let left = rect.left - GAP;
-    if (left + ESTIMATED_MAX_WIDTH > viewportW - VIEWPORT_PADDING) {
-      // 右侧放不下:向内翻转到按钮左侧,并钳制不越过左缘
-      left = Math.max(VIEWPORT_PADDING, rect.left - GAP - ESTIMATED_MAX_WIDTH);
-    }
-
-    const hint = document.createElement('div');
-    hint.dataset.findCloseHint = '';
-    hint.textContent = text;
-    hint.className =
-      'pointer-events-none fixed rounded-md border bg-popover-layer px-3 py-1.5 ' +
-      'text-xs text-popover-foreground shadow-md';
-    hint.style.zIndex = '10000';
-    hint.style.top = `${rect.bottom + GAP}px`;
-    hint.style.left = `${left}px`;
-    document.body.appendChild(hint);
-    // 追加后实测宽度做二次钳制,把浮层完整收回视口内
-    const maxLeft = viewportW - hint.offsetWidth - VIEWPORT_PADDING;
-    if (left > maxLeft) {
-      hint.style.left = `${Math.max(VIEWPORT_PADDING, maxLeft)}px`;
-    }
-    hintEl = hint;
+    // 浮层创建/定位/统一样式收敛在共享层,与全局 title 接管提示永不分化;
+    // 传入鼠标坐标让浮层横向跟随鼠标、贴近底边时自动向上翻转
+    hintEl = createHintLayer(btn, text, HINT_MARKER_ATTR, at);
     sourceBtn = btn;
   }
 
@@ -114,7 +89,8 @@ export function attachFindCloseTooltip(root: HTMLElement): FindCloseTooltipHandl
     e.stopImmediatePropagation();
     e.preventDefault();
     sanitizeButton(btn);
-    showHint(btn);
+    // 提取鼠标坐标(非 MouseEvent 的合成事件回落到元素锚定)
+    showHint(btn, e instanceof MouseEvent ? { x: e.clientX, y: e.clientY } : undefined);
   };
   const onMouseOut = (e: MouseEvent): void => {
     const target = e.target;
@@ -142,7 +118,7 @@ export function attachFindCloseTooltip(root: HTMLElement): FindCloseTooltipHandl
   // 补偿观察建立前就已渲染好的查找组件;同时清扫 body 上可能遗留的
   // 孤儿浮层(热更新等异常路径可能只留下 DOM 而失去管理句柄)
   document.body
-    .querySelectorAll<HTMLElement>('[data-find-close-hint]')
+    .querySelectorAll<HTMLElement>(`[${HINT_MARKER_ATTR}]`)
     .forEach((el) => el.remove());
   sanitize();
 

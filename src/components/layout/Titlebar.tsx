@@ -28,7 +28,6 @@ import { useTranslation } from 'react-i18next';
 import { ExternalLink } from 'lucide-react';
 import { WindowControls } from '@/components/ui/window-controls';
 import { Logo } from '@/components/Logo';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getCatalogEntry, pickText } from '@/lib/tool-catalog';
 import { ICON_STROKE_WIDTH } from '@/lib/icon-constants';
 import { isPopoutSupported, openToolInNewWindow } from '@/lib/popout-window';
@@ -54,58 +53,53 @@ export function Titlebar(): JSX.Element {
   const ToolIcon = entry?.icon;
 
   return (
-    <TooltipProvider delayDuration={500}>
-      <header className="titlebar" data-testid="titlebar">
-        {/* 左段:应用 Logo + 名称,右侧(有菜单时)为工具菜单栏 */}
-        <div className="titlebar-left">
-          <Logo className="size-4" />
-          <span className="titlebar-title">Qraft</span>
-          {hasMenus && <ToolMenuBar />}
-        </div>
+    <header className="titlebar" data-testid="titlebar">
+      {/* 左段:应用 Logo + 名称,右侧(有菜单时)为工具菜单栏 */}
+      <div className="titlebar-left">
+        <Logo className="size-4" />
+        <span className="titlebar-title">Qraft</span>
+        {hasMenus && <ToolMenuBar />}
+      </div>
 
-        {/* 拖拽填充区:撑满剩余宽度,维持标题栏可拖拽面积 */}
-        <div className="titlebar-fill" data-tauri-drag-region />
+      {/* 拖拽填充区:撑满剩余宽度,维持标题栏可拖拽面积 */}
+      <div className="titlebar-fill" data-tauri-drag-region />
 
-        {/* 中段:当前工具图标 + 名称(工具页时),绝对居中 */}
-        <div className="titlebar-center">
-          {entry && ToolIcon && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button type="button" className="titlebar-tool" data-testid="titlebar-tool">
-                  <ToolIcon aria-hidden className="size-4" strokeWidth={ICON_STROKE_WIDTH} />
-                  <span className="titlebar-title" data-testid="titlebar-tool-name">
-                    {pickText(entry.name)}
-                  </span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" sideOffset={6} className="bg-popover!">
-                {pickText(entry.description)}
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {/* 弹出新窗口入口:工具名右侧,与 DevToys pop-out 对齐 */}
-          {entry && currentToolId && isPopoutSupported(currentToolId) && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="titlebar-tool"
-                  data-testid="titlebar-popout"
-                  aria-label={t('chrome.titlebar.popout')}
-                  onClick={() => void openToolInNewWindow(currentToolId)}
-                >
-                  <ExternalLink aria-hidden className="size-4" strokeWidth={ICON_STROKE_WIDTH} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" sideOffset={6} className="bg-popover!">
-                {t('chrome.titlebar.popout')}
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </div>
+      {/*
+       * 中段提示走原生 title + 全局接管模块(global-title-tooltip):
+       * 渲染为与查找组件(Ctrl+F)完全相同的浮层(HINT_LAYER,实心背景/
+       * z-10000/fixed)。此前用 Radix Tooltip 在 Tauri 窗口内显示为
+       * "透明",统一改用已验证可用的现有浮层机制
+       */}
+      <div className="titlebar-center">
+        {entry && ToolIcon && (
+          <button
+            type="button"
+            className="titlebar-tool"
+            data-testid="titlebar-tool"
+            title={pickText(entry.description)}
+          >
+            <ToolIcon aria-hidden className="size-4" strokeWidth={ICON_STROKE_WIDTH} />
+            <span className="titlebar-title" data-testid="titlebar-tool-name">
+              {pickText(entry.name)}
+            </span>
+          </button>
+        )}
+        {/* 弹出新窗口入口:工具名右侧,与 DevToys pop-out 对齐 */}
+        {entry && currentToolId && isPopoutSupported(currentToolId) && (
+          <button
+            type="button"
+            className="titlebar-tool"
+            data-testid="titlebar-popout"
+            aria-label={t('chrome.titlebar.popout')}
+            title={t('chrome.titlebar.popout')}
+            onClick={() => void openToolInNewWindow(currentToolId)}
+          >
+            <ExternalLink aria-hidden className="size-4" strokeWidth={ICON_STROKE_WIDTH} />
+          </button>
+        )}
+      </div>
 
-        <WindowControls />
-      </header>
-    </TooltipProvider>
+      <WindowControls />
+    </header>
   );
 }

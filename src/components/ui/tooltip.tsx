@@ -12,12 +12,19 @@ const TooltipTrigger = TooltipPrimitive.Trigger;
 const TooltipContent = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
+>(({ className, sideOffset = 6, ...props }, ref) => (
   <TooltipPrimitive.Content
     ref={ref}
     sideOffset={sideOffset}
+    // 样式与查找组件(Ctrl+F)自绘浮层完全一致(text-xs/无动画/实心背景),
+    // 见 hint-tooltip-layer.ts;sideOffset 默认对齐浮层间距 HINT_GAP=6。
+    // 背景必须实心 bg-popover:tooltip 会浮在标题栏等 Mica 透出区,
+    // 半透明的 bg-popover-layer 在这些区域会显形为透明。
+    // 阴影用内联 var(--shadow-card-hover):shadow-md utility 在本应用
+    // 解析为全透明(Tailwind v4 已知问题),内联 token 与 .md-fn-popover 同源
+    style={{ boxShadow: 'var(--shadow-card-hover)' }}
     className={cn(
-      'z-50 overflow-hidden rounded-md border bg-popover-layer px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-tooltip-content-transform-origin]',
+      'z-50 rounded-md border bg-popover px-3 py-1.5 text-xs text-popover-foreground',
       className,
     )}
     {...props}

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { Titlebar } from './Titlebar';
 import { useUiStore } from '@/store/uiStore';
 import { useToolStateStore } from '@/store/toolStateStore';
@@ -57,15 +57,15 @@ describe('Titlebar', () => {
     expect(screen.getByText('Qraft')).toBeInTheDocument();
   });
 
-  it('shows the tool description in a tooltip when hovering the tool title', async () => {
+  it('exposes the tool description via native title (rendered by the global hint layer)', () => {
     useUiStore.setState({ view: 'tool' });
     useToolStateStore.setState({ currentToolId: 'base64_codec' });
     render(<Titlebar />);
+    // 提示走原生 title + 全局接管模块:与查找组件浮层同一机制/样式,
+    // 悬停时由 global-title-tooltip 渲染为 HINT_LAYER(不在本组件测试范围)
     const trigger = screen.getByTestId('titlebar-tool');
-    // Radix Tooltip 由 pointermove 触发打开
-    fireEvent.pointerMove(trigger);
-    const tooltip = await screen.findByRole('tooltip', {}, { timeout: 2000 });
-    expect(tooltip).toHaveTextContent(/Base64/i);
+    expect(trigger).toHaveAttribute('title');
+    expect(trigger.getAttribute('title')).toMatch(/Base64/i);
   });
 
   it('places the menubar next to the brand in the left segment, with the tool name centered', () => {
