@@ -57,6 +57,7 @@ import {
   revealInExplorer,
   saveToPathEncoded,
   saveWithDialog,
+  saveWithDialogEncoded,
   windowCloseReady,
 } from './fileOps';
 import { useToolMenus } from '@/store/toolMenubarStore';
@@ -377,6 +378,65 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     if (!state.workspace.activeTabId) return;
     void saveTabById(state.workspace.activeTabId);
   }, [saveTabById]);
+
+  /**
+   * 通过编码重新打开(仿 VSCode):按所选编码重读磁盘文件并覆盖当前 Tab 内容,
+   * 顺带更新 Tab 编码记录并标记已保存(以磁盘为准)。无磁盘路径时为 no-op。
+   */
+  const reopenWithEncoding = useCallback(
+    async (encodingId: string): Promise<void> => {
+      const state = useEditorWorkspaceStore.getState();
+      const tab = state.workspace.tabs.find((t) => t.id === state.workspace.activeTabId);
+      if (!tab?.path) return;
+      // 有未保存改动时先确认:重新打开将以磁盘内容覆盖,当前改动会丢失
+      if (tab.content !== tab.savedContent) {
+        const ok = window.confirm(
+          t('tools.text_editor.reopen_discard_confirm', { title: tab.title }),
+        );
+        if (!ok) return;
+      }
+      try {
+        const result = await readTextFileEncoded(tab.path, encodingId);
+        state.setTabContent(tab.id, result.content);
+        // 指定编码重读时后端按所选编码解码,编码标识回退用户所选
+        state.setTabEncoding(tab.id, result.encoding ?? encodingId);
+        state.markSaved(tab.id, tab.path);
+        toast.success(t('tools.text_editor.toast_reopened', { encoding: result.encoding }));
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_open_file'));
+      }
+    },
+    [t],
+  );
+
+  /**
+   * 通过编码保存(仿 VSCode):记录所选编码后立即写盘。
+   * 有路径直接按该编码写回;untitled 弹「另存为」并以该编码写入。
+   */
+  const saveWithEncoding = useCallback(
+    async (encodingId: string): Promise<void> => {
+      const state = useEditorWorkspaceStore.getState();
+      const tab = state.workspace.tabs.find((t) => t.id === state.workspace.activeTabId);
+      if (!tab) return;
+      state.setTabEncoding(tab.id, encodingId);
+      try {
+        if (tab.path) {
+          await saveToPathEncoded(tab.path, tab.content, encodingId);
+          state.markSaved(tab.id, tab.path);
+        } else {
+          const fileName = tab.title.endsWith('.txt') ? tab.title : `${tab.title}.txt`;
+          const path = await saveWithDialogEncoded(fileName, tab.content, encodingId);
+          // 用户取消另存为:编码已记录,内容保持 dirty
+          if (!path) return;
+          state.markSaved(tab.id, path);
+        }
+        toast.success(t('tools.text_editor.toast_saved', { name: tab.title }));
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_save'));
+      }
+    },
+    [t],
+  );
 
   // Ctrl+S(Cmd+S)保存当前 Tab,阻止浏览器默认的「保存页面」行为。
   // 快捷键字符串可到设置里自定义;无激活 Tab 时是安全的 no-op。
@@ -879,20 +939,25 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       }}
       // 文件编码:状态栏展示并可切换,保存时按该编码写回(仿 VSCode)
       encoding={activeTab.encoding ?? 'utf-8'}
+      // 「通过编码重新打开」仅在 Tab 已绑定磁盘路径时可用
+      encodingReopenAvailable={Boolean(activeTab.path)}
+      onEncodingReopen={(enc) => void reopenWithEncoding(enc)}
+      onEncodingSave={(enc) => void saveWithEncoding(enc)}
       // 状态栏右下角文件大小(UTF-8 字节,B/KB/MB/GB)
       sizeBytes={activeContentSizeBytes}
       onEncodingChange={(enc) =>
         useEditorWorkspaceStore.getState().setTabEncoding(activeTab.id, enc)
       }
-      // 行尾序列切换:CRLF ↔ LF(内容转换后标记未保存,由用户手动保存)
-      onToggleEol={() => {
+      // 行尾序列设置(快选弹窗选择目标值):内容转换后标记未保存,由用户手动保存
+      onEolChange={(eol) => {
         const cur = useEditorWorkspaceStore.getState();
         const tab = cur.workspace.tabs.find((t) => t.id === activeTab.id);
         if (!tab) return;
-        const next = tab.content.includes('\r\n')
-          ? tab.content.replace(/\r\n/g, '\n')
-          : tab.content.replace(/(?<!\r)\n/g, '\r\n');
-        cur.setTabContent(activeTab.id, next);
+        const next =
+          eol === 'CRLF'
+            ? tab.content.replace(/(?<!\r)\n/g, '\r\n')
+            : tab.content.replace(/\r\n/g, '\n');
+        if (next !== tab.content) cur.setTabContent(activeTab.id, next);
       }}
       // 右键菜单按页面定制:命名风格切换 / 大小写转换(作用于当前编辑器选区)
       contextMenuSections={editorMenuSections}

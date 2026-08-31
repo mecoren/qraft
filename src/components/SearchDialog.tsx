@@ -8,6 +8,8 @@
  * 交互:
  * - 选择结果 → 写入 searchStore.target,关闭面板;
  *   App 层 useSearchJump / SettingsDialog 完成跳转 + 锚点定位高亮。
+ * - 默认进入「文本」模式(Ctrl+Shift+F 对应 VSCode「在文件中查找」),
+ *   可点输入框前导区的按钮切到「功能」模式;切换模式会清空查询。
  * - 空查询展示全量索引,便于浏览全部功能。
  * - 输入防抖 80ms,避免每键重扫(索引量小,主要为输入体验)。
  */
@@ -184,7 +186,8 @@ function EntryIcon({ entry }: { entry: SearchEntry }): JSX.Element {
 
 export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Element {
   const { t } = useTranslation();
-  const [mode, setMode] = useState<SearchMode>('feature');
+  // 默认文本模式:对齐 Ctrl+Shift+F「在文件中查找」的语义
+  const [mode, setMode] = useState<SearchMode>('text');
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
 

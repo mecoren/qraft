@@ -54,6 +54,8 @@
   "tools.text_editor.err_open_named": "打开「{{name}}」失败:{{reason}}",
   "tools.text_editor.err_unknown": "未知错误",
   "tools.text_editor.toast_saved": "已保存 {{name}}",
+  "tools.text_editor.toast_reopened": "已通过编码 {{encoding}} 重新打开",
+  "tools.text_editor.reopen_discard_confirm": "「{{title}}」有未保存的更改,重新打开将以磁盘内容覆盖并丢弃这些更改,是否继续?",
   "tools.text_editor.err_save": "保存失败",
   "tools.text_editor.toast_path_copied": "已复制路径:{{path}}",
   "tools.text_editor.err_copy_path": "复制路径失败",

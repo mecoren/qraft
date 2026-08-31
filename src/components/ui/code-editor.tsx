@@ -32,7 +32,7 @@ import {
 import Editor, { type BeforeMount, type Monaco, type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { useTranslation } from 'react-i18next';
-import { Check, ClipboardPaste, FolderOpen, X } from 'lucide-react';
+import { ClipboardPaste, FolderOpen, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { readClipboardText } from '@/lib/clipboard';
@@ -47,8 +47,18 @@ import {
 } from './monaco-context-menu';
 import { attachFoldSummary, type FoldSummaryHandle } from './monaco-fold-summary';
 import { attachFindCloseTooltip, type FindCloseTooltipHandle } from './monaco-find-close-tooltip';
-import { Popover, PopoverContent, PopoverTrigger } from './popover';
-import { Input } from './input';
+import {
+  EolQuickPick,
+  EncodingQuickPick,
+  GotoLineQuickPick,
+  IndentQuickPick,
+} from './code-editor-quick-picks';
+import {
+  convertIndentation,
+  detectIndentation,
+  trimTrailingWhitespace,
+  type IndentStyle,
+} from '@/lib/indentation';
 
 // Monaco loader 路径配置(import 即执行,保证任何 Editor 挂载前就绪;详见模块内注释)
 import '@/lib/monaco-loader-config';
@@ -242,15 +252,31 @@ export interface CodeEditorProps {
    */
   encoding?: string;
   /**
-   * 编码切换回调。提供时编码徽章可点击弹出选择列表;
+   * 编码切换回调。提供时编码徽章可点击弹出「选择编码」快选弹窗;
    * 缺省时仅展示不可交互(由宿主决定是否开放切换)。
    */
   onEncodingChange?: (encodingId: string) => void;
   /**
-   * 行尾序列切换回调(CRLF ↔ LF)。提供时状态栏 EOL 徽章可点击切换,
-   * 内容转换由宿主完成(如 value.replace(/\r\n/g, '\n'));缺省时徽章仅展示。
+   * 通过编码重新打开(仿 VSCode,需宿主有磁盘文件)。
+   * 提供时编码弹窗显示该动作项;配合 encodingReopenAvailable 控制可用性。
    */
-  onToggleEol?: () => void;
+  onEncodingReopen?: (encodingId: string) => void;
+  /**
+   * 通过编码保存(仿 VSCode:设置编码并立即写盘)。
+   * 提供时编码弹窗显示该动作项。
+   */
+  onEncodingSave?: (encodingId: string) => void;
+  /**
+   * 「通过编码重新打开」是否可用(典型:当前 Tab 是否有磁盘路径)。
+   * 缺省 false:动作项展示为禁用态。
+   */
+  encodingReopenAvailable?: boolean;
+  /**
+   * 行尾序列设置回调(带目标值,替代原 onToggleEol)。提供时状态栏 EOL
+   * 徽章点击弹出「选择行尾序列」快选弹窗,内容转换由宿主完成;
+   * 缺省时徽章仅展示。
+   */
+  onEolChange?: (eol: 'LF' | 'CRLF') => void;
   /**
    * 自定义右键菜单分组(按宿主页面定制):追加在内置菜单与折叠组之后,
    * 每组前有分隔线。典型用法:JSON 工具注入「格式化/排序」,工作台注入命名风格切换。
@@ -311,7 +337,10 @@ export function CodeEditor({
   onMount,
   encoding,
   onEncodingChange,
-  onToggleEol,
+  onEncodingReopen,
+  onEncodingSave,
+  encodingReopenAvailable = false,
+  onEolChange,
   contextMenuSections,
   lineNumbers = true,
   overviewRulerLanes = 0,
@@ -359,13 +388,14 @@ export function CodeEditor({
   });
   const [selected, setSelected] = useState(0);
 
-  // —— 状态栏:行列跳转 popover(仿 VSCode 点击「行 x, 列 y」跳转)——
+  // —— 状态栏:全部交互入口均使用「全局搜索」式快选弹窗(仿 VSCode Quick Pick)——
   const [gotoOpen, setGotoOpen] = useState(false);
-  const [gotoLine, setGotoLine] = useState('1');
-  const [gotoColumn, setGotoColumn] = useState('1');
+  const [indentOpen, setIndentOpen] = useState(false);
+  const [encodingOpen, setEncodingOpen] = useState(false);
+  const [eolOpen, setEolOpen] = useState(false);
 
-  // —— 状态栏:缩进空格数展示(点击在 2/4/8 间循环,作用于当前编辑器模型)——
-  const [tabSize, setTabSize] = useState(2);
+  // —— 缩进方式(作用于当前编辑器模型;状态栏徽章展示值)——
+  const [indent, setIndent] = useState<IndentStyle>({ insertSpaces: true, tabSize: 2 });
 
   // 行尾序列:由内容推导(CRLF 存在即视为 CRLF),与 VSCode 展示一致
   const eolLabel = value.includes('\r\n') ? 'CRLF' : 'LF';
@@ -375,34 +405,75 @@ export function CodeEditor({
   // updateOptions 热更新已挂载实例,无需重挂载编辑器
   const editorFontSize = useEditorFontSize();
 
-  /** 打开跳转弹层时用当前光标位置预填输入框 */
-  const openGotoPopover = useCallback((): void => {
-    setGotoLine(String(cursor.line));
-    setGotoColumn(String(cursor.column));
-    setGotoOpen(true);
-  }, [cursor.line, cursor.column]);
+  // 总行数(转到行/列弹窗的范围提示与夹取);getLineCount 为 O(1),
+  // 渲染期直接读取(渲染随 value 变化触发,无需 useMemo 缓存)
+  const maxLine = editorInstance?.getModel()?.getLineCount() ?? 1;
 
   /** 应用跳转:夹取到有效范围后 setPosition + 居中显示 */
-  const applyGoto = useCallback((): void => {
+  const handleGotoJump = useCallback((line: number, column?: number): void => {
     const ed = editorRef.current;
     const model = ed?.getModel();
     if (!ed || !model) return;
-    const maxLine = model.getLineCount();
-    const line = Math.min(Math.max(Number.parseInt(gotoLine, 10) || 1, 1), maxLine);
-    const maxCol = model.getLineMaxColumn(line);
-    const column = Math.min(Math.max(Number.parseInt(gotoColumn, 10) || 1, 1), maxCol);
-    ed.setPosition({ lineNumber: line, column });
-    ed.revealLineInCenter(line);
+    const clampedLine = Math.min(Math.max(Math.floor(line) || 1, 1), model.getLineCount());
+    const maxCol = model.getLineMaxColumn(clampedLine);
+    const clampedColumn = Math.min(Math.max(Math.floor(column ?? 1) || 1, 1), maxCol);
+    ed.setPosition({ lineNumber: clampedLine, column: clampedColumn });
+    ed.revealLineInCenter(clampedLine);
     ed.focus();
-    setGotoOpen(false);
-  }, [gotoLine, gotoColumn]);
+  }, []);
 
-  /** 缩进循环切换:2 → 4 → 8 → 2 */
-  const cycleTabSize = useCallback((): void => {
-    const next = tabSize === 2 ? 4 : tabSize === 4 ? 8 : 2;
-    editorRef.current?.getModel()?.updateOptions({ tabSize: next });
-    setTabSize(next);
-  }, [tabSize]);
+  /** 应用缩进方式/宽度:仅更新提供的字段,同步 Monaco model 与徽章展示 */
+  const applyIndent = useCallback((style: { insertSpaces?: boolean; tabSize?: number }): void => {
+    const model = editorRef.current?.getModel();
+    if (model) {
+      model.updateOptions({
+        ...(style.insertSpaces !== undefined ? { insertSpaces: style.insertSpaces } : {}),
+        ...(style.tabSize !== undefined ? { tabSize: style.tabSize } : {}),
+      });
+    }
+    setIndent((prev) => ({
+      insertSpaces: style.insertSpaces ?? prev.insertSpaces,
+      tabSize: style.tabSize ?? prev.tabSize,
+    }));
+  }, []);
+
+  /** 从内容检测缩进方式并应用;无缩进行时提示保持现状 */
+  const detectIndent = useCallback((): void => {
+    const style = detectIndentation(value);
+    if (!style) {
+      toast.info(t('chrome.code_editor.indent_pick_detect_none'));
+      return;
+    }
+    applyIndent(style);
+    toast.success(
+      t(
+        style.insertSpaces
+          ? 'chrome.code_editor.indent_pick_use_spaces'
+          : 'chrome.code_editor.indent_pick_use_tabs',
+        {
+          size: style.tabSize,
+        },
+      ),
+    );
+  }, [value, applyIndent, t]);
+
+  /** 缩进互转:全文前导空白按当前宽度转换,经 onChange 写回宿主 */
+  const convertIndent = useCallback(
+    (to: 'spaces' | 'tabs'): void => {
+      const next = convertIndentation(value, {
+        useSpaces: to === 'spaces',
+        tabSize: indent.tabSize,
+      });
+      if (next !== value) onChange?.(next);
+    },
+    [value, indent.tabSize, onChange],
+  );
+
+  /** 裁剪尾随空格:经 onChange 写回宿主 */
+  const trimTrailing = useCallback((): void => {
+    const next = trimTrailingWhitespace(value);
+    if (next !== value) onChange?.(next);
+  }, [value, onChange]);
 
   // 按 Unicode 码点统计字符数(emoji / 生僻字等代理对计 1 个),与 TextAnalyzer 口径一致。
   // useMemo 隔离重算:大输入下 Array.from 会物化百万级码点数组,
@@ -445,8 +516,9 @@ export function CodeEditor({
       foldSummaryRef.current?.dispose();
       foldSummaryRef.current = attachFoldSummary(editor);
     }
-    // 初始化状态栏缩进展示(模型默认 tabSize)
-    setTabSize(editor.getModel()?.getOptions().tabSize ?? 2);
+    // 初始化状态栏缩进展示(模型默认 tabSize / insertSpaces)
+    const opts = editor.getModel()?.getOptions();
+    setIndent({ insertSpaces: opts?.insertSpaces ?? true, tabSize: opts?.tabSize ?? 2 });
     updateStatus();
     // monaco 实例在 beforeMount 时注入;极端加载顺序下可能为 null,
     // 此时仍要触发 onMount(调用方可能依赖 editor 实例做全局注册)。
@@ -735,129 +807,47 @@ export function CodeEditor({
                 {t('chrome.code_editor.selected', { count: selected })}
               </span>
             )}
-            {/* 行列跳转(仿 VSCode):点击弹出「转到行/列」弹层 */}
-            <Popover open={gotoOpen} onOpenChange={setGotoOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  data-testid={dataTestId ? `${dataTestId}-status-pos` : undefined}
-                  title={t('chrome.code_editor.goto_title')}
-                  aria-label={t('chrome.code_editor.goto_aria', {
-                    line: cursor.line,
-                    column: cursor.column,
-                  })}
-                  onClick={openGotoPopover}
-                  className="whitespace-nowrap rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  {t('chrome.code_editor.status_pos', {
-                    line: cursor.line,
-                    column: cursor.column,
-                  })}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="end"
-                className="w-56 p-3"
-                data-testid={`${dataTestId ?? 'editor'}-goto`}
-              >
-                <div className="mb-2 text-xs font-semibold">
-                  {t('chrome.code_editor.goto_title')}
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="flex flex-1 flex-col gap-1">
-                    <span className="text-[10px] text-muted-foreground">
-                      {t('chrome.code_editor.goto_line_label')}
-                    </span>
-                    <Input
-                      value={gotoLine}
-                      onChange={(e) => setGotoLine(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') applyGoto();
-                      }}
-                      inputMode="numeric"
-                      className="h-7 text-xs"
-                      data-testid={`${dataTestId ?? 'editor'}-goto-line`}
-                    />
-                  </label>
-                  <label className="flex flex-1 flex-col gap-1">
-                    <span className="text-[10px] text-muted-foreground">
-                      {t('chrome.code_editor.goto_col_label')}
-                    </span>
-                    <Input
-                      value={gotoColumn}
-                      onChange={(e) => setGotoColumn(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') applyGoto();
-                      }}
-                      inputMode="numeric"
-                      className="h-7 text-xs"
-                      data-testid={`${dataTestId ?? 'editor'}-goto-column`}
-                    />
-                  </label>
-                </div>
-                <button
-                  type="button"
-                  onClick={applyGoto}
-                  data-testid={`${dataTestId ?? 'editor'}-goto-apply`}
-                  className="mt-2 w-full rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {t('chrome.code_editor.goto_apply')}
-                </button>
-              </PopoverContent>
-            </Popover>
-            {/* 缩进空格数:点击在 2/4/8 间循环(VSCode「空格:N」样式) */}
+            {/* 行列跳转(仿 VSCode):点击弹出「转到行/列」快选弹窗 */}
+            <button
+              type="button"
+              data-testid={dataTestId ? `${dataTestId}-status-pos` : undefined}
+              title={t('chrome.code_editor.goto_title')}
+              aria-label={t('chrome.code_editor.goto_aria', {
+                line: cursor.line,
+                column: cursor.column,
+              })}
+              onClick={() => setGotoOpen(true)}
+              className="whitespace-nowrap rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              {t('chrome.code_editor.status_pos', {
+                line: cursor.line,
+                column: cursor.column,
+              })}
+            </button>
+            {/* 缩进方式:点击弹出「选择缩进操作」快选弹窗(VSCode「空格:N」徽章) */}
             <button
               type="button"
               data-testid={dataTestId ? `${dataTestId}-status-indent` : undefined}
-              title={t('chrome.code_editor.indent_title', { size: tabSize })}
-              onClick={cycleTabSize}
+              title={t('chrome.code_editor.indent_title', { size: indent.tabSize })}
+              onClick={() => setIndentOpen(true)}
               className="whitespace-nowrap rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
-              {t('chrome.code_editor.indent_label', { size: tabSize })}
+              {indent.insertSpaces
+                ? t('chrome.code_editor.indent_label', { size: indent.tabSize })
+                : t('chrome.code_editor.indent_label_tabs')}
             </button>
-            {/* 文件编码:展示 + 可选切换(仿 VSCode 编码徽章);显示在右下角描述中 */}
+            {/* 文件编码:点击弹出「选择编码」快选弹窗(仿 VSCode 编码徽章) */}
             {encoding !== undefined &&
               (onEncodingChange ? (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      data-testid={dataTestId ? `${dataTestId}-status-encoding` : undefined}
-                      title={t('chrome.code_editor.encoding_pick_title')}
-                      className="whitespace-nowrap rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    >
-                      {encodingBadge()}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    align="end"
-                    className="w-52 p-1"
-                    data-testid={`${dataTestId ?? 'editor'}-encoding-picker`}
-                  >
-                    {TEXT_ENCODINGS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        data-testid={`${dataTestId ?? 'editor'}-encoding-${opt.id}`}
-                        onClick={() => onEncodingChange(opt.id)}
-                        className={cn(
-                          'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors',
-                          opt.id === encoding
-                            ? 'bg-accent font-medium text-accent-foreground'
-                            : 'text-popover-foreground hover:bg-accent/60',
-                          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                        )}
-                      >
-                        <span className="flex size-3.5 shrink-0 items-center justify-center">
-                          {opt.id === encoding && (
-                            <Check aria-hidden className="size-3.5 text-primary" />
-                          )}
-                        </span>
-                        {encodingDisplay(opt)}
-                      </button>
-                    ))}
-                  </PopoverContent>
-                </Popover>
+                <button
+                  type="button"
+                  data-testid={dataTestId ? `${dataTestId}-status-encoding` : undefined}
+                  title={t('chrome.code_editor.encoding_pick_title')}
+                  onClick={() => setEncodingOpen(true)}
+                  className="whitespace-nowrap rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {encodingBadge()}
+                </button>
               ) : (
                 <span
                   data-testid={dataTestId ? `${dataTestId}-status-encoding` : undefined}
@@ -867,23 +857,20 @@ export function CodeEditor({
                   {encodingBadge()}
                 </span>
               ))}
-            {/* 行尾序列:CRLF/LF 展示,提供回调时可点击切换 */}
+            {/* 行尾序列:CRLF/LF 展示,提供回调时点击弹出「选择行尾序列」弹窗 */}
             <button
               type="button"
               data-testid={dataTestId ? `${dataTestId}-status-eol` : undefined}
               title={
-                onToggleEol
-                  ? t('chrome.code_editor.eol_switch_title', {
-                      eol: eolLabel,
-                      next: eolLabel === 'CRLF' ? 'LF' : 'CRLF',
-                    })
+                onEolChange
+                  ? t('chrome.code_editor.eol_switch_title', { eol: eolLabel })
                   : t('chrome.code_editor.eol_title', { eol: eolLabel })
               }
-              onClick={onToggleEol}
-              disabled={!onToggleEol}
+              onClick={onEolChange ? () => setEolOpen(true) : undefined}
+              disabled={!onEolChange}
               className={cn(
                 'whitespace-nowrap rounded-sm px-1.5 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                onToggleEol && 'hover:bg-accent hover:text-accent-foreground',
+                onEolChange && 'hover:bg-accent hover:text-accent-foreground',
               )}
             >
               {eolLabel}
@@ -902,6 +889,48 @@ export function CodeEditor({
             {statusBarRight && <span className="ml-1 flex items-center">{statusBarRight}</span>}
           </span>
         </div>
+      )}
+
+      {/* —— 状态栏快选弹窗(「全局搜索」式 CommandDialog,按需挂载)—— */}
+      <GotoLineQuickPick
+        open={gotoOpen}
+        onOpenChange={setGotoOpen}
+        cursor={cursor}
+        maxLine={maxLine}
+        onJump={handleGotoJump}
+        data-testid={`${dataTestId ?? 'editor'}-goto`}
+      />
+      <IndentQuickPick
+        open={indentOpen}
+        onOpenChange={setIndentOpen}
+        insertSpaces={indent.insertSpaces}
+        tabSize={indent.tabSize}
+        onApply={applyIndent}
+        onDetect={detectIndent}
+        onConvert={convertIndent}
+        onTrim={trimTrailing}
+        data-testid={`${dataTestId ?? 'editor'}-indent-picker`}
+      />
+      {encoding !== undefined && onEncodingChange && (
+        <EncodingQuickPick
+          open={encodingOpen}
+          onOpenChange={setEncodingOpen}
+          currentEncoding={encoding}
+          onEncodingChange={onEncodingChange}
+          onEncodingReopen={onEncodingReopen}
+          onEncodingSave={onEncodingSave}
+          reopenAvailable={encodingReopenAvailable}
+          data-testid={`${dataTestId ?? 'editor'}-encoding-picker`}
+        />
+      )}
+      {onEolChange && (
+        <EolQuickPick
+          open={eolOpen}
+          onOpenChange={setEolOpen}
+          currentEol={eolLabel}
+          onSelect={onEolChange}
+          data-testid={`${dataTestId ?? 'editor'}-eol-picker`}
+        />
       )}
     </div>
   );

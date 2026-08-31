@@ -54,6 +54,8 @@
   "tools.text_editor.err_open_named": "Failed to open \"{{name}}\": {{reason}}",
   "tools.text_editor.err_unknown": "Unknown error",
   "tools.text_editor.toast_saved": "Saved {{name}}",
+  "tools.text_editor.toast_reopened": "Reopened with {{encoding}}",
+  "tools.text_editor.reopen_discard_confirm": "\"{{title}}\" has unsaved changes. Reopening will replace it with the content on disk and discard those changes. Continue?",
   "tools.text_editor.err_save": "Failed to save",
   "tools.text_editor.toast_path_copied": "Path copied: {{path}}",
   "tools.text_editor.err_copy_path": "Failed to copy path",

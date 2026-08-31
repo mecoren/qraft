@@ -4,60 +4,82 @@ import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 // CodeEditor 内嵌 Monaco,jsdom 无法加载,替换为 textarea 替身。
 // 暴露 value / onChange / title / language / minimap / fixedTheme / statusBarRight / sizeBytes,
 // 便于断言工作区是否正确地把 props 传给编辑器。
-vi.mock('@/components/ui/code-editor', () => ({
-  CodeEditor: ({
-    value,
-    onChange,
-    title,
-    header,
-    actions,
-    statusBarRight,
-    sizeBytes,
-    minimap,
-    language,
-    fixedTheme,
-    'data-testid': testId,
-  }: {
-    value: string;
-    onChange?: (v: string) => void;
-    title?: string;
-    header?: React.ReactNode;
-    actions?: React.ReactNode;
-    statusBarRight?: React.ReactNode;
-    sizeBytes?: number;
-    minimap?: boolean;
-    language?: string;
-    fixedTheme?: string;
-    'data-testid'?: string;
-  }) => (
-    <div data-testid={testId}>
-      <div>
-        {header ? (
-          <div data-testid={testId ? `${testId}-header` : undefined}>{header}</div>
-        ) : (
-          title && <span data-testid={testId ? `${testId}-title` : undefined}>{title}</span>
-        )}
-        {actions && <span data-testid={testId ? `${testId}-actions` : undefined}>{actions}</span>}
-      </div>
-      <span data-testid={testId ? `${testId}-language` : undefined}>{language}</span>
-      {sizeBytes !== undefined && (
-        <span data-testid={testId ? `${testId}-size` : undefined}>{sizeBytes}</span>
-      )}
-      {fixedTheme && (
-        <span data-testid={testId ? `${testId}-fixed-theme` : undefined}>{fixedTheme}</span>
-      )}
-      {minimap && <span data-testid={testId ? `${testId}-minimap` : undefined}>minimap</span>}
-      <textarea
-        data-testid={testId ? `${testId}-textarea` : undefined}
-        value={value}
-        onChange={(e) => onChange?.(e.target.value)}
-      />
-      {statusBarRight && (
-        <div data-testid={testId ? `${testId}-status-right` : undefined}>{statusBarRight}</div>
-      )}
-    </div>
-  ),
+// 同时把最近一次收到的 props 记录到 lastEditorProps,供状态栏回调
+// (编码重开/保存、行尾设置)的集成用例直接驱动工作台处理函数。
+// vi.hoisted 保证该对象在 vi.mock 工厂与用例中引用同一实例且无 TDZ 问题。
+const { lastEditorProps } = vi.hoisted(() => ({
+  lastEditorProps: { current: null as Record<string, unknown> | null },
 }));
+
+/** CodeEditor mock 的 props 类型:渲染字段显式标注,其余回调(编码/EOL 等)经索引签名记录 */
+type CodeEditorMockProps = {
+  value: string;
+  onChange?: (value: string) => void;
+  title?: string;
+  header?: React.ReactNode;
+  actions?: React.ReactNode;
+  statusBarRight?: React.ReactNode;
+  sizeBytes?: number;
+  minimap?: boolean;
+  language?: string;
+  fixedTheme?: string;
+  'data-testid'?: string;
+  [key: string]: unknown;
+};
+
+vi.mock('@/components/ui/code-editor', () => {
+  return {
+    lastEditorProps,
+    CodeEditor: (props: CodeEditorMockProps) => {
+      const {
+        value,
+        onChange,
+        title,
+        header,
+        actions,
+        statusBarRight,
+        sizeBytes,
+        minimap,
+        language,
+        fixedTheme,
+        'data-testid': testId,
+      } = props;
+      lastEditorProps.current = props;
+      return (
+        <div data-testid={testId}>
+          <div>
+            {header ? (
+              <div data-testid={testId ? `${testId}-header` : undefined}>{header}</div>
+            ) : (
+              title && <span data-testid={testId ? `${testId}-title` : undefined}>{title}</span>
+            )}
+            {actions && (
+              <span data-testid={testId ? `${testId}-actions` : undefined}>{actions}</span>
+            )}
+          </div>
+          <span data-testid={testId ? `${testId}-language` : undefined}>{language as string}</span>
+          {sizeBytes !== undefined && (
+            <span data-testid={testId ? `${testId}-size` : undefined}>{sizeBytes as number}</span>
+          )}
+          {fixedTheme && (
+            <span data-testid={testId ? `${testId}-fixed-theme` : undefined}>
+              {fixedTheme as string}
+            </span>
+          )}
+          {minimap && <span data-testid={testId ? `${testId}-minimap` : undefined}>minimap</span>}
+          <textarea
+            data-testid={testId ? `${testId}-textarea` : undefined}
+            value={value as string}
+            onChange={(e) => (onChange as ((v: string) => void) | undefined)?.(e.target.value)}
+          />
+          {statusBarRight && (
+            <div data-testid={testId ? `${testId}-status-right` : undefined}>{statusBarRight}</div>
+          )}
+        </div>
+      );
+    },
+  };
+});
 
 // mock IPC:hydrate 时 config_get 返回空,persist 静默成功;
 // listen 用于窗口关闭事件(仅 Tauri 环境启用,测试默认不触发)
@@ -87,6 +109,7 @@ vi.mock('./code-editor-workspace/fileOps', () => ({
   readTextFileChecked: vi.fn(),
   readTextFileEncoded: vi.fn(),
   saveWithDialog: vi.fn(),
+  saveWithDialogEncoded: vi.fn(),
   encodeTextToBase64: vi.fn((t: string) => `b64:${t}`),
   windowCloseReady: vi.fn(),
 }));
@@ -782,5 +805,128 @@ describe('CodeEditorTool workspace', () => {
     } else {
       delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
     }
+  });
+
+  // ============ 状态栏回调(编码重新打开/保存、行尾设置)============
+  // 快选弹窗 UI 本身由 code-editor-quick-picks.test.tsx 覆盖;此处驱动
+  // EditorWorkbench 注入给 CodeEditor 的回调,验证工作台侧集成行为。
+
+  it('reopens the file with the chosen encoding when onEncodingReopen fires', async () => {
+    const { readTextFileEncoded } = await import('./code-editor-workspace/fileOps');
+    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
+      path: '/a.txt',
+      content: '乱码内容',
+      encoding: 'gb18030',
+    });
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await clickToolbarItem('toolbar-open');
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('a.txt'));
+
+    // 有磁盘路径 → 重新打开动作可用
+    expect(lastEditorProps.current?.encodingReopenAvailable).toBe(true);
+
+    // 「通过编码重新打开」:以所选编码重读磁盘并覆盖 Tab
+    (readTextFileEncoded as unknown as Mock).mockResolvedValueOnce({
+      path: '/a.txt',
+      content: '磁盘真实内容',
+      encoding: 'utf-8',
+    });
+    act(() => {
+      (lastEditorProps.current?.onEncodingReopen as (enc: string) => void)('utf-8');
+    });
+    await waitFor(() => expect(readTextFileEncoded).toHaveBeenCalledWith('/a.txt', 'utf-8'));
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab?.content).toBe('磁盘真实内容');
+    expect(tab?.encoding).toBe('utf-8');
+    expect(tab?.content).toBe(tab?.savedContent);
+  });
+
+  it('asks before discarding unsaved changes on encoding reopen', async () => {
+    const { readTextFileEncoded } = await import('./code-editor-workspace/fileOps');
+    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
+      path: '/a.txt',
+      content: '原始',
+      encoding: 'utf-8',
+    });
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await clickToolbarItem('toolbar-open');
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('a.txt'));
+
+    // 编辑出未保存改动
+    const tabId = useEditorWorkspaceStore.getState().workspace.tabs[0]?.id;
+    act(() => useEditorWorkspaceStore.getState().setTabContent(tabId, '未保存改动'));
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    (readTextFileEncoded as unknown as Mock).mockResolvedValueOnce({
+      path: '/a.txt',
+      content: '磁盘内容',
+      encoding: 'utf-8',
+    });
+    try {
+      act(() => {
+        (lastEditorProps.current?.onEncodingReopen as (enc: string) => void)('utf-8');
+      });
+      // 用户取消:不重读磁盘、内容保持不变
+      await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
+      expect(readTextFileEncoded).not.toHaveBeenCalled();
+      expect(useEditorWorkspaceStore.getState().workspace.tabs[0]?.content).toBe('未保存改动');
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it('saves immediately with the chosen encoding when onEncodingSave fires', async () => {
+    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
+      path: '/a.txt',
+      content: 'hello',
+      encoding: 'utf-8',
+    });
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await clickToolbarItem('toolbar-open');
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('a.txt'));
+
+    (saveToPathEncoded as unknown as Mock).mockResolvedValueOnce(true);
+    act(() => {
+      (lastEditorProps.current?.onEncodingSave as (enc: string) => void)('gb18030');
+    });
+    await waitFor(() =>
+      expect(saveToPathEncoded).toHaveBeenCalledWith('/a.txt', 'hello', 'gb18030'),
+    );
+    await waitFor(() => {
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+      expect(tab?.encoding).toBe('gb18030');
+    });
+  });
+
+  it('converts end of line when onEolChange fires', async () => {
+    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
+      path: '/a.txt',
+      content: 'a\r\nb',
+      encoding: 'utf-8',
+    });
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await clickToolbarItem('toolbar-open');
+    await waitFor(() => expect(screen.getByTestId('editor-header')).toHaveTextContent('a.txt'));
+
+    // 当前 CRLF → 选择 LF
+    act(() => {
+      (lastEditorProps.current?.onEolChange as (eol: 'LF' | 'CRLF') => void)('LF');
+    });
+    await waitFor(() => {
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+      expect(tab?.content).toBe('a\nb');
+    });
+    // 再次选择 CRLF 转回
+    act(() => {
+      (lastEditorProps.current?.onEolChange as (eol: 'LF' | 'CRLF') => void)('CRLF');
+    });
+    await waitFor(() => {
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+      expect(tab?.content).toBe('a\r\nb');
+    });
   });
 });

@@ -69,14 +69,20 @@ export async function readTextFileChecked(path: string): Promise<OpenFileResult>
 }
 
 /**
- * 读取文本文件并自动探测编码(编辑器打开文件的推荐入口)。
+ * 读取文本文件并探测编码(编辑器打开文件的推荐入口)。
  * GB18030/Big5/Shift-JIS 等编码自动解码;二进制内容抛
- * CommandError(code=`ERR_FILE_UNSUPPORTED`)。返回内容 + 探测到的编码标识。
+ * CommandError(code=`ERR_FILE_UNSUPPORTED`)。返回内容 + 编码标识。
+ *
+ * `encoding` 提供时跳过探测,直接按该编码解码(VSCode「通过编码重新打开」);
+ * 编码不受支持时后端抛 CommandError(ERR_FILE_UNSUPPORTED)。
  */
-export async function readTextFileEncoded(path: string): Promise<OpenFileResult> {
+export async function readTextFileEncoded(
+  path: string,
+  encoding?: string,
+): Promise<OpenFileResult> {
   const result = await invokeCommand<{ content: string; encoding: string }>(
     'fs_read_text_file_encoded',
-    { path },
+    { path, encoding: encoding ?? null },
   );
   return { path, content: result.content, encoding: result.encoding };
 }
@@ -120,6 +126,22 @@ export async function saveWithDialog(fileName: string, content: string): Promise
     mime: 'text/plain',
   });
   return path;
+}
+
+/**
+ * 弹「另存为」对话框并按指定编码写入(untitled Tab「通过编码保存」使用)。
+ * utf-8-bom 自动补 BOM;用户取消返回 null,成功返回保存路径(已授权)。
+ */
+export async function saveWithDialogEncoded(
+  fileName: string,
+  content: string,
+  encoding: string,
+): Promise<string | null> {
+  return invokeCommand<string | null>('fs_save_text_file_encoded', {
+    fileName,
+    content,
+    encoding,
+  });
 }
 
 /** 文本 → UTF-8 base64(兼容中文/emoji) */

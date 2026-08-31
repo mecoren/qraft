@@ -71,7 +71,8 @@ pub fn run() -> anyhow::Result<()> {
     use crate::commands::fs::{
         AuthorizedPaths, fs_authorize_dropped_paths, fs_open_dialog, fs_open_folder_dialog,
         fs_read_dir, fs_read_file, fs_read_text_file_checked, fs_read_text_file_encoded,
-        fs_reveal_in_explorer, fs_save_bytes, fs_write_file, fs_write_file_encoded,
+        fs_reveal_in_explorer, fs_save_bytes, fs_save_text_file_encoded, fs_write_file,
+        fs_write_file_encoded,
     };
     use crate::commands::history::{history_clear, history_list};
     use crate::commands::image::png_compress;
@@ -245,6 +246,7 @@ pub fn run() -> anyhow::Result<()> {
             fs_read_file,
             fs_write_file,
             fs_save_bytes,
+            fs_save_text_file_encoded,
             fs_open_dialog,
             fs_open_folder_dialog,
             fs_read_dir,

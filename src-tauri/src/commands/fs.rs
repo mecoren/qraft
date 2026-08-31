@@ -211,7 +211,7 @@ pub async fn fs_read_text_file_checked_inner(
 
 // ============ 文件编码(编辑器编码切换;纯逻辑见 media::text_encoding)============
 
-use crate::media::text_encoding::{decode_text, detect_encoding, encode_text};
+use crate::media::text_encoding::{decode_text, detect_encoding, encode_text, is_supported_encoding};
 
 /// 带编码信息的文本读取结果(`fs_read_text_file_encoded` 返回)
 #[derive(Debug, Clone, Serialize)]
@@ -222,19 +222,24 @@ pub struct EncodedTextContent {
     pub encoding: String,
 }
 
-/// 读取文本文件并自动探测编码(必须在授权范围内)
+/// 读取文本文件并探测编码(必须在授权范围内);支持显式指定编码
 ///
 /// 与 `fs_read_text_file_checked` 的差异:
 /// - 不要求严格 UTF-8:GBK/Big5 等编码自动探测并解码
-/// - 返回内容 + 探测到的编码标识,供编辑器状态栏展示与「以该编码保存」复用
+/// - 返回内容 + 编码标识,供编辑器状态栏展示与「以该编码保存」复用
+///
+/// `encoding` 提供且非空时跳过探测,直接按该编码解码
+/// (VSCode「通过编码重新打开」语义);编码不受支持时返回 `AppError::Unsupported`。
 ///
 /// # Errors
 ///
 /// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
 /// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 /// - 二进制内容时返回 `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
+/// - 显式指定的编码不受支持时返回 `AppError::Unsupported`
 pub async fn fs_read_text_file_encoded_inner(
     path: &str,
+    encoding: Option<&str>,
     authorized: &AuthorizedPaths,
 ) -> Result<CommandResponse<EncodedTextContent>, AppError> {
     validate_path(path, authorized)?;
@@ -242,10 +247,18 @@ pub async fn fs_read_text_file_encoded_inner(
     if !bytes_look_like_text(&bytes) {
         return Err(AppError::Unsupported("binary content".into()));
     }
-    let encoding = detect_encoding(&bytes);
+    let encoding_id = match encoding {
+        Some(id) if !id.is_empty() => {
+            if !is_supported_encoding(id) {
+                return Err(AppError::Unsupported(format!("unsupported encoding: {id}")));
+            }
+            id
+        }
+        _ => detect_encoding(&bytes),
+    };
     Ok(CommandResponse::ok(EncodedTextContent {
-        content: decode_text(&bytes, encoding),
-        encoding: encoding.to_string(),
+        content: decode_text(&bytes, encoding_id),
+        encoding: encoding_id.to_string(),
     }))
 }
 
@@ -372,6 +385,54 @@ pub async fn fs_save_bytes(
     let path_str = path_buf.to_string_lossy().into_owned();
     authorized.authorize(&path_str);
     save_bytes_to_path(&path_str, &bytes).await?;
+    Ok(CommandResponse::ok(Some(path_str)))
+}
+
+/// 弹出保存对话框并按指定编码写入文本(untitled Tab「通过编码保存」使用)
+///
+/// 用户在保存对话框中显式选择路径后,该路径被授权并按 `encoding` 编码写入
+/// (`utf-8-bom` 自动补 BOM)。用户取消对话框时返回 `Ok(CommandResponse::ok(None))`。
+///
+/// # Errors
+///
+/// - 编码不受支持时返回 `AppError::Unsupported`
+/// - 保存路径非法时返回 `AppError::Unknown`
+/// - 文件写入失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+pub async fn fs_save_text_file_encoded(
+    app: tauri::AppHandle,
+    file_name: String,
+    content: String,
+    encoding: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<Option<String>>, AppError> {
+    // 扩展名优先取文件名;缺失时回退 .txt 过滤器
+    let ext_from_name = Path::new(&file_name)
+        .extension()
+        .map(|e| e.to_string_lossy().into_owned())
+        .filter(|e| !e.is_empty() && e.len() <= 8);
+    let ext = ext_from_name.unwrap_or_else(|| "txt".to_string());
+    let Some(path) = app
+        .dialog()
+        .file()
+        .set_file_name(&file_name)
+        .add_filter("text/plain", &[ext.as_str(), "txt"])
+        .blocking_save_file()
+    else {
+        // 用户取消对话框:返回 None,前端据此静默处理(不视为错误)
+        return Ok(CommandResponse::ok(None));
+    };
+    let path_buf = path
+        .into_path()
+        .map_err(|e| AppError::Unknown(format!("save path invalid: {e}")))?;
+    let bytes = encode_text(&content, &encoding)?;
+    let path_str = path_buf.to_string_lossy().into_owned();
+    // 保存路径由用户显式选择,加入授权集合(与 fs_save_bytes 沙箱语义一致)
+    authorized.authorize(&path_str);
+    tokio::fs::write(&path_str, bytes)
+        .await
+        .map_err(AppError::from)?;
     Ok(CommandResponse::ok(Some(path_str)))
 }
 
@@ -570,12 +631,14 @@ pub async fn fs_read_text_file_checked(
 /// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
 /// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 /// - 二进制内容时返回 `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
+/// - 显式指定的编码不受支持时返回 `AppError::Unsupported`
 #[tauri::command]
 pub async fn fs_read_text_file_encoded(
     path: String,
+    encoding: Option<String>,
     authorized: tauri::State<'_, AuthorizedPaths>,
 ) -> Result<CommandResponse<EncodedTextContent>, AppError> {
-    fs_read_text_file_encoded_inner(&path, &authorized).await
+    fs_read_text_file_encoded_inner(&path, encoding.as_deref(), &authorized).await
 }
 
 /// 以指定编码写入文本文件(utf-8-bom 自动补 BOM)

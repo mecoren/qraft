@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { SearchDialog } from './SearchDialog';
 import { useSearchStore } from '@/store/searchStore';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
@@ -44,9 +44,16 @@ beforeEach(() => {
   setTabs([]);
 });
 
+/** 打开后默认进入文本模式;功能模式用例需先切到「功能」 */
+async function switchToFeature(user: UserEvent) {
+  await user.click(screen.getByRole('button', { name: '功能' }));
+}
+
 describe('SearchDialog', () => {
-  it('打开时展示搜索输入框与分组结果', () => {
+  it('打开时展示搜索输入框与分组结果', async () => {
+    const user = userEvent.setup();
     render(<SearchDialog open onOpenChange={() => {}} />);
+    await switchToFeature(user);
     expect(screen.getByPlaceholderText(/搜索/)).toBeInTheDocument();
     // 分组标题(工具区块较独特,避免与其他文本冲突)
     expect(screen.getByText('工具区块')).toBeInTheDocument();
@@ -57,6 +64,7 @@ describe('SearchDialog', () => {
   it('输入关键字过滤结果', async () => {
     const user = userEvent.setup();
     render(<SearchDialog open onOpenChange={() => {}} />);
+    await switchToFeature(user);
     await user.type(screen.getByPlaceholderText(/搜索/), 'base64');
     // 防抖 80ms 后无关结果消失
     await waitFor(() => {
@@ -68,6 +76,7 @@ describe('SearchDialog', () => {
   it('无匹配时展示空态提示', async () => {
     const user = userEvent.setup();
     render(<SearchDialog open onOpenChange={() => {}} />);
+    await switchToFeature(user);
     await user.type(screen.getByPlaceholderText(/搜索/), '不存在的关键字zzzz');
     // 防抖 80ms + 全量测试并发下可能较慢,放宽等待超时避免 flaky
     expect(
@@ -79,6 +88,7 @@ describe('SearchDialog', () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();
     render(<SearchDialog open onOpenChange={onOpenChange} />);
+    await switchToFeature(user);
     await user.type(screen.getByPlaceholderText(/搜索/), 'base64');
     await user.click((await screen.findAllByText('Base64 转换器'))[0]);
     expect(useSearchStore.getState().target).toEqual({ view: 'tool', toolId: 'base64_codec' });
@@ -89,6 +99,7 @@ describe('SearchDialog', () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();
     render(<SearchDialog open onOpenChange={onOpenChange} />);
+    await switchToFeature(user);
     await user.type(screen.getByPlaceholderText(/搜索/), '快捷键');
     await waitFor(() => {
       expect(screen.getAllByText('快捷键').length).toBeGreaterThan(0);
@@ -106,6 +117,7 @@ describe('SearchDialog', () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();
     render(<SearchDialog open onOpenChange={onOpenChange} />);
+    await switchToFeature(user);
     const input = screen.getByPlaceholderText(/搜索/);
     await user.type(input, 'json');
     // 等待防抖完成、列表过滤稳定:全量列表中的无关结果消失后 items 不再重排,
@@ -131,18 +143,16 @@ describe('SearchDialog', () => {
 });
 
 describe('SearchDialog 文本模式', () => {
-  it('模式切换:默认功能模式,切换「文本」后 placeholder 变化', async () => {
+  it('默认进入文本模式,切换「功能」后 placeholder 变化', async () => {
     const user = userEvent.setup();
     render(<SearchDialog open onOpenChange={() => {}} />);
-    expect(screen.getByPlaceholderText(/搜索所有功能/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '文本' }));
     expect(screen.getByPlaceholderText(/搜索编辑器文本/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '功能' }));
+    expect(screen.getByPlaceholderText(/搜索所有功能/)).toBeInTheDocument();
   });
 
-  it('文本模式无已打开文件时展示引导文案', async () => {
-    const user = userEvent.setup();
+  it('无已打开文件时展示引导文案', () => {
     render(<SearchDialog open onOpenChange={() => {}} />);
-    await user.click(screen.getByRole('button', { name: '文本' }));
     expect(screen.getByText(/请先在文本编辑器中打开文件/)).toBeInTheDocument();
   });
 
@@ -153,7 +163,6 @@ describe('SearchDialog 文本模式', () => {
     ]);
     const user = userEvent.setup();
     render(<SearchDialog open onOpenChange={() => {}} />);
-    await user.click(screen.getByRole('button', { name: '文本' }));
     const input = screen.getByPlaceholderText(/搜索编辑器文本/);
     await user.type(input, 'find');
     // 文件名分组出现(分组 heading)
@@ -171,7 +180,6 @@ describe('SearchDialog 文本模式', () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();
     render(<SearchDialog open onOpenChange={onOpenChange} />);
-    await user.click(screen.getByRole('button', { name: '文本' }));
     await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), 'find');
     await user.click(await screen.findByRole('option', { name: /find me/ }));
     expect(useSearchStore.getState().target).toEqual({
@@ -188,7 +196,6 @@ describe('SearchDialog 文本模式', () => {
     setTabs([makeTab('big', 'big.txt', lines.join('\n'))]);
     const user = userEvent.setup();
     render(<SearchDialog open onOpenChange={() => {}} />);
-    await user.click(screen.getByRole('button', { name: '文本' }));
     await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), 'find');
     // 分组徽标展示「前 上限 / 总数 行」
     expect(

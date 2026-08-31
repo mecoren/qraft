@@ -54,4 +54,25 @@ describe('CommandPalette', () => {
     // 面板关闭
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it('shows category badge and description in tool rows', () => {
+    render(<CommandPalette open={true} onOpenChange={() => {}} />);
+    // 类别徽章:Base64/Certificate/GZip/HTML/JWT/Basic Auth 同属编解码器(>=1),JSONPath/正则/XML/XSD 同属测试工具
+    expect(screen.getAllByText('编解码器').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('测试工具').length).toBeGreaterThan(0);
+    // 描述行:Base64 的描述文案(取 z h 子串即可,匹配多 span 拼接的可访问名)
+    expect(screen.getAllByText(/Base64/i).length).toBeGreaterThan(0);
+  });
+
+  it('shows footer with key hints and result count', () => {
+    render(<CommandPalette open={true} onOpenChange={() => {}} />);
+    const footer = screen.getByTestId('palette-footer');
+    expect(footer).toBeInTheDocument();
+    // 三个键盘提示
+    expect(footer.textContent).toMatch(/导航/);
+    expect(footer.textContent).toMatch(/跳转/);
+    expect(footer.textContent).toMatch(/关闭/);
+    // 右侧计数:正整数 + "条结果" / "results" 兼容多语言
+    expect(screen.getByTestId('palette-footer-count').textContent).toMatch(/\d+\s+(条结果|results)/);
+  });
 });
