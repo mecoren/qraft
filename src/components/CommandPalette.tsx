@@ -9,7 +9,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { ExternalLink, History, Home, Settings, Trash2 } from 'lucide-react';
+import { History, Home, Settings, SquareArrowOutUpRight, Trash2 } from 'lucide-react';
 import { useHistoryStore } from '@/store/historyStore';
 import { useToolStateStore } from '@/store/toolStateStore';
 import { useUiStore } from '@/store/uiStore';
@@ -122,7 +122,7 @@ export function CommandPalette({
                     onOpenChange(false);
                   }}
                 >
-                  <ExternalLink aria-hidden className="h-4 w-4 opacity-50" />
+                  <SquareArrowOutUpRight aria-hidden className="h-4 w-4 opacity-50" />
                   <span>{t('chrome.palette.popout_current')}</span>
                 </CommandItem>
               )}

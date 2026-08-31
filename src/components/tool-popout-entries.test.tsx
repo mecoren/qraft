@@ -88,4 +88,14 @@ describe('侧栏右键菜单弹出项', () => {
     await user.click(await screen.findByRole('menuitem', { name: '在新窗口打开' }));
     expect(openPopout).toHaveBeenCalledWith('base64_codec');
   });
+
+  it('固定的文本编辑器右键含「在新窗口打开」,点击后调用', async () => {
+    const user = userEvent.setup();
+    render(<Sidebar />);
+    const sidebar = screen.getByTestId('sidebar');
+    const btn = within(sidebar).getByTestId('nav-text-editor');
+    await user.pointer({ keys: '[MouseRight]', target: btn });
+    await user.click(await screen.findByRole('menuitem', { name: '在新窗口打开' }));
+    expect(openPopout).toHaveBeenCalledWith('text_editor');
+  });
 });

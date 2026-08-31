@@ -10,7 +10,7 @@
  * 交互:
  * - 搜索时切换为扁平过滤列表(匹配名称/描述/关键词)
  * - 当前工具 / 当前视图高亮,激活项左侧带 primary 指示条
- * - 固定的「文本编辑器」始终排第一且不可收藏(右键无菜单);
+ * - 固定的「文本编辑器」始终排第一且不可收藏(右键菜单仅含「在新窗口打开」);
  *   「文本编辑器」分类仅含该工具,不再重复渲染分组
  */
 
@@ -127,7 +127,8 @@ function NavItem({
 
 /**
  * 工具条目右键菜单内容:收藏/取消收藏 + 已收藏时追加排序(上移/下移)。
- * 固定的「文本编辑器」始终排第一且位置固定,不提供收藏/排序,右键无菜单。
+ * 固定的「文本编辑器」始终排第一且位置固定,不提供收藏/排序(见
+ * DefaultEditorContextMenuContent 仅含「在新窗口打开」)。
  */
 function ToolContextMenuContent({ entry }: { entry: CatalogEntry }): JSX.Element {
   const { t } = useTranslation();
@@ -164,9 +165,24 @@ function ToolContextMenuContent({ entry }: { entry: CatalogEntry }): JSX.Element
   );
 }
 
-/** 工具右键菜单统一入口:固定文本编辑器与应用内特殊页面(设置/管理扩展)不挂菜单 */
+/**
+ * 固定「文本编辑器」右键菜单:仅含「在新窗口打开」。
+ * 该工具不可收藏/排序,但同样支持弹出独立窗口。
+ */
+function DefaultEditorContextMenuContent({ entry }: { entry: CatalogEntry }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <ContextMenuItem onSelect={() => void openToolInNewWindow(entry.id)}>
+      {t('chrome.sidebar.popout')}
+    </ContextMenuItem>
+  );
+}
+
+/** 工具右键菜单统一入口:应用内特殊页面(设置/管理扩展)不挂菜单; */
 function toolContextMenuFor(entry: CatalogEntry): JSX.Element | undefined {
-  if (entry.special || entry.id === DEFAULT_TOOL_ID) return undefined;
+  if (entry.special) return undefined;
+  // 固定文本编辑器不可收藏/排序,仅提供「在新窗口打开」
+  if (entry.id === DEFAULT_TOOL_ID) return <DefaultEditorContextMenuContent entry={entry} />;
   return <ToolContextMenuContent entry={entry} />;
 }
 
@@ -442,7 +458,7 @@ export function Sidebar(): JSX.Element {
                 testId="nav-all-tools"
               />
 
-              {/* 固定的文本编辑器:始终第一,右键无菜单(不支持收藏/排序) */}
+              {/* 固定的文本编辑器:始终第一,右键菜单仅含「在新窗口打开」(不支持收藏/排序) */}
               {defaultEditorEntry && (
                 <NavItem
                   icon={defaultEditorEntry.icon}

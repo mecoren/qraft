@@ -25,7 +25,7 @@
 
 import { type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ExternalLink } from 'lucide-react';
+import { SquareArrowOutUpRight } from 'lucide-react';
 import { WindowControls } from '@/components/ui/window-controls';
 import { Logo } from '@/components/Logo';
 import { getCatalogEntry, pickText } from '@/lib/tool-catalog';
@@ -94,7 +94,11 @@ export function Titlebar(): JSX.Element {
             title={t('chrome.titlebar.popout')}
             onClick={() => void openToolInNewWindow(currentToolId)}
           >
-            <ExternalLink aria-hidden className="size-4" strokeWidth={ICON_STROKE_WIDTH} />
+            <SquareArrowOutUpRight
+              aria-hidden
+              className="size-4"
+              strokeWidth={ICON_STROKE_WIDTH}
+            />
           </button>
         )}
       </div>
