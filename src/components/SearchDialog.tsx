@@ -26,8 +26,14 @@ import {
   Files,
   type LucideIcon,
 } from 'lucide-react';
-import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import {
+  CommandDialog,
+  CommandInput,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { searchIndex, type SearchEntry, type SearchEntryKind } from '@/lib/search-index';
 import { searchTabsText, type TabGroup } from '@/lib/editor-text-search';
 import { getCatalogEntry } from '@/lib/tool-catalog';
@@ -231,147 +237,150 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl overflow-hidden p-0">
-        <DialogTitle className="sr-only">{t('chrome.search_dialog.sr_title')}</DialogTitle>
-        <DialogDescription className="sr-only">
-          {t('chrome.search_dialog.sr_desc')}
-        </DialogDescription>
-        <Command shouldFilter={false}>
-          {/* 受控搜索输入:查询由自身 state 管理,searchIndex 驱动结果过滤;
-           * cmdk 仅负责结果列表的 ↑↓ 键盘导航与 Enter 触发 */}
-          <div className="flex items-center gap-2 border-b px-3">
-            {/* 模式切换:功能搜索(工具/设置/页面) / 文本搜索(编辑器内容) */}
-            <div className="flex shrink-0 items-center gap-0.5 rounded-md bg-muted p-0.5">
-              {MODES.map((m) => {
-                const Icon = m.icon;
-                const active = mode === m.id;
+    <CommandDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      /* VSCode Quick Pick:宽高固定,不随内容伸缩(列表内部滚动) */
+      contentClassName="w-[48rem] max-w-[calc(100vw-2rem)]"
+      shouldFilter={false}
+      header={
+        <>
+          <DialogTitle className="sr-only">{t('chrome.search_dialog.sr_title')}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {t('chrome.search_dialog.sr_desc')}
+          </DialogDescription>
+          {/* 统一样式:复用 CommandInput,模式切换按钮嵌入 leading 前导区
+           * (注:查询由自身 state 管理 + shouldFilter=false,cmdk 仅负责结果
+           * 列表的 ↑↓ 键盘导航与 Enter 触发) */}
+          <CommandInput
+            leading={
+              <div className="mr-2 flex shrink-0 items-center gap-0.5 rounded-md bg-muted p-0.5">
+                {MODES.map((m) => {
+                  const Icon = m.icon;
+                  const active = mode === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => switchMode(m.id)}
+                      className={`flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
+                        active
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Icon aria-hidden className="size-3.5" strokeWidth={ICON_STROKE_WIDTH} />
+                      {t(m.labelKey)}
+                    </button>
+                  );
+                })}
+              </div>
+            }
+            value={query}
+            onValueChange={setQuery}
+            placeholder={
+              mode === 'text'
+                ? t('chrome.search_dialog.placeholder_text')
+                : t('chrome.search_dialog.placeholder_global')
+            }
+            aria-label={
+              mode === 'text'
+                ? t('chrome.search_dialog.aria_text')
+                : t('chrome.search_dialog.aria_global')
+            }
+            autoFocus
+          />
+        </>
+      }
+      footer={
+        <div className="flex items-center gap-4 border-t px-4 py-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">↑</kbd>
+            <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">↓</kbd>
+            {t('chrome.search_dialog.navigate')}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Enter</kbd>
+            {t('chrome.search_dialog.jump')}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Esc</kbd>
+            {t('chrome.search_dialog.close')}
+          </span>
+          <span className="ml-auto">
+            {t('chrome.search_dialog.results_count', { count: total })}
+          </span>
+        </div>
+      }
+    >
+      <CommandList>
+        {mode === 'text' ? (
+          /* —— 文本搜索模式:按文件分组展示匹配行 —— */
+          tabs.length === 0 ? (
+            <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+              {t('chrome.search_dialog.need_editor_file')}
+            </div>
+          ) : debounced.trim() === '' ? (
+            <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+              {t('chrome.search_dialog.text_search_hint')}
+            </div>
+          ) : total === 0 ? (
+            <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+              {t('chrome.search_dialog.no_matches', { query: debounced.trim() })}
+            </div>
+          ) : (
+            <>
+              {tabGroups.map((g) => (
+                <TextResultGroup
+                  key={g.tabId}
+                  group={g}
+                  query={debounced}
+                  onSelect={handleTextSelect}
+                />
+              ))}
+              {tabGroups.some((g) => g.truncated) && (
+                <div className="px-6 py-2 text-center text-xs text-muted-foreground">
+                  {t('chrome.search_dialog.too_many_hits')}
+                </div>
+              )}
+            </>
+          )
+        ) : total === 0 ? (
+          <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+            {t('chrome.search_dialog.no_matches', { query: debounced.trim() })}
+          </div>
+        ) : (
+          grouped.size > 0 &&
+          [...grouped.entries()].map(([kind, entries]) => (
+            <CommandGroup key={kind} heading={t(KIND_LABEL[kind])}>
+              {entries.map((entry) => {
                 return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => switchMode(m.id)}
-                    className={`flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
-                      active
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                  <CommandItem
+                    key={entry.id}
+                    value={`${entry.id} ${entry.title} ${entry.keywords.join(' ')}`}
+                    onSelect={() => handleSelect(entry)}
+                    className="py-2"
                   >
-                    <Icon aria-hidden className="size-3.5" strokeWidth={ICON_STROKE_WIDTH} />
-                    {t(m.labelKey)}
-                  </button>
+                    <EntryIcon entry={entry} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm">{entry.title}</div>
+                      {entry.description && (
+                        <div className="truncate text-xs text-muted-foreground">
+                          {entry.description}
+                        </div>
+                      )}
+                    </div>
+                    <span className="ml-2 shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
+                      {entry.group}
+                    </span>
+                  </CommandItem>
                 );
               })}
-            </div>
-            <Search aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={
-                mode === 'text'
-                  ? t('chrome.search_dialog.placeholder_text')
-                  : t('chrome.search_dialog.placeholder_global')
-              }
-              autoFocus
-              aria-label={
-                mode === 'text'
-                  ? t('chrome.search_dialog.aria_text')
-                  : t('chrome.search_dialog.aria_global')
-              }
-              className="flex h-11 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
-            />
-          </div>
-          <CommandList className="max-h-[60vh]">
-            {mode === 'text' ? (
-              /* —— 文本搜索模式:按文件分组展示匹配行 —— */
-              tabs.length === 0 ? (
-                <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-                  {t('chrome.search_dialog.need_editor_file')}
-                </div>
-              ) : debounced.trim() === '' ? (
-                <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-                  {t('chrome.search_dialog.text_search_hint')}
-                </div>
-              ) : total === 0 ? (
-                <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-                  {t('chrome.search_dialog.no_matches', { query: debounced.trim() })}
-                </div>
-              ) : (
-                <>
-                  {tabGroups.map((g) => (
-                    <TextResultGroup
-                      key={g.tabId}
-                      group={g}
-                      query={debounced}
-                      onSelect={handleTextSelect}
-                    />
-                  ))}
-                  {tabGroups.some((g) => g.truncated) && (
-                    <div className="px-6 py-2 text-center text-xs text-muted-foreground">
-                      {t('chrome.search_dialog.too_many_hits')}
-                    </div>
-                  )}
-                </>
-              )
-            ) : total === 0 ? (
-              <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-                {t('chrome.search_dialog.no_matches', { query: debounced.trim() })}
-              </div>
-            ) : (
-              grouped.size > 0 &&
-              [...grouped.entries()].map(([kind, entries]) => (
-                <CommandGroup key={kind} heading={t(KIND_LABEL[kind])}>
-                  {entries.map((entry) => {
-                    return (
-                      <CommandItem
-                        key={entry.id}
-                        value={`${entry.id} ${entry.title} ${entry.keywords.join(' ')}`}
-                        onSelect={() => handleSelect(entry)}
-                        className="py-2"
-                      >
-                        <EntryIcon entry={entry} />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm">{entry.title}</div>
-                          {entry.description && (
-                            <div className="truncate text-xs text-muted-foreground">
-                              {entry.description}
-                            </div>
-                          )}
-                        </div>
-                        <span className="ml-2 shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
-                          {entry.group}
-                        </span>
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              ))
-            )}
-          </CommandList>
-          <div className="flex items-center gap-4 border-t px-4 py-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">↑</kbd>
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">↓</kbd>
-              {t('chrome.search_dialog.navigate')}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-                Enter
-              </kbd>
-              {t('chrome.search_dialog.jump')}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Esc</kbd>
-              {t('chrome.search_dialog.close')}
-            </span>
-            <span className="ml-auto">
-              {t('chrome.search_dialog.results_count', { count: total })}
-            </span>
-          </div>
-        </Command>
-      </DialogContent>
-    </Dialog>
+            </CommandGroup>
+          ))
+        )}
+      </CommandList>
+    </CommandDialog>
   );
 }

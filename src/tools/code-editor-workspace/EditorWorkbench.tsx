@@ -1130,6 +1130,10 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               useEditorWorkspaceStore.getState().setTabLanguage(activeTab.id, language);
               setLanguagePickerOpen(false);
             }}
+            onSelectAuto={() => {
+              useEditorWorkspaceStore.getState().setTabLanguageAuto(activeTab.id);
+              setLanguagePickerOpen(false);
+            }}
             data-testid="editor-language-picker"
           />
         )}

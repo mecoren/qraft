@@ -31,6 +31,13 @@ export interface EditorTab {
   path: string | null;
   /** Monaco 语言 id */
   language: EditorLanguage;
+  /**
+   * 自动检测模式(VSCode「自动检测」语言模式):true 时语言随路径/内容
+   * 自动推断(打开按扩展名、未命名 Tab 按内容特征、另存为按新路径);
+   * 用户在语言选择器手动指定后置为 false,固定为所选语言。
+   * 可选字段,缺省视为 true(与旧行为一致:打开文件即按扩展名推断)。
+   */
+  languageAuto?: boolean;
   /** 当前文本(含未保存改动) */
   content: string;
   /** 上次保存/打开时的内容快照,用于判定 dirty */
@@ -181,6 +188,9 @@ function sanitizeTab(raw: unknown): EditorTab | null {
   const autoTitle = typeof t.autoTitle === 'string' && t.autoTitle ? t.autoTitle : undefined;
   // 旧版本持久化数据无 wordWrap 字段:缺省视为开启(与历史行为一致)
   const wordWrap = typeof t.wordWrap === 'boolean' ? t.wordWrap : true;
+  // 旧版本持久化数据无 languageAuto 字段:缺省视为自动检测(与历史行为一致,
+  // 打开文件本就按扩展名推断语言;手动选择过的 Tab 会显式写 false)
+  const languageAuto = t.languageAuto !== false;
   // 旧版本持久化数据无 encoding 字段:缺省视为 utf-8(与历史行为一致)
   const encoding = typeof t.encoding === 'string' && t.encoding ? t.encoding : undefined;
   return {
@@ -189,6 +199,7 @@ function sanitizeTab(raw: unknown): EditorTab | null {
     ...(autoTitle !== undefined ? { autoTitle } : {}),
     path,
     language,
+    languageAuto,
     content,
     savedContent,
     pinned,

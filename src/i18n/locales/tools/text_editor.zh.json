@@ -9,6 +9,7 @@
   "tools.text_editor.select_language_mode": "选择语言模式",
   "tools.text_editor.lang_plaintext": "纯文本",
   "tools.text_editor.picker_search_placeholder": "按名称筛选语言…",
+  "tools.text_editor.picker_auto_detect": "自动检测",
   "tools.text_editor.picker_empty": "未找到匹配的语言模式",
   "tools.text_editor.rename": "重命名",
   "tools.text_editor.compare_selected": "比较所选内容",

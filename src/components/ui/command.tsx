@@ -23,12 +23,51 @@ const Command = React.forwardRef<
 ));
 Command.displayName = CommandPrimitive.displayName;
 
-const CommandDialog = ({ children, ...props }: DialogProps) => {
+/** CommandDialog 追加的槽位:header= 顶部搜索区(缺省渲染默认 CommandInput);
+ *  footer= 底部提示条;contentClassName= 宽度等 DialogContent 定制透传;
+ *  shouldFilter= 是否由 cmdk 自身按 value 过滤(SearchDialog 走外部过滤需为 false);
+ *  hideCloseButton= 是否隐藏右上角关闭钮(EditorLanguagePicker 等仿 Quick Pick 无关闭钮);
+ *  contentTestId= 透传到 DialogContent 的 data-testid。 */
+type CommandDialogExtraProps = {
+  header?: React.ReactNode;
+  footer?: React.ReactNode;
+  contentClassName?: string;
+  shouldFilter?: boolean;
+  hideCloseButton?: boolean;
+  contentTestId?: string;
+};
+
+const CommandDialog = ({
+  children,
+  header,
+  footer,
+  contentClassName,
+  shouldFilter,
+  hideCloseButton,
+  contentTestId,
+  ...props
+}: DialogProps & CommandDialogExtraProps) => {
   return (
     <Dialog {...props}>
-      <DialogContent className="overflow-hidden p-0 shadow-lg">
-        <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+      <DialogContent
+        data-testid={contentTestId}
+        hideCloseButton={hideCloseButton}
+        className={cn(
+          'flex h-[min(60vh,560px)] flex-col gap-0 overflow-hidden p-0 shadow-lg',
+          contentClassName,
+        )}
+      >
+          {/* 行内边距/图标尺寸不再由外壳强制(后代选择器优先级会压过
+           * CommandItem 自身 className),统一走 CommandItem 默认紧凑样式,
+           * 与 VSCode Quick Pick 的满宽紧凑行一致 */}
+          <Command
+            shouldFilter={shouldFilter}
+            className="flex h-full w-full shrink flex-col overflow-hidden [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-11"
+          >
+          {/* 顶部输入区固定不滚;下方结果区由 CommandList 弹性占满并在固定高度内滚动 */}
+          <div className="shrink-0">{header ?? <CommandInput />}</div>
           {children}
+          {footer}
         </Command>
       </DialogContent>
     </Dialog>
@@ -37,10 +76,15 @@ const CommandDialog = ({ children, ...props }: DialogProps) => {
 
 const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
->(({ className, ...props }, ref) => (
-  <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
-    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input> & {
+    /** 输入框外层容器的 className 透传(默认 flex items-center border-b px-3) */
+    wrapperClassName?: string;
+    /** 输入框前导内容(缺省为 Search 图标):SearchDialog 用它嵌入「功能/文本」模式切换 */
+    leading?: React.ReactNode;
+  }
+>(({ className, wrapperClassName, leading, ...props }, ref) => (
+  <div className={cn('flex items-center border-b px-3', wrapperClassName)} cmdk-input-wrapper="">
+    {leading ?? <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />}
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
@@ -63,9 +107,11 @@ const CommandList = React.forwardRef<
   //   设置面板 / 编辑器列表等所有区域观感一致(Radix 自绘悬浮滑块仅 hover 可见)
   // - 少一层 ResizeObserver/滑块 transform 开销,长列表(系统字体 ~数百项)更流畅
   // - 轨道可点击翻页、拖拽行为与原生一致,不再出现「点击轨道穿透关闭弹层」
+  // 在 CommandDialog 内,父级为固定高度 flex 列,故默认 flex-1 min-h-0 弹性占满并在
+  // 固定高度内滚动(顶部输入区保持固定)。独立使用(无固定高度父级)时退化为内容自适应。
   <CommandPrimitive.List
     ref={ref}
-    className={cn('max-h-[300px] overflow-y-auto overflow-x-hidden', className)}
+    className={cn('min-h-0 flex-1 overflow-y-auto overflow-x-hidden', className)}
     {...props}
   />
 ));

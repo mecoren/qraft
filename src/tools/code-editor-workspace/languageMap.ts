@@ -5,6 +5,7 @@
  * - `QUICK_LANGUAGES`:顶栏快速切换的常用语言列表(沿用旧单编辑器实现)
  * - `LANGUAGE_LABELS`:语言 id → 中文显示名
  * - `inferLanguageFromPath`:按文件扩展名推断 Monaco 语言 id
+ * - `detectLanguageFromContent`:按内容特征识别语言(自动检测模式,无路径 Tab 用)
  */
 import type { EditorLanguage } from '@/components/ui/code-editor';
 
@@ -195,6 +196,83 @@ export function inferLanguageFromPath(path: string | null): EditorLanguage {
 export function fileNameFromPath(path: string): string {
   const idx = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
   return idx >= 0 ? path.slice(idx + 1) : path;
+}
+
+/** 内容识别的扫描上限(只看开头片段,避免大文件每次编辑全量扫描) */
+const CONTENT_SNIFF_LIMIT = 2000;
+
+/**
+ * 按内容特征识别语言(「自动检测」模式用,主要服务于无路径的未命名 Tab):
+ * shebang → JSON → diff → HTML/XML → Dockerfile → INI → YAML → Markdown → SQL。
+ * 识别失败返回 null(调用方保留当前语言 / 回退 plaintext)。
+ * 有路径的文件以 `inferLanguageFromPath` 为准,内容识别仅在自动模式下兜底。
+ */
+export function detectLanguageFromContent(content: string): EditorLanguage | null {
+  const head = content.slice(0, CONTENT_SNIFF_LIMIT);
+  const trimmed = head.trimStart();
+  if (!trimmed) return null;
+
+  // 1. shebang:按解释器路径细分,识别不出具体语言时归 shell
+  if (trimmed.startsWith('#!')) {
+    const firstLine = trimmed.split('\n', 1)[0] ?? '';
+    if (/pwsh|powershell/i.test(firstLine)) return 'powershell';
+    if (/python/.test(firstLine)) return 'python';
+    if (/perl/.test(firstLine)) return 'perl';
+    if (/ruby/.test(firstLine)) return 'ruby';
+    if (/node/.test(firstLine)) return 'javascript';
+    return 'shell';
+  }
+
+  // 2. JSON:以 { / [ 开头且整体可解析;解析失败时(带注释 / 尾逗号 /
+  //    截断的 JSON)用「引号键名 "key": 」特征宽松兜底——JS 对象字面量的
+  //    键不带引号,不会误判
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      JSON.parse(content);
+      return 'json';
+    } catch {
+      if (/"[^"\n]+"\s*:/m.test(head)) return 'json';
+    }
+  }
+
+  // 3. diff:git diff 头 / --- +++ 对 / @@ hunk 头
+  if (/^diff --git /m.test(head) || (/^--- \S/m.test(head) && /^\+\+\+ \S/m.test(head))) {
+    return 'diff';
+  }
+
+  // 4. HTML / XML
+  if (trimmed.startsWith('<')) {
+    if (/^<!doctype\s+html/i.test(trimmed) || /^<html[\s>]/i.test(trimmed)) return 'html';
+    if (/^<\?xml/i.test(trimmed) || /<\/[a-zA-Z][\w.:-]*>/.test(head)) return 'xml';
+  }
+
+  // 5. Dockerfile:FROM 指令 + 任一典型构建指令
+  if (/^FROM \S+/m.test(head) && /^(RUN|CMD|ENTRYPOINT|COPY|ADD|WORKDIR|ENV)\s/m.test(head)) {
+    return 'dockerfile';
+  }
+
+  // 6. INI:小节头 [name] + key=value 行
+  if (/^\[[^\]\n]+\]\s*$/m.test(head) && /^[^[\s][^\n=]*=/m.test(head)) return 'ini';
+
+  // 7. YAML:文档分隔符,或至少两行「key: value」顶层键值
+  const yamlKeyLines = head.match(/^[A-Za-z_][\w.-]*:\s+\S/gm)?.length ?? 0;
+  if (/^---\s*$/m.test(head) || yamlKeyLines >= 2) return 'yaml';
+
+  // 8. Markdown:标题 / 围栏代码块 / 任务列表
+  if (/^#{1,6} \S/m.test(head) || /^```/m.test(head) || /^[-*+] \[[ xX]\] /m.test(head)) {
+    return 'markdown';
+  }
+
+  // 9. SQL:典型 DML / DDL 语句
+  if (
+    /\bSELECT\b[\s\S]{0,200}?\bFROM\b/i.test(head) ||
+    /\bCREATE\s+(TABLE|VIEW|INDEX)\b/i.test(head) ||
+    /\bINSERT\s+INTO\s+\w+/i.test(head)
+  ) {
+    return 'sql';
+  }
+
+  return null;
 }
 
 /**

@@ -1,14 +1,14 @@
 import { useEffect, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Command,
+  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ExternalLink, History, Home, Settings, Trash2 } from 'lucide-react';
 import { useHistoryStore } from '@/store/historyStore';
 import { useToolStateStore } from '@/store/toolStateStore';
@@ -51,14 +51,23 @@ export function CommandPalette({
   }, [open, onOpenChange]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl overflow-hidden p-0">
-        <DialogTitle className="sr-only">{t('chrome.app.name')}</DialogTitle>
-        <DialogDescription className="sr-only">{t('chrome.palette.description')}</DialogDescription>
-        <Command shouldFilter={true}>
+    <CommandDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      contentClassName="max-w-xl"
+      shouldFilter
+      header={
+        <>
+          <DialogTitle className="sr-only">{t('chrome.app.name')}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {t('chrome.palette.description')}
+          </DialogDescription>
           <CommandInput placeholder={t('chrome.palette.placeholder')} />
-          <CommandList className="max-h-80">
-            <CommandEmpty>{t('chrome.palette.no_match')}</CommandEmpty>
+        </>
+      }
+    >
+      <CommandList className="max-h-80">
+        <CommandEmpty>{t('chrome.palette.no_match')}</CommandEmpty>
             {detected.length > 0 && (
               <CommandGroup heading={t('chrome.palette.detect_clipboard')}>
                 {detected.map((d) => {
@@ -158,9 +167,7 @@ export function CommandPalette({
                 <span>{t('chrome.palette.clear_history')}</span>
               </CommandItem>
             </CommandGroup>
-          </CommandList>
-        </Command>
-      </DialogContent>
-    </Dialog>
+      </CommandList>
+    </CommandDialog>
   );
 }

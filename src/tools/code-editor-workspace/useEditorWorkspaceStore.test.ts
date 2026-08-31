@@ -897,3 +897,103 @@ describe('useEditorWorkspaceStore.openFolder / closeFolder / toggleDirExpanded',
     expect(folderNameFromPath('C:\\')).toBe('C:');
   });
 });
+
+describe('useEditorWorkspaceStore 语言自动检测', () => {
+  it('新建未命名 Tab 默认自动检测,输入内容后按内容识别语言', () => {
+    useEditorWorkspaceStore.getState().newBlankTab();
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+    const tab0 = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab0.languageAuto).toBe(true);
+    expect(tab0.language).toBe('plaintext');
+
+    // 粘贴 JSON → 自动识别为 json
+    useEditorWorkspaceStore.getState().setTabContent(id, '{"a": 1}');
+    expect(useEditorWorkspaceStore.getState().workspace.tabs[0].language).toBe('json');
+
+    // 继续输入 Markdown(含引号键名的 JSON 前缀会被宽松规则识别为 json,
+    // 故此处改用纯 Markdown 内容)→ 再次自动识别
+    useEditorWorkspaceStore.getState().setTabContent(id, '# Title\n\nbody text');
+    expect(useEditorWorkspaceStore.getState().workspace.tabs[0].language).toBe('markdown');
+  });
+
+  it('手动指定语言后退出自动模式,内容再变不跟随;切回自动检测立即重推断', () => {
+    useEditorWorkspaceStore.getState().newBlankTab();
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+    useEditorWorkspaceStore.getState().setTabLanguage(id, 'sql');
+    const tab1 = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab1.languageAuto).toBe(false);
+
+    // 手动模式下输入 YAML/Markdown 特征内容,语言保持 sql
+    useEditorWorkspaceStore.getState().setTabContent(id, '# Title\nkey: value\n');
+    const tab2 = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab2.language).toBe('sql');
+
+    // 选择器首项「自动检测」→ 按当前内容立即重推断为 markdown
+    useEditorWorkspaceStore.getState().setTabLanguageAuto(id);
+    const tab3 = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab3.languageAuto).toBe(true);
+    expect(tab3.language).toBe('markdown');
+  });
+
+  it('自动检测的 Tab 另存到新路径时按新路径推断语言;手动语言在覆盖保存时保留', () => {
+    useEditorWorkspaceStore.getState().newBlankTab();
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+    // 自动模式:首次保存绑定 .json 路径 → 按扩展名推断 json
+    useEditorWorkspaceStore.getState().markSaved(id, 'C:\\a\\data.json');
+    expect(useEditorWorkspaceStore.getState().workspace.tabs[0].language).toBe('json');
+
+    // 手动改为 yaml 后覆盖保存(路径不变)→ 不覆盖手动选择
+    useEditorWorkspaceStore.getState().setTabLanguage(id, 'yaml');
+    useEditorWorkspaceStore.getState().markSaved(id, 'C:\\a\\data.json');
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab.languageAuto).toBe(false);
+    expect(tab.language).toBe('yaml');
+
+    // 切回自动检测后另存到 .sql → 按新路径推断为 sql
+    useEditorWorkspaceStore.getState().setTabLanguageAuto(id);
+    useEditorWorkspaceStore.getState().markSaved(id, 'C:\\a\\data.sql');
+    const tab2 = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab2.languageAuto).toBe(true);
+    expect(tab2.language).toBe('sql');
+  });
+
+  it('打开本地文件的 Tab 默认自动检测(旧数据缺省也视为自动)', async () => {
+    safeInvokeMock.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        tabs: [
+          {
+            id: 't1',
+            title: 'a.json',
+            path: '/a.json',
+            language: 'json',
+            content: '{}',
+            savedContent: '{}',
+          },
+        ],
+        activeTabId: 't1',
+        leftSidebarVisible: true,
+      },
+    });
+    await useEditorWorkspaceStore.getState().hydrate();
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab.languageAuto).toBe(true);
+  });
+
+  it('未知扩展名文件(.txt)自动模式下按内容识别语言;已知扩展名以路径为准', () => {
+    // .txt:路径推断为 plaintext → 自动模式按内容识别出 json
+    useEditorWorkspaceStore.getState().openLocalFile('C:\\a\\data.txt', 'hello');
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+    expect(useEditorWorkspaceStore.getState().workspace.tabs[0].language).toBe('plaintext');
+
+    useEditorWorkspaceStore.getState().setTabContent(id, '{"a": 1}');
+    expect(useEditorWorkspaceStore.getState().workspace.tabs[0].language).toBe('json');
+
+    // .md:已知扩展名始终以路径推断为准,不受内容影响
+    useEditorWorkspaceStore.getState().openLocalFile('C:\\a\\note.md', '{"not": "parsed"}');
+    const tabs = useEditorWorkspaceStore.getState().workspace.tabs;
+    expect(tabs[tabs.length - 1].language).toBe('markdown');
+  });
+});

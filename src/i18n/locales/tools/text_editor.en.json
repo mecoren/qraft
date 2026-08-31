@@ -9,6 +9,7 @@
   "tools.text_editor.select_language_mode": "Select Language Mode",
   "tools.text_editor.lang_plaintext": "Plain Text",
   "tools.text_editor.picker_search_placeholder": "Filter by language name...",
+  "tools.text_editor.picker_auto_detect": "Auto Detect",
   "tools.text_editor.picker_empty": "No matching language mode",
   "tools.text_editor.rename": "Rename",
   "tools.text_editor.compare_selected": "Compare Selected",

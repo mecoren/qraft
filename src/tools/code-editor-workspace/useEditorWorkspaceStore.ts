@@ -23,7 +23,11 @@ import {
   type EditorTab,
   type Workspace,
 } from './schema';
-import { fileNameFromPath, inferLanguageFromPath } from './languageMap';
+import {
+  detectLanguageFromContent,
+  fileNameFromPath,
+  inferLanguageFromPath,
+} from './languageMap';
 
 /**
  * 从路径中提取末段作为文件夹显示名。
@@ -48,6 +52,19 @@ function createId(): string {
     return crypto.randomUUID();
   }
   return `tab-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * 自动检测模式的语言解析:已知扩展名/特殊文件名优先(以路径推断为准),
+ * 扩展名无法识别(plaintext)时按内容特征识别(如 .txt / 无扩展名文件
+ * 实际存的是 JSON / YAML 等),仍识别不出回退 plaintext。
+ */
+function resolveAutoLanguage(t: EditorTab): EditorLanguage {
+  if (t.path !== null) {
+    const byPath = inferLanguageFromPath(t.path);
+    if (byPath !== 'plaintext') return byPath;
+  }
+  return detectLanguageFromContent(t.content) ?? 'plaintext';
 }
 
 /** 未命名 Tab 标题的最大显示长度(超出截断加省略号) */
@@ -115,6 +132,7 @@ function openFileIntoWorkspace(
     title: fileNameFromPath(path),
     path,
     language: inferLanguageFromPath(path),
+    languageAuto: true,
     content,
     savedContent: content,
     pinned: false,
@@ -222,8 +240,10 @@ interface WorkspaceState {
   toggleDirExpanded: (dirPath: string) => void;
   /** 更新 Tab 内容(编辑器 onChange 调用) */
   setTabContent: (id: string, content: string) => void;
-  /** 更新 Tab 语言(语言选择器调用) */
+  /** 更新 Tab 语言(语言选择器调用);同时退出自动检测模式 */
   setTabLanguage: (id: string, language: EditorLanguage) => void;
+  /** 切回「自动检测」语言模式:按路径/内容重新推断(语言选择器首项调用) */
+  setTabLanguageAuto: (id: string) => void;
   /** 更新 Tab 文件编码(编码选择器调用;保存时按该编码写回) */
   setTabEncoding: (id: string, encoding: string) => void;
   /**
@@ -303,6 +323,7 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
       title,
       path: null,
       language: inferLanguageFromPath(title),
+      languageAuto: true,
       content,
       savedContent: '',
       pinned: false,
@@ -324,6 +345,7 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
       title: `untitled-${nextUntitledNumber(workspace.tabs)}`,
       path: null,
       language: 'plaintext',
+      languageAuto: true,
       content: '',
       savedContent: '',
       pinned: false,
@@ -484,6 +506,14 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const { workspace } = get();
     const tabs = workspace.tabs.map((t) => {
       if (t.id !== id) return t;
+      // 自动检测模式:随内容重新识别语言(已知扩展名文件以路径为准不变;
+      // 未命名 / 未知扩展名文件按内容特征识别。仅识别变化时才写入,
+      // 识别只扫描开头 2000 字符,单次编辑开销可忽略)
+      let language = t.language;
+      if (t.languageAuto ?? true) {
+        const detected = resolveAutoLanguage({ ...t, content });
+        if (detected !== t.language) language = detected;
+      }
       // 未命名 Tab(自动命名 untitled-N 且未绑定路径):用首行文字做标题
       // (参考 VSCode 对未命名缓冲区的处理)。autoTitle 记住原始自动名:
       // 清空内容后回退,新 Tab 序号分配也不因改名而重复。
@@ -491,16 +521,35 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
       // 改名后 title 不再匹配 untitled-N,故以 autoTitle 标记延续派生生命周期。
       if (t.path === null && (t.autoTitle !== undefined || /^untitled-\d+$/.test(t.title))) {
         const autoTitle = t.autoTitle ?? t.title;
-        return { ...t, content, autoTitle, title: deriveTitleFromContent(content) ?? autoTitle };
+        return {
+          ...t,
+          content,
+          language,
+          autoTitle,
+          title: deriveTitleFromContent(content) ?? autoTitle,
+        };
       }
-      return { ...t, content };
+      return { ...t, content, language };
     });
     set({ workspace: { ...workspace, tabs }, userTouched: true });
   },
 
+  // 手动指定语言:退出自动检测模式,固定为所选语言(再次自动检测需重新选「自动检测」项)
   setTabLanguage: (id, language) => {
     const { workspace } = get();
-    const tabs = workspace.tabs.map((t) => (t.id === id ? { ...t, language } : t));
+    const tabs = workspace.tabs.map((t) =>
+      t.id === id ? { ...t, language, languageAuto: false } : t,
+    );
+    set({ workspace: { ...workspace, tabs }, userTouched: true });
+  },
+
+  // 切回「自动检测」:立即按扩展名(优先)或内容特征重新推断
+  setTabLanguageAuto: (id) => {
+    const { workspace } = get();
+    const tabs = workspace.tabs.map((t) => {
+      if (t.id !== id) return t;
+      return { ...t, language: resolveAutoLanguage(t), languageAuto: true };
+    });
     set({ workspace: { ...workspace, tabs }, userTouched: true });
   },
 
@@ -525,8 +574,9 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
       if (t.id !== id) return t;
       // 路径变化(首次另存为/另存为到新扩展名)时,按新路径重新推断语言,
       // 让高亮与文件类型保持同步;路径不变(覆盖保存)保留当前语言,
-      // 避免覆盖用户手动选择。
-      const language = t.path === path ? t.language : inferLanguageFromPath(path);
+      // 避免覆盖用户手动选择。自动检测模式下始终按(新)路径推断。
+      const language =
+        (t.languageAuto ?? true) || t.path !== path ? inferLanguageFromPath(path) : t.language;
       // 保存后 title 绑定为真实文件名,内容派生标题的生命周期结束
       return {
         ...t,
