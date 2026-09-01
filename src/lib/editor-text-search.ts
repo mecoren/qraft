@@ -2,19 +2,18 @@
  * editor-text-search —— 文本编辑器工作区文件内容的全局搜索纯函数。
  *
  * 参考 VSCode「在文件中查找」:按文件(tab)分组,每行一条匹配结果,
- * 编辑器内跳转时对该行全部匹配项高亮。海量命中受上限护栏保护(见下方常量)。
+ * 编辑器内跳转时对该行全部匹配项高亮。海量命中按批次渲染(见 MATCH_BATCH_SIZE)。
  */
 import type { EditorTab } from '@/tools/code-editor-workspace/schema';
 
 /**
  * 性能护栏:海量命中时一次性渲染全部结果会卡死主线程
- * (每条结果都是一个 cmdk Item + 高亮 span 拆分),故限制:
- * - 单文件最多收集 MAX_MATCHES_PER_TAB 行,全局最多 MAX_TOTAL_MATCHES 行;
- *   count 始终统计真实匹配行数,截断时以 truncated 标记由 UI 提示。
- * - 超长行(如压缩后的单行 bundle)只保留首个匹配附近的预览窗口。
+ * (每条结果都是一个 cmdk Item + 高亮 span 拆分),故按批次渲染;
+ * count 始终统计真实匹配行数,截断时以 truncated 标记由 UI 提示。
+ * 超长行(如压缩后的单行 bundle)只保留首个匹配附近的预览窗口。
  */
-export const MAX_MATCHES_PER_TAB = 50;
-export const MAX_TOTAL_MATCHES = 200;
+/** Incremental text-match batch size */
+export const MATCH_BATCH_SIZE = 50;
 /** 匹配行预览最大长度(超出则截取首个匹配附近窗口) */
 export const MAX_LINE_PREVIEW_CHARS = 300;
 
@@ -123,14 +122,16 @@ function buildTextMatch(
  * 空 query / 空 tabs 返回 [];大小写不敏感;保持 tabs 原始顺序。
  * count 为真实匹配行数;matches 受收集上限约束,截断时 truncated=true。
  */
-export function searchTabsText(tabs: readonly EditorTab[], query: string): TabGroup[] {
+export function searchTabsText(
+  tabs: readonly EditorTab[],
+  query: string,
+  matchLimit = MATCH_BATCH_SIZE,
+): TabGroup[] {
   const q = query.trim();
   if (!q) return [];
   const needle = q.toLowerCase();
   const groups: TabGroup[] = [];
-  let collected = 0;
   for (const tab of tabs) {
-    if (collected >= MAX_TOTAL_MATCHES) break;
     const lines = tab.content.split('\n');
     const matches: TextMatch[] = [];
     let count = 0;
@@ -138,9 +139,8 @@ export function searchTabsText(tabs: readonly EditorTab[], query: string): TabGr
       const hit = lines[idx].toLowerCase().indexOf(needle);
       if (hit === -1) continue;
       count++;
-      if (matches.length < MAX_MATCHES_PER_TAB && collected < MAX_TOTAL_MATCHES) {
+      if (matches.length < matchLimit) {
         matches.push(buildTextMatch(tab, lines[idx], idx, hit, needle.length));
-        collected++;
       }
     }
     if (count > 0) {

@@ -151,6 +151,37 @@ describe('detectLanguageFromContent', () => {
     expect(detectLanguageFromContent('SELECT id, name\nFROM users')).toBe('sql');
   });
 
+  it('detects Java from class or interface declarations', () => {
+    expect(
+      detectLanguageFromContent(
+        'package com.example;\n\nimport java.util.List;\n\npublic class Main {\n  public static void main(String[] args) {}\n}\n',
+      ),
+    ).toBe('java');
+    expect(detectLanguageFromContent('public interface UserService {\n  void save();\n}\n')).toBe(
+      'java',
+    );
+    expect(
+      detectLanguageFromContent('enum Status {\n  ACTIVE,\n  INACTIVE\n}\n'),
+    ).toBeNull();
+  });
+
+  it.each([
+    ['typescript', 'const value: string = "a";\nfunction sum(a: number, b: number): number {}'],
+    ['javascript', 'import path from "path";\nasync function run() {}\nconst x = `ok`;'],
+    ['python', 'def main():\n    print("hi")\n\nif __name__ == "__main__":\n    main()\n'],
+    ['go', 'package main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("hi")\n}\n'],
+    ['rust', 'use std::fmt;\n\nfn main() {\n    println!("hi");\n}\n'],
+    ['csharp', 'using System;\n\nnamespace Demo;\n\npublic class Program {\n}\n'],
+    ['cpp', '#include <iostream>\n\nint main() {\n    std::cout << "hi";\n}\n'],
+    ['c', '#include <stdio.h>\n\nint main(void) {\n    printf("hi");\n}\n'],
+    ['php', '<?php\n\nfunction hello(): void {\n    echo "hi";\n}\n'],
+    ['swift', 'import Foundation\n\nstruct User: Codable {}\n'],
+    ['kotlin', 'fun main() {\n    println("hi")\n}\n'],
+    ['dart', 'void main() {\n  print("hi");\n}\n'],
+  ] as const)('detects %s from content', (language, content) => {
+    expect(detectLanguageFromContent(content)).toBe(language);
+  });
+
   it('returns null for empty or unrecognizable content', () => {
     expect(detectLanguageFromContent('')).toBeNull();
     expect(detectLanguageFromContent('   \n  ')).toBeNull();

@@ -31,10 +31,7 @@
       "open_history": "打开历史",
       "clear_history": "清空历史",
       "popout_current": "在新窗口打开当前工具",
-      "footer_navigate": "导航",
-      "footer_open": "跳转",
-      "footer_close": "关闭",
-      "footer_count": "{{count}} 条结果"
+      "no_match": "未找到匹配的工具或操作"
     },
     "titlebar": {
       "popout": "在新窗口打开"
@@ -232,10 +229,14 @@
       "text_search_hint": "输入关键字搜索已打开文件的内容",
       "no_matches": "未找到匹配「{{query}}」的内容",
       "too_many_hits": "命中结果过多,仅显示部分匹配行",
+      "load_more_count": "点击加载后续 {{count}} 行"
+    },
+    "command_footer": {
       "navigate": "导航",
-      "jump": "跳转",
+      "confirm": "确认",
       "close": "关闭",
-      "results_count": "{{count}} 条结果"
+      "count": "{{count}} 条结果",
+      "loaded_count": "已加载 {{loaded}} / {{total}} 条结果"
     },
     "about": {
       "title": "关于",

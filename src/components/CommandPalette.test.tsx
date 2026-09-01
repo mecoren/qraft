@@ -32,6 +32,26 @@ describe('CommandPalette', () => {
     expect(screen.getByRole('option', { name: new RegExp(jm.name.zh, 'i') })).toBeInTheDocument();
   });
 
+  it('focuses the search box without highlighting the first item until arrow down', async () => {
+    const user = userEvent.setup();
+    render(<CommandPalette open={true} onOpenChange={() => {}} />);
+    const input = screen.getByRole('combobox');
+    expect(input).toHaveFocus();
+    expect(screen.queryAllByRole('option', { selected: true })).toHaveLength(0);
+
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getAllByRole('option', { selected: true })).toHaveLength(1);
+    const firstSelected = screen.getByRole('option', { selected: true });
+    expect(firstSelected.className).toContain('bg-accent');
+    await user.keyboard('{ArrowDown}');
+    const secondSelected = screen.getByRole('option', { selected: true });
+    expect(secondSelected.className).toContain('bg-accent');
+    expect(secondSelected).not.toBe(firstSelected);
+    await user.keyboard('{ArrowUp}');
+    expect(screen.getByRole('option', { selected: true })).toBe(firstSelected);
+    expect(input).toHaveFocus();
+  });
+
   it('filters tools by search query', async () => {
     const user = userEvent.setup();
     render(<CommandPalette open={true} onOpenChange={() => {}} />);
@@ -70,7 +90,7 @@ describe('CommandPalette', () => {
     expect(footer).toBeInTheDocument();
     // 三个键盘提示
     expect(footer.textContent).toMatch(/导航/);
-    expect(footer.textContent).toMatch(/跳转/);
+    expect(footer.textContent).toMatch(/确认/);
     expect(footer.textContent).toMatch(/关闭/);
     // 右侧计数:正整数 + "条结果" / "results" 兼容多语言
     expect(screen.getByTestId('palette-footer-count').textContent).toMatch(/\d+\s+(条结果|results)/);

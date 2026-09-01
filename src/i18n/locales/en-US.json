@@ -31,10 +31,7 @@
       "open_history": "Open history",
       "clear_history": "Clear history",
       "popout_current": "Open current tool in new window",
-      "footer_navigate": "Navigate",
-      "footer_open": "Open",
-      "footer_close": "Close",
-      "footer_count": "{{count}} results"
+      "no_match": "No matching tools or actions"
     },
     "titlebar": {
       "popout": "Open in new window"
@@ -232,10 +229,14 @@
       "text_search_hint": "Type keywords to search the opened file contents",
       "no_matches": "No matches for \"{{query}}\"",
       "too_many_hits": "Too many matches; showing a partial result set",
+      "load_more_count": "Load the next {{count}} lines"
+    },
+    "command_footer": {
       "navigate": "Navigate",
-      "jump": "Jump",
+      "confirm": "Confirm",
       "close": "Close",
-      "results_count": "{{count}} results"
+      "count": "{{count}} results",
+      "loaded_count": "{{loaded}} / {{total}} results loaded"
     },
     "about": {
       "title": "About",

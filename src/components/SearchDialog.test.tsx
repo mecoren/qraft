@@ -7,7 +7,7 @@ import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { SearchDialog } from './SearchDialog';
 import { useSearchStore } from '@/store/searchStore';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
-import { MAX_MATCHES_PER_TAB } from '@/lib/editor-text-search';
+import { MATCH_BATCH_SIZE } from '@/lib/editor-text-search';
 import type { EditorTab } from '@/tools/code-editor-workspace/schema';
 
 /** 构造最小合法 Tab */
@@ -136,6 +136,36 @@ describe('SearchDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  it('打开/输入时不自动高亮第一项,按下 ↓ 才高亮第一项', async () => {
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    await switchToFeature(user);
+    const input = screen.getByPlaceholderText(/搜索/);
+    // 打开即有全量结果,但不应有任何项被高亮(焦点留在搜索框)
+    expect(document.querySelector('[aria-selected="true"]')).toBeNull();
+    await user.type(input, 'json');
+    await waitFor(() => {
+      expect(screen.queryByText('Base64 转换器')).not.toBeInTheDocument();
+    });
+    // 过滤结果稳定后仍不应自动高亮第一项
+    expect(document.querySelector('[aria-selected="true"]')).toBeNull();
+    // 焦点始终在搜索框
+    expect(document.activeElement).toBe(input);
+    // 按下 ↓ 后第一项才被高亮
+    await user.keyboard('{ArrowDown}');
+    const selected = await waitFor(() => {
+      const el = document.querySelector('[aria-selected="true"]');
+      expect(el).not.toBeNull();
+      return el as Element;
+    });
+    // 第一个 option 才是第一项
+    const options = document.querySelectorAll('[role="option"]');
+    expect(options.length).toBeGreaterThan(1);
+    expect(selected).toBe(options[0]);
+    // 焦点回到搜索框(cmdk 键盘导航不动焦点)
+    expect(document.activeElement).toBe(input);
+  });
+
   it('关闭状态不渲染面板', () => {
     render(<SearchDialog open={false} onOpenChange={() => {}} />);
     expect(screen.queryByPlaceholderText(/搜索/)).not.toBeInTheDocument();
@@ -192,18 +222,66 @@ describe('SearchDialog 文本模式', () => {
   });
 
   it('海量命中时截断展示并提示(徽标显示 前 X / Y 行)', async () => {
-    const lines = Array.from({ length: MAX_MATCHES_PER_TAB + 10 }, (_, i) => `find line ${i}`);
+    const lines = Array.from({ length: MATCH_BATCH_SIZE + 10 }, (_, i) => `find line ${i}`);
     setTabs([makeTab('big', 'big.txt', lines.join('\n'))]);
     const user = userEvent.setup();
     render(<SearchDialog open onOpenChange={() => {}} />);
     await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), 'find');
     // 分组徽标展示「前 上限 / 总数 行」
     expect(
-      await screen.findByText(`前 ${MAX_MATCHES_PER_TAB} / ${lines.length} 行`),
+      await screen.findByText(`前 ${MATCH_BATCH_SIZE} / ${lines.length} 行`),
     ).toBeInTheDocument();
     // 底部截断提示
     expect(screen.getByText(/命中结果过多,仅显示部分匹配行/)).toBeInTheDocument();
     // 渲染的 option 数不超过收集上限
-    expect(screen.getAllByRole('option').length).toBe(MAX_MATCHES_PER_TAB);
+    expect(screen.getAllByRole('option').length).toBe(MATCH_BATCH_SIZE);
   }, 20000);
+
+  it('点击底部提示加载下一批匹配行', async () => {
+    const lines = Array.from({ length: MATCH_BATCH_SIZE + 10 }, (_, i) => `find line ${i}`);
+    setTabs([makeTab('big', 'big.txt', lines.join('\n'))]);
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), 'find');
+    expect(await screen.findByRole('option', { name: /find line 49/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /点击加载后续 50 行/ }));
+
+    expect(await screen.findByRole('option', { name: /find line 59/ })).toBeInTheDocument();
+    expect(screen.getByText(`已加载 ${lines.length} / ${lines.length} 条结果`)).toBeInTheDocument();
+    expect(screen.getByText(`${lines.length} 行`)).toBeInTheDocument();
+    expect(screen.queryByText(/命中结果过多/)).not.toBeInTheDocument();
+  }, 20000);
+
+  it('多次点击继续追加后续匹配行', async () => {
+    const lines = Array.from(
+      { length: MATCH_BATCH_SIZE * 2 + 5 },
+      (_, i) => `find line ${i}`,
+    );
+    setTabs([makeTab('big', 'big.txt', lines.join('\n'))]);
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), 'find');
+
+    await user.click(await screen.findByRole('button', { name: /点击加载后续 50 行/ }));
+    expect(await screen.findByRole('option', { name: /find line 99/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /命中结果过多/ }));
+    expect(await screen.findByRole('option', { name: /find line 104/ })).toBeInTheDocument();
+  }, 20000);
+
+  it('超过旧全局上限后仍可通过点击无限继续加载', async () => {
+    const lines = Array.from({ length: 350 }, (_, i) => `find line ${i}`);
+    setTabs([makeTab('huge', 'huge.txt', lines.join('\n'))]);
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), 'find');
+
+    for (let i = 0; i < 3; i++) {
+      await user.click(await screen.findByRole('button', { name: /点击加载后续 50 行/ }));
+    }
+
+    expect(await screen.findByRole('option', { name: /find line 199/ })).toBeInTheDocument();
+    expect(screen.getByText('已加载 200 / 350 条结果')).toBeInTheDocument();
+  }, 30000);
 });

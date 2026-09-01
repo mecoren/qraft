@@ -14,7 +14,7 @@
  * - 输入防抖 80ms,避免每键重扫(索引量小,主要为输入体验)。
  */
 
-import { useEffect, useMemo, useState, type JSX } from 'react';
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Search,
@@ -29,15 +29,15 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import {
-  CommandDialog,
-  CommandInput,
-  CommandGroup,
-  CommandItem,
-  CommandList,
+  QuickPickDialog,
+  type QuickPickGroup,
+  type QuickPickItem,
 } from '@/components/ui/command';
-import { DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { searchIndex, type SearchEntry, type SearchEntryKind } from '@/lib/search-index';
-import { searchTabsText, type TabGroup } from '@/lib/editor-text-search';
+import {
+  MATCH_BATCH_SIZE,
+  searchTabsText,
+} from '@/lib/editor-text-search';
 import { getCatalogEntry } from '@/lib/tool-catalog';
 import { useSearchStore } from '@/store/searchStore';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
@@ -93,52 +93,6 @@ function HighlightLine({ content, query }: { content: string; query: string }): 
   return <span className="flex min-w-0 items-center gap-1 font-mono text-xs">{parts}</span>;
 }
 
-/** 文件分组的文本搜索结果 */
-function TextResultGroup({
-  group,
-  query,
-  onSelect,
-}: {
-  group: TabGroup;
-  query: string;
-  onSelect: (tabId: string) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <CommandGroup
-      key={group.tabId}
-      heading={
-        <span className="flex w-full items-center justify-between gap-2">
-          <span className="truncate">{group.tabTitle}</span>
-          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
-            {group.truncated
-              ? t('chrome.search_dialog.lines_progress', {
-                  current: group.matches.length,
-                  total: group.count,
-                })
-              : t('chrome.search_dialog.lines_count', { count: group.count })}
-          </span>
-        </span>
-      }
-    >
-      {group.matches.map((m) => (
-        <CommandItem
-          key={`${group.tabId}:${m.line}`}
-          value={`${group.tabId}:${m.line}:${m.lineContent}`}
-          onSelect={() => onSelect(group.tabId)}
-          aria-label={`${group.tabTitle}:${m.line}: ${m.lineContent}`}
-          className="py-1.5"
-        >
-          <span className="w-8 shrink-0 text-right font-mono text-[10px] leading-none text-muted-foreground">
-            {m.line}
-          </span>
-          <HighlightLine content={m.lineContent} query={query} />
-        </CommandItem>
-      ))}
-    </CommandGroup>
-  );
-}
-
 /** 结果项图标:工具用自身图标,其余按类型映射(静态组件,避免渲染期创建组件) */
 function EntryIcon({ entry }: { entry: SearchEntry }): JSX.Element {
   let Icon: LucideIcon;
@@ -190,6 +144,8 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
   const [mode, setMode] = useState<SearchMode>('text');
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
+  const [loadedMatchCount, setLoadedMatchCount] = useState(MATCH_BATCH_SIZE);
+  const listFooterRef = useRef<HTMLButtonElement>(null);
 
   // 文本编辑工作区已打开文件
   const tabs = useEditorWorkspaceStore((s) => s.workspace.tabs);
@@ -203,8 +159,11 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
   const grouped = useMemo(() => searchIndex(debounced), [debounced]);
 
   const tabGroups = useMemo(
-    () => (mode === 'text' ? searchTabsText(tabs, debounced) : []),
-    [mode, tabs, debounced],
+    () =>
+      mode === 'text'
+        ? searchTabsText(tabs, debounced, loadedMatchCount)
+        : [],
+    [mode, tabs, debounced, loadedMatchCount],
   );
 
   const total = useMemo(() => {
@@ -213,6 +172,15 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
     }
     return [...grouped.values()].reduce((n, list) => n + list.length, 0);
   }, [mode, grouped, tabGroups]);
+
+  const loadedCount = useMemo(
+    () => tabGroups.reduce((total, group) => total + group.matches.length, 0),
+    [tabGroups],
+  );
+
+  useEffect(() => {
+    setLoadedMatchCount(MATCH_BATCH_SIZE);
+  }, [mode, debounced]);
 
   /** 切换模式时清空查询,避免跨模式残留 */
   const switchMode = (next: SearchMode) => {
@@ -239,154 +207,162 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
     onOpenChange(false);
   };
 
+  const handleLoadMore = () => {
+    setLoadedMatchCount((count) => count + MATCH_BATCH_SIZE);
+  };
+
+  const featureGroups = useMemo(
+    () =>
+      [...grouped.entries()]
+        .map(
+          ([kind, entries]): QuickPickGroup | null =>
+            entries.length === 0
+              ? null
+              : {
+                  key: kind,
+                  heading: t(KIND_LABEL[kind]),
+                  items: entries.map(
+                    (entry): QuickPickItem => ({
+                      key: entry.id,
+                      value: `${entry.id} ${entry.title} ${entry.keywords.join(' ')}`,
+                      leading: <EntryIcon entry={entry} />,
+                      label: entry.title,
+                      description: entry.description,
+                      trailing: entry.group,
+                      trailingStyle: 'badge',
+                      onSelect: () => handleSelect(entry),
+                    }),
+                  ),
+                },
+        )
+        .filter((g): g is QuickPickGroup => g !== null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-x/exhaustive-deps
+    [grouped, t],
+  );
+
+  // —— 数据驱动分组:文本模式按文件分组(行内容经 HighlightLine 高亮),功能模式按类型分组 ——
+  const groups = useMemo(() => {
+    if (mode === 'text') {
+      return tabGroups.map(
+        (g): QuickPickGroup => ({
+          key: g.tabId,
+          heading: (
+            <span className="flex w-full items-center justify-between gap-2">
+              <span className="truncate">{g.tabTitle}</span>
+              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
+                {g.truncated
+                  ? t('chrome.search_dialog.lines_progress', {
+                      current: g.matches.length,
+                      total: g.count,
+                    })
+                  : t('chrome.search_dialog.lines_count', { count: g.count })}
+              </span>
+            </span>
+          ),
+          items: g.matches.map(
+            (m): QuickPickItem => ({
+              key: `${g.tabId}:${m.line}`,
+              value: `${g.tabId}:${m.line}:${m.lineContent}`,
+              leading: (
+                <span className="w-8 shrink-0 text-right font-mono text-[10px] leading-none text-muted-foreground">
+                  {m.line}
+                </span>
+              ),
+              label: <HighlightLine content={m.lineContent} query={debounced} />,
+              ariaLabel: `${g.tabTitle}:${m.line}: ${m.lineContent}`,
+              onSelect: () => handleTextSelect(g.tabId),
+            }),
+          ),
+        }),
+      );
+    }
+    return featureGroups;
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-x/exhaustive-deps
+  }, [mode, tabGroups, featureGroups, debounced, t]);
+
+  const emptyNode = (() => {
+    if (mode === 'text') {
+      if (tabs.length === 0) return t('chrome.search_dialog.need_editor_file');
+      if (debounced.trim() === '') return t('chrome.search_dialog.text_search_hint');
+      return t('chrome.search_dialog.no_matches', { query: debounced.trim() });
+    }
+    return t('chrome.search_dialog.no_matches', { query: debounced.trim() });
+  })();
+
   return (
-    <CommandDialog
+    <QuickPickDialog
       open={open}
       onOpenChange={onOpenChange}
-      /* VSCode Quick Pick:宽高固定,不随内容伸缩(列表内部滚动) */
-      contentClassName="w-[48rem] max-w-[calc(100vw-2rem)]"
-      shouldFilter={false}
-      header={
-        <>
-          <DialogTitle className="sr-only">{t('chrome.search_dialog.sr_title')}</DialogTitle>
-          {/* 无障碍描述随模式变化(默认文本模式) */}
-          <DialogDescription className="sr-only">
-            {mode === 'text'
-              ? t('chrome.search_dialog.sr_desc_text')
-              : t('chrome.search_dialog.sr_desc')}
-          </DialogDescription>
-          {/* 统一样式:复用 CommandInput,模式切换按钮嵌入 leading 前导区
-           * (注:查询由自身 state 管理 + shouldFilter=false,cmdk 仅负责结果
-           * 列表的 ↑↓ 键盘导航与 Enter 触发) */}
-          <CommandInput
-            leading={
-              <div className="mr-2 flex shrink-0 items-center gap-0.5 rounded-md bg-muted p-0.5">
-                {MODES.map((m) => {
-                  const Icon = m.icon;
-                  const active = mode === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => switchMode(m.id)}
-                      className={`flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
-                        active
-                          ? 'bg-background text-foreground shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      <Icon aria-hidden className="size-3.5" strokeWidth={ICON_STROKE_WIDTH} />
-                      {t(m.labelKey)}
-                    </button>
-                  );
-                })}
-              </div>
-            }
-            value={query}
-            onValueChange={setQuery}
-            placeholder={
-              mode === 'text'
-                ? t('chrome.search_dialog.placeholder_text')
-                : t('chrome.search_dialog.placeholder_global')
-            }
-            aria-label={
-              mode === 'text'
-                ? t('chrome.search_dialog.aria_text')
-                : t('chrome.search_dialog.aria_global')
-            }
-            autoFocus
-          />
-        </>
+      title={t('chrome.search_dialog.sr_title')}
+      /* 无障碍描述随模式变化(默认文本模式) */
+      description={
+        mode === 'text'
+          ? t('chrome.search_dialog.sr_desc_text')
+          : t('chrome.search_dialog.sr_desc')
       }
-      footer={
-        <div className="flex items-center gap-4 border-t px-4 py-2 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">↑</kbd>
-            <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">↓</kbd>
-            {t('chrome.search_dialog.navigate')}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Enter</kbd>
-            {t('chrome.search_dialog.jump')}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Esc</kbd>
-            {t('chrome.search_dialog.close')}
-          </span>
-          <span className="ml-auto">
-            {t('chrome.search_dialog.results_count', { count: total })}
-          </span>
+      /* VSCode Quick Pick:统一壳,宽度/高度均由 QuickPickDialog 默认对齐「全局搜索」 */
+      shouldFilter={false}
+      value={query}
+      onValueChange={setQuery}
+      /* 模式切换按钮嵌入 leading 前导区(查询由自身 state 管理 + shouldFilter=false,
+       * cmdk 仅负责结果列表的 ↑↓ 键盘导航与 Enter 触发) */
+      leading={
+        <div className="mr-2 flex shrink-0 items-center gap-0.5 rounded-md bg-muted p-0.5">
+          {MODES.map((m) => {
+            const Icon = m.icon;
+            const active = mode === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => switchMode(m.id)}
+                className={`flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
+                  active
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Icon aria-hidden className="size-3.5" strokeWidth={ICON_STROKE_WIDTH} />
+                {t(m.labelKey)}
+              </button>
+            );
+          })}
         </div>
       }
-    >
-      <CommandList>
-        {mode === 'text' ? (
-          /* —— 文本搜索模式:按文件分组展示匹配行 —— */
-          tabs.length === 0 ? (
-            <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-              {t('chrome.search_dialog.need_editor_file')}
-            </div>
-          ) : debounced.trim() === '' ? (
-            <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-              {t('chrome.search_dialog.text_search_hint')}
-            </div>
-          ) : total === 0 ? (
-            <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-              {t('chrome.search_dialog.no_matches', { query: debounced.trim() })}
-            </div>
-          ) : (
-            <>
-              {tabGroups.map((g) => (
-                <TextResultGroup
-                  key={g.tabId}
-                  group={g}
-                  query={debounced}
-                  onSelect={handleTextSelect}
-                />
-              ))}
-              {tabGroups.some((g) => g.truncated) && (
-                <div className="px-6 py-2 text-center text-xs text-muted-foreground">
-                  {t('chrome.search_dialog.too_many_hits')}
-                </div>
-              )}
-            </>
-          )
-        ) : total === 0 ? (
-          <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-            {t('chrome.search_dialog.no_matches', { query: debounced.trim() })}
-          </div>
-        ) : (
-          grouped.size > 0 &&
-          [...grouped.entries()].map(([kind, entries]) => (
-            <CommandGroup key={kind} heading={t(KIND_LABEL[kind])}>
-              {entries.map((entry) => {
-                return (
-                  <CommandItem
-                    key={entry.id}
-                    value={`${entry.id} ${entry.title} ${entry.keywords.join(' ')}`}
-                    onSelect={() => handleSelect(entry)}
-                    className="py-2"
-                  >
-                    <EntryIcon entry={entry} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm">{entry.title}</div>
-                      {entry.description && (
-                        <div className="truncate text-xs text-muted-foreground">
-                          {entry.description}
-                        </div>
-                      )}
-                    </div>
-                    <span className="ml-2 shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
-                      {entry.group}
-                    </span>
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-          ))
-        )}
-      </CommandList>
-    </CommandDialog>
+      placeholder={
+        mode === 'text'
+          ? t('chrome.search_dialog.placeholder_text')
+          : t('chrome.search_dialog.placeholder_global')
+      }
+      inputProps={{
+        autoFocus: true,
+        'aria-label':
+          mode === 'text'
+            ? t('chrome.search_dialog.aria_text')
+            : t('chrome.search_dialog.aria_global'),
+      }}
+      groups={groups}
+      empty={emptyNode}
+      preserveSelectionOnChange={mode === 'text'}
+      listFooter={
+        mode === 'text' && tabGroups.some((g) => g.truncated) ? (
+          <button
+            type="button"
+            ref={listFooterRef}
+            onClick={handleLoadMore}
+            className="w-full px-6 py-2 text-center text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {t('chrome.search_dialog.too_many_hits')} ·{' '}
+            {t('chrome.search_dialog.load_more_count', { count: MATCH_BATCH_SIZE })}
+          </button>
+        ) : undefined
+      }
+      count={
+        mode === 'text'
+          ? t('chrome.command_footer.loaded_count', { loaded: loadedCount, total })
+          : t('chrome.command_footer.count', { count: total })
+      }
+    />
   );
 }
