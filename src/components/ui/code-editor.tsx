@@ -522,7 +522,10 @@ export function CodeEditor({
       event.event.stopPropagation();
       void openExternal(url);
     });
-    urlClickRef.current = urlClick.dispose;
+    // 必须以箭头函数包裹:Monaco 0.56 的 disposable 是依赖 this._fn 的类实例,
+    // 裸存 dispose 引用会让调用时 this 丢失,卸载清理时报
+    // "Unbound disposable context: Need to use an arrow function to preserve the value of this"
+    urlClickRef.current = () => urlClick.dispose();
     // 拦截 Monaco 原生右键菜单:Monaco 0.56 ESM 包无本地化 API,原生菜单恒为英文。
     // preventDefault 后由 MonacoContextMenu(受控 Radix ContextMenu)在鼠标位置
     // 弹出中文菜单,菜单项通过 editor.getAction(id).run() 执行相同动作。
