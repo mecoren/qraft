@@ -54,6 +54,8 @@ import {
   Minimize2,
   Pin,
   Plus,
+  Quote,
+  RemoveFormatting,
   Save,
   Trash2,
   Wand2,
@@ -89,6 +91,32 @@ function persistDelayFor(totalChars: number): number {
   if (totalChars > 1024 * 1024) return 5000;
   if (totalChars > 256 * 1024) return 2000;
   return 500;
+}
+
+// ============================================================
+// 转义 / 去除转义(纯前端同步实现,导出供单元测试复用)
+// ============================================================
+
+/**
+ * 转义:把当前文本转为 JSON 字符串字面量 —— 引号、反斜杠、换行、制表符及
+ * 其他控制字符转义为 \" \\ \n \t \uXXXX 等序列,含首尾双引号,
+ * 可直接粘贴进代码字符串或配置文件使用(JSON.stringify 语义)。
+ */
+export function escapeJsonString(input: string): string {
+  return JSON.stringify(input);
+}
+
+/**
+ * 去除转义:escapeJsonString 的逆操作。输入整体是带首尾引号的字符串字面量时
+ * 直接 JSON.parse;否则(常见:从代码里复制的 {\"a\":1} 无引号形式)补上
+ * 首尾引号再解析。解析失败抛出 SyntaxError,由调用方把错误写入输出框。
+ */
+export function unescapeJsonString(input: string): string {
+  const trimmed = input.trim();
+  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return JSON.parse(trimmed) as string;
+  }
+  return JSON.parse(`"${trimmed}"`) as string;
 }
 
 /** 输出语言映射:实体类生成后输出编辑器切换到对应语言高亮 */
@@ -494,9 +522,37 @@ export function JsonFormatter({ toolId }: ToolProps) {
     }
   }
 
+  /**
+   * 转义:当前输入文本 → JSON 字符串字面量(写入输出框,输入不变)。
+   * 与其他快速操作不同,此操作不要求输入是合法 JSON,任意文本均可转义。
+   */
+  function handleEscape() {
+    if (!text.trim()) return;
+    setOutput(escapeJsonString(text));
+    setOutputLanguage('json');
+    setMeta(null);
+  }
+
+  /**
+   * 去除转义:转义字符串 → 原始文本(写入输出框,输入不变)。
+   * 不要求输入是合法 JSON;解析失败把错误信息写入输出框。
+   */
+  function handleUnescape() {
+    if (!text.trim()) return;
+    try {
+      setOutput(unescapeJsonString(text));
+      setOutputLanguage('json');
+      setMeta(null);
+    } catch (e) {
+      setOutput(formatError(e, t('tools.json_formatter.unescape_failed')));
+      setOutputLanguage('plaintext');
+      setMeta(null);
+    }
+  }
+
   /** 按指定模式对全部对象的键递归排序(数组顺序保持不变) */
   function handleSort(mode: JsonKeySortMode, descending: boolean) {
-    if (!text.trim()) return;
+    if (!text.trim()) return;    if (!text.trim()) return;
     try {
       const value = parseSmart(text);
       setOutput(JSON.stringify(sortJsonKeysBy(value, { mode, descending }), null, indent));
@@ -610,6 +666,16 @@ export function JsonFormatter({ toolId }: ToolProps) {
           id: 'minify',
           label: t('tools.json_formatter.ctx_minify_json'),
           onSelect: () => handleQuickAction('minify'),
+        },
+        {
+          id: 'escape',
+          label: t('tools.json_formatter.escape'),
+          onSelect: handleEscape,
+        },
+        {
+          id: 'unescape',
+          label: t('tools.json_formatter.unescape'),
+          onSelect: handleUnescape,
         },
         {
           id: 'sort-asc',
@@ -861,6 +927,15 @@ export function JsonFormatter({ toolId }: ToolProps) {
                 >
                   <Minimize2 aria-hidden className="size-3.5" />
                   {t('tools.json_formatter.minify')}
+                </ActionButton>
+                {/* —— 转义 / 去除转义:互为反操作,写入输出框、输入不变 —— */}
+                <ActionButton testId="btn-escape" onClick={handleEscape} disabled={disabled}>
+                  <Quote aria-hidden className="size-3.5" />
+                  {t('tools.json_formatter.escape')}
+                </ActionButton>
+                <ActionButton testId="btn-unescape" onClick={handleUnescape} disabled={disabled}>
+                  <RemoveFormatting aria-hidden className="size-3.5" />
+                  {t('tools.json_formatter.unescape')}
                 </ActionButton>
                 {/* —— 多模式键排序(仿 Json Assistant:基础/自然/特殊三组) —— */}
                 <DropdownMenu>

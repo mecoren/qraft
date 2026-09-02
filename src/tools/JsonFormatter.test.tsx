@@ -54,6 +54,9 @@ describe('JsonFormatter', () => {
     expect(screen.getByTestId('output')).toBeInTheDocument();
     expect(screen.getByTestId('btn-format')).toBeInTheDocument();
     expect(screen.getByTestId('btn-minify')).toBeInTheDocument();
+    // 转义 / 去除转义(互为反操作,写入输出框)
+    expect(screen.getByTestId('btn-escape')).toBeInTheDocument();
+    expect(screen.getByTestId('btn-unescape')).toBeInTheDocument();
     // 排序 / 转换为 下拉菜单按钮(取代原键升序/键降序/生成实体类)
     expect(screen.getByTestId('btn-sort')).toBeInTheDocument();
     expect(screen.getByTestId('btn-convert')).toBeInTheDocument();
@@ -92,6 +95,40 @@ describe('JsonFormatter', () => {
       expect(getOutputValue()).toBe('{\n  "a": 1\n}');
     });
     expect(invokeCommand).not.toHaveBeenCalled();
+  });
+
+  it('escape writes the input as a JSON string literal to the output', () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    const raw = '{"a":"x\ny"}';
+    fireEvent.change(getInputEditor(), { target: { value: raw } });
+    fireEvent.click(screen.getByTestId('btn-escape'));
+    expect(getInputEditor().value).toBe(raw);
+    expect(getOutputValue()).toBe(JSON.stringify(raw));
+  });
+
+  it('unescape decodes a quoted string literal back to the raw text', () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    const escaped = '"{\\"a\\":1}\\n"';
+    fireEvent.change(getInputEditor(), { target: { value: escaped } });
+    fireEvent.click(screen.getByTestId('btn-unescape'));
+    expect(getInputEditor().value).toBe(escaped);
+    expect(getOutputValue()).toBe('{"a":1}\n');
+  });
+
+  it('unescape decodes bare escaped text without surrounding quotes', () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: '{\\"a\\":1}' } });
+    fireEvent.click(screen.getByTestId('btn-unescape'));
+    expect(getOutputValue()).toBe('{"a":1}');
+  });
+
+  it('unescape writes an error to the output when the input is not escaped text', () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    // 普通未转义 JSON 补引号后无法解析:错误信息写入输出框
+    fireEvent.change(getInputEditor(), { target: { value: '{"a":1}' } });
+    fireEvent.click(screen.getByTestId('btn-unescape'));
+    expect(getOutputValue()).not.toBe('');
+    expect(getOutputValue()).toContain('去除转义失败');
   });
 
   it('falls back to the Rust backend for inputs exceeding the frontend format limit', async () => {
