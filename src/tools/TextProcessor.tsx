@@ -30,6 +30,7 @@ import {
   Link2Off,
   Languages,
   Quote,
+  RemoveFormatting,
   Replace,
   TextQuote,
   Type,
@@ -64,6 +65,61 @@ export function escapeText(input: string): string {
     .replace(/[\b]/g, '\\b')
     .replace(/\v/g, '\\v')
     .replace(/\0/g, '\\0');
+}
+
+/** 单字符转义序列 → 真实字符(与 escapeText 的输出一一对应;另支持 JSON 常见的 \/) */
+const UNESCAPE_SIMPLE_MAP: Record<string, string> = {
+  n: '\n',
+  r: '\r',
+  t: '\t',
+  f: '\f',
+  b: '\b',
+  v: '\v',
+  '0': '\0',
+  '"': '"',
+  "'": "'",
+  '\\': '\\',
+  '/': '/',
+};
+
+/**
+ * 去除转义:escapeText 的逆操作,把反斜杠转义序列还原为真实字符。
+ * 除 escapeText 产生的全部序列外,还支持 \xNN 与 \uXXXX(含代理对拼接,
+ * 如 \uD83D\uDE00 → 😀);无法识别的序列(如 \d)与结尾孤立反斜杠原样保留。
+ */
+export function unescapeText(input: string): string {
+  let out = '';
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (ch !== '\\') {
+      out += ch;
+      continue;
+    }
+    const next = input[i + 1];
+    if (next === undefined) {
+      // 结尾孤立反斜杠:无后续字符可转义,原样保留
+      out += '\\';
+      break;
+    }
+    i += 1;
+    if (next === 'u' || next === 'x') {
+      const width = next === 'u' ? 4 : 2;
+      const hex = input.slice(i + 1, i + 1 + width);
+      if (hex.length === width && /^[0-9a-fA-F]+$/.test(hex)) {
+        i += width;
+        // 代理对(\uD83D\uDE00)按 UTF-16 码元逐个拼接,自然组成完整字符
+        out += String.fromCharCode(parseInt(hex, 16));
+        continue;
+      }
+      // 十六进制位数不足:视为普通文本原样保留
+      out += `\\${next}`;
+      continue;
+    }
+    const mapped = UNESCAPE_SIMPLE_MAP[next];
+    // 未知转义序列:反斜杠与字符原样保留,不猜测用户意图
+    out += mapped !== undefined ? mapped : `\\${next}`;
+  }
+  return out;
 }
 
 /** 移除全部空白(空格、Tab、换行、回车等) */
@@ -304,6 +360,7 @@ function EditorStats({ text }: { text: string }): JSX.Element {
 
 type TransformId =
   | 'escape'
+  | 'unescape'
   | 'stripWhitespace'
   | 'urlEncode'
   | 'urlEncodeUri'
@@ -329,6 +386,12 @@ interface TransformDef {
 
 const TRANSFORMS: readonly TransformDef[] = [
   { id: 'escape', labelKey: 'tools.json_minifier.label_escape', Icon: Quote, apply: escapeText },
+  {
+    id: 'unescape',
+    labelKey: 'tools.json_minifier.label_unescape',
+    Icon: RemoveFormatting,
+    apply: unescapeText,
+  },
   {
     id: 'stripWhitespace',
     labelKey: 'tools.json_minifier.label_strip_whitespace',
@@ -421,7 +484,8 @@ const TRANSFORMS: readonly TransformDef[] = [
  * flex `gap-2` 留白。
  *
  * 拆组规则:
- * - 转义 / 去空格——同属"调整字符集",互为正交操作,合并为一组;
+ * - 转义 / 去除转义 / 去空格——转义与去除转义互为反操作,与去空格同属
+ *   "字符集整理",合并为一组;
  * - URL 编码 / URL 解码——互为反操作,合并为一组;
  * - Unicode 转中文 / 中文转 Unicode——互为反操作,合并为一组;
  * - 中文符号转英文——独立的符号转换,单独成一组;
@@ -437,7 +501,7 @@ const TRANSFORMS: readonly TransformDef[] = [
  * 中文符号转英文。放在「转换」ConfigRow,与转换意图一致。
  */
 const FIRST_ROW_GROUPS: ReadonlyArray<ReadonlyArray<TransformId>> = [
-  ['escape', 'stripWhitespace'],
+  ['escape', 'unescape', 'stripWhitespace'],
   ['urlEncode', 'urlEncodeUri', 'urlDecode'],
   ['unicodeToChinese', 'chineseToUnicode'],
   ['chineseSymbolToEnglish'],

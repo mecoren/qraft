@@ -1,5 +1,6 @@
 {
   "tools.json_minifier.label_escape": "转义",
+  "tools.json_minifier.label_unescape": "去除转义",
   "tools.json_minifier.label_strip_whitespace": "去空格",
   "tools.json_minifier.label_url_encode": "URL 编码",
   "tools.json_minifier.label_url_encode_uri": "URL 整体编码",

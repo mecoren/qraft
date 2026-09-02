@@ -1,5 +1,6 @@
 {
   "tools.json_minifier.label_escape": "Escape",
+  "tools.json_minifier.label_unescape": "Unescape",
   "tools.json_minifier.label_strip_whitespace": "Strip whitespace",
   "tools.json_minifier.label_url_encode": "URL encode",
   "tools.json_minifier.label_url_encode_uri": "Encode URI",

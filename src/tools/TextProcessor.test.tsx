@@ -10,6 +10,7 @@ import {
   escapeText,
   stripWhitespace,
   unicodeToChinese,
+  unescapeText,
   urlDecode,
   urlEncode,
   urlEncodeUri,
@@ -93,6 +94,26 @@ describe('TextProcessor utilities', () => {
     expect(escapeText('a\nb\tc"d\\e')).toBe('a\\nb\\tc\\"d\\\\e');
   });
 
+  it('unescapeText decodes common escape sequences back to raw characters', () => {
+    expect(unescapeText('a\\nb\\tc\\"d\\\\e')).toBe('a\nb\tc"d\\e');
+  });
+
+  it('unescapeText is the inverse of escapeText (roundtrip)', () => {
+    const s = 'a\nb\tc"d\'e\\f\r 你好';
+    expect(unescapeText(escapeText(s))).toBe(s);
+  });
+
+  it('unescapeText decodes \\uXXXX escapes including surrogate pairs', () => {
+    expect(unescapeText('\\u4f60\\u597d')).toBe('你好');
+    expect(unescapeText('\\ud83d\\ude00')).toBe('😀');
+  });
+
+  it('unescapeText keeps unknown escapes and a trailing lone backslash intact', () => {
+    // \d 无法识别 → 原样保留;\u12 位数不足 → 原样保留
+    expect(unescapeText('\\d\\u12')).toBe('\\d\\u12');
+    expect(unescapeText('abc\\')).toBe('abc\\');
+  });
+
   it('stripWhitespace removes spaces, tabs and newlines', () => {
     expect(stripWhitespace('  a b\nc\td  ')).toBe('abcd');
   });
@@ -146,7 +167,9 @@ describe('TextProcessor component', () => {
     expect(screen.getByTestId('textproc-button-group-row1')).toBeInTheDocument();
     expect(screen.getByTestId('textproc-button-group-row2')).toBeInTheDocument();
     // 第一排 4 个内层子组
-    expect(screen.getByTestId('textproc-group-escape-stripWhitespace')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('textproc-group-escape-unescape-stripWhitespace'),
+    ).toBeInTheDocument();
     expect(
       screen.getByTestId('textproc-group-urlEncode-urlEncodeUri-urlDecode'),
     ).toBeInTheDocument();
@@ -168,10 +191,15 @@ describe('TextProcessor component', () => {
   it('groups related transforms together (same group) and separates different ones', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
 
-    // 转义 / 去空格 —— 同组(字符集整理),应共处
-    expect(withinGroup('textproc-group-escape-stripWhitespace', 'textproc-btn-escape')).toBe(true);
+    // 转义 / 去除转义 / 去空格 —— 同组(字符集整理,转义与去除转义互为反操作),应共处
     expect(
-      withinGroup('textproc-group-escape-stripWhitespace', 'textproc-btn-stripWhitespace'),
+      withinGroup('textproc-group-escape-unescape-stripWhitespace', 'textproc-btn-escape'),
+    ).toBe(true);
+    expect(
+      withinGroup('textproc-group-escape-unescape-stripWhitespace', 'textproc-btn-unescape'),
+    ).toBe(true);
+    expect(
+      withinGroup('textproc-group-escape-unescape-stripWhitespace', 'textproc-btn-stripWhitespace'),
     ).toBe(true);
 
     // URL 编 / 解码 —— 同组(编码 / 整体编码 / 解码)
@@ -207,10 +235,10 @@ describe('TextProcessor component', () => {
 
   it('does not place unrelated transforms in the same inner group', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
-    // urlEncode 不应出现在 escape / stripWhitespace 组
-    expect(withinGroup('textproc-group-escape-stripWhitespace', 'textproc-btn-urlEncode')).toBe(
-      false,
-    );
+    // urlEncode 不应出现在 escape / unescape / stripWhitespace 组
+    expect(
+      withinGroup('textproc-group-escape-unescape-stripWhitespace', 'textproc-btn-urlEncode'),
+    ).toBe(false);
     // 中文符号转英文不应与 Unicode <-> 中文 同组
     expect(
       withinGroup(
@@ -233,6 +261,14 @@ describe('TextProcessor component', () => {
     expect(getInput().value).toBe('a\nb');
     const output = screen.getByTestId('output').querySelector('textarea')!.value;
     expect(output).toBe('a\\nb');
+  });
+
+  it('unescape button decodes escaped input into the output and keeps input intact', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'a\\nb\\"c' } });
+    fireEvent.click(screen.getByTestId('textproc-btn-unescape'));
+    expect(getInput().value).toBe('a\\nb\\"c');
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('a\nb"c');
   });
 
   it('stripWhitespace button writes stripped result to output and keeps input intact', () => {
