@@ -37,6 +37,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { readClipboardText } from '@/lib/clipboard';
 import { readFileAsText, formatBytes } from '@/lib/file-utils';
+import { openExternal } from '@/lib/open-external';
 import { TEXT_ENCODINGS, type TextEncodingOption } from '@/lib/text-encodings';
 import { useEditorFontSize } from '@/hooks/useEditorFontSize';
 import { defineThemeFor, defineVsCodeTheme, getThemeName, useMonacoTheme } from './monaco-theme';
@@ -47,6 +48,7 @@ import {
 } from './monaco-context-menu';
 import { attachFoldSummary, type FoldSummaryHandle } from './monaco-fold-summary';
 import { attachFindCloseTooltip, type FindCloseTooltipHandle } from './monaco-find-close-tooltip';
+import { findHttpUrlAtPosition } from './editor-url';
 import {
   EolQuickPick,
   EncodingQuickPick,
@@ -362,6 +364,8 @@ export function CodeEditor({
   const foldSummaryRef = useRef<FoldSummaryHandle | null>(null);
   // 查找组件关闭按钮自绘提示 handle(移除原生 title 防止窗口边缘裁剪,生命周期同 editor)
   const findCloseHintRef = useRef<FindCloseTooltipHandle | null>(null);
+  // Ctrl/Cmd+点击编辑器内 URL 的监听清理函数(生命周期同 editor)
+  const urlClickRef = useRef<(() => void) | null>(null);
   // 中文右键菜单:open + 鼠标坐标(受控 Radix ContextMenu)
   const [ctxOpen, setCtxOpen] = useState(false);
   const [ctxPos, setCtxPos] = useState({ x: 0, y: 0 });
@@ -497,6 +501,28 @@ export function CodeEditor({
     setEditorInstance(editor);
     editor.onDidChangeCursorPosition(updateStatus);
     editor.onDidChangeCursorSelection(updateStatus);
+    urlClickRef.current?.();
+    const urlClick = editor.onMouseDown((event) => {
+      const native = event.event.browserEvent;
+      if (
+        native.button !== 0 ||
+        native.shiftKey ||
+        native.altKey ||
+        (!native.ctrlKey && !native.metaKey)
+      ) {
+        return;
+      }
+      const position = event.target.position;
+      const model = editor.getModel();
+      if (!position || !model) return;
+      const line = model.getLineContent(position.lineNumber);
+      const url = findHttpUrlAtPosition(line, position.column);
+      if (!url) return;
+      native.preventDefault();
+      event.event.stopPropagation();
+      void openExternal(url);
+    });
+    urlClickRef.current = urlClick.dispose;
     // 拦截 Monaco 原生右键菜单:Monaco 0.56 ESM 包无本地化 API,原生菜单恒为英文。
     // preventDefault 后由 MonacoContextMenu(受控 Radix ContextMenu)在鼠标位置
     // 弹出中文菜单,菜单项通过 editor.getAction(id).run() 执行相同动作。
@@ -568,6 +594,8 @@ export function CodeEditor({
     findCloseHintRef.current?.dispose();
     findCloseHintRef.current = attachFindCloseTooltip(editorDom);
     return () => {
+      urlClickRef.current?.();
+      urlClickRef.current = null;
       findCloseHintRef.current?.dispose();
       findCloseHintRef.current = null;
     };

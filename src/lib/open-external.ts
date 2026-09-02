@@ -1,17 +1,29 @@
 /**
  * 打开外部链接(带降级)
  *
- * Tauri 环境经 plugin-shell 打开系统浏览器;浏览器环境用 window.open。
- * 两者都不可用时静默失败(返回 false)。
+ * 仅允许 http/https。Tauri 环境经 app_open_external 命令复用后端校验;
+ * 浏览器环境用 window.open。
  */
 
-export async function openExternal(url: string): Promise<boolean> {
+function isHttpUrl(url: string): boolean {
   try {
-    const { open } = await import('@tauri-apps/plugin-shell');
-    await open(url);
-    return true;
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
   } catch {
-    // 非 Tauri 环境,走浏览器
+    return false;
+  }
+}
+
+export async function openExternal(url: string): Promise<boolean> {
+  if (!isHttpUrl(url)) return false;
+  if ('__TAURI_INTERNALS__' in window) {
+    try {
+      const { invokeCommand } = await import('./ipc');
+      await invokeCommand('app_open_external', { url });
+      return true;
+    } catch {
+      return false;
+    }
   }
   try {
     window.open(url, '_blank', 'noopener,noreferrer');

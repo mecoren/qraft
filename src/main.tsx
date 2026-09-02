@@ -6,6 +6,7 @@ import { initThemeOnStartup, initFontSettingsOnStartup } from './lib/theme';
 import { applyPlatformClass } from './lib/platform';
 import { scheduleIdlePrefetch } from './lib/idle-prefetch';
 import { attachGlobalTitleTooltip } from '@/components/ui/global-title-tooltip';
+import { installGlobalLinkHandler } from '@/lib/global-link-handler';
 // i18n 实例在模块导入时初始化(默认 zh-CN);
 // general.language 的启动同步由 configStore hydrate 后执行(见 store 层)。
 import '@/i18n';
@@ -25,6 +26,10 @@ applyPlatformClass();
 // 同款自绘浮层样式(见 components/ui/global-title-tooltip.ts)。
 // 在 render 前挂载,主窗口与弹窗窗口(popout)共用同一入口,均生效。
 attachGlobalTitleTooltip();
+
+// 全局 Ctrl/Cmd+点击原生链接:统一交给系统默认浏览器打开。
+// 捕获阶段拦截,避免 Markdown 预览等点击代理重复处理。
+installGlobalLinkHandler();
 
 // 生产构建禁用 WebView2 默认右键菜单(返回/刷新/另存为/打印/检查等浏览器项):
 // - 仅 Tauri 运行时 + PROD 生效;dev 保留默认菜单便于调试。
