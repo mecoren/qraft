@@ -64,5 +64,16 @@
   "tools.markdown_preview.mermaid_syntax_error": "Diagram syntax error; check the Mermaid definition",
   "tools.markdown_preview.core_copy_code": "Copy code",
   "tools.markdown_preview.core_heading_anchor": "Heading anchor",
-  "tools.markdown_preview.core_backref": "Back to footnote reference"
+  "tools.markdown_preview.core_backref": "Back to footnote reference",
+  "tools.markdown_preview.tabs_aria": "Markdown documents",
+  "tools.markdown_preview.pinned_aria": "Pinned",
+  "tools.markdown_preview.close_tab_aria": "Close {{title}}",
+  "tools.markdown_preview.close": "Close",
+  "tools.markdown_preview.close_confirm_title": "Close \"{{title}}\"?",
+  "tools.markdown_preview.close_confirm_desc": "The Markdown tool keeps no history snapshots; closing discards the content.",
+  "tools.markdown_preview.cancel": "Cancel",
+  "tools.markdown_preview.rename": "Rename",
+  "tools.markdown_preview.pin": "Pin",
+  "tools.markdown_preview.new_doc": "New Markdown document",
+  "tools.markdown_preview.rename_dialog_title": "Rename tab"
 }

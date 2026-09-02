@@ -64,5 +64,16 @@
   "tools.markdown_preview.mermaid_syntax_error": "图表语法有误,请检查 Mermaid 定义",
   "tools.markdown_preview.core_copy_code": "复制代码",
   "tools.markdown_preview.core_heading_anchor": "标题锚点",
-  "tools.markdown_preview.core_backref": "返回脚注引用"
+  "tools.markdown_preview.core_backref": "返回脚注引用",
+  "tools.markdown_preview.tabs_aria": "Markdown 文档",
+  "tools.markdown_preview.pinned_aria": "已固定",
+  "tools.markdown_preview.close_tab_aria": "关闭 {{title}}",
+  "tools.markdown_preview.close": "关闭",
+  "tools.markdown_preview.close_confirm_title": "确定要关闭 \"{{title}}\" 吗?",
+  "tools.markdown_preview.close_confirm_desc": "Markdown 工具不保留历史快照,关闭后内容将丢失。",
+  "tools.markdown_preview.cancel": "取消",
+  "tools.markdown_preview.rename": "重命名",
+  "tools.markdown_preview.pin": "固定",
+  "tools.markdown_preview.new_doc": "新建 Markdown 文档",
+  "tools.markdown_preview.rename_dialog_title": "重命名 Tab"
 }

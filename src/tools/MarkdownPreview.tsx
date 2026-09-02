@@ -2,6 +2,8 @@
  * Markdown 预览(参考 Typora 设计的增强型分栏工具)
  *
  * 能力:
+ * - 多 Tab 文档:VSCode 风格 Tab 栏(新建/切换/关闭确认/重命名/固定),
+ *   文档列表经 Rust config 持久化,旧版 localStorage 单草稿首次启动自动迁移
  * - 视图模式:仅编辑 / 分屏 / 仅预览(可拖拽分栏)
  * - 大纲面板:标题树导航,点击双向定位(预览滚动 + 编辑器跳转源行),
  *   预览滚动时高亮当前章节
@@ -33,26 +35,40 @@ import {
   Download,
   Eye,
   FileCode2,
+  FileText,
   Italic,
   Link2,
   List,
   ListTree,
   ListTodo,
   PenLine,
+  Pin,
+  Plus,
   Quote,
   Strikethrough,
   Table,
+  X,
 } from 'lucide-react';
 import 'katex/dist/katex.min.css';
 import { t as translate } from '@/i18n';
 import { CodeEditor } from '@/components/ui/code-editor';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { RenameDialog } from '@/components/RenameDialog';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -63,6 +79,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { readClipboardText, writeClipboardRichText, writeClipboardText } from '@/lib/clipboard';
 import { showAlert } from '@/lib/toast-alert';
+import { useToolHandoff } from '@/hooks/useToolHandoff';
 import { cn } from '@/lib/utils';
 import { computeDocStats, type DocStats, type OutlineItem } from './markdown-render';
 import { applyInlineWrap, toggleLinePrefixes, type LinePrefixMode } from './markdown-edit';
@@ -70,8 +87,8 @@ import { htmlToMarkdown } from './markdown-paste';
 import { MarkdownPreviewPane, useIsDarkTheme } from './markdown-preview-pane';
 import { buildSyncAnchors, mapAcrossAnchors } from './markdown-scroll';
 import { buildStandaloneHtml, saveStandaloneHtml } from './markdown-export';
+import { useMdDocsStore, type MdDoc } from './markdownPreviewDocsStore';
 import {
-  DRAFT_STORAGE_KEY,
   THEME_ITEMS,
   getSampleMarkdown,
   mdLiveStore,
@@ -83,22 +100,17 @@ import {
 } from './markdownPreviewStore';
 import type { ToolProps } from './registry';
 
-/** 草稿保存防抖间隔(ms) */
-const DRAFT_DEBOUNCE_MS = 500;
+/** 按载荷规模自适应的持久化防抖窗口(ms):载荷越大合并越久,降低全量重写的 IO 放大 */
+function persistDelayFor(totalChars: number): number {
+  if (totalChars > 1024 * 1024) return 5000;
+  if (totalChars > 256 * 1024) return 2000;
+  return 500;
+}
 
 /** CSS.escape 安全封装(旧 WebView / 测试环境兜底) */
 function escapeSelector(value: string): string {
   if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(value);
   return value.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
-}
-
-/** 读取初始草稿:无历史草稿时返回当前语言的示例文档 */
-function loadInitialDraft(): string {
-  try {
-    return localStorage.getItem(DRAFT_STORAGE_KEY) ?? getSampleMarkdown();
-  } catch {
-    return getSampleMarkdown();
-  }
 }
 
 // ============================================================
@@ -228,7 +240,7 @@ function MdFormatButton({
 // 主组件
 // ============================================================
 
-export function MarkdownPreview(_props: ToolProps): JSX.Element {
+export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
   const { t } = useTranslation();
   const themeId = useMarkdownPreviewStore((s) => s.themeId);
   const viewMode = useMarkdownPreviewStore((s) => s.viewMode);
@@ -241,10 +253,42 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
   const setSyncScroll = useMarkdownPreviewStore((s) => s.setSyncScroll);
   const setTypewriterMode = useMarkdownPreviewStore((s) => s.setTypewriterMode);
 
-  const [initialDraft] = useState(loadInitialDraft);
-  const [input, setInput] = useState(initialDraft);
+  // —— 多 Tab 工作区(store 为模块级单例,状态跨挂载保留)——
+  const docs = useMdDocsStore((s) => s.docs);
+  const activeDocId = useMdDocsStore((s) => s.activeDocId);
+  const mdReady = useMdDocsStore((s) => s.ready);
+  const userTouched = useMdDocsStore((s) => s.userTouched);
+  const newDoc = useMdDocsStore((s) => s.newDoc);
+  const closeDoc = useMdDocsStore((s) => s.closeDoc);
+  const switchDoc = useMdDocsStore((s) => s.switchDoc);
+  const renameDoc = useMdDocsStore((s) => s.renameDoc);
+  const togglePinDoc = useMdDocsStore((s) => s.togglePinDoc);
+  const setDocContent = useMdDocsStore((s) => s.setDocContent);
+
+  const activeDoc = useMemo(() => docs.find((d) => d.id === activeDocId) ?? null, [docs, activeDocId]);
+  /** Tab 栏展示顺序:固定 Tab 恒排最前(稳定排序,不改变同组内相对顺序) */
+  const sortedDocs = useMemo(
+    () =>
+      docs.some((d) => d.pinned)
+        ? [...docs].sort((a, b) => Number(b.pinned) - Number(a.pinned))
+        : docs,
+    [docs],
+  );
+
+  const input = activeDoc?.content ?? '';
+  const setInput = useCallback(
+    (value: string) => {
+      if (activeDoc) setDocContent(activeDoc.id, value);
+    },
+    [activeDoc, setDocContent],
+  );
+
   /** 渲染结果中的大纲(由共享面板回调推送;首帧为空,挂载即达) */
   const [outline, setOutline] = useState<OutlineItem[]>([]);
+  /** 待确认关闭的文档(null = 无);仅非空内容文档关闭前弹确认 */
+  const [closeTarget, setCloseTarget] = useState<MdDoc | null>(null);
+  /** 待重命名的文档(null = 关闭重命名对话框) */
+  const [renameTarget, setRenameTarget] = useState<MdDoc | null>(null);
 
   const isDark = useIsDarkTheme();
   /** Night 主题固定深色:导出外观需叠加判定 */
@@ -256,24 +300,48 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
   /** 滚动同步方向锁:'editor' | 'preview' | null,防止联动回环 */
   const syncingRef = useRef<{ source: 'editor' | 'preview'; until: number } | null>(null);
   const scrollRafRef = useRef<number | null>(null);
-  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stats = useMemo(() => computeDocStats(input), [input]);
 
-  // —— 草稿持久化(防抖;渲染管线由共享面板承担)——
+  // 启动时从 Rust config 还原文档(hydrate 内部幂等;旧 localStorage 草稿在此迁移)
   useEffect(() => {
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    draftTimerRef.current = setTimeout(() => {
-      try {
-        localStorage.setItem(DRAFT_STORAGE_KEY, input);
-      } catch {
-        // 存储满/隐私模式等异常静默忽略
-      }
-    }, DRAFT_DEBOUNCE_MS);
-    return () => {
-      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    };
-  }, [input]);
+    void useMdDocsStore.getState().hydrate();
+  }, []);
+
+  // hydrate 完成后确保至少有一个文档且激活态有效:
+  // - 首次使用(firstUse):新建文档并填入当前语言的示例文档,展示全部排版能力
+  //   (原单文档工具的首次体验保持不变)
+  // - 上次主动关闭了全部文档:新建空白文档
+  // - 数据损坏兜底:激活 id 失效时切到第一个文档
+  useEffect(() => {
+    if (!mdReady) return;
+    const s = useMdDocsStore.getState();
+    if (s.docs.length === 0) {
+      s.newDoc(s.firstUse ? getSampleMarkdown() : '');
+    } else if (!s.docs.some((d) => d.id === s.activeDocId)) {
+      switchDoc(s.docs[0].id);
+    }
+  }, [mdReady, switchDoc]);
+
+  // 文档变更防抖持久化(hydrate 前不写,避免用默认空态覆盖已存数据);
+  // 防抖窗口按载荷自适应(同 JsonFormatter:KB 级 500ms,MB 级 5s 合并写盘)
+  useEffect(() => {
+    if (!mdReady || !userTouched) return;
+    let total = 0;
+    for (const d of docs) total += d.content.length;
+    const timer = setTimeout(
+      () => void useMdDocsStore.getState().persistDocs(),
+      persistDelayFor(total),
+    );
+    return () => clearTimeout(timer);
+  }, [docs, mdReady, userTouched]);
+
+  // 「发送到…」接收端:成为激活工具时注入当前文档。
+  // 必须走 injectDocFromTool 而非 setDocContent:hydrate 未落地前置位 userTouched
+  // 会让 hydrate 丢弃持久化数据,随后防抖 persist 永久覆盖(语义同 JsonFormatter)。
+  useToolHandoff(toolId, (incoming) => {
+    useMdDocsStore.getState().injectDocFromTool(incoming);
+  });
 
   // —— 面板回调桥接(ref 直存,避免滚动路径触发 React 更新)——
   const handlePaneScroller = useCallback((el: HTMLDivElement | null) => {
@@ -610,6 +678,29 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
     monacoRef.current?.setPosition({ lineNumber: item.line, column: 1 });
   }, []);
 
+  /** 请求关闭文档:一律先弹确认框防误关(非空内容确认后直接关闭,
+   * Markdown 工具不设本地历史,关闭即丢,确认是唯一的挽留手段) */
+  function requestCloseDoc(id: string) {
+    const target = docs.find((d) => d.id === id);
+    if (!target) return;
+    setCloseTarget(target);
+  }
+
+  /** 确认关闭文档 */
+  function confirmCloseDoc() {
+    if (!closeTarget) return;
+    closeDoc(closeTarget.id);
+    setCloseTarget(null);
+  }
+
+  /** Tab 键盘激活(Enter / Space),配合 role=tab 的可访问性 */
+  function handleTabKeyDown(e: React.KeyboardEvent<HTMLDivElement>, id: string) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      switchDoc(id);
+    }
+  }
+
   /** 复制为富文本(粘贴到邮件 / Word 保留排版) */
   const handleCopyRichText = useCallback(() => {
     const html = articleRef.current?.innerHTML ?? '';
@@ -659,11 +750,182 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
   const showPreview = viewMode !== 'edit';
 
   return (
-    // 外层 shell 卡片(对齐 JsonFormatter 基准):顶部工具条 + 分栏工作区收进同一卡片
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):Tab 栏 + 顶部工具条 + 分栏工作区收进同一卡片
     <div
       className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="markdown-preview"
     >
+      {/* —— 多文档 Tab 栏(样式对齐 JsonFormatter doc-tabs:VSCode 风格全高 Tab) —— */}
+      <div
+        className="flex h-9 shrink-0 items-stretch overflow-hidden rounded-t-lg border-b border-border bg-background-layer"
+        data-testid="md-doc-tabs"
+      >
+        <div
+          role="tablist"
+          aria-label={t('tools.markdown_preview.tabs_aria')}
+          // overflow-y-hidden:overflow-x:auto 会把 overflow-y 强制计算为 auto,
+          // Tab(h-9)比容器内容盒高 1px 即触发纵向滚动条(WebView2 经典滚动条
+          // 下在窗口右缘显形为一条竖条),显式 hidden 裁掉这 1px 溢出
+          className="flex h-full min-w-0 flex-1 items-stretch overflow-x-auto overflow-y-hidden"
+        >
+          {sortedDocs.map((doc) => {
+            const active = doc.id === activeDocId;
+            return (
+              <ContextMenu key={doc.id}>
+                {/* 关闭确认:锚定在 Tab 旁的小 Popover(受控 open 挂 closeTarget,
+                    三条关闭路径——X 按钮/中键/右键菜单——统一落到该 Tab 的确认框) */}
+                <Popover
+                  open={closeTarget?.id === doc.id}
+                  onOpenChange={(o) => {
+                    if (!o) setCloseTarget(null);
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <ContextMenuTrigger asChild>
+                      <div
+                        role="tab"
+                        aria-selected={active}
+                        tabIndex={0}
+                        data-testid="md-doc-tab"
+                        data-doc-id={doc.id}
+                        data-pinned={doc.pinned ? 'true' : undefined}
+                        onClick={() => switchDoc(doc.id)}
+                        onKeyDown={(e) => handleTabKeyDown(e, doc.id)}
+                        onMouseDown={(e) => {
+                          // 中键关闭(仿 VSCode):preventDefault 抑制浏览器自动滚动
+                          if (e.button === 1) {
+                            e.preventDefault();
+                            requestCloseDoc(doc.id);
+                          }
+                        }}
+                        className={cn(
+                          'group relative flex h-9 shrink-0 min-w-[120px] max-w-52 cursor-pointer select-none items-center gap-1.5 border-r border-border px-3 text-xs outline-none',
+                          'focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
+                          active
+                            ? 'border-t-2 border-t-primary bg-card text-foreground'
+                            : 'border-t-2 border-t-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                        )}
+                      >
+                        {/* 固定 Tab 用 Pin 图标替代文档图标(与编辑器 Tab 语义一致) */}
+                        {doc.pinned ? (
+                          <Pin
+                            aria-label={t('tools.markdown_preview.pinned_aria')}
+                            data-testid="md-doc-tab-pin"
+                            className={cn(
+                              'size-3.5 shrink-0',
+                              active ? 'text-primary' : 'text-muted-foreground/70',
+                            )}
+                          />
+                        ) : (
+                          <FileText
+                            aria-hidden
+                            className={cn(
+                              'size-3.5 shrink-0',
+                              active ? 'text-primary' : 'text-muted-foreground/70',
+                            )}
+                          />
+                        )}
+                        <span className="min-w-0 truncate" title={doc.title}>
+                          {doc.title}
+                        </span>
+                        {/* 关闭按钮槽位:悬停 Tab 时在右侧槽位淡入 */}
+                        <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
+                          <button
+                            type="button"
+                            aria-label={t('tools.markdown_preview.close_tab_aria', {
+                              title: doc.title,
+                            })}
+                            title={t('tools.markdown_preview.close')}
+                            data-testid="md-doc-tab-close"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              requestCloseDoc(doc.id);
+                            }}
+                            className="absolute inset-0 z-10 flex items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+                          >
+                            <X aria-hidden className="size-3" />
+                          </button>
+                        </span>
+                      </div>
+                    </ContextMenuTrigger>
+                  </PopoverTrigger>
+                  {/* 关闭确认内容:与 JsonFormatter 同款小框,锚定 Tab 下方 */}
+                  <PopoverContent
+                    align="start"
+                    side="bottom"
+                    className="w-56 p-3"
+                    data-testid="md-doc-close-dialog"
+                  >
+                    <p className="text-xs font-semibold">
+                      {t('tools.markdown_preview.close_confirm_title', { title: doc.title })}
+                    </p>
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      {t('tools.markdown_preview.close_confirm_desc')}
+                    </p>
+                    <div className="mt-2.5 flex justify-end gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs"
+                        onClick={() => setCloseTarget(null)}
+                        data-testid="md-doc-close-dialog-cancel"
+                      >
+                        {t('tools.markdown_preview.cancel')}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs"
+                        onClick={confirmCloseDoc}
+                        data-testid="md-doc-close-dialog-confirm"
+                      >
+                        {t('tools.markdown_preview.close')}
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                {/* Tab 右键菜单:重命名 / 固定 / 关闭 */}
+                <ContextMenuContent className="w-48" data-testid="md-doc-tab-context-menu">
+                  <ContextMenuItem
+                    onSelect={() => setRenameTarget(doc)}
+                    data-testid="ctx-md-doc-rename"
+                  >
+                    {t('tools.markdown_preview.rename')}
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() => togglePinDoc(doc.id)}
+                    data-testid="ctx-md-doc-toggle-pin"
+                  >
+                    {t('tools.markdown_preview.pin')}
+                    {doc.pinned && (
+                      <Pin className="ml-auto size-3.5 text-primary" data-testid="ctx-md-doc-pin-check" />
+                    )}
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    onSelect={() => requestCloseDoc(doc.id)}
+                    data-testid="ctx-md-doc-close"
+                  >
+                    {t('tools.markdown_preview.close')}
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+            );
+          })}
+          <button
+            type="button"
+            data-testid="md-doc-add"
+            title={t('tools.markdown_preview.new_doc')}
+            aria-label={t('tools.markdown_preview.new_doc')}
+            onClick={() => newDoc()}
+            className="flex size-9 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+          >
+            <Plus aria-hidden className="size-3.5" />
+          </button>
+        </div>
+      </div>
+
       {/* —— 顶部工具条:视图模式 / 大纲开关 / 打字机 / 同步滚动(打印隐藏)—— */}
       <div
         className="flex items-center gap-2 border-b border-border px-1.5 py-1 print:hidden"
@@ -771,6 +1033,9 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
               <>
                 <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
                   <CodeEditor
+                    // 切换 Tab 重挂编辑器:Monaco 实例与文档内容绑定(滚动同步/
+                    // 光标监听/快捷键注册都以单实例为前提),复用实例会串内容
+                    key={activeDocId ?? 'empty'}
                     title="Markdown"
                     language="markdown"
                     value={input}
@@ -971,6 +1236,21 @@ export function MarkdownPreview(_props: ToolProps): JSX.Element {
       </div>
 
       <MdStatusBar stats={stats} />
+
+      {/* —— 重命名对话框(条件渲染:关闭即卸载,每次打开取最新标题)—— */}
+      {renameTarget && (
+        <RenameDialog
+          open
+          title={t('tools.markdown_preview.rename_dialog_title')}
+          initialValue={renameTarget.title}
+          onConfirm={(name) => {
+            renameDoc(renameTarget.id, name);
+            setRenameTarget(null);
+          }}
+          onCancel={() => setRenameTarget(null)}
+          data-testid="md-doc-rename-dialog"
+        />
+      )}
     </div>
   );
 }
