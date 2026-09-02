@@ -281,6 +281,25 @@ describe('CodeEditorTool workspace', () => {
     expect(screen.getByTestId('editor-sidebar-item-app.json')).toBeInTheDocument();
   });
 
+  it('aligns auto detect row with the current language icon and id', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await clickToolbarItem('toolbar-new');
+    await screen.findByTestId('editor-textarea');
+
+    await user.click(screen.getByTestId('editor-language-badge'));
+    const autoRow = await screen.findByTestId('editor-language-picker-auto');
+    const currentLanguageRow = screen.getByTestId(
+      'editor-language-picker-lang-plaintext',
+    );
+
+    expect(autoRow).toHaveTextContent('自动检测(plaintext)');
+    expect(autoRow.firstElementChild).toHaveClass('size-3.5');
+    expect(autoRow.querySelector('img')?.getAttribute('src')).toBe(
+      currentLanguageRow.querySelector('img')?.getAttribute('src'),
+    );
+  });
+
   it('shows markdown view actions and split preview for .md files', async () => {
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
       path: 'C:\\work\\README.md',

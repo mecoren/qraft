@@ -936,6 +936,19 @@ describe('useEditorWorkspaceStore 语言自动检测', () => {
     expect(tab3.language).toBe('markdown');
   });
 
+  it('未保存 Java 类内容按内容特征自动识别为 java', () => {
+    useEditorWorkspaceStore.getState().newBlankTab();
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+    useEditorWorkspaceStore.getState().setTabContent(
+      id,
+      'package com.example;\n\nimport java.util.List;\n\npublic class Main {\n}\n',
+    );
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab.path).toBeNull();
+    expect(tab.language).toBe('java');
+  });
+
   it('自动检测的 Tab 另存到新路径时按新路径推断语言;手动语言在覆盖保存时保留', () => {
     useEditorWorkspaceStore.getState().newBlankTab();
     const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;

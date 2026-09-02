@@ -5,8 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   searchTabsText,
   findMatchRangesInContent,
-  MAX_MATCHES_PER_TAB,
-  MAX_TOTAL_MATCHES,
+  MATCH_BATCH_SIZE,
   MAX_LINE_PREVIEW_CHARS,
   MAX_HIGHLIGHT_RANGES,
   type TabGroup,
@@ -98,20 +97,20 @@ describe('searchTabsText', () => {
     expect(typeof groups[0].matches[0].column).toBe('number');
   });
 
-  it('海量命中:单文件超过收集上限时截断,count 保持真实匹配行数', () => {
+  it('海量命中:超过本次加载数时截断,count 保持真实匹配行数', () => {
     const content = Array.from(
-      { length: MAX_MATCHES_PER_TAB + 10 },
+      { length: MATCH_BATCH_SIZE + 10 },
       (_, i) => `find line ${i}`,
     ).join('\n');
     const tabs = [makeTab({ id: 'a', content })];
     const groups = searchTabsText(tabs, 'find');
     expect(groups).toHaveLength(1);
-    expect(groups[0].count).toBe(MAX_MATCHES_PER_TAB + 10);
-    expect(groups[0].matches).toHaveLength(MAX_MATCHES_PER_TAB);
+    expect(groups[0].count).toBe(MATCH_BATCH_SIZE + 10);
+    expect(groups[0].matches).toHaveLength(MATCH_BATCH_SIZE);
     expect(groups[0].truncated).toBe(true);
     // 截断时保留前 MAX 行,顺序不变
     expect(groups[0].matches[0].line).toBe(1);
-    expect(groups[0].matches[MAX_MATCHES_PER_TAB - 1].line).toBe(MAX_MATCHES_PER_TAB);
+    expect(groups[0].matches[MATCH_BATCH_SIZE - 1].line).toBe(MATCH_BATCH_SIZE);
   });
 
   it('未截断时 truncated 为 false', () => {
@@ -120,9 +119,8 @@ describe('searchTabsText', () => {
     expect(groups[0].truncated).toBe(false);
   });
 
-  it('海量命中:全局收集上限达到后停止收集后续 tab', () => {
-    const tabCount = Math.ceil(MAX_TOTAL_MATCHES / MAX_MATCHES_PER_TAB) + 2;
-    const tabs = Array.from({ length: tabCount }, (_, i) =>
+  it('海量命中:所有 tab 都保留真实总数', () => {
+    const tabs = Array.from({ length: 6 }, (_, i) =>
       makeTab({
         id: `t${i}`,
         title: `t${i}.txt`,
@@ -130,15 +128,22 @@ describe('searchTabsText', () => {
       }),
     );
     const groups = searchTabsText(tabs, 'hit');
-    // 每组最多 MAX_MATCHES_PER_TAB 条;总收集量不超过 MAX_TOTAL_MATCHES
-    const total = groups.reduce((n, g) => n + g.matches.length, 0);
-    expect(total).toBeLessThanOrEqual(MAX_TOTAL_MATCHES);
-    for (const g of groups) {
-      expect(g.matches.length).toBeLessThanOrEqual(MAX_MATCHES_PER_TAB);
-      expect(g.count).toBe(100);
-    }
-    // 达到全局上限后,后续 tab 不再出现
-    expect(groups.length).toBe(Math.floor(MAX_TOTAL_MATCHES / MAX_MATCHES_PER_TAB));
+    expect(groups).toHaveLength(6);
+    for (const g of groups) expect(g.count).toBe(100);
+  });
+
+  it('增量加载:提高加载数后补足匹配行且不重复', () => {
+    const content = Array.from(
+      { length: MATCH_BATCH_SIZE * 2 },
+      (_, i) => `find line ${i}`,
+    ).join('\n');
+    const tabs = [makeTab({ id: 'a', content })];
+    const loaded = searchTabsText(tabs, 'find', MATCH_BATCH_SIZE * 2);
+
+    expect(loaded[0].matches).toHaveLength(content.split('\n').length);
+    expect(loaded[0].truncated).toBe(false);
+    const lines = loaded[0].matches.map((match) => match.line);
+    expect(new Set(lines).size).toBe(lines.length);
   });
 
   it('超长行只保留首个匹配附近的预览窗口,matchStart/matchEnd 平移到截取后坐标', () => {

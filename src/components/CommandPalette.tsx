@@ -1,18 +1,11 @@
-import { useEffect, type JSX } from 'react';
+import { useEffect, useMemo, type JSX, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
+  QuickPickDialog,
+  type QuickPickGroup,
+  type QuickPickItem,
 } from '@/components/ui/command';
-import { DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
-  ChevronDown,
-  ChevronUp,
-  CornerDownLeft,
   History,
   Home,
   Settings,
@@ -24,39 +17,6 @@ import { useToolStateStore } from '@/store/toolStateStore';
 import { useUiStore } from '@/store/uiStore';
 import { isPopoutSupported, openToolInNewWindow } from '@/lib/popout-window';
 import { CATALOG_CATEGORIES, TOOL_CATALOG, pickText } from '@/lib/tool-catalog';
-
-const PICK_ROW = 'rounded-none px-3 py-1.5';
-
-function ToolRow({
-  icon: Icon,
-  name,
-  description,
-  categoryLabel,
-}: {
-  icon: React.ComponentType<{ 'aria-hidden'?: boolean; className?: string }>;
-  name: React.ReactNode;
-  description?: React.ReactNode;
-  categoryLabel?: React.ReactNode;
-}): JSX.Element {
-  return (
-    <div className="flex min-w-0 items-start justify-between">
-      <div className="flex min-w-0 flex-1 items-start gap-2">
-        <Icon aria-hidden className="mt-0.5 size-4 shrink-0 opacity-70" />
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate font-medium">{name}</span>
-          {description && (
-            <span className="truncate text-xs text-muted-foreground">{description}</span>
-          )}
-        </div>
-      </div>
-      {categoryLabel && (
-        <span className="ml-3 shrink-0 self-center rounded-sm bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
-          {categoryLabel}
-        </span>
-      )}
-    </div>
-  );
-}
 
 export interface CommandPaletteProps {
   open: boolean;
@@ -93,164 +53,121 @@ export function CommandPalette({
     categoryLabelMap.set(cat.id, pickText(cat.label));
   }
 
+  /** 工具条目 → 统一 QuickPickItem 行(图标 + 加粗主文本 [+描述] + 类别徽章) */
+  const toolItem = (
+    entry: (typeof TOOL_CATALOG)[number],
+    extraKeywords: string,
+    onPick: () => void,
+    description?: ReactNode,
+  ): QuickPickItem => ({
+    key: entry.id,
+    value: `${entry.name.zh} ${entry.name.en} ${entry.keywords.join(' ')} ${extraKeywords}`,
+    leading: <entry.icon aria-hidden className="size-4 shrink-0 opacity-70" />,
+    label: <span className="font-medium">{pickText(entry.name)}</span>,
+    // 覆盖描述优先(如剪贴板命中原因),否则回退到工具自带的 description
+    description:
+      description ?? (entry.description ? pickText(entry.description) : undefined),
+    trailing: categoryLabelMap.get(entry.category),
+    trailingStyle: 'badge' as const,
+    onSelect: onPick,
+  });
+
+  const groups = useMemo<QuickPickGroup[]>(() => {
+    const closeAfter = (fn: () => void) => () => {
+      fn();
+      onOpenChange(false);
+    };
+    const result: QuickPickGroup[] = [];
+
+    // 剪贴板检测到的工具优先展示
+    if (detected.length > 0) {
+      const items: QuickPickItem[] = [];
+      for (const d of detected) {
+        const entry = TOOL_CATALOG.find((c) => c.id === d.toolId);
+        if (!entry) continue;
+        items.push(
+          toolItem(entry, d.reason, closeAfter(() => openTool(d.toolId)), t(d.reason)),
+        );
+      }
+      if (items.length > 0) {
+        result.push({ key: 'detect', heading: t('chrome.palette.detect_clipboard'), items });
+      }
+    }
+
+    // 全部工具
+    result.push({
+      key: 'tools',
+      heading: t('chrome.palette.group_tools'),
+      items: TOOL_CATALOG.map((entry) =>
+        toolItem(entry, '', closeAfter(() => {
+          if (entry.special === 'settings') onOpenSettings?.();
+          else if (entry.special === 'extensions') useUiStore.getState().setView('extensions');
+          else openTool(entry.id);
+        })),
+      ),
+    });
+
+    // 操作区
+    const actions: QuickPickItem[] = [];
+    if (currentToolId && isPopoutSupported(currentToolId)) {
+      actions.push({
+        key: 'popout-current',
+        value: 'popout new window open current tool 在新窗口打开 弹出',
+        leading: <SquareArrowOutUpRight aria-hidden className="size-4 shrink-0 opacity-70" />,
+        label: <span className="font-medium">{t('chrome.palette.popout_current')}</span>,
+        onSelect: closeAfter(() => void openToolInNewWindow(currentToolId)),
+      });
+    }
+    actions.push(
+      {
+        key: 'back-home',
+        value: 'home welcome 所有工具 首页 all tools home',
+        leading: <Home aria-hidden className="size-4 shrink-0 opacity-70" />,
+        label: <span className="font-medium">{t('chrome.palette.back_home')}</span>,
+        onSelect: closeAfter(() => goWelcome()),
+      },
+      {
+        key: 'open-settings',
+        value: 'settings open settings 打开设置',
+        leading: <Settings aria-hidden className="size-4 shrink-0 opacity-70" />,
+        label: <span className="font-medium">{t('chrome.palette.open_settings')}</span>,
+        onSelect: closeAfter(() => onOpenSettings?.()),
+      },
+      {
+        key: 'open-history',
+        value: 'history open history 打开历史',
+        leading: <History aria-hidden className="size-4 shrink-0 opacity-70" />,
+        label: <span className="font-medium">{t('chrome.palette.open_history')}</span>,
+        onSelect: closeAfter(() => onOpenHistory?.()),
+      },
+      {
+        key: 'clear-history',
+        value: 'clear history 清空历史 clear',
+        leading: <Trash2 aria-hidden className="size-4 shrink-0 opacity-70" />,
+        label: <span className="font-medium">{t('chrome.palette.clear_history')}</span>,
+        onSelect: closeAfter(() => void clearHistory()),
+      },
+    );
+    result.push({ key: 'actions', heading: t('chrome.palette.group_actions'), items: actions });
+
+    return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-x/exhaustive-deps
+  }, [detected, currentToolId, onOpenChange, onOpenSettings, onOpenHistory, t]);
+
   return (
-    <CommandDialog
+    <QuickPickDialog
       open={open}
       onOpenChange={onOpenChange}
-      contentClassName="w-[48rem] max-w-[calc(100vw-2rem)]"
+      title={t('chrome.app.name')}
+      description={t('chrome.palette.description')}
+      placeholder={t('chrome.palette.placeholder')}
       hideCloseButton
       shouldFilter
-      header={
-        <>
-          <DialogTitle className="sr-only">{t('chrome.app.name')}</DialogTitle>
-          <DialogDescription className="sr-only">
-            {t('chrome.palette.description')}
-          </DialogDescription>
-          <CommandInput placeholder={t('chrome.palette.placeholder')} />
-        </>
-      }
-      footer={
-        <div
-          className="flex shrink-0 items-center justify-between border-t px-3 py-1.5 text-xs text-muted-foreground"
-          data-testid="palette-footer"
-        >
-          <div className="flex items-center gap-3">
-            <span
-              className="inline-flex items-center gap-1"
-              aria-label={t('chrome.palette.footer_navigate')}
-            >
-              <ChevronUp aria-hidden className="size-3" />
-              <ChevronDown aria-hidden className="size-3" />
-              {t('chrome.palette.footer_navigate')}
-            </span>
-            <span
-              className="inline-flex items-center gap-1"
-              aria-label={t('chrome.palette.footer_open')}
-            >
-              <CornerDownLeft aria-hidden className="size-3" />
-              {t('chrome.palette.footer_open')}
-            </span>
-            <span
-              className="inline-flex items-center gap-1"
-              aria-label={t('chrome.palette.footer_close')}
-            >
-              <kbd className="rounded border border-border bg-muted px-1 text-[10px] leading-tight">
-                Esc
-              </kbd>
-              {t('chrome.palette.footer_close')}
-            </span>
-          </div>
-          <span data-testid="palette-footer-count">
-            {t('chrome.palette.footer_count', { count: totalCount })}
-          </span>
-        </div>
-      }
-    >
-      <CommandList>
-        <CommandEmpty>{t('chrome.palette.no_match')}</CommandEmpty>
-        {detected.length > 0 && (
-          <CommandGroup heading={t('chrome.palette.detect_clipboard')}>
-            {detected.map((d) => {
-              const entry = TOOL_CATALOG.find((c) => c.id === d.toolId);
-              if (!entry) return null;
-              return (
-                <CommandItem
-                  key={`detect-${d.toolId}`}
-                  className={PICK_ROW}
-                  value={`${entry.name.zh} ${entry.name.en} ${entry.keywords.join(' ')} ${d.reason}`}
-                  onSelect={() => {
-                    openTool(d.toolId);
-                    onOpenChange(false);
-                  }}
-                >
-                  <ToolRow
-                    icon={entry.icon}
-                    name={pickText(entry.name)}
-                    description={t(d.reason)}
-                  />
-                </CommandItem>
-              );
-            })}
-          </CommandGroup>
-        )}
-        <CommandGroup heading={t('chrome.palette.group_tools')}>
-          {TOOL_CATALOG.map((entry) => (
-            <CommandItem
-              key={entry.id}
-              className={PICK_ROW}
-              value={`${entry.name.zh} ${entry.name.en} ${entry.keywords.join(' ')}`}
-              onSelect={() => {
-                if (entry.special === 'settings') onOpenSettings?.();
-                else if (entry.special === 'extensions')
-                  useUiStore.getState().setView('extensions');
-                else openTool(entry.id);
-                onOpenChange(false);
-              }}
-            >
-              <ToolRow
-                icon={entry.icon}
-                name={pickText(entry.name)}
-                description={entry.description ? pickText(entry.description) : undefined}
-                categoryLabel={categoryLabelMap.get(entry.category)}
-              />
-            </CommandItem>
-          ))}
-        </CommandGroup>
-        <CommandGroup heading={t('chrome.palette.group_actions')}>
-          {currentToolId && isPopoutSupported(currentToolId) && (
-            <CommandItem
-              className={PICK_ROW}
-              value="popout new window open current tool 在新窗口打开 弹出"
-              onSelect={() => {
-                void openToolInNewWindow(currentToolId);
-                onOpenChange(false);
-              }}
-            >
-              <ToolRow icon={SquareArrowOutUpRight} name={t('chrome.palette.popout_current')} />
-            </CommandItem>
-          )}
-          <CommandItem
-            className={PICK_ROW}
-            value="home welcome 所有工具 首页 all tools home"
-            onSelect={() => {
-              goWelcome();
-              onOpenChange(false);
-            }}
-          >
-            <ToolRow icon={Home} name={t('chrome.palette.back_home')} />
-          </CommandItem>
-          <CommandItem
-            className={PICK_ROW}
-            value="settings open settings 打开设置"
-            onSelect={() => {
-              onOpenSettings?.();
-              onOpenChange(false);
-            }}
-          >
-            <ToolRow icon={Settings} name={t('chrome.palette.open_settings')} />
-          </CommandItem>
-          <CommandItem
-            className={PICK_ROW}
-            value="history open history 打开历史"
-            onSelect={() => {
-              onOpenHistory?.();
-              onOpenChange(false);
-            }}
-          >
-            <ToolRow icon={History} name={t('chrome.palette.open_history')} />
-          </CommandItem>
-          <CommandItem
-            className={PICK_ROW}
-            value="clear history 清空历史 clear"
-            onSelect={async () => {
-              await clearHistory();
-              onOpenChange(false);
-            }}
-          >
-            <ToolRow icon={Trash2} name={t('chrome.palette.clear_history')} />
-          </CommandItem>
-        </CommandGroup>
-      </CommandList>
-    </CommandDialog>
+      groups={groups}
+      empty={t('chrome.palette.no_match')}
+      footerTestId="palette-footer"
+      count={t('chrome.command_footer.count', { count: totalCount })}
+      footerCountTestId="palette-footer-count"
+    />
   );
 }

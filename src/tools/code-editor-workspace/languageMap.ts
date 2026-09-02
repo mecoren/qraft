@@ -203,7 +203,7 @@ const CONTENT_SNIFF_LIMIT = 2000;
 
 /**
  * 按内容特征识别语言(「自动检测」模式用,主要服务于无路径的未命名 Tab):
- * shebang → JSON → diff → HTML/XML → Dockerfile → INI → YAML → Markdown → SQL。
+ * shebang → JSON → diff → HTML/XML → Dockerfile → INI → YAML → Markdown → SQL → 常规编程语言。
  * 识别失败返回 null(调用方保留当前语言 / 回退 plaintext)。
  * 有路径的文件以 `inferLanguageFromPath` 为准,内容识别仅在自动模式下兜底。
  */
@@ -271,6 +271,70 @@ export function detectLanguageFromContent(content: string): EditorLanguage | nul
   ) {
     return 'sql';
   }
+
+  // 10. C#:using / namespace + 类型声明(file-scoped 或 block-scoped)
+  if (
+    (/^using\s+[\w.]+;/m.test(head) || /^\s*namespace\s+[\w.]+\s*(?:;|\{)/m.test(head)) &&
+    /^\s*(?:public\s+|internal\s+|sealed\s+|abstract\s+|static\s+)*(class|interface|record|struct|enum)\s+\w+/m.test(
+      head,
+    )
+  ) {
+    return 'csharp';
+  }
+
+  // 11. Go:package 声明 + import 块 / func 定义
+  if (/^package\s+\w+/m.test(head) && (/^import\s+\(/m.test(head) || /^func\s+\w+\(/m.test(head))) {
+    return 'go';
+  }
+
+  // 12. Rust:use 路径 + fn 定义,或 Cargo 风格宏
+  if (/^use\s+[\w:]+;/m.test(head) && /^fn\s+\w+/m.test(head)) return 'rust';
+  if (/^fn\s+main\(\)/m.test(head) && /println!/.test(head)) return 'rust';
+
+  // 13. Python:函数定义 + 缩进主体 / 模块入口
+  if (/^def\s+\w+\(.*\)\s*(?::.*?)?$/m.test(head) && /^\s+(?:return|pass|print)\b/m.test(head)) {
+    return 'python';
+  }
+  if (/^if\s+__name__\s*==\s*['"]__main__['"]\s*:/m.test(head)) return 'python';
+
+  // 14. PHP
+  if (trimmed.startsWith('<?php')) return 'php';
+
+  // 15. Swift / Kotlin / Dart:import + 各自声明特征
+  if (/^import\s+\w/m.test(head) && /^\s*(?:struct|class)\s+\w+\s*(?::\s*[^{]+)?\{/m.test(head)) {
+    return 'swift';
+  }
+  if (/^fun\s+\w+\(/m.test(head) || /^\s*fun\s+\w+\(/m.test(head)) return 'kotlin';
+  if (/^void\s+main\(\)\s*\{/m.test(head)) return 'dart';
+
+  // 16. C/C++:include + 标准输出;C++ 命名空间/iostream 优先,否则按 stdio 判 C
+  if (/^#\s*include\s*[<"]/.test(head) && /^int\s+main\s*\(/m.test(head)) {
+    if (/std::|iostream|#\s*include\s*[<"]iostream[">]/.test(head)) return 'cpp';
+    if (/printf\s*\(/.test(head)) return 'c';
+  }
+
+  // 17. TypeScript / JavaScript:类型注解优先,再回退 ESM + 现代语法
+  if (/:\s*(?:string|number|boolean)\b/.test(head) && /\bfunction\s+\w+\(/.test(head)) {
+    return 'typescript';
+  }
+  if (
+    (/^import\s+[^;]+from\s+['"][^'"]+['"];?/m.test(head) ||
+      /^export\s+(?:default\s+)?(?:function|const|class)\b/m.test(head)) &&
+    (/\basync\s+function\b/.test(head) || /`[^`]*`/.test(head))
+  ) {
+    return 'javascript';
+  }
+
+  // 18. Java:package/import + 类型声明的组合特征,或显式 public 类型声明
+  if (
+    (/^package\s+[\w.]+\s*;/m.test(head) || /^import\s+(?:static\s+)?[\w.*]+;/m.test(head)) &&
+    /^\s*(?:public\s+|final\s+|abstract\s+|sealed\s+|non-sealed\s+)*(class|interface|enum|record)\s+\w+/m.test(
+      head,
+    )
+  ) {
+    return 'java';
+  }
+  if (/^\s*public\s+(class|interface|enum|record)\s+\w+/m.test(head)) return 'java';
 
   return null;
 }

@@ -1,9 +1,8 @@
 /**
- * 编辑器状态栏快选弹窗 —— 仿 VSCode Quick Pick(CommandDialog 形态)
+ * 编辑器状态栏快选弹窗 —— 仿 VSCode Quick Pick(复用一体化 QuickPickDialog)
  *
- * 与全局搜索 / 语言模式选择器同壳:居中 CommandDialog + 顶部搜索框 +
- * cmdk 列表(↑↓ 键盘导航、Enter 确认、当前项打勾)。筛选由受控 query
- * 自行过滤(shouldFilter={false}),避免 cmdk 对中文 value 匹配不佳。
+ * 与全局搜索 / 语言模式选择器同壳:顶部搜索框固定 + 中间数据驱动列表 +
+ * 底部操作提示条(全 kbd 键帽样式);高度随内容伸缩。
  *
  * 包含四个弹窗:
  * - GotoLineQuickPick:转到行/列(单输入,支持「行」或「行:列」,Enter 跳转)
@@ -13,50 +12,10 @@
  */
 import { useCallback, useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import {
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { QuickPickDialog, type QuickPickItem } from '@/components/ui/command';
 import { TEXT_ENCODINGS, type TextEncodingOption } from '@/lib/text-encodings';
 import { INDENT_WIDTHS } from '@/lib/indentation';
-
-/** 与 EditorLanguagePicker 一致的宽度基准(对齐全局搜索弹窗) */
-const PICKER_WIDTH = 'w-[48rem] max-w-[calc(100vw-2rem)]';
-
-/** 行首打勾列(与语言模式选择器同布局:无勾时占位对齐) */
-function CheckSlot({ checked }: { checked: boolean }): JSX.Element {
-  return checked ? (
-    <Check aria-hidden className="size-3.5 shrink-0" />
-  ) : (
-    <span className="flex size-3.5 shrink-0 items-center justify-center" />
-  );
-}
-
-/** 快选列表行(满宽平铺、不做内缩圆角,VSCode Quick Pick 样式) */
-function PickRow({
-  selected,
-  children,
-  ...props
-}: React.ComponentPropsWithoutRef<typeof CommandItem> & { selected: boolean }): JSX.Element {
-  return (
-    <CommandItem
-      className={cn(
-        'rounded-none px-3 py-1.5',
-        selected && 'bg-accent font-medium text-accent-foreground',
-      )}
-      {...props}
-    >
-      {children}
-    </CommandItem>
-  );
-}
 
 // ============ 转到行/列 ============
 
@@ -98,8 +57,7 @@ export function GotoLineQuickPick({
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
 
-  // 打开时为空输入(与 VSCode「转到行」一致,光标预填在历史版本已移除);
-  // 关闭时重置搜索词,放在 onOpenChange 包装器里(与 EditorLanguagePicker 模式一致)。
+  // 关闭时重置搜索词(重置放在 onOpenChange 包装器)
   const handleOpenChange = (next: boolean): void => {
     if (!next) setQuery('');
     onOpenChange(next);
@@ -109,74 +67,59 @@ export function GotoLineQuickPick({
   const invalid = parsed !== null && 'invalid' in parsed;
   const line = parsed && !('invalid' in parsed) ? parsed.line : undefined;
   const column = parsed && !('invalid' in parsed) ? parsed.column : undefined;
+  const valid = parsed !== null && !invalid;
 
   const apply = (): void => {
     if (parsed === null || invalid) return;
     onJump(line ?? cursor.line, column);
-    // 经 handleOpenChange 关闭以重置搜索词(直接调用 props 的 onOpenChange
-    // 会绕过重置逻辑,Radix 受控关闭不会触发 onOpenChange)
     handleOpenChange(false);
   };
 
+  const items: QuickPickItem[] = valid
+    ? [
+        {
+          key: 'goto',
+          value: `goto-${line ?? cursor.line}-${column ?? ''}`,
+          leading: <ArrowRight aria-hidden className="size-3.5 shrink-0" />,
+          label:
+            column !== undefined
+              ? t('chrome.code_editor.quick_pick_goto_item', { line: line ?? 1, column })
+              : t('chrome.code_editor.quick_pick_goto_item_line', { line: line ?? 1 }),
+          selected: true,
+          onSelect: apply,
+          testId: dataTestId ? `${dataTestId}-apply` : undefined,
+        },
+      ]
+    : [];
+
+  const hintText = invalid
+    ? t('chrome.code_editor.quick_pick_goto_invalid')
+    : t('chrome.code_editor.quick_pick_goto_hint', { max: maxLine });
+
   return (
-    <CommandDialog
+    <QuickPickDialog
       open={open}
       onOpenChange={handleOpenChange}
-      contentClassName="h-auto w-[36rem] max-w-[calc(100vw-2rem)]"
+      title={t('chrome.code_editor.goto_title')}
+      description={t('chrome.code_editor.goto_aria', { line: cursor.line, column: cursor.column })}
+      placeholder={t('chrome.code_editor.quick_pick_goto_placeholder')}
+      value={query}
+      onValueChange={setQuery}
+      inputProps={{
+        inputMode: 'numeric',
+        onKeyDown: (e) => {
+          if (e.key === 'Enter') apply();
+        },
+      }}
+      hint={<div data-testid={dataTestId ? `${dataTestId}-hint` : undefined}>{hintText}</div>}
+      groups={[{ items }]}
+      empty={
+        invalid ? t('chrome.code_editor.quick_pick_goto_invalid') : t('chrome.code_editor.quick_pick_noop')
+      }
+      inputTestId={dataTestId ? `${dataTestId}-search` : undefined}
       hideCloseButton
       shouldFilter={false}
-      header={
-        <>
-          <DialogTitle className="sr-only">{t('chrome.code_editor.goto_title')}</DialogTitle>
-          <DialogDescription className="sr-only">
-            {t('chrome.code_editor.goto_aria', { line: cursor.line, column: cursor.column })}
-          </DialogDescription>
-          <CommandInput
-            value={query}
-            onValueChange={setQuery}
-            placeholder={t('chrome.code_editor.quick_pick_goto_placeholder')}
-            inputMode="numeric"
-            data-testid={dataTestId ? `${dataTestId}-search` : undefined}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') apply();
-            }}
-          />
-          {/* 范围提示(仿 VSCode 快速输入下方的灰字):非法输入时给格式纠错提示 */}
-          <div
-            className="border-b px-3 py-2 text-xs text-muted-foreground"
-            data-testid={dataTestId ? `${dataTestId}-hint` : undefined}
-          >
-            {invalid
-              ? t('chrome.code_editor.quick_pick_goto_invalid')
-              : t('chrome.code_editor.quick_pick_goto_hint', { max: maxLine })}
-          </div>
-        </>
-      }
-    >
-      <CommandList>
-        {parsed !== null && !invalid ? (
-          <PickRow
-            value={`goto-${line ?? cursor.line}-${column ?? ''}`}
-            data-testid={dataTestId ? `${dataTestId}-apply` : undefined}
-            selected
-            onSelect={apply}
-          >
-            <ArrowRight aria-hidden className="size-3.5 shrink-0" />
-            <span>
-              {column !== undefined
-                ? t('chrome.code_editor.quick_pick_goto_item', { line: line ?? 1, column })
-                : t('chrome.code_editor.quick_pick_goto_item_line', { line: line ?? 1 })}
-            </span>
-          </PickRow>
-        ) : (
-          <CommandEmpty>
-            {invalid
-              ? t('chrome.code_editor.quick_pick_goto_invalid')
-              : t('chrome.code_editor.quick_pick_noop')}
-          </CommandEmpty>
-        )}
-      </CommandList>
-    </CommandDialog>
+    />
   );
 }
 
@@ -228,11 +171,11 @@ export function IndentQuickPick({
     },
     [onOpenChange],
   );
-
-  // 选择项关闭统一走 handleOpenChange,确保关闭时重置层级与搜索词
   const close = useCallback((): void => handleOpenChange(false), [handleOpenChange]);
 
-  /** 根列表动作项(id / i18n 键 / 英文关键词 / 行尾右侧提示) */
+  const q = query.trim().toLowerCase();
+  const widthLabel = (w: number): string => t('chrome.code_editor.indent_pick_width', { size: w });
+
   const rootActions = useMemo(
     () => [
       {
@@ -306,14 +249,6 @@ export function IndentQuickPick({
     [insertSpaces, tabSize, onApply, onDetect, onConvert, onTrim, t, close],
   );
 
-  const q = query.trim().toLowerCase();
-
-  /** 二级宽度列表(label 用 t 包一层避免 hook 依赖膨胀) */
-  const widthLabel = (w: number): string => t('chrome.code_editor.indent_pick_width', { size: w });
-  const filteredWidths = INDENT_WIDTHS.filter((w) => widthLabel(w).toLowerCase().includes(q));
-  const filteredRoots = rootActions.filter(
-    (a) => q === '' || t(a.labelKey).toLowerCase().includes(q) || a.keywords.includes(q),
-  );
   const placeholder =
     view === 'root'
       ? t('chrome.code_editor.quick_pick_placeholder')
@@ -323,105 +258,90 @@ export function IndentQuickPick({
             : 'chrome.code_editor.indent_pick_display_size',
         );
 
-  const backRow = (
-    <PickRow
-      key="back"
-      value="back"
-      selected={false}
-      data-testid={dataTestId ? `${dataTestId}-back` : undefined}
-      onSelect={() => {
-        setView('root');
-        setQuery('');
-      }}
-    >
-      <ArrowLeft aria-hidden className="size-3.5 shrink-0" />
-      <span>{t('chrome.code_editor.quick_pick_back')}</span>
-    </PickRow>
-  );
+  const groups = useMemo(() => {
+    if (view === 'root') {
+      const rootItems = rootActions
+        .filter((a) => q === '' || t(a.labelKey).toLowerCase().includes(q) || a.keywords.includes(q))
+        .map(
+          (a): QuickPickItem => ({
+            key: a.id,
+            value: `indent-${a.id}`,
+            checkColumn: true,
+            selected: a.checked,
+            label: t(a.labelKey),
+            trailing: (
+              <span className="flex items-center gap-1.5">
+                {a.right && <span>{a.right}</span>}
+                {a.expand && (
+                  <ArrowRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+                )}
+              </span>
+            ),
+            testId: dataTestId ? `${dataTestId}-${a.id}` : undefined,
+            onSelect: () => {
+              if (a.expand) {
+                setView(a.expand);
+                setQuery('');
+                return;
+              }
+              a.action?.();
+            },
+          }),
+        );
+      return [{ items: rootItems }];
+    }
+    // 二级宽度列表
+    const widthItems: QuickPickItem[] = [];
+    if (q === '') {
+      widthItems.push({
+        key: 'back',
+        value: 'back',
+        leading: <ArrowLeft aria-hidden className="size-3.5 shrink-0" />,
+        label: t('chrome.code_editor.quick_pick_back'),
+        testId: dataTestId ? `${dataTestId}-back` : undefined,
+        onSelect: () => {
+          setView('root');
+          setQuery('');
+        },
+      });
+    }
+    for (const w of INDENT_WIDTHS) {
+      if (!widthLabel(w).toLowerCase().includes(q)) continue;
+      const selected = view === 'spaces-width' ? insertSpaces && tabSize === w : tabSize === w;
+      widthItems.push({
+        key: `width-${w}`,
+        value: `width-${w}`,
+        checkColumn: true,
+        selected,
+        label: widthLabel(w),
+        testId: dataTestId ? `${dataTestId}-width-${w}` : undefined,
+        onSelect: () => {
+          onApply(view === 'spaces-width' ? { insertSpaces: true, tabSize: w } : { tabSize: w });
+          close();
+        },
+      });
+    }
+    return [{ items: widthItems }];
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-x/exhaustive-deps
+  }, [view, q, rootActions, insertSpaces, tabSize, dataTestId, t, widthLabel, close]);
 
   return (
-    <CommandDialog
+    <QuickPickDialog
       open={open}
       onOpenChange={handleOpenChange}
-      contentClassName={PICKER_WIDTH}
+      title={t('chrome.code_editor.indent_pick_title')}
+      placeholder={placeholder}
+      value={query}
+      onValueChange={setQuery}
+      groups={groups}
+      empty={
+        view === 'root' ? t('chrome.code_editor.quick_pick_no_match') : undefined
+      }
+      inputTestId={dataTestId ? `${dataTestId}-search` : undefined}
+      listTestId={dataTestId ? `${dataTestId}-list` : undefined}
       hideCloseButton
       shouldFilter={false}
-      header={
-        <>
-          <DialogTitle className="sr-only">
-            {t('chrome.code_editor.indent_pick_title')}
-          </DialogTitle>
-          <CommandInput
-            value={query}
-            onValueChange={setQuery}
-            placeholder={placeholder}
-            data-testid={dataTestId ? `${dataTestId}-search` : undefined}
-          />
-        </>
-      }
-    >
-      <CommandList data-testid={dataTestId ? `${dataTestId}-list` : undefined}>
-        {view !== 'root' ? (
-          <>
-            {q === '' && backRow}
-            {filteredWidths.map((w) => {
-              const selected =
-                view === 'spaces-width' ? insertSpaces && tabSize === w : tabSize === w;
-              return (
-                <PickRow
-                  key={w}
-                  value={`width-${w}`}
-                  selected={selected}
-                  data-testid={dataTestId ? `${dataTestId}-width-${w}` : undefined}
-                  onSelect={() => {
-                    onApply(
-                      view === 'spaces-width'
-                        ? { insertSpaces: true, tabSize: w }
-                        : { tabSize: w },
-                    );
-                    close();
-                  }}
-                >
-                  <CheckSlot checked={selected} />
-                  <span>{widthLabel(w)}</span>
-                </PickRow>
-              );
-            })}
-          </>
-        ) : (
-          filteredRoots.map((a) => (
-              <PickRow
-                key={a.id}
-                value={`indent-${a.id}`}
-                selected={false}
-                data-testid={dataTestId ? `${dataTestId}-${a.id}` : undefined}
-                onSelect={() => {
-                  if (a.expand) {
-                    setView(a.expand);
-                    setQuery('');
-                    return;
-                  }
-                  a.action?.();
-                }}
-              >
-                <CheckSlot checked={a.checked} />
-                <span className="truncate">{t(a.labelKey)}</span>
-                {a.right && (
-                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                    {a.right}
-                  </span>
-                )}
-                {a.expand && (
-                  <ArrowRight aria-hidden className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
-                )}
-              </PickRow>
-            ))
-        )}
-        {view === 'root' && filteredRoots.length === 0 && (
-          <CommandEmpty>{t('chrome.code_editor.quick_pick_no_match')}</CommandEmpty>
-        )}
-      </CommandList>
-    </CommandDialog>
+    />
   );
 }
 
@@ -465,7 +385,6 @@ export function EncodingQuickPick({
   const [view, setView] = useState<EncodingView>('root');
   const [query, setQuery] = useState('');
 
-  // 关闭时重置层级与搜索词(重置放在 onOpenChange 包装器)
   const handleOpenChange = useCallback(
     (next: boolean): void => {
       if (!next) {
@@ -476,8 +395,6 @@ export function EncodingQuickPick({
     },
     [onOpenChange],
   );
-
-  // 选择项关闭统一走 handleOpenChange,确保关闭时重置层级与搜索词
   const close = useCallback((): void => handleOpenChange(false), [handleOpenChange]);
   const q = query.trim().toLowerCase();
 
@@ -499,150 +416,113 @@ export function EncodingQuickPick({
             : 'chrome.code_editor.encoding_pick_save',
         );
 
-  const backRow = (
-    <PickRow
-      key="back"
-      value="back"
-      selected={false}
-      data-testid={dataTestId ? `${dataTestId}-back` : undefined}
-      onSelect={() => {
-        setView('root');
-        setQuery('');
-      }}
-    >
-      <ArrowLeft aria-hidden className="size-3.5 shrink-0" />
-      <span>{t('chrome.code_editor.quick_pick_back')}</span>
-    </PickRow>
-  );
+  const backItem: QuickPickItem = {
+    key: 'back',
+    value: 'back',
+    leading: <ArrowLeft aria-hidden className="size-3.5 shrink-0" />,
+    label: t('chrome.code_editor.quick_pick_back'),
+    testId: dataTestId ? `${dataTestId}-back` : undefined,
+    onSelect: () => {
+      setView('root');
+      setQuery('');
+    },
+  };
+
+  const encodingItems = (mode: 'reopen' | 'save' | 'direct'): QuickPickItem[] =>
+    filteredEncodings.map((opt): QuickPickItem => {
+      const selected = opt.id === currentEncoding;
+      return {
+        key: opt.id,
+        value: `encoding-${opt.id}`,
+        checkColumn: true,
+        selected,
+        label: encodingDisplay(opt, t),
+        trailing: opt.id,
+        testId: dataTestId ? `${dataTestId}-encoding-${opt.id}` : undefined,
+        onSelect: () => {
+          if (mode === 'reopen') onEncodingReopen?.(opt.id);
+          else if (mode === 'save') onEncodingSave?.(opt.id);
+          else onEncodingChange(opt.id);
+          close();
+        },
+      };
+    });
+
+  const groups = useMemo(() => {
+    if (view !== 'root') {
+      const items = [
+        ...(q === '' ? [backItem] : []),
+        ...encodingItems(view === 'reopen-list' ? 'reopen' : 'save'),
+      ];
+      return [{ key: view, items }];
+    }
+    const result: { key?: string; heading?: string; items: QuickPickItem[] }[] = [];
+    // 动作区:仅在未输入筛选词时展示,且宿主提供了对应回调
+    if (q === '' && (onEncodingReopen || onEncodingSave)) {
+      const actionItems: QuickPickItem[] = [];
+      if (onEncodingReopen) {
+        actionItems.push({
+          key: 'action-reopen',
+          value: 'action-reopen',
+          leading: <ArrowRight aria-hidden className="size-3.5 shrink-0" />,
+          label: t('chrome.code_editor.encoding_pick_reopen'),
+          disabled: !reopenAvailable,
+          trailing: !reopenAvailable
+            ? t('chrome.code_editor.encoding_pick_reopen_unavailable')
+            : undefined,
+          testId: dataTestId ? `${dataTestId}-reopen` : undefined,
+          onSelect: () => {
+            if (!reopenAvailable) return;
+            setView('reopen-list');
+            setQuery('');
+          },
+        });
+      }
+      if (onEncodingSave) {
+        actionItems.push({
+          key: 'action-save',
+          value: 'action-save',
+          leading: <ArrowRight aria-hidden className="size-3.5 shrink-0" />,
+          label: t('chrome.code_editor.encoding_pick_save'),
+          testId: dataTestId ? `${dataTestId}-save` : undefined,
+          onSelect: () => {
+            setView('save-list');
+            setQuery('');
+          },
+        });
+      }
+      result.push({
+        key: 'actions',
+        heading: t('chrome.code_editor.encoding_pick_group_actions'),
+        items: actionItems,
+      });
+    }
+    result.push({
+      key: 'list',
+      heading: t('chrome.code_editor.encoding_pick_group_list'),
+      items: encodingItems('direct'),
+    });
+    return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-x/exhaustive-deps
+  }, [view, q, reopenAvailable, onEncodingReopen, onEncodingSave, dataTestId, t, backItem]);
+
+  const hasAny = groups.some((g) => g.items.length > 0);
 
   return (
-    <CommandDialog
+    <QuickPickDialog
       open={open}
       onOpenChange={handleOpenChange}
-      contentClassName={PICKER_WIDTH}
+      title={t('chrome.code_editor.encoding_pick_title')}
+      placeholder={placeholder}
+      value={query}
+      onValueChange={setQuery}
+      groups={groups}
+      empty={hasAny ? undefined : t('chrome.code_editor.quick_pick_no_match')}
+      inputTestId={dataTestId ? `${dataTestId}-search` : undefined}
+      listTestId={dataTestId ? `${dataTestId}-list` : undefined}
       hideCloseButton
       shouldFilter={false}
-      header={
-        <>
-          <DialogTitle className="sr-only">
-            {t('chrome.code_editor.encoding_pick_title')}
-          </DialogTitle>
-          <CommandInput
-            value={query}
-            onValueChange={setQuery}
-            placeholder={placeholder}
-            data-testid={dataTestId ? `${dataTestId}-search` : undefined}
-          />
-        </>
-      }
-    >
-      <CommandList data-testid={dataTestId ? `${dataTestId}-list` : undefined}>
-        {view !== 'root' ? (
-          <>
-            {q === '' && backRow}
-            {filteredEncodings.map((opt) => {
-              const selected = opt.id === currentEncoding;
-              return (
-                <PickRow
-                  key={opt.id}
-                  value={`encoding-${opt.id}`}
-                  selected={selected}
-                  data-testid={dataTestId ? `${dataTestId}-encoding-${opt.id}` : undefined}
-                  onSelect={() => {
-                    if (view === 'reopen-list') onEncodingReopen?.(opt.id);
-                    else onEncodingSave?.(opt.id);
-                    close();
-                  }}
-                >
-                  <CheckSlot checked={selected} />
-                  <span className="truncate">{encodingDisplay(opt, t)}</span>
-                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                    {opt.id}
-                  </span>
-                </PickRow>
-              );
-            })}
-            {filteredEncodings.length === 0 && (
-              <CommandEmpty>{t('chrome.code_editor.quick_pick_no_match')}</CommandEmpty>
-            )}
-          </>
-        ) : (
-          <>
-            {/* 动作区:仅在未输入筛选词时展示(输入即进入编码过滤,与 VSCode 一致);
-             * 动作项仅在宿主提供对应回调时渲染,避免对无该能力的宿主展示误导性入口 */}
-            {q === '' && (onEncodingReopen || onEncodingSave) && (
-              <CommandGroup heading={t('chrome.code_editor.encoding_pick_group_actions')}>
-                {onEncodingReopen && (
-                  <PickRow
-                    value="action-reopen"
-                    selected={false}
-                    disabled={!reopenAvailable}
-                    data-testid={dataTestId ? `${dataTestId}-reopen` : undefined}
-                    onSelect={() => {
-                      if (!reopenAvailable) return;
-                      setView('reopen-list');
-                      setQuery('');
-                    }}
-                  >
-                    <ArrowRight aria-hidden className="size-3.5 shrink-0" />
-                    <span className="truncate">
-                      {t('chrome.code_editor.encoding_pick_reopen')}
-                    </span>
-                    {!reopenAvailable && (
-                      <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                        {t('chrome.code_editor.encoding_pick_reopen_unavailable')}
-                      </span>
-                    )}
-                  </PickRow>
-                )}
-                {onEncodingSave && (
-                  <PickRow
-                    value="action-save"
-                    selected={false}
-                    data-testid={dataTestId ? `${dataTestId}-save` : undefined}
-                    onSelect={() => {
-                      setView('save-list');
-                      setQuery('');
-                    }}
-                  >
-                    <ArrowRight aria-hidden className="size-3.5 shrink-0" />
-                    <span className="truncate">
-                      {t('chrome.code_editor.encoding_pick_save')}
-                    </span>
-                  </PickRow>
-                )}
-              </CommandGroup>
-            )}
-            <CommandGroup heading={t('chrome.code_editor.encoding_pick_group_list')}>
-              {filteredEncodings.map((opt) => {
-                const selected = opt.id === currentEncoding;
-                return (
-                  <PickRow
-                    key={opt.id}
-                    value={`encoding-${opt.id}`}
-                    selected={selected}
-                    data-testid={dataTestId ? `${dataTestId}-encoding-${opt.id}` : undefined}
-                    onSelect={() => {
-                      onEncodingChange(opt.id);
-                      close();
-                    }}
-                  >
-                    <CheckSlot checked={selected} />
-                    <span className="truncate">{encodingDisplay(opt, t)}</span>
-                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                      {opt.id}
-                    </span>
-                  </PickRow>
-                );
-              })}
-              {filteredEncodings.length === 0 && (
-                <CommandEmpty>{t('chrome.code_editor.quick_pick_no_match')}</CommandEmpty>
-              )}
-            </CommandGroup>
-          </>
-        )}
-      </CommandList>
-    </CommandDialog>
+    />
   );
 }
 
@@ -669,7 +549,6 @@ export function EolQuickPick({
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
 
-  // 关闭时重置搜索词(重置放在 onOpenChange 包装器)
   const handleOpenChange = (next: boolean): void => {
     if (!next) setQuery('');
     onOpenChange(next);
@@ -695,54 +574,36 @@ export function EolQuickPick({
       o.keywords.includes(q),
   );
 
+  const items: QuickPickItem[] = options.map(
+    (o): QuickPickItem => ({
+      key: o.id,
+      value: `eol-${o.id}`,
+      checkColumn: true,
+      selected: o.id === currentEol,
+      label: o.id,
+      trailing: t(o.descKey),
+      testId: dataTestId ? `${dataTestId}-eol-${o.id}` : undefined,
+      onSelect: () => {
+        onSelect(o.id);
+        handleOpenChange(false);
+      },
+    }),
+  );
+
   return (
-    <CommandDialog
+    <QuickPickDialog
       open={open}
       onOpenChange={handleOpenChange}
-      contentClassName={PICKER_WIDTH}
+      title={t('chrome.code_editor.eol_pick_title')}
+      placeholder={t('chrome.code_editor.eol_pick_title')}
+      value={query}
+      onValueChange={setQuery}
+      groups={[{ items }]}
+      empty={t('chrome.code_editor.quick_pick_no_match')}
+      inputTestId={dataTestId ? `${dataTestId}-search` : undefined}
+      listTestId={dataTestId ? `${dataTestId}-list` : undefined}
       hideCloseButton
       shouldFilter={false}
-      header={
-        <>
-          <DialogTitle className="sr-only">
-            {t('chrome.code_editor.eol_pick_title')}
-          </DialogTitle>
-          <CommandInput
-            value={query}
-            onValueChange={setQuery}
-            placeholder={t('chrome.code_editor.eol_pick_title')}
-            data-testid={dataTestId ? `${dataTestId}-search` : undefined}
-          />
-        </>
-      }
-    >
-      <CommandList data-testid={dataTestId ? `${dataTestId}-list` : undefined}>
-        {options.map((o) => {
-          const selected = o.id === currentEol;
-          return (
-            <PickRow
-              key={o.id}
-              value={`eol-${o.id}`}
-              selected={selected}
-              data-testid={dataTestId ? `${dataTestId}-eol-${o.id}` : undefined}
-              onSelect={() => {
-                onSelect(o.id);
-                // 经 handleOpenChange 关闭以重置搜索词
-                handleOpenChange(false);
-              }}
-            >
-              <CheckSlot checked={selected} />
-              <span>{o.id}</span>
-              <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                {t(o.descKey)}
-              </span>
-            </PickRow>
-          );
-        })}
-        {options.length === 0 && (
-          <CommandEmpty>{t('chrome.code_editor.quick_pick_no_match')}</CommandEmpty>
-        )}
-      </CommandList>
-    </CommandDialog>
+    />
   );
 }
