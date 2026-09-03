@@ -211,7 +211,9 @@ pub async fn fs_read_text_file_checked_inner(
 
 // ============ 文件编码(编辑器编码切换;纯逻辑见 media::text_encoding)============
 
-use crate::media::text_encoding::{decode_text, detect_encoding, encode_text, is_supported_encoding};
+use crate::media::text_encoding::{
+    decode_text, detect_encoding, encode_text, is_supported_encoding,
+};
 
 /// 带编码信息的文本读取结果(`fs_read_text_file_encoded` 返回)
 #[derive(Debug, Clone, Serialize)]

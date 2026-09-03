@@ -217,12 +217,8 @@ pub fn compile_error_from(e: &AstError) -> RegexCompileError {
         regex_syntax::ast::ErrorKind::GroupUnclosed => "unclosed group",
         regex_syntax::ast::ErrorKind::GroupUnopened => "unopened group",
         regex_syntax::ast::ErrorKind::EscapeUnrecognized => "unrecognized escape sequence",
-        regex_syntax::ast::ErrorKind::RepetitionMissing => {
-            "repetition operator missing expression"
-        }
-        regex_syntax::ast::ErrorKind::RepetitionCountInvalid => {
-            "invalid repetition count"
-        }
+        regex_syntax::ast::ErrorKind::RepetitionMissing => "repetition operator missing expression",
+        regex_syntax::ast::ErrorKind::RepetitionCountInvalid => "invalid repetition count",
         regex_syntax::ast::ErrorKind::ClassEscapeInvalid => "invalid escape in character class",
         regex_syntax::ast::ErrorKind::ClassUnclosed => "unclosed character class",
         regex_syntax::ast::ErrorKind::ClassRangeInvalid => "invalid character class range",
@@ -312,8 +308,9 @@ pub fn regex_live_inner(input: &RegexLiveInput) -> RegexLiveOutput {
         .parse(&input.pattern)
         .map_err(|e| {
             let mut err = compile_error_from(&e);
-            err.column = u64::try_from(pattern_index.char_of(usize::try_from(err.column).unwrap_or(0)))
-                .unwrap_or(err.column);
+            err.column =
+                u64::try_from(pattern_index.char_of(usize::try_from(err.column).unwrap_or(0)))
+                    .unwrap_or(err.column);
             err
         })
         .and_then(|ast| {
@@ -399,7 +396,10 @@ pub fn regex_live_inner(input: &RegexLiveInput) -> RegexLiveOutput {
     let substitution_result = if input.substitution.is_empty() {
         None
     } else {
-        Some(re.replace_all(test_text, input.substitution.as_str()).to_string())
+        Some(
+            re.replace_all(test_text, input.substitution.as_str())
+                .to_string(),
+        )
     };
 
     // 5) 解释树(span 换算为字符偏移;复用 pattern_index)
@@ -508,9 +508,7 @@ pub fn explain_ast(ast: &Ast, pattern: &str) -> Vec<RegexExplainNode> {
 }
 
 fn explain_into(ast: &Ast, pattern: &str, out: &mut Vec<RegexExplainNode>) {
-    use regex_syntax::ast::{
-        AssertionKind, Ast, ClassPerlKind, GroupKind, RepetitionKind,
-    };
+    use regex_syntax::ast::{AssertionKind, Ast, ClassPerlKind, GroupKind, RepetitionKind};
 
     let span = ast_span_bytes(ast);
     let token = span_to_token(pattern, span).unwrap_or_else(|| ast.to_string());
@@ -554,11 +552,13 @@ fn explain_into(ast: &Ast, pattern: &str, out: &mut Vec<RegexExplainNode>) {
             out.push(node(token, "Literal character".into(), desc, span, true));
         }
         Ast::Dot(_) => {
-            out.push(
-                node(token, "Any character".into(),
-                    "matches any character except line terminators (unless `s` flag is set)".into(),
-                    span, true)
-            );
+            out.push(node(
+                token,
+                "Any character".into(),
+                "matches any character except line terminators (unless `s` flag is set)".into(),
+                span,
+                true,
+            ));
         }
         Ast::Assertion(a) => {
             let title = match a.kind {
@@ -593,7 +593,10 @@ fn explain_into(ast: &Ast, pattern: &str, out: &mut Vec<RegexExplainNode>) {
             let (title, base) = match p.kind {
                 ClassPerlKind::Digit => ("Character class: digits", "any digit (`0-9`)"),
                 ClassPerlKind::Space => ("Character class: whitespace", "any whitespace character"),
-                ClassPerlKind::Word => ("Character class: word characters", "any word character (`a-z`, `A-Z`, `0-9`, `_`)"),
+                ClassPerlKind::Word => (
+                    "Character class: word characters",
+                    "any word character (`a-z`, `A-Z`, `0-9`, `_`)",
+                ),
             };
             let (title, desc) = if p.negated {
                 (
@@ -639,28 +642,47 @@ fn explain_into(ast: &Ast, pattern: &str, out: &mut Vec<RegexExplainNode>) {
         }
         Ast::Repetition(rep) => {
             let (title, desc): (String, String) = match rep.op.kind {
-                RepetitionKind::ZeroOrOne => ("Quantifier: 0 or 1".to_string(), "matches as few or as many times as needed (greedy: prefers 1)".to_string()),
-                RepetitionKind::ZeroOrMore => ("Quantifier: 0 or more".to_string(), "matches greedily, as many times as possible".to_string()),
-                RepetitionKind::OneOrMore => ("Quantifier: 1 or more".to_string(), "matches greedily, at least once".to_string()),
+                RepetitionKind::ZeroOrOne => (
+                    "Quantifier: 0 or 1".to_string(),
+                    "matches as few or as many times as needed (greedy: prefers 1)".to_string(),
+                ),
+                RepetitionKind::ZeroOrMore => (
+                    "Quantifier: 0 or more".to_string(),
+                    "matches greedily, as many times as possible".to_string(),
+                ),
+                RepetitionKind::OneOrMore => (
+                    "Quantifier: 1 or more".to_string(),
+                    "matches greedily, at least once".to_string(),
+                ),
                 RepetitionKind::Range(ref r) => match *r {
-                    regex_syntax::ast::RepetitionRange::Exactly(n) => ("Quantifier: exact".to_string(), format!("matches exactly {n} times")),
-                    regex_syntax::ast::RepetitionRange::AtLeast(n) => ("Quantifier: at least".to_string(), format!("matches {n} or more times")),
-                    regex_syntax::ast::RepetitionRange::Bounded(a, b) => ("Quantifier: bounded".to_string(), format!("matches between {a} and {b} times")),
+                    regex_syntax::ast::RepetitionRange::Exactly(n) => (
+                        "Quantifier: exact".to_string(),
+                        format!("matches exactly {n} times"),
+                    ),
+                    regex_syntax::ast::RepetitionRange::AtLeast(n) => (
+                        "Quantifier: at least".to_string(),
+                        format!("matches {n} or more times"),
+                    ),
+                    regex_syntax::ast::RepetitionRange::Bounded(a, b) => (
+                        "Quantifier: bounded".to_string(),
+                        format!("matches between {a} and {b} times"),
+                    ),
                 },
             };
             let (title, desc) = if rep.greedy {
                 (title, format!("{desc} — greedy: takes as many as possible"))
             } else {
-                (format!("{title} (lazy)"), format!("{desc} — lazy: takes as few as possible"))
+                (
+                    format!("{title} (lazy)"),
+                    format!("{desc} — lazy: takes as few as possible"),
+                )
             };
             let mut children = Vec::new();
             explain_into(&rep.ast, pattern, &mut children);
             // 量词节点的 span 含被修饰体;token 只取操作符本身(显示更好看)
             let op_span = (rep.op.span.start.offset, rep.op.span.end.offset);
             let op_token = span_to_token(pattern, op_span).unwrap_or(token);
-            out.push(
-                node(op_token, title, desc, span, false).with_children(children),
-            );
+            out.push(node(op_token, title, desc, span, false).with_children(children));
         }
         Ast::Group(g) => {
             let mut children = Vec::new();
@@ -686,13 +708,16 @@ fn explain_into(ast: &Ast, pattern: &str, out: &mut Vec<RegexExplainNode>) {
             for a in &alt.asts {
                 explain_into(a, pattern, &mut children);
             }
-            out.push(node(
-                token,
-                "Alternation".into(),
-                "matches any of the alternatives below (in order)".into(),
-                span,
-                false,
-            ).with_children(children));
+            out.push(
+                node(
+                    token,
+                    "Alternation".into(),
+                    "matches any of the alternatives below (in order)".into(),
+                    span,
+                    false,
+                )
+                .with_children(children),
+            );
         }
         Ast::Concat(cat) => {
             // 连接节点不产出自身条目:直接展开子节点(regex101 同样平铺)
@@ -715,20 +740,25 @@ fn explain_class_set(
             let sym = match op.kind {
                 regex_syntax::ast::ClassSetBinaryOpKind::Intersection => "&& (intersection)",
                 regex_syntax::ast::ClassSetBinaryOpKind::Difference => "-- (difference)",
-                regex_syntax::ast::ClassSetBinaryOpKind::SymmetricDifference => "~~ (symmetric difference)",
+                regex_syntax::ast::ClassSetBinaryOpKind::SymmetricDifference => {
+                    "~~ (symmetric difference)"
+                }
             };
             let mut children = Vec::new();
             explain_class_set(&op.lhs, pattern, &mut children);
             explain_class_set(&op.rhs, pattern, &mut children);
             let span = (op.span.start.offset, op.span.end.offset);
             let token = span_to_token(pattern, span).unwrap_or_else(|| sym.to_string());
-            out.push(node(
-                token,
-                "Set operation".into(),
-                format!("combines both sides using {sym}"),
-                span,
-                false,
-            ).with_children(children));
+            out.push(
+                node(
+                    token,
+                    "Set operation".into(),
+                    format!("combines both sides using {sym}"),
+                    span,
+                    false,
+                )
+                .with_children(children),
+            );
         }
     }
 }
@@ -738,9 +768,7 @@ fn explain_class_item(
     pattern: &str,
     out: &mut Vec<RegexExplainNode>,
 ) {
-    let span = |s: &regex_syntax::ast::Span| {
-        (s.start.offset, s.end.offset)
-    };
+    let span = |s: &regex_syntax::ast::Span| (s.start.offset, s.end.offset);
     use regex_syntax::ast::{ClassPerlKind, ClassSetItem, ClassUnicodeKind};
     match item {
         ClassSetItem::Empty(_) => {}
@@ -815,13 +843,7 @@ fn explain_class_item(
             } else {
                 (title.to_string(), desc.to_string())
             };
-            out.push(node(
-                token,
-                format!("Perl class: {title}"),
-                desc,
-                sp,
-                false,
-            ));
+            out.push(node(token, format!("Perl class: {title}"), desc, sp, false));
         }
         ClassSetItem::Bracketed(cb) => {
             let sp = span(&cb.span);
@@ -829,8 +851,14 @@ fn explain_class_item(
             let mut children = Vec::new();
             explain_class_set(&cb.kind, pattern, &mut children);
             out.push(
-                node(token, "Nested class".into(), "nested character class".into(), sp, false)
-                    .with_children(children),
+                node(
+                    token,
+                    "Nested class".into(),
+                    "nested character class".into(),
+                    sp,
+                    false,
+                )
+                .with_children(children),
             );
         }
         ClassSetItem::Union(u) => {
@@ -952,11 +980,7 @@ pub struct RegexTestsOutput {
 }
 
 /// 运行一批测试用例。pattern 无效时返回编译错误(所有用例置 failed=false)。
-pub fn regex_tests_inner(
-    pattern: &str,
-    flags: &str,
-    cases: &[RegexTestCase],
-) -> RegexTestsOutput {
+pub fn regex_tests_inner(pattern: &str, flags: &str, cases: &[RegexTestCase]) -> RegexTestsOutput {
     let flag_set = match parse_flags(flags) {
         Ok(s) => s,
         Err(bad) => {
@@ -1016,9 +1040,7 @@ pub fn regex_tests_inner(
                     .collect();
                 let expected = &case.expected_groups;
                 if &actual != expected {
-                    reason = format!(
-                        "group mismatch: expected {expected:?}, got {actual:?}"
-                    );
+                    reason = format!("group mismatch: expected {expected:?}, got {actual:?}");
                 }
             } else {
                 reason = "no match to extract groups from".to_string();
@@ -1089,16 +1111,22 @@ pub fn codegen_inner(
 
     let code = match language {
         CodegenLanguage::Rust => {
-            let sub_part = substitution.map(|s| format!(
-                "\nlet replaced = re.replace_all(text, \"{}\");",
-                s.replace('\\', "\\\\").replace('"', "\\\"")
-            )).unwrap_or_default();
+            let sub_part = substitution
+                .map(|s| {
+                    format!(
+                        "\nlet replaced = re.replace_all(text, \"{}\");",
+                        s.replace('\\', "\\\\").replace('"', "\\\"")
+                    )
+                })
+                .unwrap_or_default();
             format!(
                 "use regex::Regex;\n\nfn main() {{\n    let re = Regex::new(r\"{pattern}\").unwrap();\n    let text = \"...\";\n    println!(\"{{:?}}\", re.captures_iter(text).map(|c| c.get(0).unwrap().as_str().to_string()).collect::<Vec<_>>());{sub_part}\n}}"
             )
         }
         CodegenLanguage::Javascript => {
-            let sub = substitution.map(|s| format!("\nconst replaced = text.replace(re, {s:?});")).unwrap_or_default();
+            let sub = substitution
+                .map(|s| format!("\nconst replaced = text.replace(re, {s:?});"))
+                .unwrap_or_default();
             format!(
                 "const re = /{pattern}/{norm_flags};\nconst text = '...';\nconst matches = [...text.matchAll(re)].map(m => m[0]);{sub}"
             )
@@ -1108,7 +1136,9 @@ pub fn codegen_inner(
                 .chars()
                 .filter(|c| matches!(c, 'i' | 'm' | 's' | 'x'))
                 .collect();
-            let sub = substitution.map(|s| format!("\nreplaced = re.sub(pattern, r'''{s}''', text)")).unwrap_or_default();
+            let sub = substitution
+                .map(|s| format!("\nreplaced = re.sub(pattern, r'''{s}''', text)"))
+                .unwrap_or_default();
             format!(
                 "import re\n\npattern = r'''{pattern}'''\ntext = '...'\nmatches = [m.group(0) for m in re.finditer(pattern, text, flags=re.{py_flags})]{sub}"
             )
@@ -1126,11 +1156,21 @@ pub fn codegen_inner(
                 })
                 .collect();
             let jflags = jflags.trim_end_matches(" | ").to_string();
-            let jflags = if jflags.is_empty() { "0".to_string() } else { jflags };
-            let sub = substitution.map(|s| format!(
-                "\n        String replaced = matcher.replaceAll(\"{}\");",
-                s.replace('\\', "\\\\").replace('"', "\\\"").replace("$", "\\$")
-            )).unwrap_or_default();
+            let jflags = if jflags.is_empty() {
+                "0".to_string()
+            } else {
+                jflags
+            };
+            let sub = substitution
+                .map(|s| {
+                    format!(
+                        "\n        String replaced = matcher.replaceAll(\"{}\");",
+                        s.replace('\\', "\\\\")
+                            .replace('"', "\\\"")
+                            .replace("$", "\\$")
+                    )
+                })
+                .unwrap_or_default();
             format!(
                 "import java.util.regex.*;\n\npublic class Main {{\n    public static void main(String[] args) {{\n        Pattern pattern = Pattern.compile(\"{}\", {});\n        Matcher matcher = pattern.matcher(\"...\");\n        while (matcher.find()) {{\n            System.out.println(matcher.group());\n        }}{}\n    }}\n}}",
                 pattern.replace('\\', "\\\\").replace('"', "\\\""),
@@ -1139,18 +1179,42 @@ pub fn codegen_inner(
             )
         }
         CodegenLanguage::Csharp => {
-            let ro = if norm_flags.contains('i') { "RegexOptions.IgnoreCase" } else { "" };
-            let ro = if ro.is_empty() { "RegexOptions.None".to_string() } else { ro.to_string() };
+            let ro = if norm_flags.contains('i') {
+                "RegexOptions.IgnoreCase"
+            } else {
+                ""
+            };
+            let ro = if ro.is_empty() {
+                "RegexOptions.None".to_string()
+            } else {
+                ro.to_string()
+            };
             let ro = if norm_flags.contains('m') {
-                if ro == "RegexOptions.None" { "RegexOptions.Multiline".to_string() } else { format!("{ro} | RegexOptions.Multiline") }
-            } else { ro };
+                if ro == "RegexOptions.None" {
+                    "RegexOptions.Multiline".to_string()
+                } else {
+                    format!("{ro} | RegexOptions.Multiline")
+                }
+            } else {
+                ro
+            };
             let ro = if norm_flags.contains('s') {
-                if ro == "RegexOptions.None" { "RegexOptions.Singleline".to_string() } else { format!("{ro} | RegexOptions.Singleline") }
-            } else { ro };
-            let sub = substitution.map(|s| format!(
-                "\nvar replaced = pattern.Replace(text, @\"{}\");",
-                s.replace('"', "\"\"")
-            )).unwrap_or_default();
+                if ro == "RegexOptions.None" {
+                    "RegexOptions.Singleline".to_string()
+                } else {
+                    format!("{ro} | RegexOptions.Singleline")
+                }
+            } else {
+                ro
+            };
+            let sub = substitution
+                .map(|s| {
+                    format!(
+                        "\nvar replaced = pattern.Replace(text, @\"{}\");",
+                        s.replace('"', "\"\"")
+                    )
+                })
+                .unwrap_or_default();
             format!(
                 "using System.Text.RegularExpressions;\n\nvar pattern = new Regex(@\"{}\", {});\nvar text = \"...\";\nforeach (Match m in pattern.Matches(text))\n{{\n    Console.WriteLine(m.Value);\n}}{}",
                 pattern.replace("\"", "\"\""),
@@ -1159,9 +1223,9 @@ pub fn codegen_inner(
             )
         }
         CodegenLanguage::Go => {
-            let sub = substitution.map(|s| format!(
-                "\nreplaced := re.ReplaceAllString(text, `{s}`)"
-            )).unwrap_or_default();
+            let sub = substitution
+                .map(|s| format!("\nreplaced := re.ReplaceAllString(text, `{s}`)"))
+                .unwrap_or_default();
             format!(
                 "package main\n\nimport (\n    \"fmt\"\n    \"regexp\"\n)\n\nfunc main() {{\n    re := regexp.MustCompile(`{pattern}`)\n    text := \"...\"\n    fmt.Println(re.FindAllString(text, -1)){sub}\n}}"
             )
@@ -1489,7 +1553,12 @@ mod tests {
             .iter()
             .find(|n| n.title.contains("`year`"))
             .unwrap();
-        assert!(year_node.children.iter().any(|c| c.title.contains("Quantifier")));
+        assert!(
+            year_node
+                .children
+                .iter()
+                .any(|c| c.title.contains("Quantifier"))
+        );
     }
 
     #[test]
@@ -1500,12 +1569,20 @@ mod tests {
         let titles: Vec<&str> = out.explain.iter().map(|n| n.title.as_str()).collect();
         assert!(titles.contains(&"Non-capturing group"));
         assert!(titles.iter().any(|t| t.starts_with("Quantifier")));
-        let group = out.explain.iter().find(|n| n.title == "Non-capturing group").unwrap();
+        let group = out
+            .explain
+            .iter()
+            .find(|n| n.title == "Non-capturing group")
+            .unwrap();
         assert!(
             group.children.iter().any(|c| c.title == "Alternation"),
             "alternation should be nested in group"
         );
-        let quant = out.explain.iter().find(|n| n.title.starts_with("Quantifier")).unwrap();
+        let quant = out
+            .explain
+            .iter()
+            .find(|n| n.title.starts_with("Quantifier"))
+            .unwrap();
         assert!(
             quant.children.iter().any(|c| c.title == "Character class"),
             "character class should be nested under its quantifier"
@@ -1649,4 +1726,3 @@ mod tests {
         assert_eq!(normalize_flags("gimq"), "gim");
     }
 }
-

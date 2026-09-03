@@ -53,13 +53,15 @@ describe('Sidebar 工具右键菜单', () => {
     expect(useUiStore.getState().favorites).toEqual([]);
   });
 
-  it('固定「文本编辑器」条目右键不弹出菜单(不支持收藏)', async () => {
+  it('固定「文本编辑器」条目右键仅含「在新窗口打开」(不支持收藏/排序)', async () => {
     const user = userEvent.setup();
     renderSidebar();
-    // 固定条目始终排第一且不可收藏:右键无任何菜单项
+    // 固定条目始终排第一且不可收藏:右键仅提供弹出,不含收藏/排序
     const btn = screen.getByTestId('nav-text-editor');
     await openContextMenu(user, btn);
-    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+    expect(await screen.findByRole('menuitem', { name: '在新窗口打开' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: '收藏' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: '取消收藏' })).not.toBeInTheDocument();
   });
 
   it('收藏的工具以平铺方式直接显示在固定文本编辑器下方', () => {
@@ -196,13 +198,16 @@ describe('Sidebar 工具右键菜单', () => {
     await user.type(screen.getByLabelText('搜索工具'), '文本编辑器');
     const btn = screen.getByRole('button', { name: /文本编辑器/i });
     await openContextMenu(user, btn);
-    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+    // 固定条目同样只提供弹出,搜索结果中也不出现收藏入口
+    expect(await screen.findByRole('menuitem', { name: '在新窗口打开' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: '收藏' })).not.toBeInTheDocument();
   });
 
-  it('非工具条目(所有工具/固定文本编辑器/管理扩展/设置)右键均不弹出菜单', async () => {
+  it('非工具条目(所有工具/管理扩展/设置)右键均不弹出菜单', async () => {
     const user = userEvent.setup();
     const sidebar = renderSidebar();
-    for (const name of ['所有工具', '文本编辑器', '管理扩展', '设置']) {
+    // 固定「文本编辑器」属于工具条目,有意提供「在新窗口打开」,不在此列
+    for (const name of ['所有工具', '管理扩展', '设置']) {
       const btn = within(sidebar).getByRole('button', { name });
       await openContextMenu(user, btn);
       expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();

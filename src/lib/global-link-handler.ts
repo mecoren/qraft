@@ -15,11 +15,19 @@ export function installGlobalLinkHandler(): () => void {
     const target = event.target;
     if (!(target instanceof Element)) return;
     const anchor = target.closest('a');
-    if (!(anchor instanceof HTMLAnchorElement) || !anchor.href || anchor.download) return;
+    if (!(anchor instanceof HTMLAnchorElement) || anchor.download) return;
+
+    // 取原始 href,而非解析后的 anchor.href:
+    // - 页面内锚点(#foo)经解析会带上当前页 origin,会被误判成外部链接
+    // - 保留用户书写的原样链接,不做多余规范化(与 markdown-preview-pane 一致)
+    const href = anchor.getAttribute('href')?.trim();
+    if (!href || href.startsWith('#')) return;
+    // 仅接管绝对 http/https 链接;相对路径交给应用内路由处理
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(href)) return;
 
     let url: URL;
     try {
-      url = new URL(anchor.href, window.location.href);
+      url = new URL(href, window.location.href);
     } catch {
       return;
     }
@@ -27,7 +35,7 @@ export function installGlobalLinkHandler(): () => void {
 
     event.preventDefault();
     event.stopPropagation();
-    void openExternal(url.toString());
+    void openExternal(href);
   };
 
   window.addEventListener('click', handler, true);

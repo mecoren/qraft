@@ -10,8 +10,8 @@ pub use crate::regex_lab::{
 };
 
 use crate::regex_lab::{codegen_inner, regex_debug_inner, regex_live_inner, regex_tests_inner};
-use crate::shell::response::CommandResponse;
 use crate::shell::AppError;
+use crate::shell::response::CommandResponse;
 
 /// 实时正则工作区:一次返回 匹配+解释+替换+分组+耗时
 ///
@@ -19,7 +19,9 @@ use crate::shell::AppError;
 ///
 /// 恒返回 `Ok`:编译失败以 `RegexLiveOutput.ok=false` 表达,不走 Err 通道。
 #[tauri::command]
-pub async fn regex_live(input: RegexLiveInput) -> Result<CommandResponse<RegexLiveOutput>, AppError> {
+pub async fn regex_live(
+    input: RegexLiveInput,
+) -> Result<CommandResponse<RegexLiveOutput>, AppError> {
     Ok(CommandResponse::ok(regex_live_inner(&input)))
 }
 
