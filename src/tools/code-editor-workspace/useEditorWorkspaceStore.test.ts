@@ -940,10 +940,12 @@ describe('useEditorWorkspaceStore 语言自动检测', () => {
     useEditorWorkspaceStore.getState().newBlankTab();
     const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
 
-    useEditorWorkspaceStore.getState().setTabContent(
-      id,
-      'package com.example;\n\nimport java.util.List;\n\npublic class Main {\n}\n',
-    );
+    useEditorWorkspaceStore
+      .getState()
+      .setTabContent(
+        id,
+        'package com.example;\n\nimport java.util.List;\n\npublic class Main {\n}\n',
+      );
     const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
     expect(tab.path).toBeNull();
     expect(tab.language).toBe('java');

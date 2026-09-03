@@ -344,10 +344,7 @@ function EditorStats({ text }: { text: string }): JSX.Element {
     `${t('tools.json_minifier.stat_paragraphs')}: ${s.paragraphs}`,
   ].join('\n');
   return (
-    <span
-      className="flex items-center gap-1"
-      data-testid="textproc-editor-stats"
-    >
+    <span className="flex items-center gap-1" data-testid="textproc-editor-stats">
       <span
         className="whitespace-nowrap tabular-nums text-muted-foreground"
         title={t('tools.json_minifier.stats_tooltip', {
@@ -360,17 +357,20 @@ function EditorStats({ text }: { text: string }): JSX.Element {
           paragraphs: s.paragraphs,
         })}
       >
-        <span data-testid="textproc-stat-chars">{s.chars}</span> {t('tools.json_minifier.stat_chars')}
+        <span data-testid="textproc-stat-chars">{s.chars}</span>{' '}
+        {t('tools.json_minifier.stat_chars')}
         <span aria-hidden> · </span>
         <span data-testid="textproc-stat-chars-no-spaces">{s.charsNoSpaces}</span>{' '}
         {t('tools.json_minifier.stat_chars_no_spaces')}
         <span aria-hidden> · </span>
-        <span data-testid="textproc-stat-words">{s.words}</span> {t('tools.json_minifier.stat_words')}
+        <span data-testid="textproc-stat-words">{s.words}</span>{' '}
+        {t('tools.json_minifier.stat_words')}
         <span aria-hidden> · </span>
         <span data-testid="textproc-stat-lines">{s.lines}</span>{' '}
         {t('tools.json_minifier.stat_lines')}
         <span aria-hidden> · </span>
-        <span data-testid="textproc-stat-bytes">{s.bytes}</span> {t('tools.json_minifier.stat_bytes')}
+        <span data-testid="textproc-stat-bytes">{s.bytes}</span>{' '}
+        {t('tools.json_minifier.stat_bytes')}
         <span aria-hidden> · </span>
         <span data-testid="textproc-stat-sentences">{s.sentences}</span>{' '}
         {t('tools.json_minifier.stat_sentences')}

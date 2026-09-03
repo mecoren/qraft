@@ -12,11 +12,7 @@
  */
 import { useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  QuickPickDialog,
-  type QuickPickGroup,
-  type QuickPickItem,
-} from '@/components/ui/command';
+import { QuickPickDialog, type QuickPickGroup, type QuickPickItem } from '@/components/ui/command';
 import type { EditorLanguage } from '@/components/ui/code-editor';
 import { QUICK_LANGUAGES } from './languageMap';
 import { LanguageIcon } from './languageIcons';

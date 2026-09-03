@@ -427,9 +427,7 @@ describe('TextProcessor component', () => {
     copySpy.mockClear();
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     fireEvent.change(getInput(), { target: { value: 'hello world' } });
-    fireEvent.click(
-      within(screen.getByTestId('input-status')).getByTestId('textproc-stats-copy'),
-    );
+    fireEvent.click(within(screen.getByTestId('input-status')).getByTestId('textproc-stats-copy'));
     expect(copySpy).toHaveBeenCalledTimes(1);
     const summary = copySpy.mock.calls[0][0] as string;
     // 汇总为逐行「标签: 数值」格式
@@ -447,9 +445,7 @@ describe('TextProcessor component', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     fireEvent.change(getInput(), { target: { value: 'a b' } });
     fireEvent.click(screen.getByTestId('textproc-btn-stripWhitespace'));
-    fireEvent.click(
-      within(screen.getByTestId('output-status')).getByTestId('textproc-stats-copy'),
-    );
+    fireEvent.click(within(screen.getByTestId('output-status')).getByTestId('textproc-stats-copy'));
     const summary = copySpy.mock.calls[0][0] as string;
     // 去空格后输出为 'ab':字符 2、去空白字符 2
     expect(summary).toContain('字符: 2');

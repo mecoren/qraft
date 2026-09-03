@@ -519,7 +519,7 @@ export function EditorTabsBar({
                       'group relative flex h-7 shrink-0 min-w-[120px] max-w-52 cursor-pointer select-none items-center gap-1.5 border-r border-border px-3 text-xs',
                       active
                         ? 'border-b-[3px] border-b-primary bg-card text-foreground'
-                      : 'border-b-[3px] border-b-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                        : 'border-b-[3px] border-b-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground',
                     )}
                   >
                     <GitCompareArrows

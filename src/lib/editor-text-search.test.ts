@@ -98,10 +98,9 @@ describe('searchTabsText', () => {
   });
 
   it('海量命中:超过本次加载数时截断,count 保持真实匹配行数', () => {
-    const content = Array.from(
-      { length: MATCH_BATCH_SIZE + 10 },
-      (_, i) => `find line ${i}`,
-    ).join('\n');
+    const content = Array.from({ length: MATCH_BATCH_SIZE + 10 }, (_, i) => `find line ${i}`).join(
+      '\n',
+    );
     const tabs = [makeTab({ id: 'a', content })];
     const groups = searchTabsText(tabs, 'find');
     expect(groups).toHaveLength(1);
@@ -133,10 +132,9 @@ describe('searchTabsText', () => {
   });
 
   it('增量加载:提高加载数后补足匹配行且不重复', () => {
-    const content = Array.from(
-      { length: MATCH_BATCH_SIZE * 2 },
-      (_, i) => `find line ${i}`,
-    ).join('\n');
+    const content = Array.from({ length: MATCH_BATCH_SIZE * 2 }, (_, i) => `find line ${i}`).join(
+      '\n',
+    );
     const tabs = [makeTab({ id: 'a', content })];
     const loaded = searchTabsText(tabs, 'find', MATCH_BATCH_SIZE * 2);
 

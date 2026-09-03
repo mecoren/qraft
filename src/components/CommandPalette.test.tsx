@@ -93,6 +93,8 @@ describe('CommandPalette', () => {
     expect(footer.textContent).toMatch(/确认/);
     expect(footer.textContent).toMatch(/关闭/);
     // 右侧计数:正整数 + "条结果" / "results" 兼容多语言
-    expect(screen.getByTestId('palette-footer-count').textContent).toMatch(/\d+\s+(条结果|results)/);
+    expect(screen.getByTestId('palette-footer-count').textContent).toMatch(
+      /\d+\s+(条结果|results)/,
+    );
   });
 });

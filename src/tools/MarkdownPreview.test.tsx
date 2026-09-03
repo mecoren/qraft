@@ -55,9 +55,7 @@ describe('MarkdownPreview', () => {
       // 多 Tab 文档 store 重置为「单个空白文档」初始态(hydrate 未完成,
       // safeInvoke 在测试环境不可用 → hydrate 失败但 ready 置位后走 firstUse 示例文档)
       useMdDocsStore.setState({
-        docs: [
-          { id: 'md-default', title: 'md-1', autoTitle: 'md-1', pinned: false, content: '' },
-        ],
+        docs: [{ id: 'md-default', title: 'md-1', autoTitle: 'md-1', pinned: false, content: '' }],
         activeDocId: 'md-default',
         ready: false,
         userTouched: false,
@@ -258,9 +256,7 @@ describe('MarkdownPreview', () => {
     fireEvent.change(screen.getByTestId('md-input-textarea'), {
       target: { value: '# Second Doc' },
     });
-    await waitFor(() =>
-      expect(useMdDocsStore.getState().docs[1].title).toBe('Second Doc'),
-    );
+    await waitFor(() => expect(useMdDocsStore.getState().docs[1].title).toBe('Second Doc'));
 
     // 切回第一个 Tab:编辑器展示示例文档内容(重挂载生效)
     fireEvent.click(screen.getAllByTestId('md-doc-tab')[0]);

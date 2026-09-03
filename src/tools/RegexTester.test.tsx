@@ -222,9 +222,7 @@ describe('RegexTester(Regex Lab 工作区)', () => {
     await settleLive();
 
     await waitFor(() => {
-      const call = (invokeCommand as unknown as Mock).mock.calls.find(
-        (c) => c[0] === 'regex_live',
-      );
+      const call = (invokeCommand as unknown as Mock).mock.calls.find((c) => c[0] === 'regex_live');
       expect(call).toBeDefined();
       expect(call![1].input.flags).toBe('gi');
     });
@@ -328,9 +326,7 @@ describe('RegexTester(Regex Lab 工作区)', () => {
 
   it('替换页签:模板输入与结果展示', async () => {
     const { invokeCommand } = await import('@/lib/ipc');
-    (invokeCommand as unknown as Mock).mockResolvedValue(
-      okOutput({ substitutionResult: 'a#b' }),
-    );
+    (invokeCommand as unknown as Mock).mockResolvedValue(okOutput({ substitutionResult: 'a#b' }));
 
     render(<RegexTester toolId="regex_tester" metadata={null as never} />);
     fireEvent.click(screen.getByTestId('mode-substitution'));
@@ -404,9 +400,7 @@ describe('RegexTester(Regex Lab 工作区)', () => {
     input.setSelectionRange(1, 1);
     // 点击量词分类中的 "a{3}" token(通过精确文本定位按钮)
     const buttons = screen.getAllByRole('button');
-    const tokenBtn = buttons.find(
-      (b) => b.textContent?.includes('a{3}'),
-    );
+    const tokenBtn = buttons.find((b) => b.textContent?.includes('a{3}'));
     expect(tokenBtn).toBeDefined();
     fireEvent.click(tokenBtn!);
     // 光标位置插入:a + a{3} + b

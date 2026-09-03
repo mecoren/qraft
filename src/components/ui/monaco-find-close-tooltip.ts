@@ -117,9 +117,7 @@ export function attachFindCloseTooltip(root: HTMLElement): FindCloseTooltipHandl
   });
   // 补偿观察建立前就已渲染好的查找组件;同时清扫 body 上可能遗留的
   // 孤儿浮层(热更新等异常路径可能只留下 DOM 而失去管理句柄)
-  document.body
-    .querySelectorAll<HTMLElement>(`[${HINT_MARKER_ATTR}]`)
-    .forEach((el) => el.remove());
+  document.body.querySelectorAll<HTMLElement>(`[${HINT_MARKER_ATTR}]`).forEach((el) => el.remove());
   sanitize();
 
   return {

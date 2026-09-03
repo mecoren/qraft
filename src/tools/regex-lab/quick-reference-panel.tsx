@@ -41,9 +41,7 @@ export function QuickReferencePanel({
     return QUICK_REFERENCE.map((cat) => ({
       ...cat,
       tokens: cat.tokens.filter(
-        (tk) =>
-          matches(tk.syntax, q) ||
-          matches(t(`tools.regex_tester.qr_${tk.qrKey}`), q),
+        (tk) => matches(tk.syntax, q) || matches(t(`tools.regex_tester.qr_${tk.qrKey}`), q),
       ),
     })).filter((cat) => cat.tokens.length > 0);
   }, [query, t]);

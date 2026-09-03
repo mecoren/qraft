@@ -94,11 +94,7 @@ export function Titlebar(): JSX.Element {
             title={t('chrome.titlebar.popout')}
             onClick={() => void openToolInNewWindow(currentToolId)}
           >
-            <SquareArrowOutUpRight
-              aria-hidden
-              className="size-4"
-              strokeWidth={ICON_STROKE_WIDTH}
-            />
+            <SquareArrowOutUpRight aria-hidden className="size-4" strokeWidth={ICON_STROKE_WIDTH} />
           </button>
         )}
       </div>

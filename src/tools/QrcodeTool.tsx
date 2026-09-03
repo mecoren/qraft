@@ -13,11 +13,7 @@ import { Download, FolderOpen, QrCode as QrIcon, ScanLine } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodeEditor } from '@/components/ui/code-editor';
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from '@/components/ui/resizable';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CopyAction } from '@/components/copy-action';
 import { downloadBlob, downloadText, readFileAsDataUrl } from '@/lib/file-utils';

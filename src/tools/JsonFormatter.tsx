@@ -1387,11 +1387,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                 <span className="flex items-center">
                   <OutputViewToggle mode={viewMode} onChange={setViewMode} />
                   <CopyAction text={jsonPathResult} testId="jsonpath-copy" />
-                  <SendToMenu
-                    text={jsonPathResult}
-                    currentToolId={toolId}
-                    testId="jsonpath-send"
-                  />
+                  <SendToMenu text={jsonPathResult} currentToolId={toolId} testId="jsonpath-send" />
                 </span>
               </div>
               {/* 表达式输入区:仿侧边栏搜索框(相对定位 + 图标左锚定 + 内嵌标准 Input) */}

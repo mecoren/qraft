@@ -162,9 +162,7 @@ export const DEFAULT_MD_DOC_ID = 'md-default';
 
 function createDefaultDocs(): MdDocsWorkspace {
   return {
-    docs: [
-      { id: DEFAULT_MD_DOC_ID, title: 'md-1', autoTitle: 'md-1', pinned: false, content: '' },
-    ],
+    docs: [{ id: DEFAULT_MD_DOC_ID, title: 'md-1', autoTitle: 'md-1', pinned: false, content: '' }],
     activeDocId: DEFAULT_MD_DOC_ID,
   };
 }
@@ -266,7 +264,13 @@ export const useMdDocsStore = create<MdDocsState>((set, get) => ({
           pinned: false,
           content: legacy.content,
         };
-        return { ready: true, error: errorMessage, docs: [doc], activeDocId: doc.id, firstUse: false };
+        return {
+          ready: true,
+          error: errorMessage,
+          docs: [doc],
+          activeDocId: doc.id,
+          firstUse: false,
+        };
       }
       // 真正首次使用:空文档列表,组件 effect 填入当前语言的示例文档
       return { ready: true, error: errorMessage, docs: [], activeDocId: null, firstUse: true };

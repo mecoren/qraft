@@ -40,7 +40,9 @@ function makeGroups(): QuickPickGroup[] {
 
 describe('QuickPickDialog', () => {
   it('渲染顶部搜索框 / 列表 / 底部操作提示条与计数', () => {
-    render(<QuickPickDialog open title="测试标题" groups={makeGroups()} count={<span>3 条结果</span>} />);
+    render(
+      <QuickPickDialog open title="测试标题" groups={makeGroups()} count={<span>3 条结果</span>} />,
+    );
     // 顶部输入框
     expect(screen.getByRole('combobox')).toBeInTheDocument();
     // 列表项
@@ -63,7 +65,9 @@ describe('QuickPickDialog', () => {
     expect(single.closest('[role="option"]')?.textContent).not.toContain('次行描述');
     // 两行项:描述出现在同一 option 内
     const two = screen.getByText('两项主文本');
-    expect(within(two.closest('[role="option"]') as HTMLElement).getByText('次行描述')).toBeInTheDocument();
+    expect(
+      within(two.closest('[role="option"]') as HTMLElement).getByText('次行描述'),
+    ).toBeInTheDocument();
   });
 
   it('trailing 以 hint 灰字与 badge 徽标区分', () => {
@@ -84,7 +88,13 @@ describe('QuickPickDialog', () => {
       {
         items: [
           { key: 'u', label: '未选中', checkColumn: true, selected: false },
-          { key: 's', label: '已选中', checkColumn: true, selected: true, leading: <Check data-testid="ck" /> },
+          {
+            key: 's',
+            label: '已选中',
+            checkColumn: true,
+            selected: true,
+            leading: <Check data-testid="ck" />,
+          },
         ],
       },
     ];
@@ -147,7 +157,14 @@ describe('QuickPickDialog', () => {
   });
 
   it('hint 渲染在输入框下方', () => {
-    render(<QuickPickDialog open title="t" groups={makeGroups()} hint={<span data-testid="hintline">提示</span>} />);
+    render(
+      <QuickPickDialog
+        open
+        title="t"
+        groups={makeGroups()}
+        hint={<span data-testid="hintline">提示</span>}
+      />,
+    );
     expect(screen.getByTestId('hintline')).toBeInTheDocument();
   });
 
@@ -190,9 +207,7 @@ describe('QuickPickDialog', () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
     const onOpenChange = vi.fn();
-    const groups: QuickPickGroup[] = [
-      { items: [{ key: 'x', label: '可点项', onSelect }] },
-    ];
+    const groups: QuickPickGroup[] = [{ items: [{ key: 'x', label: '可点项', onSelect }] }];
     render(<QuickPickDialog open title="t" groups={groups} onOpenChange={onOpenChange} />);
     await user.click(screen.getByText('可点项'));
     expect(onSelect).toHaveBeenCalled();

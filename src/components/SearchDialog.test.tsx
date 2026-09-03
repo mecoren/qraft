@@ -254,10 +254,7 @@ describe('SearchDialog 文本模式', () => {
   }, 20000);
 
   it('多次点击继续追加后续匹配行', async () => {
-    const lines = Array.from(
-      { length: MATCH_BATCH_SIZE * 2 + 5 },
-      (_, i) => `find line ${i}`,
-    );
+    const lines = Array.from({ length: MATCH_BATCH_SIZE * 2 + 5 }, (_, i) => `find line ${i}`);
     setTabs([makeTab('big', 'big.txt', lines.join('\n'))]);
     const user = userEvent.setup();
     render(<SearchDialog open onOpenChange={() => {}} />);

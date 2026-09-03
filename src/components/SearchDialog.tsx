@@ -28,16 +28,9 @@ import {
   Files,
   type LucideIcon,
 } from 'lucide-react';
-import {
-  QuickPickDialog,
-  type QuickPickGroup,
-  type QuickPickItem,
-} from '@/components/ui/command';
+import { QuickPickDialog, type QuickPickGroup, type QuickPickItem } from '@/components/ui/command';
 import { searchIndex, type SearchEntry, type SearchEntryKind } from '@/lib/search-index';
-import {
-  MATCH_BATCH_SIZE,
-  searchTabsText,
-} from '@/lib/editor-text-search';
+import { MATCH_BATCH_SIZE, searchTabsText } from '@/lib/editor-text-search';
 import { getCatalogEntry } from '@/lib/tool-catalog';
 import { useSearchStore } from '@/store/searchStore';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
@@ -159,10 +152,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
   const grouped = useMemo(() => searchIndex(debounced), [debounced]);
 
   const tabGroups = useMemo(
-    () =>
-      mode === 'text'
-        ? searchTabsText(tabs, debounced, loadedMatchCount)
-        : [],
+    () => (mode === 'text' ? searchTabsText(tabs, debounced, loadedMatchCount) : []),
     [mode, tabs, debounced, loadedMatchCount],
   );
 
@@ -214,26 +204,23 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
   const featureGroups = useMemo(
     () =>
       [...grouped.entries()]
-        .map(
-          ([kind, entries]): QuickPickGroup | null =>
-            entries.length === 0
-              ? null
-              : {
-                  key: kind,
-                  heading: t(KIND_LABEL[kind]),
-                  items: entries.map(
-                    (entry): QuickPickItem => ({
-                      key: entry.id,
-                      value: `${entry.id} ${entry.title} ${entry.keywords.join(' ')}`,
-                      leading: <EntryIcon entry={entry} />,
-                      label: entry.title,
-                      description: entry.description,
-                      trailing: entry.group,
-                      trailingStyle: 'badge',
-                      onSelect: () => handleSelect(entry),
-                    }),
-                  ),
-                },
+        .map(([kind, entries]): QuickPickGroup | null =>
+          entries.length === 0
+            ? null
+            : {
+                key: kind,
+                heading: t(KIND_LABEL[kind]),
+                items: entries.map((entry): QuickPickItem => ({
+                  key: entry.id,
+                  value: `${entry.id} ${entry.title} ${entry.keywords.join(' ')}`,
+                  leading: <EntryIcon entry={entry} />,
+                  label: entry.title,
+                  description: entry.description,
+                  trailing: entry.group,
+                  trailingStyle: 'badge',
+                  onSelect: () => handleSelect(entry),
+                })),
+              },
         )
         .filter((g): g is QuickPickGroup => g !== null),
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-x/exhaustive-deps
@@ -243,38 +230,34 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
   // —— 数据驱动分组:文本模式按文件分组(行内容经 HighlightLine 高亮),功能模式按类型分组 ——
   const groups = useMemo(() => {
     if (mode === 'text') {
-      return tabGroups.map(
-        (g): QuickPickGroup => ({
-          key: g.tabId,
-          heading: (
-            <span className="flex w-full items-center justify-between gap-2">
-              <span className="truncate">{g.tabTitle}</span>
-              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
-                {g.truncated
-                  ? t('chrome.search_dialog.lines_progress', {
-                      current: g.matches.length,
-                      total: g.count,
-                    })
-                  : t('chrome.search_dialog.lines_count', { count: g.count })}
-              </span>
+      return tabGroups.map((g): QuickPickGroup => ({
+        key: g.tabId,
+        heading: (
+          <span className="flex w-full items-center justify-between gap-2">
+            <span className="truncate">{g.tabTitle}</span>
+            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
+              {g.truncated
+                ? t('chrome.search_dialog.lines_progress', {
+                    current: g.matches.length,
+                    total: g.count,
+                  })
+                : t('chrome.search_dialog.lines_count', { count: g.count })}
+            </span>
+          </span>
+        ),
+        items: g.matches.map((m): QuickPickItem => ({
+          key: `${g.tabId}:${m.line}`,
+          value: `${g.tabId}:${m.line}:${m.lineContent}`,
+          leading: (
+            <span className="w-8 shrink-0 text-right font-mono text-[10px] leading-none text-muted-foreground">
+              {m.line}
             </span>
           ),
-          items: g.matches.map(
-            (m): QuickPickItem => ({
-              key: `${g.tabId}:${m.line}`,
-              value: `${g.tabId}:${m.line}:${m.lineContent}`,
-              leading: (
-                <span className="w-8 shrink-0 text-right font-mono text-[10px] leading-none text-muted-foreground">
-                  {m.line}
-                </span>
-              ),
-              label: <HighlightLine content={m.lineContent} query={debounced} />,
-              ariaLabel: `${g.tabTitle}:${m.line}: ${m.lineContent}`,
-              onSelect: () => handleTextSelect(g.tabId),
-            }),
-          ),
-        }),
-      );
+          label: <HighlightLine content={m.lineContent} query={debounced} />,
+          ariaLabel: `${g.tabTitle}:${m.line}: ${m.lineContent}`,
+          onSelect: () => handleTextSelect(g.tabId),
+        })),
+      }));
     }
     return featureGroups;
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-x/exhaustive-deps
@@ -296,9 +279,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
       title={t('chrome.search_dialog.sr_title')}
       /* 无障碍描述随模式变化(默认文本模式) */
       description={
-        mode === 'text'
-          ? t('chrome.search_dialog.sr_desc_text')
-          : t('chrome.search_dialog.sr_desc')
+        mode === 'text' ? t('chrome.search_dialog.sr_desc_text') : t('chrome.search_dialog.sr_desc')
       }
       /* VSCode Quick Pick:统一壳,宽度/高度均由 QuickPickDialog 默认对齐「全局搜索」 */
       shouldFilter={false}

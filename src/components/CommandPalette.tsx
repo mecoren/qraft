@@ -1,17 +1,7 @@
 import { useEffect, useMemo, type JSX, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  QuickPickDialog,
-  type QuickPickGroup,
-  type QuickPickItem,
-} from '@/components/ui/command';
-import {
-  History,
-  Home,
-  Settings,
-  SquareArrowOutUpRight,
-  Trash2,
-} from 'lucide-react';
+import { QuickPickDialog, type QuickPickGroup, type QuickPickItem } from '@/components/ui/command';
+import { History, Home, Settings, SquareArrowOutUpRight, Trash2 } from 'lucide-react';
 import { useHistoryStore } from '@/store/historyStore';
 import { useToolStateStore } from '@/store/toolStateStore';
 import { useUiStore } from '@/store/uiStore';
@@ -65,8 +55,7 @@ export function CommandPalette({
     leading: <entry.icon aria-hidden className="size-4 shrink-0 opacity-70" />,
     label: <span className="font-medium">{pickText(entry.name)}</span>,
     // 覆盖描述优先(如剪贴板命中原因),否则回退到工具自带的 description
-    description:
-      description ?? (entry.description ? pickText(entry.description) : undefined),
+    description: description ?? (entry.description ? pickText(entry.description) : undefined),
     trailing: categoryLabelMap.get(entry.category),
     trailingStyle: 'badge' as const,
     onSelect: onPick,
@@ -86,7 +75,12 @@ export function CommandPalette({
         const entry = TOOL_CATALOG.find((c) => c.id === d.toolId);
         if (!entry) continue;
         items.push(
-          toolItem(entry, d.reason, closeAfter(() => openTool(d.toolId)), t(d.reason)),
+          toolItem(
+            entry,
+            d.reason,
+            closeAfter(() => openTool(d.toolId)),
+            t(d.reason),
+          ),
         );
       }
       if (items.length > 0) {
@@ -99,11 +93,15 @@ export function CommandPalette({
       key: 'tools',
       heading: t('chrome.palette.group_tools'),
       items: TOOL_CATALOG.map((entry) =>
-        toolItem(entry, '', closeAfter(() => {
-          if (entry.special === 'settings') onOpenSettings?.();
-          else if (entry.special === 'extensions') useUiStore.getState().setView('extensions');
-          else openTool(entry.id);
-        })),
+        toolItem(
+          entry,
+          '',
+          closeAfter(() => {
+            if (entry.special === 'settings') onOpenSettings?.();
+            else if (entry.special === 'extensions') useUiStore.getState().setView('extensions');
+            else openTool(entry.id);
+          }),
+        ),
       ),
     });
 

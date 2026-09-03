@@ -289,9 +289,7 @@ describe('CodeEditorTool workspace', () => {
 
     await user.click(screen.getByTestId('editor-language-badge'));
     const autoRow = await screen.findByTestId('editor-language-picker-auto');
-    const currentLanguageRow = screen.getByTestId(
-      'editor-language-picker-lang-plaintext',
-    );
+    const currentLanguageRow = screen.getByTestId('editor-language-picker-lang-plaintext');
 
     expect(autoRow).toHaveTextContent('自动检测(plaintext)');
     expect(autoRow.firstElementChild).toHaveClass('size-3.5');

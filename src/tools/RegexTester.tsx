@@ -48,11 +48,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CodeEditor } from '@/components/ui/code-editor';
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from '@/components/ui/resizable';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { invokeCommand } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { cn } from '@/lib/utils';
@@ -146,11 +142,10 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
   const lastRequestId = useRef(0);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const deferredAll = useDeferredValue(`${pattern}\u{0}${flags}\u{0}${testText}\u{0}${substitution}`);
-  const [dPattern, dFlags, dText, dSub] = useMemo(
-    () => deferredAll.split('\u{0}'),
-    [deferredAll],
+  const deferredAll = useDeferredValue(
+    `${pattern}\u{0}${flags}\u{0}${testText}\u{0}${substitution}`,
   );
+  const [dPattern, dFlags, dText, dSub] = useMemo(() => deferredAll.split('\u{0}'), [deferredAll]);
 
   useEffect(() => {
     // 空输入不打扰后端(live 置空由派生值 hasInput 控制,不在 effect 内 setState)
@@ -207,29 +202,25 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
 
   // —— 快速参考插入:写到 pattern 输入框光标处(而非简单追加)——
   const patternInputRef = useRef<HTMLInputElement | null>(null);
-  const insertToPattern = useCallback(
-    (token: string, cursorOffset: number) => {
-      const input = patternInputRef.current;
-      setSession((s) => {
-        const selStart = input?.selectionStart ?? s.pattern.length;
-        const selEnd = input?.selectionEnd ?? selStart;
-        // 选中区间整体被替换;未选中则原位插入
-        const nextPattern =
-          s.pattern.slice(0, selStart) + token + s.pattern.slice(selEnd);
-        // 请求把光标放到 token 内部光标位(典型:括号内)
-        const caret = selStart + Math.min(cursorOffset, token.length);
-        requestAnimationFrame(() => {
-          if (input) {
-            input.focus();
-            input.setSelectionRange(caret, caret);
-          }
-        });
-        saveSession({ ...s, pattern: nextPattern });
-        return { ...s, pattern: nextPattern };
+  const insertToPattern = useCallback((token: string, cursorOffset: number) => {
+    const input = patternInputRef.current;
+    setSession((s) => {
+      const selStart = input?.selectionStart ?? s.pattern.length;
+      const selEnd = input?.selectionEnd ?? selStart;
+      // 选中区间整体被替换;未选中则原位插入
+      const nextPattern = s.pattern.slice(0, selStart) + token + s.pattern.slice(selEnd);
+      // 请求把光标放到 token 内部光标位(典型:括号内)
+      const caret = selStart + Math.min(cursorOffset, token.length);
+      requestAnimationFrame(() => {
+        if (input) {
+          input.focus();
+          input.setSelectionRange(caret, caret);
+        }
       });
-    },
-    [],
-  );
+      saveSession({ ...s, pattern: nextPattern });
+      return { ...s, pattern: nextPattern };
+    });
+  }, []);
 
   // —— 解释面板 hover → pattern 输入框内选区联动(选中对应 token 便于定位)——
   const onExplainHover = useCallback((span: [number, number] | null) => {
@@ -312,9 +303,7 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
                   data-active={active}
                   title={t(`tools.regex_tester.flag_${f}`)}
                   aria-pressed={active}
-                  onClick={() =>
-                    patch({ flags: active ? flags.replace(f, '') : flags + f })
-                  }
+                  onClick={() => patch({ flags: active ? flags.replace(f, '') : flags + f })}
                   className={cn(
                     'size-6 rounded font-mono text-xs transition-colors',
                     active
@@ -335,15 +324,16 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
               : effectiveLive?.ok
                 ? `${t('tools.regex_tester.match_count', { count: effectiveLive.matchCount })} · ${effectiveLive.durationMs}ms`
                 : ''}
-            {effectiveLive?.ok && (effectiveLive.matchesTruncated || effectiveLive.truncatedText) && (
-              <span
-                className="ml-1 rounded bg-warning/15 px-1 py-0.5 text-warning-foreground"
-                title={t('tools.regex_tester.truncated_hint')}
-                data-testid="truncated-badge"
-              >
-                {t('tools.regex_tester.truncated_badge')}
-              </span>
-            )}
+            {effectiveLive?.ok &&
+              (effectiveLive.matchesTruncated || effectiveLive.truncatedText) && (
+                <span
+                  className="ml-1 rounded bg-warning/15 px-1 py-0.5 text-warning-foreground"
+                  title={t('tools.regex_tester.truncated_hint')}
+                  data-testid="truncated-badge"
+                >
+                  {t('tools.regex_tester.truncated_badge')}
+                </span>
+              )}
           </div>
         </div>
 
@@ -392,7 +382,10 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
 
         {/* —— 中:模式页签工作区 —— */}
         <ResizablePanel defaultSize={36} minSize={20} className="min-h-0 min-w-0">
-          <div className="flex h-full min-h-0 flex-col border-x border-border" data-testid="mode-workspace">
+          <div
+            className="flex h-full min-h-0 flex-col border-x border-border"
+            data-testid="mode-workspace"
+          >
             {/* 页签头 */}
             <div
               className="flex shrink-0 items-center gap-0.5 border-b border-border px-1.5"
@@ -485,7 +478,11 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
         <ResizableHandle withHandle />
 
         {/* —— 右:解释树 + 快速参考 —— */}
-        <ResizablePanel defaultSize={24} minSize={16} className="min-h-0 min-w-0 border-l border-border">
+        <ResizablePanel
+          defaultSize={24}
+          minSize={16}
+          className="min-h-0 min-w-0 border-l border-border"
+        >
           <div className="flex h-full min-h-0 flex-col" data-testid="explain-panel">
             <div className="flex shrink-0 items-center gap-1.5 border-b border-border px-2 py-1.5">
               <Info aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
@@ -555,7 +552,12 @@ function TestTextEditor({
     if (!editor) return;
 
     const decorations: Array<{
-      range: { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number };
+      range: {
+        startLineNumber: number;
+        startColumn: number;
+        endLineNumber: number;
+        endColumn: number;
+      };
       options: { inlineClassName: string };
     }> = [];
 
@@ -655,7 +657,12 @@ function charRangeToMonaco(
   editor: MonacoLikeEditor,
   start: number,
   end: number,
-): { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number } | null {
+): {
+  startLineNumber: number;
+  startColumn: number;
+  endLineNumber: number;
+  endColumn: number;
+} | null {
   const model = editor.getModel();
   if (!model) return null;
   const from = model.getPositionAt(start);
@@ -908,7 +915,9 @@ function TestsPane({
                       <span
                         className={cn(
                           'shrink-0 rounded px-1.5 py-0.5 text-xs font-medium',
-                          r.passed ? 'bg-green-500/15 text-green-600' : 'bg-destructive/15 text-destructive',
+                          r.passed
+                            ? 'bg-green-500/15 text-green-600'
+                            : 'bg-destructive/15 text-destructive',
                         )}
                         data-testid={`test-result-${i}`}
                       >
@@ -1116,7 +1125,9 @@ function ToolsPane({
               data-testid="run-debugger"
             >
               <Play aria-hidden className="size-3" />
-              {debugLoading ? t('tools.regex_tester.computing') : t('tools.regex_tester.run_debugger')}
+              {debugLoading
+                ? t('tools.regex_tester.computing')
+                : t('tools.regex_tester.run_debugger')}
             </Button>
             {compileError && (
               <span className="truncate text-xs text-destructive">{compileError.message}</span>

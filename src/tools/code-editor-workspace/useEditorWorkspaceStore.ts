@@ -23,11 +23,7 @@ import {
   type EditorTab,
   type Workspace,
 } from './schema';
-import {
-  detectLanguageFromContent,
-  fileNameFromPath,
-  inferLanguageFromPath,
-} from './languageMap';
+import { detectLanguageFromContent, fileNameFromPath, inferLanguageFromPath } from './languageMap';
 
 /**
  * 从路径中提取末段作为文件夹显示名。

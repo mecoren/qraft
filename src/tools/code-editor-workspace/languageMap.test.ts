@@ -160,9 +160,7 @@ describe('detectLanguageFromContent', () => {
     expect(detectLanguageFromContent('public interface UserService {\n  void save();\n}\n')).toBe(
       'java',
     );
-    expect(
-      detectLanguageFromContent('enum Status {\n  ACTIVE,\n  INACTIVE\n}\n'),
-    ).toBeNull();
+    expect(detectLanguageFromContent('enum Status {\n  ACTIVE,\n  INACTIVE\n}\n')).toBeNull();
   });
 
   it.each([

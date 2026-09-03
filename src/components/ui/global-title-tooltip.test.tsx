@@ -31,14 +31,24 @@ function hoverAt(el: Element, x: number, y: number): void {
 }
 
 /** 桩替换元素矩形与视口尺寸(jsdom 无布局) */
-function stubLayout(el: HTMLElement, rect: Record<string, number>, viewport?: { w: number; h: number }): void {
+function stubLayout(
+  el: HTMLElement,
+  rect: Record<string, number>,
+  viewport?: { w: number; h: number },
+): void {
   Object.defineProperty(el, 'getBoundingClientRect', {
     configurable: true,
     value: () => ({ x: 0, y: 0, width: 0, height: 0, toJSON: () => ({}), ...rect }),
   });
   if (viewport) {
-    Object.defineProperty(document.documentElement, 'clientWidth', { configurable: true, value: viewport.w });
-    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: viewport.h });
+    Object.defineProperty(document.documentElement, 'clientWidth', {
+      configurable: true,
+      value: viewport.w,
+    });
+    Object.defineProperty(document.documentElement, 'clientHeight', {
+      configurable: true,
+      value: viewport.h,
+    });
   }
 }
 

@@ -20,9 +20,7 @@ import { INDENT_WIDTHS } from '@/lib/indentation';
 // ============ 转到行/列 ============
 
 /** 解析「行」或「行:列」输入(兼容全角冒号);空输入返回 null,非法返回 invalid */
-function parseGoto(
-  query: string,
-): { line?: number; column?: number } | { invalid: true } | null {
+function parseGoto(query: string): { line?: number; column?: number } | { invalid: true } | null {
   const normalized = query.trim().replace('：', ':');
   if (!normalized) return null;
   const m = /^(\d*)(?::(\d*))?$/.exec(normalized);
@@ -114,7 +112,9 @@ export function GotoLineQuickPick({
       hint={<div data-testid={dataTestId ? `${dataTestId}-hint` : undefined}>{hintText}</div>}
       groups={[{ items }]}
       empty={
-        invalid ? t('chrome.code_editor.quick_pick_goto_invalid') : t('chrome.code_editor.quick_pick_noop')
+        invalid
+          ? t('chrome.code_editor.quick_pick_goto_invalid')
+          : t('chrome.code_editor.quick_pick_noop')
       }
       inputTestId={dataTestId ? `${dataTestId}-search` : undefined}
       hideCloseButton
@@ -261,33 +261,33 @@ export function IndentQuickPick({
   const groups = useMemo(() => {
     if (view === 'root') {
       const rootItems = rootActions
-        .filter((a) => q === '' || t(a.labelKey).toLowerCase().includes(q) || a.keywords.includes(q))
-        .map(
-          (a): QuickPickItem => ({
-            key: a.id,
-            value: `indent-${a.id}`,
-            checkColumn: true,
-            selected: a.checked,
-            label: t(a.labelKey),
-            trailing: (
-              <span className="flex items-center gap-1.5">
-                {a.right && <span>{a.right}</span>}
-                {a.expand && (
-                  <ArrowRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-                )}
-              </span>
-            ),
-            testId: dataTestId ? `${dataTestId}-${a.id}` : undefined,
-            onSelect: () => {
-              if (a.expand) {
-                setView(a.expand);
-                setQuery('');
-                return;
-              }
-              a.action?.();
-            },
-          }),
-        );
+        .filter(
+          (a) => q === '' || t(a.labelKey).toLowerCase().includes(q) || a.keywords.includes(q),
+        )
+        .map((a): QuickPickItem => ({
+          key: a.id,
+          value: `indent-${a.id}`,
+          checkColumn: true,
+          selected: a.checked,
+          label: t(a.labelKey),
+          trailing: (
+            <span className="flex items-center gap-1.5">
+              {a.right && <span>{a.right}</span>}
+              {a.expand && (
+                <ArrowRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+              )}
+            </span>
+          ),
+          testId: dataTestId ? `${dataTestId}-${a.id}` : undefined,
+          onSelect: () => {
+            if (a.expand) {
+              setView(a.expand);
+              setQuery('');
+              return;
+            }
+            a.action?.();
+          },
+        }));
       return [{ items: rootItems }];
     }
     // 二级宽度列表
@@ -334,9 +334,7 @@ export function IndentQuickPick({
       value={query}
       onValueChange={setQuery}
       groups={groups}
-      empty={
-        view === 'root' ? t('chrome.code_editor.quick_pick_no_match') : undefined
-      }
+      empty={view === 'root' ? t('chrome.code_editor.quick_pick_no_match') : undefined}
       inputTestId={dataTestId ? `${dataTestId}-search` : undefined}
       listTestId={dataTestId ? `${dataTestId}-list` : undefined}
       hideCloseButton
@@ -574,21 +572,19 @@ export function EolQuickPick({
       o.keywords.includes(q),
   );
 
-  const items: QuickPickItem[] = options.map(
-    (o): QuickPickItem => ({
-      key: o.id,
-      value: `eol-${o.id}`,
-      checkColumn: true,
-      selected: o.id === currentEol,
-      label: o.id,
-      trailing: t(o.descKey),
-      testId: dataTestId ? `${dataTestId}-eol-${o.id}` : undefined,
-      onSelect: () => {
-        onSelect(o.id);
-        handleOpenChange(false);
-      },
-    }),
-  );
+  const items: QuickPickItem[] = options.map((o): QuickPickItem => ({
+    key: o.id,
+    value: `eol-${o.id}`,
+    checkColumn: true,
+    selected: o.id === currentEol,
+    label: o.id,
+    trailing: t(o.descKey),
+    testId: dataTestId ? `${dataTestId}-eol-${o.id}` : undefined,
+    onSelect: () => {
+      onSelect(o.id);
+      handleOpenChange(false);
+    },
+  }));
 
   return (
     <QuickPickDialog
