@@ -244,18 +244,19 @@ const QuickPickDialog = ({
   const groupsKey = groups
     .map((group) => group.items.map((item) => item.value ?? item.key).join())
     .join();
-  if (queryRef.current === value && groupsKeyRef.current === groupsKey) {
-    preserveSelectionRef.current = preserveSelectionOnChange;
-  }
   React.useEffect(() => {
-    if (queryRef.current === value && groupsKeyRef.current === groupsKey) return;
+    // 查询与结果集均未变:同步最新的「保留选中」开关,供下次结果变化时判断
+    if (queryRef.current === value && groupsKeyRef.current === groupsKey) {
+      preserveSelectionRef.current = preserveSelectionOnChange;
+      return;
+    }
     queryRef.current = value;
     groupsKeyRef.current = groupsKey;
     if (!preserveSelectionRef.current) {
       hasNavigatedRef.current = false;
       setSelectedValue(undefined);
     }
-  }, [value, groupsKey]);
+  }, [value, groupsKey, preserveSelectionOnChange]);
   const renderGroups = (): React.JSX.Element[] =>
     groups.map((g) => (
       <CommandGroup

@@ -145,7 +145,11 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
 
   // 输入防抖:80ms 后刷新结果,避免每键重扫
   useEffect(() => {
-    const t = window.setTimeout(() => setDebounced(query), 80);
+    const t = window.setTimeout(() => {
+      setDebounced(query);
+      // 新查询 => 新结果集,分页游标回到首批
+      setLoadedMatchCount(MATCH_BATCH_SIZE);
+    }, 80);
     return () => window.clearTimeout(t);
   }, [query]);
 
@@ -168,15 +172,12 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
     [tabGroups],
   );
 
-  useEffect(() => {
-    setLoadedMatchCount(MATCH_BATCH_SIZE);
-  }, [mode, debounced]);
-
   /** 切换模式时清空查询,避免跨模式残留 */
   const switchMode = (next: SearchMode) => {
     setMode(next);
     setQuery('');
     setDebounced('');
+    setLoadedMatchCount(MATCH_BATCH_SIZE);
   };
 
   const handleSelect = (entry: SearchEntry) => {
