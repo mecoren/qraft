@@ -11,4 +11,5 @@ pub mod fs;
 pub mod history;
 pub mod image;
 pub mod ip_lookup;
+pub mod regex_lab;
 pub mod tool;

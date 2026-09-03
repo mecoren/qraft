@@ -168,19 +168,6 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       keywords: ['basic auth', '请求头', '结果'],
     },
   ],
-  jsonpath_tester: [
-    {
-      key: 'expression',
-      title: { zh: 'JSONPath 表达式', en: 'JSONPath expression' },
-      keywords: ['表达式', 'jsonpath', 'query'],
-    },
-    { key: 'input', title: { zh: '输入 JSON', en: 'JSON input' }, keywords: ['json', '数据'] },
-    {
-      key: 'output',
-      title: { zh: '测试结果', en: 'Test result' },
-      keywords: ['结果', '查询结果'],
-    },
-  ],
   regex_tester: [
     {
       key: 'config',
@@ -234,6 +221,16 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       title: T_OUTPUT,
       description: { zh: '格式化结果', en: 'Formatted result' },
       keywords: ['结果'],
+    },
+    {
+      key: 'jsonpath-expression',
+      title: { zh: 'JSONPath 表达式', en: 'JSONPath expression' },
+      keywords: ['jsonpath', '表达式', '查询', 'query'],
+    },
+    {
+      key: 'jsonpath-result',
+      title: { zh: '查询结果', en: 'Query result' },
+      keywords: ['查询结果', '结果'],
     },
   ],
   json_minifier: [
@@ -482,21 +479,6 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       title: T_RESULT,
       description: { zh: '重复行统计', en: 'Duplicate statistics' },
       keywords: ['去重', '重复行', '总计', '不重复'],
-    },
-  ],
-  text_statistics: [
-    {
-      key: 'config',
-      title: { zh: '说明', en: 'About' },
-      description: { zh: '即时统计说明', en: 'Live statistics note' },
-      keywords: ['统计', '字数'],
-    },
-    { key: 'input', title: T_INPUT, keywords: ['文本'] },
-    {
-      key: 'output',
-      title: { zh: '统计结果', en: 'Statistics' },
-      description: { zh: '字符/词数/行数/字节', en: 'Chars / words / lines / bytes' },
-      keywords: ['字符数', '词数', '行数', '字节'],
     },
   ],
   text_editor: [

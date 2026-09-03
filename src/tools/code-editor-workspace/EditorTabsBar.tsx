@@ -5,7 +5,7 @@
  *   共用槽位;平时显示圆点(有未保存改动),悬停 Tab 时圆点淡出、
  *   × 在同一位置淡入(仿 VSCode)
  * - 固定(pinned)Tab 用 Pin 图标替代文件图标,始终排在最前
- * - 激活 Tab:顶部 2px 主色条 + 高亮背景
+ * - 激活 Tab:底部 3px 主色条 + 高亮背景
  * - 右键 Tab 弹出共享 ContextMenu(关闭/固定/复制路径/资源管理器等)
  * - 对比差异项也作为 Tab 展示(如 a.ts ⟷ b.ts),点击切换激活对比,
  *   右键/关闭行为与普通 Tab 一致
@@ -302,13 +302,13 @@ export function EditorTabsBar({
       // 顶部圆角:与父容器(右侧主页面卡片,rounded-lg)的顶角对齐,
       // 避免卡片左上/右上圆角处 Tab 栏直角背景直接露出。
       // overflow-hidden 让横滚区域与 Tab 标签的圆角同步(横滑时被圆角裁切)。
-      // 高度 h-9(36px):与 Monaco / VSCode 标签栏一致。
+      // 高度 h-7(28px):全局 tab 统一为该高度。
       // 滚动条为「悬浮 overlay」方案(与参考图一致):
-      // - 标签 row 占满整个 36px,文字垂直居中,不被滚动条影响
+      // - 标签 row 占满整个 28px,文字垂直居中,不被滚动条影响
       // - ScrollBar 绝对定位悬浮在 Root 底部(absolute bottom:0),不占布局
       // - 平时隐藏(type="hover"),悬浮标签栏时显现;有横向溢出时出现滑块
       // - 轨道 pointer-events-none 鼠标穿透,滑块仅 hover/scroll 时可见
-      className="flex h-9 shrink-0 items-stretch overflow-hidden rounded-t-lg border-b border-border bg-background-layer"
+      className="flex h-7 shrink-0 items-stretch overflow-hidden rounded-t-lg border-b border-border bg-background-layer"
       role="tablist"
       aria-label={t('tools.text_editor.open_editors')}
     >
@@ -316,7 +316,7 @@ export function EditorTabsBar({
         viewportRef={scrollRef}
         orientation="horizontal"
         // Monaco 标签栏悬浮滚动条:
-        // - 标签 row 占满整个 36px,文字垂直居中(用户要求:占满标题、不被滚动条影响)
+        // - 标签 row 占满整个 28px,文字垂直居中(用户要求:占满标题、不被滚动条影响)
         // - ScrollBar 为「细悬浮条」:h-1.5(6px)细滑块,type="hover" 平时完全隐藏,
         //   有横向溢出 + 鼠标悬浮标签栏时才半透明浮现,拖拽中保持显示
         // - 滑块浮在标签底部边缘(absolute bottom:0),因足够细且半透明,
@@ -326,7 +326,7 @@ export function EditorTabsBar({
         className="h-full min-w-0 flex-1"
       >
         {/* 内层 flex 容器:Tab 横向排布且 min-w-max,触发 Viewport 横向滚动。
-         * 占满 Viewport 全高 36px,标签文字 items-center 垂直居中。
+         * 占满 Viewport 全高 28px,标签文字 items-center 垂直居中。
          * 容器级 pointermove:拖拽中实时计算插入位置;空白区域视为末尾。 */}
         <div
           className="flex h-full min-w-max items-stretch"
@@ -336,12 +336,12 @@ export function EditorTabsBar({
             <div
               data-testid={`${dataTestId}-empty`}
               // 用「固定行高 + 固定高度」保证垂直居中,不依赖父级高度链:
-              // - Tab 栏容器是 h-9(36px),但它在 ScrollArea 的 Viewport(横向
-              //   滚动容器)内部,Viewport 子元素 h-full 不一定拿到 36px
+              // - Tab 栏容器是 h-7(28px),但它在 ScrollArea 的 Viewport(横向
+              //   滚动容器)内部,Viewport 子元素 h-full 不一定拿到 28px
               //   (overflow-x:auto 的滚动容器对子元素高度计算有特殊性)
-              // - 直接给空态 div h-9 + leading-none + items-center,任何
-              //   情况下文字都精确垂直居中于 36px 内
-              className="flex h-9 shrink-0 items-center px-3 text-xs leading-none text-muted-foreground"
+              // - 直接给空态 div h-7 + leading-none + items-center,任何
+              //   情况下文字都精确垂直居中于 28px 内
+              className="flex h-7 shrink-0 items-center px-3 text-xs leading-none text-muted-foreground"
             >
               {t('tools.text_editor.no_open_editors')}
             </div>
@@ -409,16 +409,16 @@ export function EditorTabsBar({
                           }
                         }}
                         className={cn(
-                          // 顶部 2px 主色条:激活时显示,与 VSCode 当前 Tab 顶条一致
+                          // 底部 3px 主色条:激活时显示,与 VSCode 当前 Tab 底条一致
                           // shrink-0 + min-w-[120px]:Tab 数量多时不被压缩到几乎不可见,
                           // 让 Viewport 触发横向滚动
-                          // h-9(36px)显式高度:点击区域覆盖整个标题栏高度,与
+                          // h-7(28px)显式高度:点击区域覆盖整个标题栏高度,与
                           // ScrollArea Root 等高,用户点击标签顶部到底部都是热区
-                          // items-center 让文字 / 圆点 / 关闭按钮在 36px 内垂直居中
-                          'group relative flex h-9 shrink-0 min-w-[120px] max-w-52 cursor-pointer select-none items-center gap-1.5 border-r border-border px-3 text-xs',
+                          // items-center 让文字 / 圆点 / 关闭按钮在 28px 内垂直居中
+                          'group relative flex h-7 shrink-0 min-w-[120px] max-w-52 cursor-pointer select-none items-center gap-1.5 border-r border-border px-3 text-xs',
                           active
-                            ? 'border-t-2 border-t-primary bg-card text-foreground'
-                            : 'border-t-2 border-t-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                            ? 'border-b-[3px] border-b-primary bg-card text-foreground'
+                            : 'border-b-[3px] border-b-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground',
                           // 拖拽中的 Tab 半透明(仿 VSCode 拖起效果)
                           dragId === tab.id && 'opacity-40',
                         )}
@@ -516,10 +516,10 @@ export function EditorTabsBar({
                     }}
                     title={label}
                     className={cn(
-                      'group relative flex h-9 shrink-0 min-w-[120px] max-w-52 cursor-pointer select-none items-center gap-1.5 border-r border-border px-3 text-xs',
+                      'group relative flex h-7 shrink-0 min-w-[120px] max-w-52 cursor-pointer select-none items-center gap-1.5 border-r border-border px-3 text-xs',
                       active
-                        ? 'border-t-2 border-t-primary bg-card text-foreground'
-                        : 'border-t-2 border-t-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                        ? 'border-b-[3px] border-b-primary bg-card text-foreground'
+                      : 'border-b-[3px] border-b-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground',
                     )}
                   >
                     <GitCompareArrows

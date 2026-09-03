@@ -7,6 +7,8 @@
   "tools.qrcode_tool.input_title": "Text",
   "tools.qrcode_tool.input_placeholder": "Enter text or a link to encode",
   "tools.qrcode_tool.preview_title": "QR Code",
+  "tools.qrcode_tool.export_png": "Export PNG",
+  "tools.qrcode_tool.export_svg": "Export SVG",
   "tools.qrcode_tool.preview_alt": "Generated QR code",
   "tools.qrcode_tool.preview_empty": "Type text to generate automatically",
   "tools.qrcode_tool.scan_title": "QR Code Image",

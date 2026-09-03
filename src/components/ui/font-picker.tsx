@@ -200,7 +200,7 @@ export function FontPicker({
           aria-expanded={open}
           aria-label={ariaLabel}
           className={cn(
-            'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm',
+            'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-foreground/15 bg-muted/40 px-3 py-2 text-sm',
             'ring-offset-background placeholder:text-muted-foreground',
             'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
             'disabled:cursor-not-allowed disabled:opacity-50',

@@ -78,7 +78,8 @@ export type QuickPickGroup = {
 
 type QuickPickDialogProps = {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  /** 缺省时仅由 open 控制器决定开关;受控场景(命令面板)传入以响应 Esc/遮罩 */
+  onOpenChange?: (open: boolean) => void;
   /** sr-only DialogTitle(无障碍) */
   title: string;
   /** sr-only DialogDescription(无障碍) */
@@ -114,7 +115,7 @@ type QuickPickDialogProps = {
   footerCountTestId?: string;
   /** 追加结果后保持键盘选中位置;未传则结果变化时清除选中 */
   preserveSelectionOnChange?: boolean;
-} & DialogProps;
+} & Omit<DialogProps, 'onOpenChange'>;
 
 /** 统一行渲染:打勾列(占位对齐) + 前导图标 + 主文本[+次行] + 右侧尾随(ml-auto) */
 function QuickPickRow({ item }: { item: QuickPickItem }): React.JSX.Element {
@@ -261,7 +262,10 @@ const QuickPickDialog = ({
   }, [value, groupsKey]);
   const renderGroups = (): React.JSX.Element[] =>
     groups.map((g) => (
-      <CommandGroup key={g.key ?? g.heading ?? ''} heading={g.heading}>
+      <CommandGroup
+        key={g.key ?? (typeof g.heading === 'string' ? g.heading : undefined) ?? ''}
+        heading={g.heading}
+      >
         {g.items.map((item) => (
           <QuickPickRow key={item.key} item={item} />
         ))}

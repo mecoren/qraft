@@ -25,12 +25,14 @@
   "tools.json_minifier.input_title": "输入",
   "tools.json_minifier.output_title": "输出",
   "tools.json_minifier.stat_chars": "字符",
+  "tools.json_minifier.stat_chars_no_spaces": "去空白字符",
   "tools.json_minifier.stat_words": "单词",
   "tools.json_minifier.stat_lines": "行",
   "tools.json_minifier.stat_bytes": "字节",
   "tools.json_minifier.stat_sentences": "句子",
   "tools.json_minifier.stat_paragraphs": "段落",
-  "tools.json_minifier.stats_tooltip": "字符 {{chars}} · 单词 {{words}} · 行 {{lines}} · 字节 {{bytes}} · 句子 {{sentences}} · 段落 {{paragraphs}}",
+  "tools.json_minifier.stats_tooltip": "字符 {{chars}} · 去空白字符 {{charsNoSpaces}} · 单词 {{words}} · 行 {{lines}} · 字节 {{bytes}} · 句子 {{sentences}} · 段落 {{paragraphs}}",
+  "tools.json_minifier.copy_stats": "复制统计",
   "tools.json_minifier.toast_no_change": "{{label}}:文本无需转换",
   "tools.json_minifier.toast_failed": "{{label}}失败:{{message}}"
 }

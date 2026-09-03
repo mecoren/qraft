@@ -81,9 +81,6 @@ registerTool('certificate_decoder', () =>
 );
 registerTool('gzip_codec', () => import('./GzipCodec').then((m) => ({ default: m.GzipCodec })));
 registerTool('html_codec', () => import('./HtmlCodec').then((m) => ({ default: m.HtmlCodec })));
-registerTool('jsonpath_tester', () =>
-  import('./JsonPathTester').then((m) => ({ default: m.JsonPathTester })),
-);
 registerTool('xml_xsd_tester', () =>
   import('./XmlXsdTester').then((m) => ({ default: m.XmlXsdTester })),
 );
@@ -129,9 +126,6 @@ registerTool('text_compare', () =>
 );
 registerTool('duplicate_detector', () =>
   import('./DuplicateDetector').then((m) => ({ default: m.DuplicateDetector })),
-);
-registerTool('text_statistics', () =>
-  import('./TextStatistics').then((m) => ({ default: m.TextStatistics })),
 );
 registerTool('ulid_generator', () =>
   import('./UlidGenerator').then((m) => ({ default: m.UlidGenerator })),

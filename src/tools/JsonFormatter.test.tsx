@@ -546,4 +546,46 @@ describe('JsonFormatter', () => {
     fireEvent.click(screen.getByTestId('view-tree'));
     expect(screen.getByText(/当前输出不是有效的 JSON \/ XML/)).toBeInTheDocument();
   });
+
+  // —— JSONPath 查询视图(原独立 JSONPath 测试器并入)——
+  const getJsonPathResult = (): string =>
+    screen.getByTestId('jsonpath-result').querySelector('textarea')!.value;
+
+  it('queries the input document live in the JSONPath view', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), {
+      target: { value: '{"store":{"book":[{"author":"Nigel"},{"author":"Erik"}]}}' },
+    });
+    fireEvent.click(screen.getByTestId('view-jsonpath'));
+    expect(screen.getByTestId('jsonpath-expr')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('jsonpath-expr'), {
+      target: { value: '$.store.book[*].author' },
+    });
+    await waitFor(() => {
+      expect(getJsonPathResult()).toBe('[\n  "Nigel",\n  "Erik"\n]');
+    });
+  });
+
+  it('shows an error message in the JSONPath result for an invalid expression', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: '{"a":1}' } });
+    fireEvent.click(screen.getByTestId('view-jsonpath'));
+    fireEvent.change(screen.getByTestId('jsonpath-expr'), {
+      target: { value: '$[?(@.a > )]' },
+    });
+    await waitFor(() => {
+      expect(getJsonPathResult()).toMatch(/JSONPath 表达式错误/);
+    });
+  });
+
+  it('shows a parse error in the JSONPath result when the input is not valid JSON', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: '{bad json}' } });
+    fireEvent.click(screen.getByTestId('view-jsonpath'));
+    fireEvent.change(screen.getByTestId('jsonpath-expr'), { target: { value: '$.a' } });
+    await waitFor(() => {
+      expect(getJsonPathResult()).toMatch(/解析失败/);
+    });
+  });
 });

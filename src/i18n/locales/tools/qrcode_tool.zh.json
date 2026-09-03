@@ -7,6 +7,8 @@
   "tools.qrcode_tool.input_title": "文本",
   "tools.qrcode_tool.input_placeholder": "输入要编码的文本或链接",
   "tools.qrcode_tool.preview_title": "二维码",
+  "tools.qrcode_tool.export_png": "导出 PNG",
+  "tools.qrcode_tool.export_svg": "导出 SVG",
   "tools.qrcode_tool.preview_alt": "生成的二维码",
   "tools.qrcode_tool.preview_empty": "输入文本后自动生成",
   "tools.qrcode_tool.scan_title": "二维码图片",

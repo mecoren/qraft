@@ -13,6 +13,7 @@
  * v0.1.5 内容基于 git log(v0.1.2 标签之后至 2026-08-27)提炼,
  * v0.2.0 内容基于 git log(v0.1.5 标签之后至 2026-08-28)提炼,
  * v0.2.2 内容基于 git log(v0.2.0 标签之后至 2026-08-29)提炼,
+ * v0.2.5 内容基于 git log 与工作区改动(v0.2.2 标签之后至 2026-09-03)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -41,6 +42,107 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.2.5',
+    date: '2026-09-03',
+    summary: {
+      zh: '正则测试工具重构增强、文本比较与 Markdown 预览多 Tab 工作区、JSONPath 与文本统计合并、二维码解码与导出,以及编辑器与输入控件体验优化',
+      en: 'Rebuilt regex tester, multi-tab workspaces for text compare and Markdown preview, merged JSONPath and text statistics, QR decode and export, plus editor and input-control polish',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: '正则测试工具重构增强:新增 Rust 后端(regex_lab)一次调用返回 匹配/解释/替换/分组/耗时 全量数据;界面改为主区三栏布局(编辑器 | 模式工作区 | 解释+快速参考),新增逐 token 解释树、可搜索并点击插入的快速参考、匹配条目 hover 与编辑器选区联动,支持正则单元测试(用例集一键运行)与代码生成',
+          en: 'Rebuilt regex tester with a Rust backend (regex_lab) that returns match/explain/replace/group/timing in one call; the UI becomes a three-pane layout (editor | mode workspace | explain+quick reference), adding a per-token explain tree, a searchable click-to-insert quick reference, matcher/editor hover-selection linking, regex unit tests (one-click case runs) and code generation',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '文本比较与 Markdown 预览多 Tab 化:二者工作区对齐 JSON 格式化器多文档 Tab 栏,支持文档增删/固定与持久化、激活 Tab 自动滚入视野、悬浮横向滚动条、关闭确认小 Popover 与键盘导航,多文档间互相独立',
+          en: 'Text compare and Markdown preview gain multi-tab document workspaces modeled on the JSON formatter: add/remove/pin/persist docs, active-tab auto-scroll-into-view, floating horizontal scrollbar, popover close confirmation and keyboard navigation',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: 'JSON 格式化器整合 JSONPath 查询:新增 文本/树/JSONPath 三视图,提供表达式输入、结果展示与复制,删除独立的 JSONPath 测试工具;并新增转义/去除转义功能',
+          en: 'JSONPath querying integrated into the JSON formatter with a text/tree/JSONPath view switcher (expression input, results and copy); the standalone JSONPath tester was removed; escape/unescape transforms were added',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '文本处理工具合并文本统计:编辑器底栏新增去空白字符指标与一键复制统计汇总,删除独立文本统计工具;并新增去除转义功能',
+          en: 'Text statistics merged into the text processor: the editor bottom bar adds a chars-no-spaces metric and a copy-stats action, replacing the standalone text statistics tool; an unescape transform was added',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '二维码工具新增解码与导出:可粘贴/打开二维码图片解析内容并复制,支持 PNG / SVG 格式下载导出',
+          en: 'QR code tool adds decoding and export: paste or open an image to decode and copy its content, and download the QR as PNG or SVG',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '全局及编辑器内链接可点击处理:气泡/提示内的链接可直接点击打开',
+          en: 'Clickable links across the app and inside the editor: links in tooltips and inline hints open directly',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '输入控件视觉增强:输入框/多行/下拉/字体选择器统一提升边框对比度与背景层级,解决弱对比下难以分辨的问题',
+          en: 'Enhanced input control visuals: input/textarea/select/font picker raise border contrast and background distinction so controls stay clearly visible',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复编辑器切换文件时 Monaco "Unbound disposable" 上下文导致的渲染错误',
+          en: 'Fixed a Monaco "Unbound disposable" context render error when switching editor files',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复全局搜索文本模式的专属无障碍描述;保留 codicon 图标资源防止构建误删导致图标缺失',
+          en: 'Fixed a dedicated accessibility label for search text mode; preserved codicon icon assets so builds no longer drop them and break icons',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '命令面板与编辑器语言选择器统一重构为 QuickPick 组件,统一弹出的命令对话框弹层并优化交互体验',
+          en: 'Command palette and the editor language picker were unified onto a shared QuickPick component, consolidating the command dialog and improving interaction',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '标题栏布局调整:品牌居左、工具名居中;窗口控制图标重绘为 Windows 11 风格;统一 title 提示与查找组件浮层样式',
+          en: 'Titlebar layout adjusted: brand left, tool name centered; window control icons redrawn in a Windows 11 style; unified title tooltips and find-widget overlay styling',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '侧边栏固定的文本编辑器支持在新窗口打开;多个工具(CodeEditor 标题栏等)固定高度与输入控件样式进一步统一',
+          en: 'The pinned text editor in the sidebar can open in a new window; CodeEditor title-bar heights and input-control styles were further unified across tools',
+        },
+      },
+      {
+        category: 'chore',
+        description: {
+          zh: '新增 Rust regex_lab 模块(匹配/解释/替换/单测/代码生成/调试)并配套 IPC 命令与单测',
+          en: 'Added the Rust regex_lab module (match/explain/replace/tests/codegen/debug) with IPC commands and unit tests',
+        },
+      },
+    ],
+  },
   {
     version: '0.2.2',
     date: '2026-08-29',

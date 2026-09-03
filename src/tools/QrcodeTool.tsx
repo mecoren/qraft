@@ -11,9 +11,13 @@ import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 import { Download, FolderOpen, QrCode as QrIcon, ScanLine } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodeEditor } from '@/components/ui/code-editor';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CopyAction } from '@/components/copy-action';
 import { downloadBlob, downloadText, readFileAsDataUrl } from '@/lib/file-utils';
@@ -140,129 +144,164 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
           </TabsTrigger>
         </TabsList>
 
-        {/* 生成 */}
-        <TabsContent value="generate" className="mt-0 flex min-h-0 flex-1 gap-3 p-3">
-          <CodeEditor
-            title={t('tools.qrcode_tool.input_title')}
-            language="plaintext"
-            value={text}
-            onChange={setText}
-            placeholder={t('tools.qrcode_tool.input_placeholder')}
-            data-testid="qr-text"
-            className="min-h-0 flex-1"
-            searchAnchor="qrcode_tool:input"
-          />
-          {/* 预览板宽度取 min(320px, 38%):宽窗口维持 320px 舒适尺寸,
-              窄窗口(800px 最小宽 + 侧栏展开)按比例收缩,避免左侧编辑器被挤到不可用;
-              min-w 保证二维码预览的可用下限,极端情况下允许横向滚动 */}
-          <div
-            className="flex w-[min(20rem,38%)] min-w-44 flex-col gap-2"
-            data-search-anchor="qrcode_tool:image"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-body-sm font-semibold">{t('tools.qrcode_tool.preview_title')}</h2>
-              <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  data-testid="qr-export-png"
-                  disabled={!qrDataUrl}
-                  onClick={() => void exportPng()}
-                >
-                  <Download aria-hidden className="size-3.5" /> PNG
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  data-testid="qr-export-svg"
-                  disabled={!qrDataUrl}
-                  onClick={() => void exportSvg()}
-                >
-                  <Download aria-hidden className="size-3.5" /> SVG
-                </Button>
+        {/* 生成:参考文本比较器(TextDiffView)的双编辑框布局 —— 并排可拖动宽度,
+            左右标题栏同高(26px),二维码预览面板把「下载 PNG/SVG」收进标题栏动作区 */}
+        <TabsContent value="generate" className="mt-0 flex min-h-0 flex-1 p-0">
+          <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+            <ResizablePanel defaultSize={50} minSize={25} className="min-h-0 min-w-0">
+              <CodeEditor
+                title={t('tools.qrcode_tool.input_title')}
+                language="plaintext"
+                value={text}
+                onChange={setText}
+                placeholder={t('tools.qrcode_tool.input_placeholder')}
+                data-testid="qr-text"
+                className="h-full rounded-none border-0 border-r"
+                searchAnchor="qrcode_tool:input"
+              />
+            </ResizablePanel>
+
+            <ResizableHandle withHandle />
+
+            <ResizablePanel defaultSize={50} minSize={25} className="min-h-0 min-w-0">
+              {/* 预览面板:与左侧编辑器同高同构的「编辑框」,边框对称(只留左侧朝向分隔缝) */}
+              <div
+                className="flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 border-l"
+                data-search-anchor="qrcode_tool:image"
+              >
+                {/* 标题栏:与 CodeEditor 标题栏同高(26px)、同排版,PNG/SVG 下载放动作区 */}
+                <div className="flex h-[26px] min-w-0 items-center justify-between gap-x-2 border-b border-input px-2">
+                  <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground">
+                    {t('tools.qrcode_tool.preview_title')}
+                  </span>
+                  <span className="flex h-[26px] shrink-0 items-center gap-0.5">
+                    <button
+                      type="button"
+                      data-testid="qr-export-png"
+                      title={t('tools.qrcode_tool.export_png')}
+                      aria-label={t('tools.qrcode_tool.export_png')}
+                      disabled={!qrDataUrl}
+                      onClick={() => void exportPng()}
+                      className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      <Download aria-hidden className="size-3.5" /> PNG
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="qr-export-svg"
+                      title={t('tools.qrcode_tool.export_svg')}
+                      aria-label={t('tools.qrcode_tool.export_svg')}
+                      disabled={!qrDataUrl}
+                      onClick={() => void exportSvg()}
+                      className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      <Download aria-hidden className="size-3.5" /> SVG
+                    </button>
+                  </span>
+                </div>
+                <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-b-md p-4">
+                  {qrDataUrl ? (
+                    <img
+                      src={qrDataUrl}
+                      alt={t('tools.qrcode_tool.preview_alt')}
+                      data-testid="qr-preview"
+                      className="max-h-full max-w-full rounded bg-white p-1"
+                    />
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {t('tools.qrcode_tool.preview_empty')}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="flex min-h-0 flex-1 items-center justify-center rounded-md border border-border bg-card p-4">
-              {qrDataUrl ? (
-                <img
-                  src={qrDataUrl}
-                  alt={t('tools.qrcode_tool.preview_alt')}
-                  data-testid="qr-preview"
-                  className="max-h-full max-w-full rounded bg-white p-1"
-                />
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  {t('tools.qrcode_tool.preview_empty')}
-                </p>
-              )}
-            </div>
-          </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
         </TabsContent>
 
-        {/* 读取 */}
-        <TabsContent value="scan" className="mt-0 flex min-h-0 flex-1 gap-3 p-3">
-          <div className="flex min-h-0 flex-1 flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-body-sm font-semibold">{t('tools.qrcode_tool.scan_title')}</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                data-testid="qr-open"
-                onClick={() => fileRef.current?.click()}
+        {/* 读取:与「生成」页签同构 —— 可拖动双栏 + 标题栏同高(26px)的编辑框,
+            左侧图片预览「编辑框」标题栏动作区放「选择图片」 */}
+        <TabsContent value="scan" className="mt-0 flex min-h-0 flex-1 p-0">
+          <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+            <ResizablePanel defaultSize={50} minSize={25} className="min-h-0 min-w-0">
+              {/* 图片预览「编辑框」:与右侧识别结果编辑器同高同构,边框对称(只留右缘朝向分隔缝) */}
+              <div
+                className="flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 border-r"
+                data-search-anchor="qrcode_tool:image"
               >
-                <FolderOpen aria-hidden className="size-3.5" />{' '}
-                {t('tools.qrcode_tool.choose_image')}
-              </Button>
-            </div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              data-testid="qr-file"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void scanFile(file);
-                e.target.value = '';
-              }}
-            />
-            <ScrollArea
-              data-testid="qr-dropzone"
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={onDrop}
-              className={`min-h-0 flex-1 rounded-md border ${
-                dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
-              } transition-colors`}
-            >
-              <div className="flex h-full min-h-full items-center justify-center p-4">
-                {scanPreview ? (
-                  <img
-                    src={scanPreview}
-                    alt={t('tools.qrcode_tool.scan_preview_alt')}
-                    className="max-h-full max-w-full object-contain"
-                  />
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    {t('tools.qrcode_tool.dropzone_hint')}
-                  </p>
-                )}
+                <div className="flex h-[26px] min-w-0 items-center justify-between gap-x-2 border-b border-input px-2">
+                  <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground">
+                    {t('tools.qrcode_tool.scan_title')}
+                  </span>
+                  <span className="flex h-[26px] shrink-0 items-center">
+                    <button
+                      type="button"
+                      data-testid="qr-open"
+                      title={t('tools.qrcode_tool.choose_image')}
+                      aria-label={t('tools.qrcode_tool.choose_image')}
+                      onClick={() => fileRef.current?.click()}
+                      className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <FolderOpen aria-hidden className="size-3.5" />{' '}
+                      {t('tools.qrcode_tool.choose_image')}
+                    </button>
+                  </span>
+                </div>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  data-testid="qr-file"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void scanFile(file);
+                    e.target.value = '';
+                  }}
+                />
+                <ScrollArea
+                  data-testid="qr-dropzone"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={onDrop}
+                  className={`min-h-0 flex-1 rounded-none border-0 ${
+                    dragOver ? 'bg-primary/5' : ''
+                  } transition-colors`}
+                >
+                  <div className="flex h-full min-h-full items-center justify-center p-4">
+                    {scanPreview ? (
+                      <img
+                        src={scanPreview}
+                        alt={t('tools.qrcode_tool.scan_preview_alt')}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {t('tools.qrcode_tool.dropzone_hint')}
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
               </div>
-            </ScrollArea>
-          </div>
-          <CodeEditor
-            title={t('tools.qrcode_tool.result_title')}
-            language="plaintext"
-            value={decoded}
-            readOnly
-            data-testid="qr-decoded"
-            className="min-h-0 flex-1"
-            searchAnchor="qrcode_tool:output"
-            actions={<CopyAction text={decoded} testId="qr-copy" />}
-          />
+            </ResizablePanel>
+
+            <ResizableHandle withHandle />
+
+            <ResizablePanel defaultSize={50} minSize={25} className="min-h-0 min-w-0">
+              <CodeEditor
+                title={t('tools.qrcode_tool.result_title')}
+                language="plaintext"
+                value={decoded}
+                readOnly
+                data-testid="qr-decoded"
+                className="h-full rounded-none border-0 border-l"
+                searchAnchor="qrcode_tool:output"
+                actions={<CopyAction text={decoded} testId="qr-copy" />}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
         </TabsContent>
       </Tabs>
     </div>

@@ -30,7 +30,7 @@
 | 分类 | 工具 |
 |------|------|
 | 编解码 | Base64、JWT 解析、URL 编码、GZip、HTML 实体、证书解码、Basic Auth 生成 |
-| 测试工具 | 正则表达式、JSONPath、XML/XSD 校验 |
+| 测试工具 | 正则表达式、XML/XSD 校验 |
 | 格式化 | JSON 格式化（含压缩/树视图/JSONPath）、SQL、XML |
 | 生成器 | UUID、ULID、哈希/校验和（MD5~SHA-512）、密码、乱数假文、二维码 |
 | 图像处理 | 图片格式转换、PNG 压缩、色盲模拟 |

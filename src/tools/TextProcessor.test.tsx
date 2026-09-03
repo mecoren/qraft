@@ -7,6 +7,7 @@ import {
   TextProcessor,
   chineseSymbolToEnglish,
   chineseToUnicode,
+  computeStats,
   escapeText,
   stripWhitespace,
   unicodeToChinese,
@@ -89,6 +90,12 @@ vi.mock('@/components/ui/resizable', () => ({
   ResizableHandle: () => <div data-testid="resizable-handle" />,
 }));
 
+// 复制统计测试:拦截 copyTextWithFeedback,避免依赖 jsdom 剪贴板
+const { copySpy } = vi.hoisted(() => ({ copySpy: vi.fn() }));
+vi.mock('@/lib/toast-alert', () => ({
+  copyTextWithFeedback: (text: string) => copySpy(text),
+}));
+
 describe('TextProcessor utilities', () => {
   it('escapeText handles common control characters', () => {
     expect(escapeText('a\nb\tc"d\\e')).toBe('a\\nb\\tc\\"d\\\\e');
@@ -156,6 +163,35 @@ function withinGroup(groupTestId: string, btnTestId: string): boolean {
   const group = screen.getByTestId(groupTestId);
   return Boolean(group.querySelector(`[data-testid="${btnTestId}"]`));
 }
+
+describe('computeStats', () => {
+  it('统计字符/去空白字符/单词/行/字节,且按 Unicode 码点计数', () => {
+    const s = computeStats('hello 世界\nfoo bar');
+    expect(s.chars).toBe(16);
+    expect(s.charsNoSpaces).toBe(13);
+    expect(s.words).toBe(4);
+    expect(s.lines).toBe(2);
+    expect(s.bytes).toBe(5 + 1 + 6 + 1 + 3 + 1 + 3);
+  });
+
+  it('emoji 按码点计数:chars 与 charsNoSpaces 都只算 1 个', () => {
+    const s = computeStats('a 😀 b');
+    expect(s.chars).toBe(5);
+    expect(s.charsNoSpaces).toBe(3);
+  });
+
+  it('空输入返回全零统计', () => {
+    expect(computeStats('')).toEqual({
+      chars: 0,
+      charsNoSpaces: 0,
+      words: 0,
+      lines: 0,
+      bytes: 0,
+      sentences: 0,
+      paragraphs: 0,
+    });
+  });
+});
 
 describe('TextProcessor component', () => {
   const getInput = (): HTMLTextAreaElement =>
@@ -370,6 +406,54 @@ describe('TextProcessor component', () => {
     expect(
       within(screen.getByTestId('output-status')).getByTestId('textproc-stat-chars').textContent,
     ).toBe(String(Array.from(encoded).length));
+  });
+
+  it('shows the chars-no-spaces metric in both status bars', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'hello 世界' } });
+    // 'hello 世界' 共 8 个码点,空白 1 个 → 去空白字符 7
+    expect(
+      within(screen.getByTestId('input-status')).getByTestId('textproc-stat-chars-no-spaces')
+        .textContent,
+    ).toBe('7');
+    // 输出为空时去空白字符为 0
+    expect(
+      within(screen.getByTestId('output-status')).getByTestId('textproc-stat-chars-no-spaces')
+        .textContent,
+    ).toBe('0');
+  });
+
+  it('copy button writes the stats summary to the clipboard', () => {
+    copySpy.mockClear();
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'hello world' } });
+    fireEvent.click(
+      within(screen.getByTestId('input-status')).getByTestId('textproc-stats-copy'),
+    );
+    expect(copySpy).toHaveBeenCalledTimes(1);
+    const summary = copySpy.mock.calls[0][0] as string;
+    // 汇总为逐行「标签: 数值」格式
+    expect(summary).toContain('字符: 11');
+    expect(summary).toContain('去空白字符: 10');
+    expect(summary).toContain('单词: 2');
+    expect(summary).toContain('行: 1');
+    expect(summary).toContain('字节: 11');
+    expect(summary).toContain('句子: 0');
+    expect(summary).toContain('段落: 1');
+  });
+
+  it('output status bar has its own copy button reflecting output stats', () => {
+    copySpy.mockClear();
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'a b' } });
+    fireEvent.click(screen.getByTestId('textproc-btn-stripWhitespace'));
+    fireEvent.click(
+      within(screen.getByTestId('output-status')).getByTestId('textproc-stats-copy'),
+    );
+    const summary = copySpy.mock.calls[0][0] as string;
+    // 去空格后输出为 'ab':字符 2、去空白字符 2
+    expect(summary).toContain('字符: 2');
+    expect(summary).toContain('去空白字符: 2');
   });
 
   it('renders a status bar at the bottom of each editor showing line/column', () => {

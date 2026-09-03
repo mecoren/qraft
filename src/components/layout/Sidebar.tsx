@@ -422,7 +422,7 @@ export function Sidebar(): JSX.Element {
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('chrome.sidebar.search_placeholder')}
             aria-label={t('chrome.sidebar.search_label')}
-            className="h-8 border-sidebar-border bg-background pl-8 text-sm focus-visible:ring-2 focus-visible:ring-sidebar-ring/60"
+            className="h-8 pl-8 text-sm focus-visible:ring-sidebar-ring"
           />
         </div>
       </div>

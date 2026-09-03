@@ -265,12 +265,16 @@ describe('MarkdownPreview', () => {
     // 切回第一个 Tab:编辑器展示示例文档内容(重挂载生效)
     fireEvent.click(screen.getAllByTestId('md-doc-tab')[0]);
     await waitFor(() =>
-      expect(screen.getByTestId('md-input-textarea').value).toContain('# Qraft'),
+      expect((screen.getByTestId('md-input-textarea') as HTMLTextAreaElement).value).toContain(
+        '# Qraft',
+      ),
     );
     // 再切到第二个 Tab:内容隔离
     fireEvent.click(screen.getAllByTestId('md-doc-tab')[1]);
     await waitFor(() =>
-      expect(screen.getByTestId('md-input-textarea').value).toBe('# Second Doc'),
+      expect((screen.getByTestId('md-input-textarea') as HTMLTextAreaElement).value).toBe(
+        '# Second Doc',
+      ),
     );
   });
 

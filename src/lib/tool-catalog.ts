@@ -38,12 +38,10 @@ import {
   ListChecks,
   Network,
   Paintbrush,
-  Parentheses,
   Puzzle,
   QrCode,
   Regex,
   Settings,
-  Sigma,
   Table,
   Type,
   Wand2,
@@ -206,14 +204,6 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
   },
   // —— 测试工具 ——
   {
-    id: 'jsonpath_tester',
-    name: 'JSONPath 测试器',
-    description: '测试 JSONPath',
-    category: 'tester',
-    icon: Parentheses,
-    keywords: ['jsonpath', 'json', '查询'],
-  },
-  {
     id: 'regex_tester',
     name: '正则表达式测试工具',
     description: '验证和测试正则表达式',
@@ -235,10 +225,11 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
   {
     id: 'json_formatter',
     name: 'JSON 格式化器',
-    description: '格式化、压缩、排序 JSON,生成 TypeScript 实体类,并支持 XML 自动转 JSON',
+    description:
+      '格式化、压缩、排序 JSON,生成 TypeScript 实体类,JSONPath 查询,并支持 XML 自动转 JSON',
     category: 'formatter',
     icon: Braces,
-    keywords: ['json', 'format', 'beautify', 'minify', '排序', '实体类', 'xml'],
+    keywords: ['json', 'format', 'beautify', 'minify', '排序', '实体类', 'jsonpath', '查询', 'xml'],
     backendId: 'json_formatter',
   },
   // 原 json_minifier 槽位已改造为纯前端文本处理工具(详见 TextProcessor.tsx)。
@@ -396,14 +387,6 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'text',
     icon: ListChecks,
     keywords: ['duplicate', 'dedupe', '去重', '重复行', 'unique', '重复'],
-  },
-  {
-    id: 'text_statistics',
-    name: '文本统计',
-    description: '统计字符、词数、行数与 UTF-8 字节数',
-    category: 'text',
-    icon: Sigma,
-    keywords: ['word count', '字数统计', 'lines', 'bytes', '统计'],
   },
   {
     id: 'folder_analyzer',
@@ -571,7 +554,6 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
     name: 'Basic Auth Generator',
     description: 'Build an Authorization header from a username and password (UTF-8 safe)',
   },
-  jsonpath_tester: { name: 'JSONPath Tester', description: 'Test JSONPath expressions' },
   regex_tester: { name: 'Regex Tester', description: 'Validate and test regular expressions' },
   xml_xsd_tester: {
     name: 'XML / XSD Tester',
@@ -580,7 +562,7 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
   json_formatter: {
     name: 'JSON Formatter',
     description:
-      'Format, minify and sort JSON, generate TypeScript entities, with automatic XML → JSON conversion',
+      'Format, minify and sort JSON, generate TypeScript entities, run JSONPath queries, with automatic XML → JSON conversion',
   },
   json_minifier: {
     name: 'Text Utilities',
@@ -624,10 +606,6 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
   duplicate_detector: {
     name: 'Duplicate Line Detector',
     description: 'Find duplicate lines and deduplicate with strategies',
-  },
-  text_statistics: {
-    name: 'Text Statistics',
-    description: 'Count characters, words, lines and UTF-8 bytes',
   },
   folder_analyzer: {
     name: 'Folder Analyzer',

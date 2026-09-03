@@ -304,7 +304,7 @@ function ToolbarButton({
       title={label}
       aria-label={label}
       onClick={onClick}
-      className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {children}
     </button>
@@ -669,11 +669,14 @@ export function CodeEditor({
         // - min-w-0:让子项的 truncate 在 flex 容器中真正生效(默认 min-width: auto 会让
         //   truncate 失效,文字会把容器撑爆溢出)
         // - shrink-0 在右侧动作区:保证"粘贴/打开/清除"按钮永远不被挤压消失
-        <div className="flex min-w-0 items-center justify-between gap-x-2 border-b border-input px-2 py-0.5">
+        // 高度用固定 26px 而非 py-0.5 自适应:左右双栏编辑器若一侧纯文字、
+        // 一侧带 py-1 文案按钮,内容自适应会在两侧产生 24px vs 40px 高度差;
+        // 固定高度让"左右并排"的标题栏恒等高(配合紧凑观感,不高于 26px)
+        <div className="flex h-[26px] min-w-0 items-center justify-between gap-x-2 border-b border-input px-2">
           <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground">
             {header ?? title}
           </span>
-          <span className="flex shrink-0 items-center">
+          <span className="flex h-full shrink-0 items-center">
             {!readOnly && showPaste && (
               <ToolbarButton
                 label={t('chrome.code_editor.paste')}

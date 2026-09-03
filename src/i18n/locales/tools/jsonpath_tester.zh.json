@@ -1,7 +1,0 @@
-{
-  "tools.jsonpath_tester.parse_failed": "JSON 解析失败: {{message}}",
-  "tools.jsonpath_tester.expression_error": "JSONPath 表达式错误: {{message}}",
-  "tools.jsonpath_tester.expression_title": "JSONPath 表达式",
-  "tools.jsonpath_tester.input_json_title": "输入 JSON",
-  "tools.jsonpath_tester.result_title": "测试结果"
-}

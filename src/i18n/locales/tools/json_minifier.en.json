@@ -25,12 +25,14 @@
   "tools.json_minifier.input_title": "Input",
   "tools.json_minifier.output_title": "Output",
   "tools.json_minifier.stat_chars": "chars",
+  "tools.json_minifier.stat_chars_no_spaces": "chars (no spaces)",
   "tools.json_minifier.stat_words": "words",
   "tools.json_minifier.stat_lines": "lines",
   "tools.json_minifier.stat_bytes": "bytes",
   "tools.json_minifier.stat_sentences": "sentences",
   "tools.json_minifier.stat_paragraphs": "paragraphs",
-  "tools.json_minifier.stats_tooltip": "Chars {{chars}} · Words {{words}} · Lines {{lines}} · Bytes {{bytes}} · Sentences {{sentences}} · Paragraphs {{paragraphs}}",
+  "tools.json_minifier.stats_tooltip": "Chars {{chars}} · Chars (no spaces) {{charsNoSpaces}} · Words {{words}} · Lines {{lines}} · Bytes {{bytes}} · Sentences {{sentences}} · Paragraphs {{paragraphs}}",
+  "tools.json_minifier.copy_stats": "Copy stats",
   "tools.json_minifier.toast_no_change": "{{label}}: text needs no transformation",
   "tools.json_minifier.toast_failed": "{{label}} failed: {{message}}"
 }

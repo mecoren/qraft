@@ -122,4 +122,12 @@ describe('en-US 全局走查(切 en-US 扫裸中文)', () => {
     // 仅验证无裸中文
     expectNoBareChinese();
   });
+
+  it('代表工具:正则工作区(实时交互界面 + 快速参考全量 token)', async () => {
+    // RegexTester 的解释面板/快速参考条目曾直接内嵌中文字面量,
+    // 在此纳入走查防止回归(默认渲染含快速参考全部条目)
+    const { RegexTester } = await import('./tools/RegexTester');
+    render(<RegexTester toolId="regex_tester" metadata={null as never} />);
+    expectNoBareChinese();
+  });
 });

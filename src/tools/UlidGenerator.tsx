@@ -4,7 +4,7 @@
  */
 import { useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Fingerprint } from 'lucide-react';
+import { Fingerprint, Play } from 'lucide-react';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection, HeaderAction } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
@@ -65,6 +65,7 @@ export function UlidGenerator({ toolId }: ToolProps): JSX.Element {
         actions={
           <>
             <HeaderAction onClick={() => handleGenerate()}>
+              <Play aria-hidden className="size-3.5" />
               {t('tools.ulid_generator.generate')}
             </HeaderAction>
             {output && <CopyAction text={output} testId="copy-ulid" />}

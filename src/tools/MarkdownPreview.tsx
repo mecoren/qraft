@@ -67,6 +67,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { RenameDialog } from '@/components/RenameDialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -265,7 +266,10 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
   const togglePinDoc = useMdDocsStore((s) => s.togglePinDoc);
   const setDocContent = useMdDocsStore((s) => s.setDocContent);
 
-  const activeDoc = useMemo(() => docs.find((d) => d.id === activeDocId) ?? null, [docs, activeDocId]);
+  const activeDoc = useMemo(
+    () => docs.find((d) => d.id === activeDocId) ?? null,
+    [docs, activeDocId],
+  );
   /** Tab 栏展示顺序:固定 Tab 恒排最前(稳定排序,不改变同组内相对顺序) */
   const sortedDocs = useMemo(
     () =>
@@ -274,6 +278,36 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
         : docs,
     [docs],
   );
+
+  /** Tab 栏滚动容器:指向 ScrollArea 内部 Viewport(div) */
+  const docTabsScrollRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * 激活 Tab 变化时自动滚入视野(对齐 EditorTabsBar / VSCode 行为):
+   * - 激活 Tab 在视口左侧外 → 滚到最左;右侧外 → 滚到最右;视口内 → 不滚动
+   * - Tab 横向溢出时,若切到被挤出视野的 Tab 却不滚动,用户看不到
+   *   任何切换反馈,会以为没切换成功;deps 含 sortedDocs,固定/取消
+   *   固定导致激活 Tab 位置变化时同样滚入视野
+   */
+  useEffect(() => {
+    if (!activeDocId) return;
+    const container = docTabsScrollRef.current;
+    if (!container) return;
+    const active = container.querySelector<HTMLElement>(
+      `[data-doc-id="${CSS.escape(activeDocId)}"]`,
+    );
+    if (!active) return;
+    const cRect = container.getBoundingClientRect();
+    const tRect = active.getBoundingClientRect();
+    if (tRect.left < cRect.left) {
+      container.scrollTo({ left: active.offsetLeft - 8, behavior: 'smooth' });
+    } else if (tRect.right > cRect.right) {
+      container.scrollTo({
+        left: active.offsetLeft + active.offsetWidth - container.clientWidth + 8,
+        behavior: 'smooth',
+      });
+    }
+  }, [activeDocId, sortedDocs]);
 
   const input = activeDoc?.content ?? '';
   const setInput = useCallback(
@@ -757,173 +791,186 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
     >
       {/* —— 多文档 Tab 栏(样式对齐 JsonFormatter doc-tabs:VSCode 风格全高 Tab) —— */}
       <div
-        className="flex h-9 shrink-0 items-stretch overflow-hidden rounded-t-lg border-b border-border bg-background-layer"
+        className="flex h-7 shrink-0 items-stretch overflow-hidden rounded-t-lg border-b border-border bg-background-layer"
         data-testid="md-doc-tabs"
       >
-        <div
-          role="tablist"
-          aria-label={t('tools.markdown_preview.tabs_aria')}
-          // overflow-y-hidden:overflow-x:auto 会把 overflow-y 强制计算为 auto,
-          // Tab(h-9)比容器内容盒高 1px 即触发纵向滚动条(WebView2 经典滚动条
-          // 下在窗口右缘显形为一条竖条),显式 hidden 裁掉这 1px 溢出
-          className="flex h-full min-w-0 flex-1 items-stretch overflow-x-auto overflow-y-hidden"
+        {/* 悬浮横向滚动条(对齐 EditorTabsBar):细滑块(h-1.5)平时完全隐藏,
+            悬浮 Tab 栏时才半透明浮现;绝对定位悬浮于内容之上,不占布局、
+            不遮挡 Tab 文字,滚动条取代原生 overflow-x-auto 粗条 */}
+        <ScrollArea
+          viewportRef={docTabsScrollRef}
+          orientation="horizontal"
+          type="hover"
+          scrollbarClassName="h-1.5 p-0"
+          className="h-full min-w-0 flex-1"
         >
-          {sortedDocs.map((doc) => {
-            const active = doc.id === activeDocId;
-            return (
-              <ContextMenu key={doc.id}>
-                {/* 关闭确认:锚定在 Tab 旁的小 Popover(受控 open 挂 closeTarget,
-                    三条关闭路径——X 按钮/中键/右键菜单——统一落到该 Tab 的确认框) */}
-                <Popover
-                  open={closeTarget?.id === doc.id}
-                  onOpenChange={(o) => {
-                    if (!o) setCloseTarget(null);
-                  }}
-                >
-                  <PopoverTrigger asChild>
-                    <ContextMenuTrigger asChild>
-                      <div
-                        role="tab"
-                        aria-selected={active}
-                        tabIndex={0}
-                        data-testid="md-doc-tab"
-                        data-doc-id={doc.id}
-                        data-pinned={doc.pinned ? 'true' : undefined}
-                        onClick={() => switchDoc(doc.id)}
-                        onKeyDown={(e) => handleTabKeyDown(e, doc.id)}
-                        onMouseDown={(e) => {
-                          // 中键关闭(仿 VSCode):preventDefault 抑制浏览器自动滚动
-                          if (e.button === 1) {
-                            e.preventDefault();
-                            requestCloseDoc(doc.id);
-                          }
-                        }}
-                        className={cn(
-                          'group relative flex h-9 shrink-0 min-w-[120px] max-w-52 cursor-pointer select-none items-center gap-1.5 border-r border-border px-3 text-xs outline-none',
-                          'focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
-                          active
-                            ? 'border-t-2 border-t-primary bg-card text-foreground'
-                            : 'border-t-2 border-t-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground',
-                        )}
-                      >
-                        {/* 固定 Tab 用 Pin 图标替代文档图标(与编辑器 Tab 语义一致) */}
-                        {doc.pinned ? (
-                          <Pin
-                            aria-label={t('tools.markdown_preview.pinned_aria')}
-                            data-testid="md-doc-tab-pin"
-                            className={cn(
-                              'size-3.5 shrink-0',
-                              active ? 'text-primary' : 'text-muted-foreground/70',
-                            )}
-                          />
-                        ) : (
-                          <FileText
-                            aria-hidden
-                            className={cn(
-                              'size-3.5 shrink-0',
-                              active ? 'text-primary' : 'text-muted-foreground/70',
-                            )}
-                          />
-                        )}
-                        <span className="min-w-0 truncate" title={doc.title}>
-                          {doc.title}
-                        </span>
-                        {/* 关闭按钮槽位:悬停 Tab 时在右侧槽位淡入 */}
-                        <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
-                          <button
-                            type="button"
-                            aria-label={t('tools.markdown_preview.close_tab_aria', {
-                              title: doc.title,
-                            })}
-                            title={t('tools.markdown_preview.close')}
-                            data-testid="md-doc-tab-close"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              requestCloseDoc(doc.id);
-                            }}
-                            className="absolute inset-0 z-10 flex items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
-                          >
-                            <X aria-hidden className="size-3" />
-                          </button>
-                        </span>
-                      </div>
-                    </ContextMenuTrigger>
-                  </PopoverTrigger>
-                  {/* 关闭确认内容:与 JsonFormatter 同款小框,锚定 Tab 下方 */}
-                  <PopoverContent
-                    align="start"
-                    side="bottom"
-                    className="w-56 p-3"
-                    data-testid="md-doc-close-dialog"
-                  >
-                    <p className="text-xs font-semibold">
-                      {t('tools.markdown_preview.close_confirm_title', { title: doc.title })}
-                    </p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      {t('tools.markdown_preview.close_confirm_desc')}
-                    </p>
-                    <div className="mt-2.5 flex justify-end gap-1">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2.5 text-xs"
-                        onClick={() => setCloseTarget(null)}
-                        data-testid="md-doc-close-dialog-cancel"
-                      >
-                        {t('tools.markdown_preview.cancel')}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="h-7 px-2.5 text-xs"
-                        onClick={confirmCloseDoc}
-                        data-testid="md-doc-close-dialog-confirm"
-                      >
-                        {t('tools.markdown_preview.close')}
-                      </Button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                {/* Tab 右键菜单:重命名 / 固定 / 关闭 */}
-                <ContextMenuContent className="w-48" data-testid="md-doc-tab-context-menu">
-                  <ContextMenuItem
-                    onSelect={() => setRenameTarget(doc)}
-                    data-testid="ctx-md-doc-rename"
-                  >
-                    {t('tools.markdown_preview.rename')}
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    onSelect={() => togglePinDoc(doc.id)}
-                    data-testid="ctx-md-doc-toggle-pin"
-                  >
-                    {t('tools.markdown_preview.pin')}
-                    {doc.pinned && (
-                      <Pin className="ml-auto size-3.5 text-primary" data-testid="ctx-md-doc-pin-check" />
-                    )}
-                  </ContextMenuItem>
-                  <ContextMenuSeparator />
-                  <ContextMenuItem
-                    onSelect={() => requestCloseDoc(doc.id)}
-                    data-testid="ctx-md-doc-close"
-                  >
-                    {t('tools.markdown_preview.close')}
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
-            );
-          })}
-          <button
-            type="button"
-            data-testid="md-doc-add"
-            title={t('tools.markdown_preview.new_doc')}
-            aria-label={t('tools.markdown_preview.new_doc')}
-            onClick={() => newDoc()}
-            className="flex size-9 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+          <div
+            role="tablist"
+            aria-label={t('tools.markdown_preview.tabs_aria')}
+            // min-w-max:让 Tab 行超出视口宽度,触发 Viewport 横向滚动
+            className="flex h-full min-w-max items-stretch"
           >
-            <Plus aria-hidden className="size-3.5" />
-          </button>
-        </div>
+            {sortedDocs.map((doc) => {
+              const active = doc.id === activeDocId;
+              return (
+                <ContextMenu key={doc.id}>
+                  {/* 关闭确认:锚定在 Tab 旁的小 Popover(受控 open 挂 closeTarget,
+                    三条关闭路径——X 按钮/中键/右键菜单——统一落到该 Tab 的确认框) */}
+                  <Popover
+                    open={closeTarget?.id === doc.id}
+                    onOpenChange={(o) => {
+                      if (!o) setCloseTarget(null);
+                    }}
+                  >
+                    <PopoverTrigger asChild>
+                      <ContextMenuTrigger asChild>
+                        <div
+                          role="tab"
+                          aria-selected={active}
+                          tabIndex={0}
+                          data-testid="md-doc-tab"
+                          data-doc-id={doc.id}
+                          data-pinned={doc.pinned ? 'true' : undefined}
+                          onClick={() => switchDoc(doc.id)}
+                          onKeyDown={(e) => handleTabKeyDown(e, doc.id)}
+                          onMouseDown={(e) => {
+                            // 中键关闭(仿 VSCode):preventDefault 抑制浏览器自动滚动
+                            if (e.button === 1) {
+                              e.preventDefault();
+                              requestCloseDoc(doc.id);
+                            }
+                          }}
+                          className={cn(
+                            'group relative flex h-7 shrink-0 min-w-[120px] max-w-52 cursor-pointer select-none items-center gap-1.5 border-r border-border px-3 text-xs outline-none',
+                            'focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
+                            active
+                              ? 'border-b-[3px] border-b-primary bg-card text-foreground'
+                              : 'border-b-[3px] border-b-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                          )}
+                        >
+                          {/* 固定 Tab 用 Pin 图标替代文档图标(与编辑器 Tab 语义一致) */}
+                          {doc.pinned ? (
+                            <Pin
+                              aria-label={t('tools.markdown_preview.pinned_aria')}
+                              data-testid="md-doc-tab-pin"
+                              className={cn(
+                                'size-3.5 shrink-0',
+                                active ? 'text-primary' : 'text-muted-foreground/70',
+                              )}
+                            />
+                          ) : (
+                            <FileText
+                              aria-hidden
+                              className={cn(
+                                'size-3.5 shrink-0',
+                                active ? 'text-primary' : 'text-muted-foreground/70',
+                              )}
+                            />
+                          )}
+                          <span className="min-w-0 truncate" title={doc.title}>
+                            {doc.title}
+                          </span>
+                          {/* 关闭按钮槽位:悬停 Tab 时在右侧槽位淡入 */}
+                          <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
+                            <button
+                              type="button"
+                              aria-label={t('tools.markdown_preview.close_tab_aria', {
+                                title: doc.title,
+                              })}
+                              title={t('tools.markdown_preview.close')}
+                              data-testid="md-doc-tab-close"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                requestCloseDoc(doc.id);
+                              }}
+                              className="absolute inset-0 z-10 flex items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+                            >
+                              <X aria-hidden className="size-3" />
+                            </button>
+                          </span>
+                        </div>
+                      </ContextMenuTrigger>
+                    </PopoverTrigger>
+                    {/* 关闭确认内容:与 JsonFormatter 同款小框,锚定 Tab 下方 */}
+                    <PopoverContent
+                      align="start"
+                      side="bottom"
+                      className="w-56 p-3"
+                      data-testid="md-doc-close-dialog"
+                    >
+                      <p className="text-xs font-semibold">
+                        {t('tools.markdown_preview.close_confirm_title', { title: doc.title })}
+                      </p>
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        {t('tools.markdown_preview.close_confirm_desc')}
+                      </p>
+                      <div className="mt-2.5 flex justify-end gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2.5 text-xs"
+                          onClick={() => setCloseTarget(null)}
+                          data-testid="md-doc-close-dialog-cancel"
+                        >
+                          {t('tools.markdown_preview.cancel')}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 px-2.5 text-xs"
+                          onClick={confirmCloseDoc}
+                          data-testid="md-doc-close-dialog-confirm"
+                        >
+                          {t('tools.markdown_preview.close')}
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  {/* Tab 右键菜单:重命名 / 固定 / 关闭 */}
+                  <ContextMenuContent className="w-48" data-testid="md-doc-tab-context-menu">
+                    <ContextMenuItem
+                      onSelect={() => setRenameTarget(doc)}
+                      data-testid="ctx-md-doc-rename"
+                    >
+                      {t('tools.markdown_preview.rename')}
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      onSelect={() => togglePinDoc(doc.id)}
+                      data-testid="ctx-md-doc-toggle-pin"
+                    >
+                      {t('tools.markdown_preview.pin')}
+                      {doc.pinned && (
+                        <Pin
+                          className="ml-auto size-3.5 text-primary"
+                          data-testid="ctx-md-doc-pin-check"
+                        />
+                      )}
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      onSelect={() => requestCloseDoc(doc.id)}
+                      data-testid="ctx-md-doc-close"
+                    >
+                      {t('tools.markdown_preview.close')}
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+              );
+            })}
+          </div>
+        </ScrollArea>
+        {/* 「+」新建按钮固定在滚动区外右端(对齐 VSCode):Tab 溢出滚动时始终可见可点 */}
+        <button
+          type="button"
+          data-testid="md-doc-add"
+          title={t('tools.markdown_preview.new_doc')}
+          aria-label={t('tools.markdown_preview.new_doc')}
+          onClick={() => newDoc()}
+          className="flex size-7 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+        >
+          <Plus aria-hidden className="size-3.5" />
+        </button>
       </div>
 
       {/* —— 顶部工具条:视图模式 / 大纲开关 / 打字机 / 同步滚动(打印隐藏)—— */}

@@ -24,6 +24,7 @@ import {
   Binary,
   CaseLower,
   CaseUpper,
+  Copy,
   CopyX,
   Eraser,
   Link2,
@@ -44,6 +45,7 @@ import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { toast } from 'sonner';
+import { copyTextWithFeedback } from '@/lib/toast-alert';
 import type { ToolProps } from './registry';
 
 // ============================================================
@@ -278,7 +280,8 @@ export function sortLines(input: string): string {
 // ============================================================
 /**
  * 紧凑统计口径(沿用「文本分析和实用工具」):
- * 字符(Unicode 码点)、单词(非空白连续片段)、行(以 \n 分隔)、字节(UTF-8 编码长度)、
+ * 字符(Unicode 码点)、去空白字符(剔除空白后的码点数)、单词(非空白连续片段)、
+ * 行(以 \n 分隔)、字节(UTF-8 编码长度)、
  * 句子(以 .!?。！？ 结尾的片段)、段落(连续空行分隔的非空块)。
  *
  * 返回有序元组,供 EditorStats 用中点分隔紧凑渲染,
@@ -286,6 +289,7 @@ export function sortLines(input: string): string {
  */
 export interface TextStats {
   chars: number;
+  charsNoSpaces: number;
   words: number;
   lines: number;
   bytes: number;
@@ -295,6 +299,7 @@ export interface TextStats {
 
 export const EMPTY_STATS: TextStats = {
   chars: 0,
+  charsNoSpaces: 0,
   words: 0,
   lines: 0,
   bytes: 0,
@@ -304,8 +309,11 @@ export const EMPTY_STATS: TextStats = {
 
 export function computeStats(input: string): TextStats {
   if (!input) return EMPTY_STATS;
+  // 统一按 Unicode 码点计数:emoji 等代理对只算 1 个字符,与 chars 口径一致
+  const codePoints = Array.from(input);
   return {
-    chars: Array.from(input).length,
+    chars: codePoints.length,
+    charsNoSpaces: codePoints.filter((ch) => !/\s/.test(ch)).length,
     words: (input.match(/[^\s]+/g) ?? []).length,
     lines: input.split('\n').length,
     bytes: new TextEncoder().encode(input).length,
@@ -319,37 +327,69 @@ export function computeStats(input: string): TextStats {
  * - 中点「·」分隔各项,沿用 Editor 内置 statusBar 的 text-xs / tabular-nums,
  *   与编辑器自带「字符数 / 行号列号」视觉权重一致,不会喧宾夺主。
  * - 该组件作为 CodeEditor.statusBarRight 渲染,自动位于状态栏右侧,与 VS Code 风格一致。
+ * - 末尾附复制按钮:把全部统计指标按「标签: 数值」逐行写入剪贴板,
+ *   复用 copyTextWithFeedback(成功 toast + 失败报错),替代原独立统计工具的复制能力。
  */
 function EditorStats({ text }: { text: string }): JSX.Element {
   const { t } = useTranslation();
   const s = computeStats(text);
+  // 复制用的汇总文本:每行「标签: 数值」,便于粘贴到笔记或报告
+  const summary = [
+    `${t('tools.json_minifier.stat_chars')}: ${s.chars}`,
+    `${t('tools.json_minifier.stat_chars_no_spaces')}: ${s.charsNoSpaces}`,
+    `${t('tools.json_minifier.stat_words')}: ${s.words}`,
+    `${t('tools.json_minifier.stat_lines')}: ${s.lines}`,
+    `${t('tools.json_minifier.stat_bytes')}: ${s.bytes}`,
+    `${t('tools.json_minifier.stat_sentences')}: ${s.sentences}`,
+    `${t('tools.json_minifier.stat_paragraphs')}: ${s.paragraphs}`,
+  ].join('\n');
   return (
     <span
-      className="whitespace-nowrap tabular-nums text-muted-foreground"
+      className="flex items-center gap-1"
       data-testid="textproc-editor-stats"
-      title={t('tools.json_minifier.stats_tooltip', {
-        chars: s.chars,
-        words: s.words,
-        lines: s.lines,
-        bytes: s.bytes,
-        sentences: s.sentences,
-        paragraphs: s.paragraphs,
-      })}
     >
-      <span data-testid="textproc-stat-chars">{s.chars}</span> {t('tools.json_minifier.stat_chars')}
-      <span aria-hidden> · </span>
-      <span data-testid="textproc-stat-words">{s.words}</span> {t('tools.json_minifier.stat_words')}
-      <span aria-hidden> · </span>
-      <span data-testid="textproc-stat-lines">{s.lines}</span>
-      {t('tools.json_minifier.stat_lines')}
-      <span aria-hidden> · </span>
-      <span data-testid="textproc-stat-bytes">{s.bytes}</span> {t('tools.json_minifier.stat_bytes')}
-      <span aria-hidden> · </span>
-      <span data-testid="textproc-stat-sentences">{s.sentences}</span>{' '}
-      {t('tools.json_minifier.stat_sentences')}
-      <span aria-hidden> · </span>
-      <span data-testid="textproc-stat-paragraphs">{s.paragraphs}</span>{' '}
-      {t('tools.json_minifier.stat_paragraphs')}
+      <span
+        className="whitespace-nowrap tabular-nums text-muted-foreground"
+        title={t('tools.json_minifier.stats_tooltip', {
+          chars: s.chars,
+          charsNoSpaces: s.charsNoSpaces,
+          words: s.words,
+          lines: s.lines,
+          bytes: s.bytes,
+          sentences: s.sentences,
+          paragraphs: s.paragraphs,
+        })}
+      >
+        <span data-testid="textproc-stat-chars">{s.chars}</span> {t('tools.json_minifier.stat_chars')}
+        <span aria-hidden> · </span>
+        <span data-testid="textproc-stat-chars-no-spaces">{s.charsNoSpaces}</span>{' '}
+        {t('tools.json_minifier.stat_chars_no_spaces')}
+        <span aria-hidden> · </span>
+        <span data-testid="textproc-stat-words">{s.words}</span> {t('tools.json_minifier.stat_words')}
+        <span aria-hidden> · </span>
+        <span data-testid="textproc-stat-lines">{s.lines}</span>{' '}
+        {t('tools.json_minifier.stat_lines')}
+        <span aria-hidden> · </span>
+        <span data-testid="textproc-stat-bytes">{s.bytes}</span> {t('tools.json_minifier.stat_bytes')}
+        <span aria-hidden> · </span>
+        <span data-testid="textproc-stat-sentences">{s.sentences}</span>{' '}
+        {t('tools.json_minifier.stat_sentences')}
+        <span aria-hidden> · </span>
+        <span data-testid="textproc-stat-paragraphs">{s.paragraphs}</span>{' '}
+        {t('tools.json_minifier.stat_paragraphs')}
+      </span>
+      <button
+        type="button"
+        data-testid="textproc-stats-copy"
+        title={t('tools.json_minifier.copy_stats')}
+        aria-label={t('tools.json_minifier.copy_stats')}
+        onClick={() => {
+          void copyTextWithFeedback(summary);
+        }}
+        className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Copy aria-hidden className="size-3" />
+      </button>
     </span>
   );
 }

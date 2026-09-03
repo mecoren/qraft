@@ -18,6 +18,7 @@
 pub mod core;
 pub mod media;
 pub mod net;
+pub mod regex_lab;
 pub mod store;
 pub mod tools;
 
@@ -78,6 +79,7 @@ pub fn run() -> anyhow::Result<()> {
     use crate::commands::image::png_compress;
     // IP 归属地查询(零网络原则的登记例外,见 net/mod.rs 与 PRD 13-security.md §3.1)
     use crate::commands::ip_lookup::ip_lookup;
+    use crate::commands::regex_lab::{regex_codegen, regex_debug, regex_live, regex_tests};
     use crate::commands::tool::{
         tool_cancel, tool_execute, tool_execute_stream, tool_list, tool_metadata,
     };
@@ -256,6 +258,10 @@ pub fn run() -> anyhow::Result<()> {
             fs_reveal_in_explorer,
             png_compress,
             ip_lookup,
+            regex_live,
+            regex_tests,
+            regex_codegen,
+            regex_debug,
             app_open_external,
             app_version,
             app_quit,

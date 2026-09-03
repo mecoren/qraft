@@ -247,7 +247,7 @@ export function IpParser(_props: ToolProps): JSX.Element {
               aria-label={t('tools.ip_parser.input_aria')}
               data-testid="ip-input"
               spellCheck={false}
-              className="h-8 border-0 p-0 font-mono text-body-sm shadow-none focus-visible:ring-0"
+              className="h-8 font-mono text-body-sm"
             />
             <p className="mt-0.5 text-xs text-muted-foreground">
               {t('tools.ip_parser.input_hint')}
