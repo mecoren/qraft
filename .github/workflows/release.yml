@@ -180,7 +180,11 @@ jobs:
       # tauri-action:构建 + (tag 时)创建 Release 并上传资产。
       #
       # - tagName 为空(workflow_dispatch / dry-run)时只构建、不发布;
-      # - includeUpdaterJson 生成 latest.json 并跨矩阵运行合并(全平台共享一份);
+      # - includeUpdaterJson 恒 false:latest.json 是全平台共享的单一份,6 个
+      #   矩阵 job 并发「下载 manifest → 合并本平台 → PATCH 回写」构成读-改-写
+      #   竞态,PATCH 会命中已被并发 job 删改的 asset id 而 404。改由
+      #   publish-updater-manifest 在 build 全部结束后单点生成;
+      # - 本步只上传各平台自身的安装包与 .sig:文件名互不重叠,可安全并发;
       # - TAURI_SIGNING_PRIVATE_KEY 缺失时构建直接失败(预期保护),须先在
       #   repo Secrets 配置签名私钥。
       # ──────────────────────────────────────────────────────────────────────
@@ -199,7 +203,7 @@ jobs:
           releaseDraft: false
           prerelease: false
           generateReleaseNotes: true
-          includeUpdaterJson: true
+          includeUpdaterJson: false
 
       # ──────────────────────────────────────────────────────────────────────
       # Windows Portable:tauri-action 不产便携版。复用 target/<triple>/release
@@ -246,6 +250,122 @@ jobs:
           name: qraft-sbom-${{ matrix.platform }}-${{ matrix.arch }}
           path: sbom-${{ matrix.platform }}-${{ matrix.arch }}.cdx.json
           retention-days: 7
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # publish-updater-manifest:tag 且非 dry-run 时,在矩阵全部构建完成后单点
+  # 生成 updater manifest 并上传。
+  #
+  # 为什么不放回 tauri-action:latest.json 全平台共享一份,而矩阵 6 个 job 并行,
+  # 各自「下载 manifest → 合并本平台 → PATCH 回写」构成读-改-写竞态,PATCH 常
+  # 命中已被并发 job 删改的 asset id → 404(update-a-release-asset)。此处改为
+  # 读取各平台已上传的 .sig 内容自行合成,只有本作业写 manifest,竞态消除。
+  #
+  # URL 直接写规范化后的资产名(normalize-assets 随后把资产改成同名),故本作业
+  # 必须先于 normalize-assets 执行;两者共用 scripts/release-asset-map.sh 的
+  # 映射,保证 URL 与资产名逐字节一致。
+  # ──────────────────────────────────────────────────────────────────────────
+  publish-updater-manifest:
+    name: Publish updater manifest
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build & upload latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          # 版本号取自 tauri.conf.json(与 Portable 打包同源),避免 tag 名脱节
+          VER=$(jq -r '.version' src-tauri/tauri.conf.json)
+
+          # 全程 Release ID 路由:删 tag 会把 Release 转为 draft,而
+          # /releases/tags/{tag} 与 tag 型下载 URL 对 draft 均 404
+          API="repos/{owner}/{repo}"
+          RELEASE_ID=$(gh api "$API/releases" --paginate |
+            jq -r --arg tag "$TAG" '[.[] | select(.tag_name == $tag)][0].id')
+          if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
+            echo "ERROR: no release found for tag $TAG" >&2
+            exit 1
+          fi
+          echo "release id: $RELEASE_ID"
+
+          source scripts/release-asset-map.sh
+          mapfile -t MAP_SED < <(release_asset_map_sed "$VER")
+          mapfile -t ENTRIES < <(release_updater_entries "$VER")
+
+          # 现有资产名 → id(供按名取 .sig 内容)
+          declare -A ASSET_ID
+          while IFS=$'\t' read -r aid aname; do ASSET_ID["$aname"]="$aid"; done < <(
+            gh api "$API/releases/$RELEASE_ID/assets" --paginate |
+              jq -r '.[] | "\(.id)\t\(.name)"'
+          )
+
+          BASE_URL="https://github.com/${{ github.repository }}/releases/download/$TAG"
+          PLATFORMS='{}'
+
+          for entry in "${ENTRIES[@]}"; do
+            key="${entry%%|*}"
+            sig_name="${entry#*|}"
+            sig_id="${ASSET_ID[$sig_name]:-}"
+            if [ -z "$sig_id" ] || [ "$sig_id" = "null" ]; then
+              echo "WARN: signature asset missing, skip: $key ($sig_name)" >&2
+              continue
+            fi
+            sig=$(gh api "$API/releases/assets/$sig_id" \
+                    -H "Accept: application/octet-stream" | tr -d '[:space:]')
+            # .sig 名去掉后缀即产物原名,再套改名映射得到规范化资产名
+            asset_name=$(printf '%s' "${sig_name%.sig}" | sed "${MAP_SED[@]}")
+            PLATFORMS=$(jq -n --argjson p "$PLATFORMS" --arg k "$key" \
+                          --arg s "$sig" --arg u "$BASE_URL/$asset_name" \
+              '$p + { ($k): { signature: $s, url: $u } }')
+            echo "entry: $key -> $asset_name"
+          done
+
+          COUNT=$(echo "$PLATFORMS" | jq 'length')
+          if [ "$COUNT" -eq 0 ]; then
+            echo "ERROR: no platform resolved; refusing to publish empty manifest" >&2
+            exit 1
+          fi
+
+          jq -n --arg v "$VER" --argjson p "$PLATFORMS" \
+            '{ version: $v,
+               notes: "See the assets below to download and install this version.",
+               pub_date: (now | strftime("%Y-%m-%dT%H:%M:%S.000Z")),
+               platforms: $p }' > latest.json
+
+          echo "---- manifest ($COUNT platforms) ----"
+          jq -r '.platforms | to_entries[] | "\(.key): \(.value.url)"' latest.json
+
+          # 上传:崩溃安全三步(临时名 → 删旧 → 改名),任一步失败新旧 manifest
+          # 至少存活一个,重跑可恢复。上传端点只在 uploads.github.com,
+          # gh api 走 api.github.com 对该端点恒 404,必须 curl 直传。
+          TMP_NAME="latest.json.new"
+          TMP_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
+            jq -r --arg n "$TMP_NAME" '[.[] | select(.name == $n)][0].id')
+          if [ -n "$TMP_ID" ] && [ "$TMP_ID" != "null" ]; then
+            gh api -X DELETE "$API/releases/assets/$TMP_ID" >/dev/null
+          fi
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @latest.json \
+            "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$TMP_NAME" >/dev/null
+          CUR_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
+            jq -r '[.[] | select(.name == "latest.json")][0].id')
+          if [ -n "$CUR_ID" ] && [ "$CUR_ID" != "null" ]; then
+            gh api -X DELETE "$API/releases/assets/$CUR_ID" >/dev/null
+          fi
+          NEW_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
+            jq -r --arg n "$TMP_NAME" '[.[] | select(.name == $n)][0].id')
+          gh api -X PATCH "$API/releases/assets/$NEW_ID" -f name="latest.json" >/dev/null
+          echo "uploaded latest.json"
 
   # ──────────────────────────────────────────────────────────────────────────
   # publish-extras:tag 且非 dry-run 时,把 SBOM 与 Portable 等非 updater 资产
@@ -310,18 +430,21 @@ jobs:
           done
 
   # ──────────────────────────────────────────────────────────────────────────
-  # normalize-assets:tag 且非 dry-run 时,统一 Release 资产命名并同步重写
-  # latest.json(设计见 prd/asset-naming-normalization/design.md)。
+  # normalize-assets:tag 且非 dry-run 时,统一 Release 资产命名
+  # (设计见 prd/asset-naming-normalization/design.md)。
   #
-  # updater 的下载 URL 必须与 Release 资产名逐字节一致,因此改名的同一步里
-  # 必须回写 latest.json;顺序为先改资产名、后覆盖 latest.json(秒级窗口内
-  # 检查更新可能 404,一次性可接受)。msi/rpm 已从 bundle.targets 移除,
-  # 存量资产在此一并删除;.sig 签名文件同样在此删除(内容已内联于 latest.json)。
+  # 改名映射与 publish-updater-manifest 共用 scripts/release-asset-map.sh:
+  # manifest 的下载 URL 已按同一映射写成规范化名,本作业把资产改成同名,两者
+  # 由此逐字节对齐,无需再回写 manifest(故 needs 该作业,而非 build)。
+  #
+  # msi/rpm 已从 bundle.targets 移除,存量资产在此删除;.sig 签名文件同样在此
+  # 删除——签名内容已内联在 latest.json 的 signature 字段,updater 校验只依赖
+  # manifest,而 manifest 已在本作业之前生成完毕。
   # Portable / SBOM / latest.json 本身不改名。
   # ──────────────────────────────────────────────────────────────────────────
   normalize-assets:
     name: Normalize release asset names
-    needs: [build]
+    needs: [publish-updater-manifest]
     if: startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true
     runs-on: ubuntu-22.04
     permissions:
@@ -330,7 +453,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Rename assets & rewrite updater manifest
+      - name: Rename release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -342,20 +465,10 @@ jobs:
           # 避免本地 conf 与 tag 名脱节导致映射落空。
           VER=$(jq -r '.version' src-tauri/tauri.conf.json)
 
-          # 旧名 → 新名映射。sed 对主文件名与配套 .sig 同样生效;
-          # 注意 darwin 更新产物名不带版本号(Qraft_x64.app.tar.gz)。
-          MAP_SED=(
-            -e "s|Qraft_${VER}_x64-setup\.exe|Qraft-${VER}-Windows-Amd64-Setup.exe|g"
-            -e "s|Qraft_${VER}_arm64-setup\.exe|Qraft-${VER}-Windows-Arm64-Setup.exe|g"
-            -e "s|Qraft_x64\.app\.tar\.gz|Qraft-${VER}-MacOS-Amd64.app.tar.gz|g"
-            -e "s|Qraft_aarch64\.app\.tar\.gz|Qraft-${VER}-MacOS-Arm64.app.tar.gz|g"
-            -e "s|Qraft_${VER}_x64\.dmg|Qraft-${VER}-MacOS-Amd64.dmg|g"
-            -e "s|Qraft_${VER}_aarch64\.dmg|Qraft-${VER}-MacOS-Arm64.dmg|g"
-            -e "s|Qraft_${VER}_amd64\.deb|Qraft-${VER}-Linux-Amd64.deb|g"
-            -e "s|Qraft_${VER}_arm64\.deb|Qraft-${VER}-Linux-Arm64.deb|g"
-            -e "s|Qraft_${VER}_amd64\.AppImage|Qraft-${VER}-Linux-Amd64.AppImage|g"
-            -e "s|Qraft_${VER}_aarch64\.AppImage|Qraft-${VER}-Linux-Arm64.AppImage|g"
-          )
+          # 旧名 → 新名映射,单一事实来源(与 manifest 生成共用):
+          # sed 对主文件名与配套 .sig 同样生效;darwin 更新产物名不带版本号。
+          source scripts/release-asset-map.sh
+          mapfile -t MAP_SED < <(release_asset_map_sed "$VER")
 
           # 全程走 Release ID 路由:删 tag 会把既有 Release 转为 draft,而
           # /releases/tags/{tag} 与 tag 型公开下载 URL 对 draft 均不可用(404),
@@ -371,27 +484,7 @@ jobs:
           fi
           echo "release id: $RELEASE_ID"
 
-          # 2) 循环前预取 updater manifest 并完成本地重写(URL 按同一映射替换、
-          #    剔除 msi/rpm 条目)。上传推迟到循环之后(资产改名完成后 URL 才有效),
-          #    这样即使循环期间 latest.json 被替换/删除,重写内容也不受影响。
-          #    manifest 缺失时仅告警跳过,不中断。
-          HAS_MANIFEST=0
-          MANIFEST_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
-            jq -r '[.[] | select(.name == "latest.json")][0].id')
-          if [ -n "$MANIFEST_ID" ] && [ "$MANIFEST_ID" != "null" ]; then
-            gh api "$API/releases/assets/$MANIFEST_ID" \
-              -H "Accept: application/octet-stream" > latest.json
-            sed "${MAP_SED[@]}" latest.json > latest.json.tmp
-            jq '.platforms |= with_entries(
-                  select((.value.url | endswith(".msi") or endswith(".rpm")) | not)
-                )' latest.json.tmp > latest.json
-            rm -f latest.json.tmp
-            HAS_MANIFEST=1
-          else
-            echo "WARN: latest.json not found on release, skip manifest rewrite" >&2
-          fi
-
-          # 3) 资产改名(PATCH API 直接改,免重传);msi/rpm 不再产出,直接删除;
+          # 1) 资产改名(PATCH API 直接改,免重传);msi/rpm 不再产出,直接删除;
           #    .sig 签名文件无需作为 Release 资产公开(签名内容已内联在 latest.json
           #    的 signature 字段,updater 校验只依赖 manifest),一并删除以精简资产列表。
           # 先建 现有名 → id 映射:重跑场景下目标名可能已被上一轮占用
@@ -429,37 +522,7 @@ jobs:
             esac
           done
 
-          # 4) 上传重写后的 manifest(此步之后 URL 与资产名恢复逐字节一致)。
-          # 上传端点只存在于 uploads.github.com,gh api 只走 api.github.com,
-          # 对该端点裸 POST 恒 404(上一版 latest.json 丢失的直接原因),必须
-          # 用 curl 直传。崩溃安全:先传临时名 latest.json.new,删旧 latest.json,
-          # 再 PATCH 改名——任一步失败,新旧 manifest 至少存活一个,重跑可恢复。
-          if [ "$HAS_MANIFEST" = "1" ]; then
-            TMP_NAME="latest.json.new"
-            # 清理上次失败可能残留的临时资产,避免同名上传 422
-            TMP_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
-              jq -r --arg n "$TMP_NAME" '[.[] | select(.name == $n)][0].id')
-            if [ -n "$TMP_ID" ] && [ "$TMP_ID" != "null" ]; then
-              gh api -X DELETE "$API/releases/assets/$TMP_ID" >/dev/null
-            fi
-            curl -fsS -X POST \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Content-Type: application/octet-stream" \
-              --data-binary @latest.json \
-              "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$TMP_NAME" >/dev/null
-            CUR_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
-              jq -r '[.[] | select(.name == "latest.json")][0].id')
-            if [ -n "$CUR_ID" ] && [ "$CUR_ID" != "null" ]; then
-              gh api -X DELETE "$API/releases/assets/$CUR_ID" >/dev/null
-            fi
-            NEW_ID=$(gh api "$API/releases/$RELEASE_ID/assets" --paginate |
-              jq -r --arg n "$TMP_NAME" '[.[] | select(.name == $n)][0].id')
-            gh api -X PATCH "$API/releases/assets/$NEW_ID" -f name="latest.json" >/dev/null
-            echo "---- final manifest ----"
-            jq -r '.platforms | to_entries[] | "\(.key): \(.value.url)"' latest.json
-          fi
-
-          # 5) 兜底确保发布态(幂等):tauri-action 命中已存在的 draft 时只上传
+          # 2) 兜底确保发布态(幂等):tauri-action 命中已存在的 draft 时只上传
           #    资产不会反草稿化。失败不阻断(资产已就绪),但告警提示人工检查。
           if ! gh api -X PATCH "$API/releases/$RELEASE_ID" \
                -f draft=false -f prerelease=false > /dev/null; then
