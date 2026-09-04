@@ -23,6 +23,8 @@
   "tools.png_compressor.compressing": "压缩中…",
   "tools.png_compressor.compress": "压缩",
   "tools.png_compressor.original_size": "{{name}} · 原始 {{size}}",
+  "tools.png_compressor.pane_original": "原始 · {{size}}",
+  "tools.png_compressor.pane_pending": "压缩后将在此显示结果对比",
   "tools.png_compressor.saving_percent": "节省 {{percent}}%",
   "tools.png_compressor.increase_percent": "增大 {{percent}}%",
   "tools.png_compressor.duration_ms": "耗时 {{ms}}ms",

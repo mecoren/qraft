@@ -277,58 +277,77 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
           <div className="flex h-full min-h-full flex-col items-center justify-center gap-2 p-4">
             {image ? (
               <>
-                <img
-                  src={image.dataUrl}
-                  alt={image.name}
-                  data-testid="pc-preview"
-                  className="max-h-[60%] max-w-full object-contain"
-                />
-                <p className="text-xs text-muted-foreground" data-testid="pc-info">
-                  {t('tools.png_compressor.original_size', {
-                    name: image.name,
-                    size: formatBytes(image.size),
-                  })}
-                </p>
-                {result && (
-                  <div
-                    className="flex flex-col items-center gap-1 rounded-md border bg-background px-4 py-2 text-xs"
-                    data-testid="pc-result"
-                  >
-                    <span>
-                      {formatBytes(result.inputBytes)} →{' '}
-                      <span
-                        className={
-                          saving !== null && saving > 0 ? 'font-semibold text-primary' : ''
-                        }
-                      >
-                        {formatBytes(result.outputBytes)}
-                      </span>
-                      {saving !== null && (
-                        <span className="ml-1 text-muted-foreground">
-                          (
-                          {saving > 0
-                            ? t('tools.png_compressor.saving_percent', { percent: saving })
-                            : t('tools.png_compressor.increase_percent', { percent: -saving })}
-                          )
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {t('tools.png_compressor.duration_ms', { ms: result.durationMs })}
-                      {result.colorsUsed !== null &&
-                        ` · ${result.colorsUsed} ${t('tools.png_compressor.color_unit')}`}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={downloadResult}
-                      data-testid="pc-download"
-                    >
-                      <Download aria-hidden className="size-3.5" />
-                      {t('tools.png_compressor.save_result')}
-                    </Button>
+                {/* 原始 / 压缩后并排对比 */}
+                <div className="grid w-full max-w-2xl grid-cols-2 gap-3">
+                  <div className="flex flex-col items-center gap-1" data-testid="pc-original-pane">
+                    <img
+                      src={image.dataUrl}
+                      alt={image.name}
+                      data-testid="pc-preview"
+                      className="max-h-56 max-w-full object-contain"
+                    />
+                    <p className="text-xs text-muted-foreground" data-testid="pc-info">
+                      {t('tools.png_compressor.pane_original', {
+                        size: formatBytes(image.size),
+                      })}
+                    </p>
                   </div>
-                )}
+                  <div
+                    className="flex flex-col items-center gap-1"
+                    data-testid="pc-compressed-pane"
+                  >
+                    {result ? (
+                      <>
+                        <img
+                          src={`data:image/png;base64,${result.base64}`}
+                          alt="compressed"
+                          data-testid="pc-compressed-preview"
+                          className="max-h-56 max-w-full object-contain"
+                        />
+                        <p className="text-xs" data-testid="pc-result">
+                          <span
+                            className={
+                              saving !== null && saving > 0
+                                ? 'font-semibold text-primary'
+                                : ''
+                            }
+                          >
+                            {formatBytes(result.outputBytes)}
+                          </span>
+                          {saving !== null && (
+                            <span className="ml-1 text-muted-foreground">
+                              (
+                              {saving > 0
+                                ? t('tools.png_compressor.saving_percent', { percent: saving })
+                                : t('tools.png_compressor.increase_percent', {
+                                    percent: -saving,
+                                  })}
+                              )
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {t('tools.png_compressor.duration_ms', { ms: result.durationMs })}
+                          {result.colorsUsed !== null &&
+                            ` · ${result.colorsUsed} ${t('tools.png_compressor.color_unit')}`}
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={downloadResult}
+                          data-testid="pc-download"
+                        >
+                          <Download aria-hidden className="size-3.5" />
+                          {t('tools.png_compressor.save_result')}
+                        </Button>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {t('tools.png_compressor.pane_pending')}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </>
             ) : (
               <div className="flex flex-col items-center gap-2 text-muted-foreground">

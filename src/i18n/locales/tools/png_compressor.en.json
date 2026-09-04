@@ -23,6 +23,8 @@
   "tools.png_compressor.compressing": "Compressing…",
   "tools.png_compressor.compress": "Compress",
   "tools.png_compressor.original_size": "{{name}} · original {{size}}",
+  "tools.png_compressor.pane_original": "Original · {{size}}",
+  "tools.png_compressor.pane_pending": "Compressed result comparison will appear here",
   "tools.png_compressor.saving_percent": "saved {{percent}}%",
   "tools.png_compressor.increase_percent": "grew {{percent}}%",
   "tools.png_compressor.duration_ms": "Took {{ms}}ms",
