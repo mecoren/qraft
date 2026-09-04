@@ -4,7 +4,11 @@
   "tools.html_codec.mode_encode": "编码",
   "tools.html_codec.mode_decode": "解码",
   "tools.html_codec.aria_mode_toggle": "编码/解码切换",
+  "tools.html_codec.label_escape_level": "编码级别",
+  "tools.html_codec.hint_escape_level": "选择需要转义的字符范围",
+  "tools.html_codec.escape_minimal": "最小集(& < > \" ')",
+  "tools.html_codec.escape_non_ascii": "包含非 ASCII 字符",
+  "tools.html_codec.escape_all": "全部转义为命名实体",
   "tools.html_codec.title_input": "输入",
-  "tools.html_codec.title_output": "输出",
-  "tools.html_codec.error_parse": "解析失败: {{message}}"
+  "tools.html_codec.title_output": "输出"
 }

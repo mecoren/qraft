@@ -4,7 +4,11 @@
   "tools.html_codec.mode_encode": "Encode",
   "tools.html_codec.mode_decode": "Decode",
   "tools.html_codec.aria_mode_toggle": "Toggle encode/decode",
+  "tools.html_codec.label_escape_level": "Escape level",
+  "tools.html_codec.hint_escape_level": "Choose which characters to escape",
+  "tools.html_codec.escape_minimal": "Minimal (& < > \" ')",
+  "tools.html_codec.escape_non_ascii": "Include non-ASCII characters",
+  "tools.html_codec.escape_all": "Escape all to named entities",
   "tools.html_codec.title_input": "Input",
-  "tools.html_codec.title_output": "Output",
-  "tools.html_codec.error_parse": "Parse failed: {{message}}"
+  "tools.html_codec.title_output": "Output"
 }
