@@ -1408,7 +1408,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                     placeholder="$.store.book[*].author"
                     aria-label={t('tools.json_formatter.jsonpath_expression_title')}
                     data-testid="jsonpath-expr"
-                    className="h-8 pl-8 pr-2 font-mono text-sm"
+                    className="h-8 pl-8 pr-2 text-sm"
                   />
                 </div>
               </div>

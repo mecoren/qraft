@@ -252,18 +252,18 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
         <div className="flex items-center gap-2">
           <Regex aria-hidden className="size-4 shrink-0 text-muted-foreground" />
           <div className="relative flex min-w-0 flex-1 items-center rounded-md border border-input bg-background focus-within:border-ring">
-            <span className="pl-2 font-mono text-sm text-muted-foreground select-none">/</span>
+            <span className="pl-2 text-sm text-muted-foreground select-none">/</span>
             <input
               ref={patternInputRef}
               value={pattern}
               onChange={(e) => patch({ pattern: e.target.value })}
               placeholder={t('tools.regex_tester.pattern_placeholder')}
               spellCheck={false}
-              className="min-w-0 flex-1 bg-transparent px-1 py-1.5 font-mono text-sm outline-none placeholder:text-muted-foreground/60"
+              className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-sm outline-none placeholder:text-muted-foreground/60"
               data-testid="pattern"
               aria-label={t('tools.regex_tester.pattern_label')}
             />
-            <span className="font-mono text-sm text-muted-foreground select-none">/</span>
+            <span className="text-sm text-muted-foreground select-none">/</span>
             <button
               type="button"
               data-testid="flags-bar"
@@ -697,7 +697,7 @@ function SubstitutionPane({
           onChange={(e) => onChange(e.target.value)}
           placeholder={t('tools.regex_tester.substitution_placeholder')}
           spellCheck={false}
-          className="h-7 font-mono text-xs"
+          className="h-7 text-xs"
           data-testid="substitution-input"
           aria-label={t('tools.regex_tester.substitution_label')}
         />
@@ -934,7 +934,7 @@ function TestsPane({
                     }}
                     placeholder={t('tools.regex_tester.case_text_placeholder')}
                     rows={2}
-                    className="mt-1.5 w-full rounded-md border border-input bg-background p-1.5 font-mono text-xs outline-none focus:border-ring"
+                    className="mt-1.5 w-full rounded-md border border-input bg-background p-1.5 text-xs outline-none focus:border-ring"
                     data-testid={`case-text-${i}`}
                   />
                   <label className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">

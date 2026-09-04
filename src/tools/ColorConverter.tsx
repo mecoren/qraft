@@ -86,7 +86,7 @@ export function ColorConverter({ toolId }: ToolProps): JSX.Element {
             placeholder={t('tools.color_converter.input_placeholder')}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="w-72 font-mono text-sm"
+            className="w-72 text-sm"
             data-testid="input"
           />
         </ConfigRow>

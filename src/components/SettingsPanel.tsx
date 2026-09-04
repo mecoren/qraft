@@ -394,7 +394,7 @@ export function ThemeSection() {
             <Input
               value={customAccent}
               onChange={(e) => handleCustomAccentChange(e.target.value)}
-              className="w-32 font-mono"
+              className="w-32"
               placeholder="#RRGGBB"
               aria-label={t('settings.accent_hex_aria')}
               aria-invalid={accentInvalid}

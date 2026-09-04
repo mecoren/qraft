@@ -125,7 +125,7 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
             placeholder={t('tools.timestamp_converter.input_placeholder')}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="w-72 font-mono text-sm"
+            className="w-72 text-sm"
             data-testid="input"
           />
         </ConfigRow>

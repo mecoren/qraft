@@ -120,7 +120,7 @@ export function CronParser(_props: ToolProps): JSX.Element {
             placeholder={withSeconds ? '0 0 0 * * *' : '0 0 * * *'}
             aria-label={t('tools.cron_parser.expression_label')}
             data-testid="cron-expr"
-            className="h-9 font-mono text-body-sm"
+            className="h-9 text-body-sm"
           />
         </section>
 

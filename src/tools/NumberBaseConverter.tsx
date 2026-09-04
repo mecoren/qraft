@@ -165,7 +165,7 @@ export function NumberBaseConverter(_props: ToolProps): JSX.Element {
             }
             aria-label={t('tools.number_base_converter.input_aria')}
             data-testid="nb-input"
-            className="h-9 font-mono text-body-sm"
+            className="h-9 text-body-sm"
           />
           {results?.error ? (
             <p data-testid="nb-error" className="mt-1 text-xs text-destructive">
