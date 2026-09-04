@@ -1,11 +1,15 @@
 {
   "tools.jwt_parser.token_label": "JWT 令牌",
   "tools.jwt_parser.token_placeholder": "在此粘贴 JWT 令牌...",
-  "tools.jwt_parser.parse": "解析",
-  "tools.jwt_parser.parsing": "解析中...",
   "tools.jwt_parser.header": "头部(Header)",
   "tools.jwt_parser.payload": "载荷(Payload)",
   "tools.jwt_parser.signature": "签名(Signature)",
+  "tools.jwt_parser.signature_hint": "不验证签名",
+  "tools.jwt_parser.error_parse": "解析失败: {{message}}",
+  "tools.jwt_parser.status_valid": "有效(未过期)",
+  "tools.jwt_parser.status_expired": "已过期",
+  "tools.jwt_parser.status_not_yet_valid": "尚未生效",
+  "tools.jwt_parser.issued_at": "签发时间: {{time}}",
   "tools.jwt_parser.expires_at": "过期时间: {{time}}",
-  "tools.jwt_parser.empty_state": "解析 JWT 后将展示各部分内容"
+  "tools.jwt_parser.empty_state": "粘贴 JWT 后自动解码头部、载荷与签名"
 }
