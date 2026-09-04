@@ -1,3 +1,7 @@
+// reflect-metadata 必须是整个应用最先执行的模块:@peculiar/x509 基于 tsyringe
+// 装饰器,其共享 chunk 在生产构建(代码分割)中可能先于懒加载工具 chunk 执行,
+// 若 polyfill 放在懒加载 chunk 内会触发 "tsyringe requires a reflect polyfill"。
+import 'reflect-metadata';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { PopoutApp } from './PopoutApp';
