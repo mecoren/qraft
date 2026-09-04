@@ -2,5 +2,12 @@
   "tools.basic_auth_generator.username": "Username",
   "tools.basic_auth_generator.password": "Password",
   "tools.basic_auth_generator.privacy_hint": "Computed locally in memory only; never stored or uploaded",
-  "tools.basic_auth_generator.output_title": "Authorization header"
+  "tools.basic_auth_generator.output_title": "Authorization header",
+  "tools.basic_auth_generator.label_direction": "Direction",
+  "tools.basic_auth_generator.hint_direction": "Generate a header from credentials, or decode one",
+  "tools.basic_auth_generator.mode_encode": "Generate",
+  "tools.basic_auth_generator.mode_decode": "Decode",
+  "tools.basic_auth_generator.encoded_input": "Authorization header / Base64",
+  "tools.basic_auth_generator.encoded_input_hint": "Paste a full Authorization header, raw base64, or plaintext user:password",
+  "tools.basic_auth_generator.error_decode": "Decode failed: {{message}}"
 }

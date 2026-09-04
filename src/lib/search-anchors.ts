@@ -158,6 +158,12 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
   basic_auth_generator: [
     {
       key: 'config',
+      title: { zh: '转换方向', en: 'Direction' },
+      description: { zh: '生成 / 解码切换', en: 'Generate / decode direction' },
+      keywords: ['basic auth', '认证', '方向'],
+    },
+    {
+      key: 'fields',
       title: { zh: '凭据', en: 'Credentials' },
       description: { zh: '用户名与密码', en: 'Username and password' },
       keywords: ['用户名', '密码', '认证'],
@@ -166,6 +172,18 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       key: 'output',
       title: { zh: 'Authorization 头', en: 'Authorization header' },
       keywords: ['basic auth', '请求头', '结果'],
+    },
+    {
+      key: 'decode_input',
+      title: { zh: '解码输入', en: 'Decode input' },
+      description: { zh: 'Authorization 头或 Base64', en: 'Authorization header or base64' },
+      keywords: ['解码', 'base64', '请求头'],
+    },
+    {
+      key: 'decode_result',
+      title: { zh: '解码结果', en: 'Decode result' },
+      description: { zh: '用户名与密码', en: 'Username and password' },
+      keywords: ['解码', '用户名', '密码'],
     },
   ],
   regex_tester: [

@@ -2,5 +2,12 @@
   "tools.basic_auth_generator.username": "用户名",
   "tools.basic_auth_generator.password": "密码",
   "tools.basic_auth_generator.privacy_hint": "仅在本机内存中计算,不落盘不上传",
-  "tools.basic_auth_generator.output_title": "Authorization 头"
+  "tools.basic_auth_generator.output_title": "Authorization 头",
+  "tools.basic_auth_generator.label_direction": "转换方向",
+  "tools.basic_auth_generator.hint_direction": "从凭据生成请求头,或反向解码",
+  "tools.basic_auth_generator.mode_encode": "生成",
+  "tools.basic_auth_generator.mode_decode": "解码",
+  "tools.basic_auth_generator.encoded_input": "Authorization 头 / Base64",
+  "tools.basic_auth_generator.encoded_input_hint": "粘贴完整 Authorization 头或裸 base64(user:password 明文亦可)",
+  "tools.basic_auth_generator.error_decode": "解码失败: {{message}}"
 }
