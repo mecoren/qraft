@@ -13,7 +13,7 @@ use crate::shell::file_open::{OpenFilePayload, PendingOpenFiles};
 use crate::shell::response::CommandResponse;
 use crate::shell::updater::{
     AvailableUpdate, CheckUpdateResponse, InstallMode, build_check_update_response,
-    resolve_install_mode, resolve_package_type,
+    resolve_install_mode,
 };
 
 /// Qraft GitHub Releases 页面(更新下载兜底入口)
@@ -210,19 +210,20 @@ pub async fn app_check_update(app: tauri::AppHandle) -> Result<CheckUpdateRespon
     // command 一致),避免 None 分支无法获取版本号。
     let current_version = env!("CARGO_PKG_VERSION").to_string();
 
-    // 探测当前 Windows 安装方式(MSI 安装版 vs 便携版),
-    // 以决定更新目标包类型。非 Windows 平台恒为 false,由 resolve_package_type
-    // 按平台分支返回对应类型。
+    // 探测当前 Windows 安装类别(NSIS 安装版 / MSI 安装版 / 便携版),
+    // 以决定更新目标包类型。非 Windows 平台按平台默认产物类型。
     #[cfg(target_os = "windows")]
-    let current_is_msi = crate::shell::updater::is_msi_install(
-        std::env::current_exe()
+    let package_type = {
+        let exe_dir = std::env::current_exe()
             .ok()
             .and_then(|p| p.parent().map(std::path::Path::to_path_buf))
-            .as_deref()
-            .unwrap_or_else(|| std::path::Path::new("")),
-    );
+            .unwrap_or_default();
+        crate::shell::updater::resolve_package_type(
+            crate::shell::updater::detect_windows_install_kind(&exe_dir),
+        )
+    };
     #[cfg(not(target_os = "windows"))]
-    let current_is_msi = false;
+    let package_type = crate::shell::updater::platform_default_package_type();
 
     let update_result = updater
         .check()
@@ -242,7 +243,7 @@ pub async fn app_check_update(app: tauri::AppHandle) -> Result<CheckUpdateRespon
     Ok(build_check_update_response(
         current_version,
         update,
-        current_is_msi,
+        package_type,
     ))
 }
 
@@ -250,12 +251,14 @@ pub async fn app_check_update(app: tauri::AppHandle) -> Result<CheckUpdateRespon
 ///
 /// 用户在 UI 确认后调用此命令。「不同版本不同安装方式」,
 /// 按安装模式分流:
-/// - `in-place`(portable / `AppImage` / archive 等就地覆盖类):由 `tauri-plugin-updater`
-///   下载 patch 包并就地覆盖,完成后自动重启。下载进度通过 `update-download-progress`
-///   事件广播到前端。
-/// - `windows-msi` / `macos-dmg` / `linux-deb` 等系统安装版:patch 模式无法可靠升级
-///   系统安装包,返回 `AppError::Unknown("MANUAL_INSTALL_REQUIRED")` 信号,前端据此
-///   自动跳转 GitHub Releases 供用户手动下载整包重装(见 `app_open_release_page`)。
+/// - `in-place`(portable / `AppImage` / archive 等就地覆盖类)与
+///   `windows-nsis`(NSIS 安装版,updater 原生支持静默运行安装器):
+///   由 `tauri-plugin-updater` 下载更新包并安装,完成后自动重启。
+///   下载进度通过 `update-download-progress` 事件广播到前端。
+/// - `windows-msi` / `macos-dmg` / `linux-deb` 等系统安装版:updater 无法可靠
+///   升级此类安装包,返回 `AppError::Unknown("MANUAL_INSTALL_REQUIRED")` 信号,
+///   前端据此自动跳转 GitHub Releases 供用户手动下载整包重装
+///   (见 `app_open_release_page`)。
 ///
 /// # Arguments
 ///
@@ -283,24 +286,30 @@ pub async fn app_install_update(
         .map_err(|e| AppError::Unknown(format!("updater check failed: {e}")))?
         .ok_or_else(|| AppError::Unknown("no update available".into()))?;
 
-    // 解析安装方式(优先使用前端带回的模式,否则按当前平台默认解析)
+    // 解析安装方式(优先使用前端带回的模式,否则按当前平台/安装类别解析)
     #[cfg(target_os = "windows")]
-    let current_is_msi = crate::shell::updater::is_msi_install(
-        std::env::current_exe()
+    let current_pkg = {
+        let exe_dir = std::env::current_exe()
             .ok()
             .and_then(|p| p.parent().map(std::path::Path::to_path_buf))
-            .as_deref()
-            .unwrap_or_else(|| std::path::Path::new("")),
-    );
+            .unwrap_or_default();
+        crate::shell::updater::resolve_package_type(
+            crate::shell::updater::detect_windows_install_kind(&exe_dir),
+        )
+    };
     #[cfg(not(target_os = "windows"))]
-    let current_is_msi = false;
-    let pkg = resolve_package_type(current_is_msi);
-    let mode = install_mode.unwrap_or_else(|| resolve_install_mode(pkg));
-    tracing::info!("installing update via install mode: {mode:?} (package: {pkg:?})");
+    let current_pkg = crate::shell::updater::platform_default_package_type();
+    let mode = install_mode.unwrap_or_else(|| resolve_install_mode(current_pkg));
+    tracing::info!("installing update via install mode: {mode:?} (package: {current_pkg:?})");
 
-    // 系统安装版:Tauri updater 的 patch 模式无法可靠升级 msi/dmg/deb,
-    // 返回专用信号,由前端跳转 GitHub Releases 手动下载整包(不同安装方式的核心分流)。
-    if mode != InstallMode::InPlace {
+    // 系统安装版(MSI / dmg / deb):Tauri updater 无法可靠升级,返回专用信号,
+    // 由前端跳转 GitHub Releases 手动下载整包(不同安装方式的核心分流)。
+    // Windows NSIS 安装版与便携版一样由 tauri-plugin-updater 原生支持:
+    // 下载安装器静默执行并自动重启,故走自动更新。
+    if !matches!(
+        mode,
+        InstallMode::InPlace | InstallMode::WindowsNsis
+    ) {
         return Err(AppError::Unknown("MANUAL_INSTALL_REQUIRED".into()));
     }
 

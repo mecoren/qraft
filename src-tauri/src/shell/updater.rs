@@ -53,26 +53,37 @@ pub enum InstallMode {
     LinuxDeb,
 }
 
-/// 根据平台 + 当前安装模式解析"目标更新包类型"
+/// Windows 安装类别(由运行时探测得出)
+///
+/// `detectWindowsInstallKind` 的产出:区分 MSI 安装版、NSIS 安装版与便携版,
+/// 决定更新时使用哪种安装流程与提示文案。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowsInstallKind {
+    /// MSI 安装版(Program Files 系统级)
+    Msi,
+    /// NSIS 安装版(安装目录含卸载程序 `uninstall.exe`)
+    Nsis,
+    /// 便携版(zip 解压,无卸载程序、非系统目录)
+    Portable,
+}
+
+/// 根据平台 + 当前安装类别解析"目标更新包类型"
 ///
 /// `resolveUpdatePackageType`:
-/// - Windows 通过 marker 文件(见 `is_msi_install`)区分 MSI 安装版与便携版
+/// - Windows 按 `WindowsInstallKind` 映射(MSI → Msi、NSIS → Nsis、便携 → Portable)
 /// - macOS / Linux 按各自打包产物返回对应类型
-///
-/// 参数 `current_is_msi` 仅 Windows 分支使用;非 Windows 平台会被忽略,
-/// 通过 `#[cfg_attr(not(target_os = "windows"), allow(unused_variables))]`
-/// 抑制未使用告警。
 #[must_use]
-#[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
-pub const fn resolve_package_type(current_is_msi: bool) -> PackageType {
-    #[cfg(target_os = "windows")]
-    {
-        if current_is_msi {
-            PackageType::Msi
-        } else {
-            PackageType::Portable
-        }
+pub const fn resolve_package_type(kind: WindowsInstallKind) -> PackageType {
+    match kind {
+        WindowsInstallKind::Msi => PackageType::Msi,
+        WindowsInstallKind::Nsis => PackageType::Nsis,
+        WindowsInstallKind::Portable => PackageType::Portable,
     }
+}
+
+/// 非 Windows 平台的默认更新包类型(macOS → `dmg`,Linux → `AppImage`)
+#[must_use]
+pub const fn platform_default_package_type() -> PackageType {
     #[cfg(target_os = "macos")]
     {
         PackageType::Dmg
@@ -81,7 +92,7 @@ pub const fn resolve_package_type(current_is_msi: bool) -> PackageType {
     {
         PackageType::AppImage
     }
-    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         PackageType::Archive
     }
@@ -108,26 +119,54 @@ pub const fn resolve_install_mode(pkg: PackageType) -> InstallMode {
 #[must_use]
 pub const fn install_mode_label(mode: InstallMode) -> &'static str {
     match mode {
-        InstallMode::WindowsMsi => "MSI 安装(系统级)",
-        InstallMode::WindowsNsis => "NSIS 安装器",
-        InstallMode::InPlace => "就地覆盖(portable)",
+        InstallMode::WindowsMsi => "安装版(MSI)",
+        InstallMode::WindowsNsis => "安装版(NSIS)",
+        InstallMode::InPlace => "便携版(就地覆盖)",
         InstallMode::MacosDmg => "挂载 .dmg 安装",
         InstallMode::LinuxDeb => "dpkg 安装(.deb)",
     }
 }
 
-/// 探测当前 Windows 安装是否为 MSI 安装版
+/// 探测当前 Windows 的安装类别(安装版 vs 便携版)
 ///
-/// `windowsMSIInstallMarker`:区分「系统安装版(MSI)」与「便携版」。
-/// 通过同级 marker 文件标识;此处采用等价的零配置判据 —— MSI 默认安装到
-/// `C:\Program Files\...`(系统级、需管理员权限升级),而 NSIS(`currentUser`)与
-/// 便携版位于 `%LOCALAPPDATA%` 或任意目录,属就地覆盖类。据此决定更新包类型与
-/// 安装方式提示。
+/// `detectWindowsInstallKind`:判据按优先级排列 ——
+/// 1. NSIS 安装器(Tauri 默认,含 `currentUser` 每用户安装)会在安装目录放置
+///    卸载程序 `uninstall.exe`,存在即判定为 NSIS 安装版;
+/// 2. MSI 安装版默认安装到 `C:\Program Files\...`(系统级)或 `ProgramData`;
+/// 3. 其余目录(zip 解压)判定为便携版。
 #[cfg(target_os = "windows")]
 #[must_use]
-pub fn is_msi_install(exe_dir: &std::path::Path) -> bool {
+pub fn detect_windows_install_kind(exe_dir: &std::path::Path) -> WindowsInstallKind {
+    // NSIS 安装器生成的卸载程序与主程序同级(文件名固定为 uninstall.exe)
+    if exe_dir.join("uninstall.exe").is_file() {
+        return WindowsInstallKind::Nsis;
+    }
     let path = exe_dir.to_string_lossy().to_lowercase();
-    path.contains("\\program files") || path.contains("\\programdata")
+    if path.contains("\\program files") || path.contains("\\programdata") {
+        WindowsInstallKind::Msi
+    } else {
+        WindowsInstallKind::Portable
+    }
+}
+
+/// 过滤 Release 正文中的英文样板句
+///
+/// `sanitizeReleaseNotes`:tauri-action 自动生成的 Release 说明会附带一行
+/// 英文引导语(如 "See the assets below to download and install this version."),
+/// 对中文界面是噪音。逐行剔除包含该样板关键词的行,清洗后为空则返回 `None`
+/// (前端据此隐藏更新说明区块)。
+#[must_use]
+fn sanitize_notes(notes: &str) -> Option<String> {
+    let cleaned: Vec<&str> = notes
+        .lines()
+        .filter(|line| !line.to_lowercase().contains("see the assets"))
+        .collect();
+    let trimmed = cleaned.join("\n").trim().to_string();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    }
 }
 
 /// IPC 响应:检查更新结果
@@ -161,25 +200,27 @@ pub struct AvailableUpdate {
 
 /// 构造 `CheckUpdateResponse` 的纯函数
 ///
-/// 将 updater 插件返回的 `Option<AvailableUpdate>` 转换为 IPC 响应。
+/// 将 updater 插件返回的 `Option<AvailableUpdate>` 转换为 IPC 响应;
+/// `package_type` 由调用方按平台/安装类别预先解析(见
+/// `detect_windows_install_kind` + `resolve_package_type`,或
+/// `platform_default_package_type`)。
 /// 抽离为独立函数是为了便于单元测试(不依赖 Tauri 运行时)。
 #[must_use]
 pub fn build_check_update_response(
     current_version: String,
     update: Option<AvailableUpdate>,
-    current_is_msi: bool,
+    package_type: PackageType,
 ) -> CheckUpdateResponse {
     match update {
         Some(u) => {
-            let pkg = resolve_package_type(current_is_msi);
-            let mode = resolve_install_mode(pkg);
+            let mode = resolve_install_mode(package_type);
             CheckUpdateResponse {
                 available: true,
                 version: Some(u.version),
                 current_version,
-                notes: u.notes,
+                notes: u.notes.as_deref().and_then(sanitize_notes),
                 date: u.date,
-                package_type: Some(pkg),
+                package_type: Some(package_type),
                 install_mode: Some(mode),
                 install_mode_label: Some(install_mode_label(mode).to_string()),
             }
@@ -232,7 +273,7 @@ mod tests {
             date: Some("2026-08-01T00:00:00Z".to_string()),
             package_type: Some(PackageType::Msi),
             install_mode: Some(InstallMode::WindowsMsi),
-            install_mode_label: Some("MSI 安装(系统级)".to_string()),
+            install_mode_label: Some("安装版(MSI)".to_string()),
         };
         let json = serde_json::to_value(&resp).expect("serialize should succeed");
         assert_eq!(json["available"], json!(true));
@@ -242,12 +283,13 @@ mod tests {
         assert_eq!(json["date"], json!("2026-08-01T00:00:00Z"));
         assert_eq!(json["packageType"], json!("msi"));
         assert_eq!(json["installMode"], json!("windows-msi"));
-        assert_eq!(json["installModeLabel"], json!("MSI 安装(系统级)"));
+        assert_eq!(json["installModeLabel"], json!("安装版(MSI)"));
     }
 
     #[test]
     fn build_response_from_no_update_returns_available_false() {
-        let resp = build_check_update_response("0.1.0".to_string(), None, false);
+        let resp =
+            build_check_update_response("0.1.0".to_string(), None, PackageType::Portable);
         assert!(!resp.available);
         assert!(resp.version.is_none());
         assert!(resp.package_type.is_none());
@@ -260,7 +302,11 @@ mod tests {
             notes: Some("fixes".to_string()),
             date: Some("2026-08-01".to_string()),
         };
-        let resp = build_check_update_response("0.1.0".to_string(), Some(update), false);
+        let resp = build_check_update_response(
+            "0.1.0".to_string(),
+            Some(update),
+            PackageType::Portable,
+        );
         assert!(resp.available);
         assert_eq!(resp.version.as_deref(), Some("0.2.0"));
         assert_eq!(resp.notes.as_deref(), Some("fixes"));
@@ -269,18 +315,67 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_os = "windows")]
-    fn resolve_package_type_respects_msi_marker() {
-        // Windows:marker 区分 MSI 安装版与便携版
-        assert_eq!(resolve_package_type(true), PackageType::Msi);
-        assert_eq!(resolve_package_type(false), PackageType::Portable);
-        assert_ne!(resolve_package_type(true), resolve_package_type(false));
+    fn resolve_package_type_maps_install_kinds() {
+        // Windows 安装类别 → 更新包类型一一对应
+        assert_eq!(resolve_package_type(WindowsInstallKind::Msi), PackageType::Msi);
+        assert_eq!(
+            resolve_package_type(WindowsInstallKind::Nsis),
+            PackageType::Nsis
+        );
+        assert_eq!(
+            resolve_package_type(WindowsInstallKind::Portable),
+            PackageType::Portable
+        );
     }
 
     #[test]
-    #[cfg(not(target_os = "windows"))]
-    fn resolve_package_type_ignores_msi_marker_on_non_windows() {
-        // 非 Windows 平台:marker 被忽略,两种入参返回相同的平台包类型
-        assert_eq!(resolve_package_type(true), resolve_package_type(false));
+    fn resolve_install_mode_maps_nsis_correctly() {
+        // NSIS 安装版 → WindowsNsis 安装方式(非就地覆盖)
+        assert_eq!(
+            resolve_install_mode(PackageType::Nsis),
+            InstallMode::WindowsNsis
+        );
+    }
+
+    #[test]
+    fn sanitize_notes_strips_upstream_boilerplate() {
+        // tauri-action 生成的英文样板句应被剔除;纯样板 → None(前端隐藏说明区)
+        assert_eq!(
+            sanitize_notes("See the assets below to download and install this version."),
+            None
+        );
+        // 混合内容:仅剔除样板行,保留正文
+        let mixed = "See the assets below to download and install this version.\n\n- 修复若干问题\n- 新增工具";
+        assert_eq!(
+            sanitize_notes(mixed).as_deref(),
+            Some("- 修复若干问题\n- 新增工具")
+        );
+        // 纯中文正文原样保留
+        assert_eq!(
+            sanitize_notes("- 修复若干问题").as_deref(),
+            Some("- 修复若干问题")
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn detect_windows_install_kind_by_uninstaller() {
+        use std::fs;
+        let dir = std::env::temp_dir().join(format!("qraft_detect_test_{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        // 无卸载程序 + 非系统目录 → 便携版
+        assert_eq!(
+            detect_windows_install_kind(&dir),
+            WindowsInstallKind::Portable
+        );
+        // 存在 uninstall.exe → NSIS 安装版
+        fs::write(dir.join("uninstall.exe"), b"").expect("write uninstaller stub");
+        assert_eq!(detect_windows_install_kind(&dir), WindowsInstallKind::Nsis);
+        // 系统目录(无卸载程序)→ MSI 安装版
+        assert_eq!(
+            detect_windows_install_kind(std::path::Path::new("C:\\Program Files\\Qraft")),
+            WindowsInstallKind::Msi
+        );
+        let _ = fs::remove_dir_all(&dir);
     }
 }

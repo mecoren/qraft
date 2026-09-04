@@ -161,7 +161,12 @@ export function UpdateSection(): JSX.Element {
     try {
       const resp = await invoke<CheckUpdateResponse>('app_check_update');
       setUpdateInfo(resp);
-      const isManual = resp.installMode != null && resp.installMode !== 'in-place';
+      // 仅 MSI / dmg / deb 等 updater 无法自动升级的模式走手动分流;
+      // NSIS 安装版与便携版一样由 updater 原生支持自动安装
+      const isManual =
+        resp.installMode != null &&
+        resp.installMode !== 'in-place' &&
+        resp.installMode !== 'windows-nsis';
       setManualInstall(isManual);
       if (!resp.available) {
         toast.success(t('settings.up_to_date_toast', { version: resp.currentVersion }));

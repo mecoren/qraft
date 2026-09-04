@@ -179,4 +179,37 @@ describe('UpdateSection 检查更新错误提示', () => {
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('app_open_release_page'));
     expect(toastErrorMock).not.toHaveBeenCalledWith(expect.stringContaining('安装更新失败'));
   });
+
+  it('NSIS 安装版走自动更新而非手动跳转(显示「立即更新」)', async () => {
+    // windows-nsis 由 tauri-plugin-updater 原生支持静默安装,
+    // 不应被误判为手动安装模式(显示「前往 GitHub 下载整包」)
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === 'app_check_update') {
+        return Promise.resolve({
+          available: true,
+          version: '9.9.9',
+          currentVersion: '0.2.2',
+          notes: null,
+          date: null,
+          packageType: 'nsis',
+          installMode: 'windows-nsis',
+          installModeLabel: '安装版(NSIS)',
+        });
+      }
+      if (cmd === 'list_system_fonts') return Promise.resolve([]);
+      return Promise.resolve({ success: true, data: true });
+    });
+
+    const user = userEvent.setup();
+    render(<SettingsPanel />);
+    await user.click(screen.getByRole('button', { name: '检查更新' }));
+
+    // NSIS 安装版 → 主按钮为「立即更新」而非「前往 GitHub 下载整包」
+    await screen.findByRole('button', { name: '立即更新' });
+    expect(screen.queryByRole('button', { name: '前往 GitHub 下载整包' })).toBeNull();
+    // 点击后调用自动安装命令,而非打开 Releases 页
+    await user.click(screen.getByRole('button', { name: '立即更新' }));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('app_install_update', { installMode: 'windows-nsis' }));
+    expect(invokeMock).not.toHaveBeenCalledWith('app_open_release_page');
+  });
 });
