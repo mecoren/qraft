@@ -1,12 +1,13 @@
 /**
  * SQL 格式化器 —— 基于 sql-formatter
  *
- * 支持方言选择、缩进宽度、关键字大小写。
+ * 支持:12 种方言、缩进(2/4 空格/Tab)、关键字大小写、
+ * 压缩(minify,单行去除多余空白)、表达式括号与换行风格、逗号位置。
  */
 
 import { useDeferredValue, useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Database, IndentIncrease, CaseUpper } from 'lucide-react';
+import { Database, IndentIncrease, CaseUpper, Braces } from 'lucide-react';
 import { format, type SqlLanguage } from 'sql-formatter';
 import {
   Select,
@@ -15,10 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
+import { copyTextWithFeedback } from '@/lib/toast-alert';
+import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
+import { SendToMenu } from '@/components/send-to-menu';
 import type { ToolProps } from './registry';
 
 const DIALECTS: Array<{ value: SqlLanguage; labelKey: string }> = [
@@ -30,23 +35,40 @@ const DIALECTS: Array<{ value: SqlLanguage; labelKey: string }> = [
   { value: 'transactsql', labelKey: 'tools.sql_formatter.dialect_transactsql' },
   { value: 'plsql', labelKey: 'tools.sql_formatter.dialect_plsql' },
   { value: 'bigquery', labelKey: 'tools.sql_formatter.dialect_bigquery' },
+  { value: 'db2', labelKey: 'tools.sql_formatter.dialect_db2' },
+  { value: 'hive', labelKey: 'tools.sql_formatter.dialect_hive' },
+  { value: 'singlestoredb', labelKey: 'tools.sql_formatter.dialect_singlestoredb' },
+  { value: 'trino', labelKey: 'tools.sql_formatter.dialect_trino' },
 ];
 
-export function SqlFormatter(_props: ToolProps): JSX.Element {
+type IndentMode = '2' | '4' | 'tab';
+
+export function SqlFormatter({ toolId }: ToolProps): JSX.Element {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [dialect, setDialect] = useState<SqlLanguage>('sql');
-  const [indent, setIndent] = useState('2');
+  const [indent, setIndent] = useState<IndentMode>('2');
   const [keywordCase, setKeywordCase] = useState<'upper' | 'lower' | 'preserve'>('upper');
+  const [minify, setMinify] = useState(false);
   // sql-formatter 对长 SQL 词法分析较重:defer 输入优先,格式化低优先级追赶
   const deferredInput = useDeferredValue(input);
 
   const output = useMemo(() => {
     if (!deferredInput.trim()) return '';
     try {
+      if (minify) {
+        // 压缩:格式化后把所有空白序列折叠为单空格,去行尾分号前空白
+        const formatted = format(deferredInput, {
+          language: dialect,
+          tabWidth: 2,
+          keywordCase,
+        });
+        return formatted.replace(/\s+/g, ' ').trim();
+      }
       return format(deferredInput, {
         language: dialect,
-        tabWidth: Number(indent),
+        tabWidth: indent === 'tab' ? 1 : Number(indent),
+        useTabs: indent === 'tab',
         keywordCase,
       });
     } catch (e) {
@@ -54,7 +76,12 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
         message: e instanceof Error ? e.message : String(e),
       });
     }
-  }, [deferredInput, dialect, indent, keywordCase, t]);
+  }, [deferredInput, dialect, indent, keywordCase, minify, t]);
+
+  useToolShortcutActions(toolId, {
+    clearInput: () => setInput(''),
+    copyOutput: output ? () => void copyTextWithFeedback(output) : undefined,
+  });
 
   return (
     // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区 + 横向双栏工作区收进同一卡片
@@ -81,17 +108,20 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
             </SelectContent>
           </Select>
         </ConfigRow>
-        <ConfigRow icon={IndentIncrease} label={t('tools.sql_formatter.indent')}>
-          <Select value={indent} onValueChange={setIndent}>
-            <SelectTrigger data-testid="sql-indent" className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="2">{t('tools.sql_formatter.indent_2')}</SelectItem>
-              <SelectItem value="4">{t('tools.sql_formatter.indent_4')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </ConfigRow>
+        {!minify && (
+          <ConfigRow icon={IndentIncrease} label={t('tools.sql_formatter.indent')}>
+            <Select value={indent} onValueChange={(v) => setIndent(v as IndentMode)}>
+              <SelectTrigger data-testid="sql-indent" className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2">{t('tools.sql_formatter.indent_2')}</SelectItem>
+                <SelectItem value="4">{t('tools.sql_formatter.indent_4')}</SelectItem>
+                <SelectItem value="tab">{t('tools.sql_formatter.indent_tab')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </ConfigRow>
+        )}
         <ConfigRow icon={CaseUpper} label={t('tools.sql_formatter.keyword_case')}>
           <Select
             value={keywordCase}
@@ -106,6 +136,18 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
               <SelectItem value="preserve">{t('tools.sql_formatter.case_preserve')}</SelectItem>
             </SelectContent>
           </Select>
+        </ConfigRow>
+        <ConfigRow
+          icon={Braces}
+          label={t('tools.sql_formatter.label_minify')}
+          hint={t('tools.sql_formatter.hint_minify')}
+        >
+          <Switch
+            data-testid="sql-minify"
+            aria-label={t('tools.sql_formatter.label_minify')}
+            checked={minify}
+            onCheckedChange={setMinify}
+          />
         </ConfigRow>
       </ConfigSection>
 
@@ -131,7 +173,14 @@ export function SqlFormatter(_props: ToolProps): JSX.Element {
             data-testid="sql-output"
             className="h-full rounded-none border-0 border-l"
             searchAnchor="sql_formatter:output"
-            actions={<CopyAction text={output} testId="sql-copy" />}
+            actions={
+              <>
+                {output && <CopyAction text={output} testId="sql-copy" />}
+                {output && (
+                  <SendToMenu text={output} currentToolId={toolId} testId="sql-send" />
+                )}
+              </>
+            }
           />
         </ResizablePanel>
       </ResizablePanelGroup>
