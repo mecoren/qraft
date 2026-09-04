@@ -1,7 +1,8 @@
 /**
  * XML 格式化器 —— DOMParser 解析 + 递归序列化
  *
- * 支持:缩进(2/4空格/Tab/压缩)、属性换行开关。
+ * 支持:缩进(2/4空格/Tab/压缩)、属性换行开关、
+ * 保留 XML 声明 / DOCTYPE / 处理指令 / 注释 / CDATA。
  */
 
 import { useDeferredValue, useMemo, useState, type JSX } from 'react';
@@ -19,85 +20,13 @@ import { CodeEditor } from '@/components/ui/code-editor';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
+import { copyTextWithFeedback } from '@/lib/toast-alert';
+import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
+import { SendToMenu } from '@/components/send-to-menu';
+import { formatXml, type IndentMode } from './xml-format-utils';
 import type { ToolProps } from './registry';
 
-type IndentMode = '2' | '4' | 'tab' | 'minify';
-
-function indentUnit(mode: IndentMode): string {
-  if (mode === 'tab') return '\t';
-  if (mode === 'minify') return '';
-  return ' '.repeat(Number(mode));
-}
-
-function escapeAttr(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-}
-
-function escapeTextContent(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function serializeNode(node: Node, unit: string, depth: number, attrsOnNewLine: boolean): string {
-  const pad = unit ? unit.repeat(depth) : '';
-  const nl = unit ? '\n' : '';
-
-  if (node.nodeType === Node.TEXT_NODE) {
-    const text = (node.textContent ?? '').trim();
-    return text ? `${pad}${escapeTextContent(text)}${nl}` : '';
-  }
-  if (node.nodeType === Node.COMMENT_NODE) {
-    return `${pad}<!--${node.textContent ?? ''}-->${nl}`;
-  }
-  if (node.nodeType === Node.CDATA_SECTION_NODE) {
-    return `${pad}<![CDATA[${node.textContent ?? ''}]]>${nl}`;
-  }
-  if (node.nodeType !== Node.ELEMENT_NODE) return '';
-
-  const el = node as Element;
-  const attrs = Array.from(el.attributes);
-  let attrText = '';
-  if (attrs.length > 0) {
-    if (attrsOnNewLine && unit && attrs.length > 1) {
-      const attrPad = unit.repeat(depth + 1);
-      attrText = `\n${attrs.map((a) => `${attrPad}${a.name}="${escapeAttr(a.value)}"`).join('\n')}`;
-    } else {
-      attrText = ` ${attrs.map((a) => `${a.name}="${escapeAttr(a.value)}"`).join(' ')}`;
-    }
-  }
-
-  const children = Array.from(el.childNodes).filter(
-    (c) => c.nodeType !== Node.TEXT_NODE || (c.textContent ?? '').trim().length > 0,
-  );
-
-  if (children.length === 0) {
-    return `${pad}<${el.tagName}${attrText} />${nl}`;
-  }
-
-  // 单文本子节点:同一行输出
-  if (children.length === 1 && children[0].nodeType === Node.TEXT_NODE) {
-    const text = escapeTextContent((children[0].textContent ?? '').trim());
-    return `${pad}<${el.tagName}${attrText}>${text}</${el.tagName}>${nl}`;
-  }
-
-  const inner = children.map((c) => serializeNode(c, unit, depth + 1, attrsOnNewLine)).join('');
-  return `${pad}<${el.tagName}${attrText}>${nl}${inner}${pad}</${el.tagName}>${nl}`;
-}
-
-export function formatXml(input: string, mode: IndentMode, attrsOnNewLine: boolean): string {
-  const doc = new DOMParser().parseFromString(input, 'application/xml');
-  const err = doc.querySelector('parsererror');
-  if (err) {
-    // 抛 i18n 键名,由组件层翻译(parseMissingKeyHandler 保证未知文本原样透传)
-    throw new Error(err.textContent?.trim().split('\n')[0] ?? 'tools.xml_formatter.parse_error');
-  }
-  const unit = indentUnit(mode);
-  const decl = /^\s*<\?xml/.test(input)
-    ? `<?xml version="1.0" encoding="UTF-8"?>${unit ? '\n' : ''}`
-    : '';
-  return (decl + serializeNode(doc.documentElement, unit, 0, attrsOnNewLine)).trimEnd();
-}
-
-export function XmlFormatter(_props: ToolProps): JSX.Element {
+export function XmlFormatter({ toolId }: ToolProps): JSX.Element {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [mode, setMode] = useState<IndentMode>('2');
@@ -117,6 +46,11 @@ export function XmlFormatter(_props: ToolProps): JSX.Element {
       });
     }
   }, [deferredInput, mode, attrNewLine, t]);
+
+  useToolShortcutActions(toolId, {
+    clearInput: () => setInput(''),
+    copyOutput: output ? () => void copyTextWithFeedback(output) : undefined,
+  });
 
   return (
     // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区 + 横向双栏工作区收进同一卡片
@@ -174,7 +108,14 @@ export function XmlFormatter(_props: ToolProps): JSX.Element {
             data-testid="xmlfmt-output"
             className="h-full rounded-none border-0 border-l"
             searchAnchor="xml_formatter:output"
-            actions={<CopyAction text={output} testId="xmlfmt-copy" />}
+            actions={
+              <>
+                {output && <CopyAction text={output} testId="xmlfmt-copy" />}
+                {output && (
+                  <SendToMenu text={output} currentToolId={toolId} testId="xmlfmt-send" />
+                )}
+              </>
+            }
           />
         </ResizablePanel>
       </ResizablePanelGroup>
