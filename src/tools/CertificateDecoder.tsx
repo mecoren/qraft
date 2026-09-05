@@ -202,9 +202,10 @@ export function CertificateDecoder(_props: ToolProps): JSX.Element {
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <div className="flex h-full flex-col border-l">
-            {/* 输出工具栏:标题 + 复制(输出区不再走 CodeEditor,独立承载) */}
-            <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
-              <span className="text-body-sm font-medium">
+            {/* 输出工具栏:标题 + 复制(输出区不再走 CodeEditor,独立承载)。
+                与 CodeEditor 标题栏同高(26px)、同排版,保证左右栏标题线对齐 */}
+            <div className="flex h-[26px] min-w-0 items-center justify-between gap-x-2 border-b border-input px-2">
+              <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground">
                 {t('tools.certificate_decoder.title_output')}
               </span>
               {copyText ? <CopyAction text={copyText} testId="cert-copy" /> : null}
