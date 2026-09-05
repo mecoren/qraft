@@ -270,9 +270,9 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
             className="w-72 text-sm"
             data-testid="input"
           />
+          {/* 与 Input 默认 h-9 对齐,保持同高 */}
           <Button
             variant="outline"
-            size="sm"
             onClick={() => setText(String(Date.now()))}
             data-testid="ts-now-btn"
           >
