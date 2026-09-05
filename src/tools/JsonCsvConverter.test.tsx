@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { JsonCsvConverter } from './JsonCsvConverter';
-import { jsonToCsv, csvToJson, csvRows } from './json-csv-utils';
+import { jsonToCsv, csvToJson, csvRows, inferScalar, flattenEntry } from './json-csv-utils';
 
 describe('jsonToCsv', () => {
   it('对象数组转 CSV:列取键并集,逗号/引号/换行正确转义,CRLF 行尾', () => {
@@ -35,8 +35,15 @@ describe('csvRows / csvToJson', () => {
     expect(rows[2]).toEqual(['2', '3']);
   });
 
+  it('自定义分隔符:序列化与解析双向生效', () => {
+    const csv = jsonToCsv([{ a: 'x;y', b: 1 }], ';');
+    expect(csv).toBe('a;b\r\n"x;y";1');
+    const rows = csvRows('a;b\r\n1;2', ';');
+    expect(rows[1]).toEqual(['1', '2']);
+  });
+
   it('首行为表头时输出对象数组,缺列补空串', () => {
-    const arr = csvToJson('name,age\r\nli,18\r\nwang', true);
+    const arr = csvToJson('name,age\r\nli,18\r\nwang');
     expect(arr).toEqual([
       { name: 'li', age: '18' },
       { name: 'wang', age: '' },
@@ -44,8 +51,39 @@ describe('csvRows / csvToJson', () => {
   });
 
   it('header=false 输出二维数组;空输入返回空数组', () => {
-    expect(csvToJson('1,2', false)).toEqual([['1', '2']]);
-    expect(csvToJson('', false)).toEqual([]);
+    expect(csvToJson('1,2', { header: false })).toEqual([['1', '2']]);
+    expect(csvToJson('', { header: false })).toEqual([]);
+  });
+
+  it('inferScalar:整数/浮点/布尔/null,其余保持字符串', () => {
+    expect(inferScalar('42')).toBe(42);
+    expect(inferScalar('-3.14')).toBe(-3.14);
+    expect(inferScalar('true')).toBe(true);
+    expect(inferScalar('null')).toBe(null);
+    expect(inferScalar('007')).toBe(7);
+    expect(inferScalar('abc')).toBe('abc');
+    expect(inferScalar('123456789012345678901')).toBe('123456789012345678901');
+  });
+
+  it('infer=true 时对象值自动转型', () => {
+    const arr = csvToJson('name,age,ok\r\nli,18,true', { infer: true }) as Array<
+      Record<string, unknown>
+    >;
+    expect(arr[0]).toEqual({ name: 'li', age: 18, ok: true });
+  });
+
+  it('flattenEntry:默认一层(JSON 字符串),deep=true 递归点路径', () => {
+    expect(flattenEntry({ a: 1, b: { c: 2 }, d: [1, 2] })).toEqual({
+      a: 1,
+      b: '{"c":2}',
+      d: '[1,2]',
+    });
+    expect(flattenEntry({ a: 1, b: { c: { d: 2 } }, e: [1] }, true)).toEqual({
+      a: 1,
+      'b.c.d': 2,
+      e: '[1]',
+    });
+    expect(flattenEntry(42)).toEqual({ value: 42 });
   });
 });
 

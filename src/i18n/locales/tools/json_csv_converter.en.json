@@ -4,5 +4,18 @@
   "tools.json_csv_converter.json_input": "JSON input",
   "tools.json_csv_converter.csv_input": "CSV input",
   "tools.json_csv_converter.output_title": "Output",
-  "tools.json_csv_converter.convert_failed": "Conversion failed: {{message}}"
+  "tools.json_csv_converter.convert_failed": "Conversion failed: {{message}}",
+  "tools.json_csv_converter.delimiter": "Delimiter",
+  "tools.json_csv_converter.delimiter_hint": "Field delimiter used in both directions",
+  "tools.json_csv_converter.delimiter_comma": "Comma ,",
+  "tools.json_csv_converter.delimiter_semicolon": "Semicolon ;",
+  "tools.json_csv_converter.delimiter_tab": "Tab",
+  "tools.json_csv_converter.delimiter_pipe": "Pipe |",
+  "tools.json_csv_converter.first_row_header": "First row as header",
+  "tools.json_csv_converter.first_row_header_hint": "Turn off to output an array of arrays",
+  "tools.json_csv_converter.type_inference": "Type inference",
+  "tools.json_csv_converter.type_inference_hint": "Auto-convert numbers / booleans / null; strings by default",
+  "tools.json_csv_converter.deep_flatten": "Deep-flatten nested objects",
+  "tools.json_csv_converter.deep_flatten_hint": "Nested keys become a.b dot paths; arrays are JSON-stringified",
+  "tools.json_csv_converter.download": "Download"
 }

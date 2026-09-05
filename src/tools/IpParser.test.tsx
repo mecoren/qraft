@@ -144,6 +144,7 @@ describe('analyzeIp (IPv4 + CIDR)', () => {
     expect(r.totalAddresses).toBe(64n);
     expect(r.hex).toBe('0xC0A80182');
     expect(r.binary).toBe('11000000.10101000.00000001.10000010');
+    expect(r.ptr).toBe('130.1.168.192.in-addr.arpa');
   });
 
   it('classifies private class C', () => {
@@ -205,6 +206,16 @@ describe('analyzeIp (IPv6)', () => {
     expect(h.cidr).toBe('fe80::1/128');
     expect(h.scope).toBe('tools.ip_parser.v6_link_local');
   });
+
+  it('classifies IPv4-mapped addresses and exposes embedded IPv4 + PTR', () => {
+    const m = analyzeIp('::ffff:192.168.0.1');
+    if (m.version !== 6) throw new Error('expected v6');
+    expect(m.scope).toBe('tools.ip_parser.v6_v4mapped');
+    expect(m.mappedIpv4).toBe('192.168.0.1');
+    // nibble 反解:c0a80001 逐 nibble 逆序(1,0,0,0,8,a,0,c)+ ffff + 20 个 0
+    expect(m.ptr.startsWith('1.0.0.0.8.a.0.c.f.f.f.f.')).toBe(true);
+    expect(m.ptr.endsWith('.ip6.arpa')).toBe(true);
+  });
 });
 
 describe('scope / classification helpers', () => {
@@ -250,7 +261,7 @@ describe('IpParser', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'IP 地址或 CIDR' }), {
       target: { value: 'not-an-ip' },
     });
-    expect(screen.getByTestId('ip-error')).toHaveTextContent(/无效的 IP 地址/);
+    expect(screen.getByTestId('ip-error')).toHaveTextContent(/无效的 IP/);
   });
 
   it('renders summary and info cards for IPv4 CIDR input', () => {

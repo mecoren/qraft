@@ -7,6 +7,18 @@
   "tools.ipv4_subnet_calculator.last_host": "Last usable host",
   "tools.ipv4_subnet_calculator.total_addresses": "Total addresses",
   "tools.ipv4_subnet_calculator.usable_hosts": "Usable hosts",
-  "tools.ipv4_subnet_calculator.cidr_hint": "e.g. 192.168.1.10/24; an omitted prefix defaults to /32",
-  "tools.ipv4_subnet_calculator.parse_error": "Unparseable IPv4/CIDR expression"
+  "tools.ipv4_subnet_calculator.prefix_length": "Prefix length",
+  "tools.ipv4_subnet_calculator.host_bits": "Host bits",
+  "tools.ipv4_subnet_calculator.ip_class": "IP class",
+  "tools.ipv4_subnet_calculator.ip_scope": "Scope",
+  "tools.ipv4_subnet_calculator.binary_ip": "Binary (IP)",
+  "tools.ipv4_subnet_calculator.binary_mask": "Binary (mask)",
+  "tools.ipv4_subnet_calculator.cidr_hint": "Accepts 192.168.1.10/24, 192.168.1.10 255.255.255.0 or a bare IP (/32)",
+  "tools.ipv4_subnet_calculator.parse_error": "Unparseable IPv4/CIDR expression",
+  "tools.ipv4_subnet_calculator.split_title": "Subnet split preview",
+  "tools.ipv4_subnet_calculator.split_new_prefix": "New prefix",
+  "tools.ipv4_subnet_calculator.split_subnet_count": "Subnets",
+  "tools.ipv4_subnet_calculator.split_hosts_per_subnet": "Usable hosts per subnet",
+  "tools.ipv4_subnet_calculator.split_limit_note": "Showing first {{count}} subnets",
+  "tools.ipv4_subnet_calculator.split_unavailable": "A /32 host cannot be split further"
 }

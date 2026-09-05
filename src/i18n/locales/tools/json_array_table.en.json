@@ -3,5 +3,12 @@
   "tools.json_array_table.input_title": "JSON array",
   "tools.json_array_table.table_title": "Table",
   "tools.json_array_table.empty_state": "Paste a JSON array of objects to build the table automatically",
-  "tools.json_array_table.table_summary": "{{rows}} rows × {{cols}} columns"
+  "tools.json_array_table.table_summary": "{{rows}} rows × {{cols}} columns",
+  "tools.json_array_table.deep_flatten": "Deep-flatten nested objects",
+  "tools.json_array_table.deep_flatten_hint": "Nested keys become a.b dot paths; arrays are JSON-stringified",
+  "tools.json_array_table.first_row_header": "First row as header",
+  "tools.json_array_table.first_row_header_hint": "Use the first row as column names for array-of-arrays input",
+  "tools.json_array_table.column_n": "Column {{n}}",
+  "tools.json_array_table.copy_tsv": "Copy TSV",
+  "tools.json_array_table.render_limit": "Showing first {{limit}} rows"
 }

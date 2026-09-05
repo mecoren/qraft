@@ -45,6 +45,8 @@ export interface IpV4Analysis {
   usableHosts: bigint;
   /** 总地址数 2^(32-n) */
   totalAddresses: bigint;
+  /** 反解域名(PTR 记录名,in-addr.arpa) */
+  ptr: string;
   /** 传统分类键(tools.ip_parser.class_*,组件层翻译) */
   ipClass: string;
   /** 用途/作用域键(tools.ip_parser.scope_* 等,组件层翻译) */
@@ -67,6 +69,10 @@ export interface IpV6Analysis {
   lastAddress: string;
   /** 总地址数 2^(128-n) */
   totalAddresses: bigint;
+  /** 反解域名(PTR 记录名,nibble 格式 ip6.arpa) */
+  ptr: string;
+  /** IPv4 映射地址(::ffff:0:0/96)内嵌的 IPv4,非映射时为 null */
+  mappedIpv4: string | null;
   /** 作用域键(tools.ip_parser.v6_* 等,组件层翻译) */
   scope: string;
 }
@@ -257,6 +263,8 @@ export function describeIpv6Scope(value: bigint): string {
   if (value === 1n) return 'tools.ip_parser.v6_loopback';
   const top8 = value >> 120n;
   if (top8 === 0xffn) return 'tools.ip_parser.v6_multicast';
+  // ::ffff:0:0/96:IPv4 映射地址(ffff 位于第 5 组,即 bits 47-32)
+  if (value >> 32n === 0xffffn) return 'tools.ip_parser.v6_v4mapped';
   // fe80::/10:首 10 位 1111 1110 10
   if (value >> 118n === 0x3fan) return 'tools.ip_parser.v6_link_local';
   // fc00::/7:首 7 位 1111 110
@@ -266,6 +274,22 @@ export function describeIpv6Scope(value: bigint): string {
   if (value >> 112n === 0x2002n) return 'tools.ip_parser.v6_6to4';
   if (value >> 96n === 0x64ff9bn) return 'tools.ip_parser.v6_nat64';
   return 'tools.ip_parser.v6_global';
+}
+
+/** uint32(BigInt)→ 反解域名(x.x.x.x.in-addr.arpa,RFC 1035) */
+export function ipv4Ptr(value: bigint): string {
+  const v = BigInt.asUintN(32, value);
+  return `${v & 255n}.${(v >> 8n) & 255n}.${(v >> 16n) & 255n}.${(v >> 24n) & 255n}.in-addr.arpa`;
+}
+
+/** 128bit(BigInt)→ nibble 反解域名(…ip6.arpa,RFC 3596) */
+export function ipv6Ptr(value: bigint): string {
+  const v = BigInt.asUintN(128, value);
+  const nibbles: string[] = [];
+  for (let i = 0; i < 32; i++) {
+    nibbles.push(((v >> BigInt(i * 4)) & 0xfn).toString(16));
+  }
+  return `${nibbles.join('.')}.ip6.arpa`;
 }
 
 // ============================================================
@@ -293,8 +317,8 @@ export function analyzeIp(rawInput: string): IpAnalysis {
   }
   const explicitPrefix = slash >= 0 ? Number(prefixText) : null;
 
-  // —— IPv4 ——
-  if (ipText.includes('.')) {
+  // —— IPv4 ——(含冒号必为 IPv6 形式,如 ::ffff:192.168.0.1 内嵌 IPv4)
+  if (!ipText.includes(':')) {
     const ipValue = parseIpv4(ipText);
     if (ipValue === null)
       throw new IpParseError(t('tools.ip_parser.err_bad_ipv4', { value: ipText }));
@@ -343,6 +367,7 @@ export function analyzeIp(rawInput: string): IpAnalysis {
       lastHost,
       usableHosts,
       totalAddresses,
+      ptr: ipv4Ptr(ipValue),
       ipClass: describeIpv4Class(ipValue),
       scope: describeIpv4Scope(ipValue),
     };
@@ -368,6 +393,8 @@ export function analyzeIp(rawInput: string): IpAnalysis {
     network: formatIpv6Compressed(networkValue),
     lastAddress: formatIpv6Compressed(lastValue),
     totalAddresses: 1n << BigInt(128 - prefix),
+    ptr: ipv6Ptr(ipValue),
+    mappedIpv4: ipValue >> 32n === 0xffffn ? formatIpv4(ipValue & 0xffffffffn) : null,
     scope: describeIpv6Scope(ipValue),
   };
 }

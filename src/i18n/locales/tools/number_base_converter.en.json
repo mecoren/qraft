@@ -6,14 +6,17 @@
   "tools.number_base_converter.base_octal": "Octal",
   "tools.number_base_converter.base_decimal": "Decimal",
   "tools.number_base_converter.base_hex": "Hexadecimal",
+  "tools.number_base_converter.base_n": "Base {{base}}",
+  "tools.number_base_converter.bit_width": "Bit width",
+  "tools.number_base_converter.bit_width_none": "Unlimited",
+  "tools.number_base_converter.bit_width_hint": "With a width set, binary/octal/hex are zero-padded and negatives show two's complement",
   "tools.number_base_converter.input_title": "Input",
   "tools.number_base_converter.placeholder_hex": "e.g. FF or 0xFF",
   "tools.number_base_converter.placeholder_default": "Enter a number",
   "tools.number_base_converter.input_aria": "Number to convert",
   "tools.number_base_converter.result_title": "Results",
+  "tools.number_base_converter.copy_all": "Copy all",
+  "tools.number_base_converter.overflow_note": "Value exceeds {{width}}-bit range; shown as arbitrary precision",
   "tools.number_base_converter.error_empty_input": "Empty input",
-  "tools.number_base_converter.error_invalid_binary": "Not a valid binary number",
-  "tools.number_base_converter.error_invalid_octal": "Not a valid octal number",
-  "tools.number_base_converter.error_invalid_decimal": "Not a valid decimal number",
-  "tools.number_base_converter.error_invalid_hex": "Not a valid hexadecimal number"
+  "tools.number_base_converter.error_invalid_digit": "Not a valid base-{{base}} number"
 }

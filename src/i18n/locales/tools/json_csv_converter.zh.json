@@ -4,5 +4,18 @@
   "tools.json_csv_converter.json_input": "JSON 输入",
   "tools.json_csv_converter.csv_input": "CSV 输入",
   "tools.json_csv_converter.output_title": "输出",
-  "tools.json_csv_converter.convert_failed": "转换失败: {{message}}"
+  "tools.json_csv_converter.convert_failed": "转换失败: {{message}}",
+  "tools.json_csv_converter.delimiter": "分隔符",
+  "tools.json_csv_converter.delimiter_hint": "双向转换使用的字段分隔符",
+  "tools.json_csv_converter.delimiter_comma": "逗号 ,",
+  "tools.json_csv_converter.delimiter_semicolon": "分号 ;",
+  "tools.json_csv_converter.delimiter_tab": "制表符 Tab",
+  "tools.json_csv_converter.delimiter_pipe": "竖线 |",
+  "tools.json_csv_converter.first_row_header": "首行作表头",
+  "tools.json_csv_converter.first_row_header_hint": "关闭后输出二维数组",
+  "tools.json_csv_converter.type_inference": "类型推断",
+  "tools.json_csv_converter.type_inference_hint": "数字 / 布尔 / null 自动转换,默认保持字符串",
+  "tools.json_csv_converter.deep_flatten": "深展平嵌套对象",
+  "tools.json_csv_converter.deep_flatten_hint": "嵌套键展开为 a.b 点路径;数组序列化为 JSON 字符串",
+  "tools.json_csv_converter.download": "下载"
 }

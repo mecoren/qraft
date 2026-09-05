@@ -523,19 +523,26 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
     {
       key: 'config',
       title: { zh: '解析选项', en: 'Parse options' },
-      description: { zh: '秒与任务数量', en: 'Seconds and job count' },
-      keywords: ['包含秒', '计划任务数量'],
+      description: { zh: '秒、任务数量与时区', en: 'Seconds, job count and timezone' },
+      keywords: ['包含秒', '计划任务数量', '时区'],
     },
     {
       key: 'expression',
       title: { zh: 'Cron 表达式', en: 'Cron expression' },
-      keywords: ['cron', '表达式', '定时'],
+      description: { zh: '常用表达式预设与字段含义', en: 'Presets and field meanings' },
+      keywords: ['cron', '表达式', '定时', '预设', '每分钟', '每天'],
     },
     {
       key: 'result',
       title: { zh: '接下来的计划日期', en: 'Upcoming schedule dates' },
       description: { zh: '下次执行时间', en: 'Next execution times' },
       keywords: ['计划', '结果', '下次执行'],
+    },
+    {
+      key: 'prev',
+      title: { zh: '之前的计划日期', en: 'Previous schedule dates' },
+      description: { zh: '上次执行时间', en: 'Previous execution times' },
+      keywords: ['上次执行', '历史执行', '结果'],
     },
   ],
   ipv4_subnet_calculator: [
@@ -620,8 +627,11 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
     {
       key: 'input',
       title: T_INPUT,
-      description: { zh: 'Unix 秒 / 毫秒 / 日期字符串', en: 'Unix seconds / millis / date string' },
-      keywords: ['unix', '秒', '毫秒', '日期', '时间戳'],
+      description: {
+        zh: 'Unix 秒 / 毫秒 / 微秒 / 纳秒 / 日期字符串',
+        en: 'Unix sec / ms / µs / ns / date string',
+      },
+      keywords: ['unix', '秒', '毫秒', '微秒', '纳秒', '日期', '时间戳', 'now'],
     },
     {
       key: 'config',
@@ -630,10 +640,16 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       keywords: ['时区', 'timezone'],
     },
     {
+      key: 'now',
+      title: { zh: '当前时间', en: 'Current time' },
+      description: { zh: '实时 Unix 时间戳', en: 'Live Unix timestamp' },
+      keywords: ['当前时间', '现在', '实时', 'unix'],
+    },
+    {
       key: 'result',
       title: { zh: '转换结果', en: 'Converted result' },
       description: { zh: '多种日期格式', en: 'Multiple date formats' },
-      keywords: ['iso 8601', '本地时间', '相对时间', '结果'],
+      keywords: ['iso 8601', '本地时间', '相对时间', '星期', '结果'],
     },
   ],
   number_base_converter: [
@@ -653,6 +669,15 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
   ],
   json_array_table: [
     {
+      key: 'config',
+      title: { zh: '表格选项', en: 'Table options' },
+      description: {
+        zh: '深展平与首行作表头',
+        en: 'Deep flatten and first row as header',
+      },
+      keywords: ['深展平', '首行', '表头', '排序'],
+    },
+    {
       key: 'input',
       title: { zh: 'JSON 数组', en: 'JSON array' },
       description: { zh: 'JSON 数组数据', en: 'JSON array data' },
@@ -661,8 +686,11 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
     {
       key: 'table',
       title: { zh: '表格', en: 'Table' },
-      description: { zh: '表格预览,支持导出', en: 'Table preview with export' },
-      keywords: ['表格', 'csv', 'tsv', '导出'],
+      description: {
+        zh: '表格预览,支持排序与导出 CSV/TSV/Markdown',
+        en: 'Table preview with sorting and CSV/TSV/Markdown export',
+      },
+      keywords: ['表格', 'csv', 'tsv', 'markdown', '导出', '排序'],
     },
   ],
   color_converter: [

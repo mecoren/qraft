@@ -65,5 +65,8 @@
   "tools.ip_parser.err_bad_ipv4": "无效的 IPv4 地址: {{value}}",
   "tools.ip_parser.err_v4_prefix_range": "IPv4 前缀长度应在 0-32 之间: {{value}}",
   "tools.ip_parser.err_bad_ip": "无效的 IP 地址: {{value}}",
-  "tools.ip_parser.err_v6_prefix_range": "IPv6 前缀长度应在 0-128 之间: {{value}}"
+  "tools.ip_parser.err_v6_prefix_range": "IPv6 前缀长度应在 0-128 之间: {{value}}",
+  "tools.ip_parser.field_ptr": "反解域名 (PTR)",
+  "tools.ip_parser.field_mapped_ipv4": "内嵌 IPv4",
+  "tools.ip_parser.v6_v4mapped": "IPv4 映射地址(::ffff:0:0/96)"
 }

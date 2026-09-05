@@ -6,14 +6,17 @@
   "tools.number_base_converter.base_octal": "八进制",
   "tools.number_base_converter.base_decimal": "十进制",
   "tools.number_base_converter.base_hex": "十六进制",
+  "tools.number_base_converter.base_n": "{{base}} 进制",
+  "tools.number_base_converter.bit_width": "位宽",
+  "tools.number_base_converter.bit_width_none": "不限制",
+  "tools.number_base_converter.bit_width_hint": "设置后二/八/十六进制按指定位宽零填充,负数显示二补码位型",
   "tools.number_base_converter.input_title": "输入",
   "tools.number_base_converter.placeholder_hex": "例如 FF 或 0xFF",
   "tools.number_base_converter.placeholder_default": "输入数字",
   "tools.number_base_converter.input_aria": "待转换数字",
   "tools.number_base_converter.result_title": "转换结果",
+  "tools.number_base_converter.copy_all": "全部复制",
+  "tools.number_base_converter.overflow_note": "数值超出 {{width}} 位范围,超出部分按任意精度原样显示",
   "tools.number_base_converter.error_empty_input": "空输入",
-  "tools.number_base_converter.error_invalid_binary": "不是有效的二进制数",
-  "tools.number_base_converter.error_invalid_octal": "不是有效的八进制数",
-  "tools.number_base_converter.error_invalid_decimal": "不是有效的十进制数",
-  "tools.number_base_converter.error_invalid_hex": "不是有效的十六进制数"
+  "tools.number_base_converter.error_invalid_digit": "不是有效的 {{base}} 进制数"
 }

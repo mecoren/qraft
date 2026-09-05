@@ -77,6 +77,7 @@ function toInfoItems(a: IpAnalysis): InfoItem[] {
       },
       { label: t('tools.ip_parser.field_hex'), value: a.hex, testId: 'ip-item-hex' },
       { label: t('tools.ip_parser.field_binary'), value: a.binary, testId: 'ip-item-binary' },
+      { label: t('tools.ip_parser.field_ptr'), value: a.ptr, testId: 'ip-item-ptr' },
     );
     return items;
   }
@@ -104,7 +105,17 @@ function toInfoItems(a: IpAnalysis): InfoItem[] {
       value: a.totalAddresses.toString(),
       testId: 'ip-item-total',
     },
+    ...(a.mappedIpv4
+      ? [
+          {
+            label: t('tools.ip_parser.field_mapped_ipv4'),
+            value: a.mappedIpv4,
+            testId: 'ip-item-mapped',
+          },
+        ]
+      : []),
     { label: t('tools.ip_parser.field_scope'), value: t(a.scope), testId: 'ip-item-scope' },
+    { label: t('tools.ip_parser.field_ptr'), value: a.ptr, testId: 'ip-item-ptr' },
   ];
 }
 

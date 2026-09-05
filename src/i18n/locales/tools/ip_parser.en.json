@@ -65,5 +65,8 @@
   "tools.ip_parser.err_bad_ipv4": "Invalid IPv4 address: {{value}}",
   "tools.ip_parser.err_v4_prefix_range": "IPv4 prefix length must be 0-32: {{value}}",
   "tools.ip_parser.err_bad_ip": "Invalid IP address: {{value}}",
-  "tools.ip_parser.err_v6_prefix_range": "IPv6 prefix length must be 0-128: {{value}}"
+  "tools.ip_parser.err_v6_prefix_range": "IPv6 prefix length must be 0-128: {{value}}",
+  "tools.ip_parser.field_ptr": "Reverse DNS (PTR)",
+  "tools.ip_parser.field_mapped_ipv4": "Embedded IPv4",
+  "tools.ip_parser.v6_v4mapped": "IPv4-mapped address (::ffff:0:0/96)"
 }
