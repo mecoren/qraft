@@ -537,9 +537,10 @@ pub struct OpenFileResult {
 
 /// 打开对话框失败的可恢复原因(`openDialogReason` / `reason` 字段值)
 ///
-/// 前端据此展示带「仍要打开」动作的提示(VSCode Open Anyway 语义):
+/// 前端据此分流:
 /// - `binary`:二进制启发式命中,用户可强制按探测编码有损打开
-/// - `too-large`:超过编辑器大小上限,不可恢复
+/// - `too-large`:超过编辑器整读上限,进入大文件只读查看模式
+///   (前端经 `fs_large_file_info` / `fs_read_file_lines` 流式打开)
 pub const OPEN_DIALOG_REASON_BINARY: &str = "binary";
 pub const OPEN_DIALOG_REASON_TOO_LARGE: &str = "too-large";
 
@@ -639,7 +640,7 @@ impl OpenFileOutcome {
 
 /// 读取已授权路径为可编辑文本(对话框 / 文件树 / 拖放共用)
 ///
-/// - 大小超上限 → `failed.reason = "too-large"`(不可恢复)
+/// - 大小超上限 → `failed.reason = "too-large"`(前端切换大文件只读查看)
 /// - 二进制启发式命中 → `failed.reason = "binary"`(前端可强制打开)
 ///
 /// # Errors

@@ -74,6 +74,7 @@ pub fn run() -> anyhow::Result<()> {
         fs_read_dir, fs_read_file, fs_read_text_file_encoded, fs_reveal_in_explorer, fs_save_bytes,
         fs_save_text_file_encoded, fs_write_file, fs_write_file_encoded,
     };
+    use crate::commands::fs_large_file::{fs_large_file_info, fs_read_file_lines};
     use crate::commands::history::{history_clear, history_list};
     use crate::commands::image::png_compress;
     // IP 归属地查询(零网络原则的登记例外,见 net/mod.rs 与 PRD 13-security.md §3.1)
@@ -253,6 +254,8 @@ pub fn run() -> anyhow::Result<()> {
             fs_read_dir,
             fs_read_text_file_encoded,
             fs_write_file_encoded,
+            fs_large_file_info,
+            fs_read_file_lines,
             fs_reveal_in_explorer,
             png_compress,
             ip_lookup,

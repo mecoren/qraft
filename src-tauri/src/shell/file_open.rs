@@ -48,23 +48,39 @@ pub struct OpenFilePayload {
 
 /// 打开失败的载荷变体:
 /// - `Unsupported`:内容为二进制,无法作为文本打开(前端提供「仍要打开」)
-/// - `TooLarge`:超过编辑器大小上限(前端提示,不可恢复)
+/// - `TooLarge`:超过编辑器整读上限,进入大文件只读查看模式
+///   (前端经 `fs_large_file_info` / `fs_read_file_lines` 流式打开)
 /// - `Error`:读取失败等其他原因
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum OpenFileUnsupported {
     /// 二进制内容(`reason="binary"`);payload 为完整路径
     Unsupported { path: String },
-    /// 文件过大(`reason="too-large"`)
+    /// 文件过大(`reason="too-large"`):切换到大文件查看模式,并非错误
     TooLarge { path: String },
     /// 其他错误(路径非法/读取失败等)
     Error { message: String },
 }
 
+/// 待打开项:成功读取的文本文件,或需前端分流处理的失败载荷(too-large)
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum PendingOpenItem {
+    /// 正常打开(内容 + 编码)
+    File {
+        path: String,
+        content: String,
+        #[serde(default)]
+        encoding: String,
+    },
+    /// 超限文件:前端切换大文件只读查看模式(fs_large_file_info 流式打开)
+    TooLarge { path: String },
+}
+
 /// 待打开文件队列(事件可能因前端未就绪而丢失,队列作为兜底)
 #[derive(Default)]
 pub struct PendingOpenFiles {
-    inner: Mutex<Vec<OpenFilePayload>>,
+    inner: Mutex<Vec<PendingOpenItem>>,
 }
 
 impl PendingOpenFiles {
@@ -75,14 +91,29 @@ impl PendingOpenFiles {
 
     /// 追加一个待打开文件
     pub fn push(&self, payload: OpenFilePayload) {
+        self.push_item(PendingOpenItem::File {
+            path: payload.path,
+            content: payload.content,
+            encoding: payload.encoding,
+        });
+    }
+
+    /// 追加一个超限文件(前端走大文件只读查看模式)
+    pub fn push_too_large(&self, path: &str) {
+        self.push_item(PendingOpenItem::TooLarge {
+            path: path.to_string(),
+        });
+    }
+
+    fn push_item(&self, item: PendingOpenItem) {
         self.inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push(payload);
+            .push(item);
     }
 
-    /// 取出全部待打开文件并清空队列(前端初始化拉取)
-    pub fn drain_all(&self) -> Vec<OpenFilePayload> {
+    /// 取出全部待打开项并清空队列(前端初始化拉取)
+    pub fn drain_all(&self) -> Vec<PendingOpenItem> {
         std::mem::take(
             &mut self
                 .inner
@@ -91,7 +122,7 @@ impl PendingOpenFiles {
         )
     }
 
-    /// 队列中是否有待打开文件
+    /// 队列中是否有待打开项
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.inner
@@ -194,9 +225,14 @@ pub fn open_dropped_file(
         )));
     }
 
-    // 大小上限先行(读取 20MB+ 二进制进内存再丢弃没有意义)
+    // 大小上限先行(读取 20MB+ 二进制进内存再丢弃没有意义):
+    // 超限文件直接进入大文件只读查看模式,事件载荷复用 TooLarge 通道,
+    // 前端据此调用 fs_large_file_info 流式打开;webview 未就绪导致事件
+    // 丢失时由 pending 队列兜底(app_pull_open_files 拉取)
     if let Ok(meta) = std::fs::metadata(&full_path) {
         if meta.len() > crate::commands::fs::EDITOR_FILE_MAX_BYTES {
+            authorized.authorize(&full_path);
+            pending.push_too_large(&full_path);
             emit_unsupported(app, &OpenFileUnsupported::TooLarge { path: full_path });
             return Ok(());
         }
@@ -298,6 +334,9 @@ pub fn open_file_in_app(
 
 /// 批量处理启动时传入的多个文件参数(目前取第一个,保持与 Windows 行为一致)
 ///
+/// 走 `open_dropped_file` 统一分流:超限文件进入大文件只读查看模式
+/// (emit TooLarge),二进制 emit Unsupported,普通文本正常打开。
+///
 /// # Errors
 ///
 /// - 所有文件打开失败时返回错误;部分失败时仅记录日志
@@ -310,7 +349,7 @@ pub fn open_files_from_args(
     let Some(path) = extract_file_arg_from_args(args) else {
         return Ok(());
     };
-    open_file_in_app(app, authorized, pending, &path)
+    open_dropped_file(app, authorized, pending, &path)
 }
 
 #[cfg(test)]
@@ -364,13 +403,21 @@ mod tests {
             content: "{}".into(),
             encoding: "utf-8".into(),
         });
+        // 超限文件入队:前端切换大文件只读查看模式
+        pending.push_too_large("/huge.log");
         assert!(!pending.is_empty());
 
         let drained = pending.drain_all();
-        assert_eq!(drained.len(), 2);
-        assert_eq!(drained[0].path, "/a.txt");
-        assert_eq!(drained[0].encoding, "utf-8");
-        assert_eq!(drained[1].path, "/b.json");
+        assert_eq!(drained.len(), 3);
+        let PendingOpenItem::File { path, encoding, .. } = &drained[0] else {
+            panic!("first item must be File");
+        };
+        assert_eq!(path, "/a.txt");
+        assert_eq!(encoding, "utf-8");
+        let PendingOpenItem::TooLarge { path: huge } = &drained[2] else {
+            panic!("third item must be TooLarge");
+        };
+        assert_eq!(huge, "/huge.log");
         assert!(pending.is_empty());
     }
 

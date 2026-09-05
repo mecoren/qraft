@@ -28,6 +28,22 @@ fn encoding_by_id(id: &str) -> Option<&'static encoding_rs::Encoding> {
     encoding_rs::Encoding::for_label(base.as_bytes())
 }
 
+/// 头部 BOM 识别:返回 (方向, BOM 字节长度);无 BOM 返回 None
+///
+/// 供纯逻辑层(`large_file`)做「带 BOM 恒为文本」的快速分流,
+/// 规则与 `encoding_rs::Encoding::for_bom` 一致
+#[must_use]
+pub fn bom_of(bytes: &[u8]) -> Option<(&'static str, usize)> {
+    encoding_rs::Encoding::for_bom(bytes).map(|(enc, bom_len)| {
+        let id = match enc.name() {
+            "UTF-16LE" => "utf-16le",
+            "UTF-16BE" => "utf-16be",
+            _ => "utf-8-bom",
+        };
+        (id, bom_len)
+    })
+}
+
 /// 校验编码标识是否受支持
 #[must_use]
 pub fn is_supported_encoding(id: &str) -> bool {

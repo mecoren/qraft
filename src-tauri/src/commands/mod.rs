@@ -8,6 +8,7 @@ pub mod clipboard;
 pub mod config;
 pub mod font;
 pub mod fs;
+pub mod fs_large_file;
 pub mod history;
 pub mod image;
 pub mod ip_lookup;

@@ -9,7 +9,7 @@ use tauri_plugin_shell::ShellExt;
 use tauri_plugin_updater::UpdaterExt;
 
 use crate::shell::AppError;
-use crate::shell::file_open::{OpenFilePayload, PendingOpenFiles};
+use crate::shell::file_open::{PendingOpenFiles, PendingOpenItem};
 use crate::shell::response::CommandResponse;
 use crate::shell::updater::{
     AvailableUpdate, CheckUpdateResponse, InstallMode, build_check_update_response,
@@ -167,11 +167,13 @@ pub async fn app_quit(app_handle: tauri::AppHandle) -> Result<CommandResponse<()
 
 // ============ 文件打开队列 ============
 
-/// 拉取「通过文件关联/命令行打开」的待打开文件列表(并清空队列)
+/// 拉取「通过文件关联/命令行打开」的待打开项列表(并清空队列)
 ///
-/// 前端初始化时调用,作为 `app:open-file` 事件丢失时的兜底:
-/// 若应用在 webview 就绪前就收到打开文件请求,事件可能丢失,
-/// 前端挂载后调用此命令即可补齐。
+/// 前端初始化时调用,作为 `app:open-file` / `app:open-file-unsupported`
+/// 事件丢失时的兜底:若应用在 webview 就绪前就收到打开文件请求,事件可能
+/// 丢失,前端挂载后调用此命令即可补齐。队列项含两种:
+/// - `File`:正常打开(内容 + 编码)
+/// - `TooLarge`:超限文件,前端切换大文件只读查看模式流式打开
 ///
 /// # Errors
 ///
@@ -180,7 +182,7 @@ pub async fn app_quit(app_handle: tauri::AppHandle) -> Result<CommandResponse<()
 #[allow(clippy::needless_pass_by_value)]
 pub fn app_pull_open_files(
     pending: tauri::State<'_, PendingOpenFiles>,
-) -> Result<CommandResponse<Vec<OpenFilePayload>>, AppError> {
+) -> Result<CommandResponse<Vec<PendingOpenItem>>, AppError> {
     Ok(CommandResponse::ok(pending.drain_all()))
 }
 
