@@ -39,10 +39,10 @@ interface ColorExtra {
   hex: string;
   rgb: string;
   hsl: string;
-  hsv: string;
-  cmyk: string;
-  alpha: number;
-  nearest_name: string;
+  hsv?: string;
+  cmyk?: string;
+  alpha?: number;
+  nearest_name?: string;
   exact_name?: string;
 }
 
@@ -140,8 +140,12 @@ export function ColorConverter({ toolId }: ToolProps): JSX.Element {
   const visibleError = hasInput ? error : null;
   const showConverting = hasInput && converting;
   const extra = visibleOutput?.extra as ColorExtra | undefined;
-  const scale = extra ? shadeScale(extra.hex.slice(0, 7)) : [];
-  const alphaNote = extra && extra.alpha < 1 ? ` (${Math.round(extra.alpha * 100)}%)` : '';
+  // hex 缺失(异常响应)时不构建梯度,避免对 undefined 调 slice
+  const scale = extra?.hex ? shadeScale(extra.hex.slice(0, 7)) : [];
+  const alphaNote =
+    extra && typeof extra.alpha === 'number' && extra.alpha < 1
+      ? ` (${Math.round(extra.alpha * 100)}%)`
+      : '';
 
   const valueRows: { label: string; value?: string; testId: string }[] = [
     { label: 'HEX', value: extra?.hex, testId: 'color-hex' },
@@ -151,11 +155,8 @@ export function ColorConverter({ toolId }: ToolProps): JSX.Element {
     { label: 'CMYK', value: extra?.cmyk, testId: 'color-cmyk' },
     {
       label: t('tools.color_converter.nearest_name'),
-      value: extra
-        ? extra.exact_name
-          ? `${extra.exact_name}${alphaNote}`
-          : `${extra.nearest_name}${alphaNote}`
-        : undefined,
+      // nearest_name 缺失(旧后端)时显示占位
+      value: extra ? `${extra.exact_name ?? extra.nearest_name ?? '-'}${alphaNote}` : undefined,
       testId: 'color-name',
     },
   ];

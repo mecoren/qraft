@@ -41,14 +41,14 @@ interface TimestampExtra {
   iso8601: string;
   local: string;
   relative: string;
-  /** 距当前的秒差(前端经 Intl.RelativeTimeFormat 本地化) */
-  relative_seconds: number;
-  /** ISO 星期 1=周一 … 7=周日 */
-  weekday_index: number;
-  day_of_year: number;
-  iso_week: number;
-  /** 所选时区相对 UTC 的偏移,如 +08:00 */
-  utc_offset: string;
+  /** 距当前的秒差(前端经 Intl.RelativeTimeFormat 本地化);旧后端无此字段 */
+  relative_seconds?: number;
+  /** ISO 星期 1=周一 … 7=周日;旧后端无此字段(前端按 unix_millis + Intl 计算) */
+  weekday_index?: number;
+  day_of_year?: number;
+  iso_week?: number;
+  /** 所选时区相对 UTC 的偏移,如 +08:00;旧后端无此字段 */
+  utc_offset?: string;
 }
 
 /** 时区选项:local 表示跟随系统(运行时解析为 IANA 名称) */
@@ -95,8 +95,9 @@ function resolveTimezone(tz: string): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
 
-/** 把相对秒差选择最大合适单位后本地化格式化 */
-function formatRelative(seconds: number, locale: string): string {
+/** 把相对秒差选择最大合适单位后本地化格式化;缺失/非有限值(如旧后端缺字段)返回 null */
+function formatRelative(seconds: number | undefined, locale: string): string | null {
+  if (seconds === undefined || !Number.isFinite(seconds)) return null;
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
   const abs = Math.abs(seconds);
   if (abs >= 365.25 * 86400) return rtf.format(Math.round(seconds / (365.25 * 86400)), 'year');
@@ -106,6 +107,11 @@ function formatRelative(seconds: number, locale: string): string {
   if (abs >= 3600) return rtf.format(Math.round(seconds / 3600), 'hour');
   if (abs >= 60) return rtf.format(Math.round(seconds / 60), 'minute');
   return rtf.format(seconds, 'second');
+}
+
+/** 数值字段展示:缺字段(旧后端响应)时显示占位,不参与计算 */
+function numText(value: number | undefined): string {
+  return value === undefined ? '-' : String(value);
 }
 
 /** 结果行:值 + 独立复制按钮 */
@@ -228,16 +234,19 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
   const showConverting = hasInput && converting;
   const extra = visibleOutput?.extra as TimestampExtra | undefined;
 
-  /** 星期(随界面语言本地化):按所选时区计算 */
+  /** 星期(随界面语言本地化):按所选时区计算;unix_millis 缺失/非法时不渲染 */
   const weekday = (() => {
-    if (!extra) return null;
+    if (!extra || !Number.isFinite(extra.unix_millis)) return null;
     const tz = resolveTimezone(timezone);
     return new Intl.DateTimeFormat(i18n.language, { weekday: 'long', timeZone: tz }).format(
       new Date(extra.unix_millis),
     );
   })();
 
-  const relative = extra ? formatRelative(extra.relative_seconds, i18n.language) : null;
+  // relative_seconds 缺失(旧后端)时回退到后端英文文案,避免渲染崩溃
+  const relative = extra
+    ? (formatRelative(extra.relative_seconds, i18n.language) ?? extra.relative ?? '-')
+    : null;
 
   return (
     // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与结果区收进同一卡片
@@ -331,22 +340,22 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
                 <dl className="grid grid-cols-[180px_1fr_auto] gap-x-4 gap-y-3 text-sm">
                   <ResultRow
                     label={t('tools.timestamp_converter.unix_seconds')}
-                    value={String(extra.unix_seconds)}
+                    value={numText(extra.unix_seconds)}
                   />
                   <ResultRow
                     label={t('tools.timestamp_converter.unix_millis')}
-                    value={String(extra.unix_millis)}
+                    value={numText(extra.unix_millis)}
                   />
-                  <ResultRow label="ISO 8601" value={extra.iso8601} />
+                  <ResultRow label="ISO 8601" value={extra.iso8601 ?? '-'} />
                   <ResultRow
                     label={t('tools.timestamp_converter.local_time', {
                       tz: resolveTimezone(timezone),
                     })}
-                    value={extra.local}
+                    value={extra.local ?? '-'}
                   />
                   <ResultRow
                     label={t('tools.timestamp_converter.utc_offset')}
-                    value={extra.utc_offset}
+                    value={extra.utc_offset ?? '-'}
                   />
                   <ResultRow
                     label={t('tools.timestamp_converter.weekday')}
@@ -355,11 +364,11 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
                   />
                   <ResultRow
                     label={t('tools.timestamp_converter.day_of_year')}
-                    value={String(extra.day_of_year)}
+                    value={numText(extra.day_of_year)}
                   />
                   <ResultRow
                     label={t('tools.timestamp_converter.iso_week')}
-                    value={String(extra.iso_week)}
+                    value={numText(extra.iso_week)}
                   />
                   <ResultRow
                     label={t('tools.timestamp_converter.relative_time')}

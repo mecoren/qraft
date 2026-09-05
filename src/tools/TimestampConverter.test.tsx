@@ -90,6 +90,33 @@ describe('TimestampConverter', () => {
     expect(Number(value)).toBeGreaterThanOrEqual(Date.now() - 60_000);
   });
 
+  it('旧后端响应(缺新增字段)不崩溃:占位显示并回退英文相对时间', async () => {
+    const { invokeCommand } = await import('@/lib/ipc');
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: 'Unix (seconds): 1690272000',
+      extra: {
+        unix_seconds: 1690272000,
+        unix_millis: 1690272000000,
+        iso8601: '2023-07-25T08:00:00+00:00',
+        local: '2023-07-25T08:00:00+00:00',
+        relative: '2 days ago',
+      },
+    });
+
+    render(<TimestampConverter toolId="timestamp_converter" metadata={null as never} />);
+    type('1690272000');
+
+    await waitFor(
+      () => {
+        // relative_seconds 缺失 → 回退后端英文文案,而非 Intl 抛错进入错误边界
+        expect(screen.getByText('2 days ago')).toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
+    // 缺失字段渲染占位
+    expect(screen.getAllByText('-').length).toBeGreaterThan(0);
+  });
+
   it('解析失败时显示错误 alert', async () => {
     const { invokeCommand, CommandError } = await import('@/lib/ipc');
     (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
