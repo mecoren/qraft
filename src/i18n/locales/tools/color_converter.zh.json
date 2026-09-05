@@ -1,15 +1,17 @@
 {
   "tools.color_converter.color_value": "颜色值",
-  "tools.color_converter.color_value_hint": "如 #ff5733 / rgb(255,87,51) / hsl(11,100%,60%)",
+  "tools.color_converter.color_value_hint": "如 #ff5733 / rgb(255,87,51) / hsl(11,100%,60%) / tomato / cmyk(0,66,80,0)",
   "tools.color_converter.input_placeholder": "输入颜色值...",
   "tools.color_converter.input_format": "输入格式",
-  "tools.color_converter.input_format_hint": "解析输入所用的颜色格式",
-  "tools.color_converter.convert": "转换",
+  "tools.color_converter.input_format_hint": "默认自动嗅探;含 alpha 的 rgb/hsl/hex 亦可",
   "tools.color_converter.converting": "转换中...",
   "tools.color_converter.preview": "预览",
   "tools.color_converter.color_sample": "颜色样本 {{value}}",
   "tools.color_converter.no_color_sample": "暂无颜色样本",
   "tools.color_converter.result_title": "转换结果",
-  "tools.color_converter.output_placeholder": "输入颜色值后点击「转换」查看全部格式输出",
-  "tools.color_converter.copy": "复制"
+  "tools.color_converter.output_placeholder": "输入颜色值后自动转换,此处显示全部格式输出",
+  "tools.color_converter.copy": "复制",
+  "tools.color_converter.pick_color": "取色器",
+  "tools.color_converter.nearest_name": "色名",
+  "tools.color_converter.format_name": "CSS 名称"
 }

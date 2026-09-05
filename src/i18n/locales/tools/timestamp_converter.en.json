@@ -1,7 +1,7 @@
 {
   "tools.timestamp_converter.copy": "Copy",
   "tools.timestamp_converter.input": "Input",
-  "tools.timestamp_converter.input_hint": "Unix seconds / millis / date string",
+  "tools.timestamp_converter.input_hint": "Unix sec / ms / µs / ns / float / negative / now / ISO 8601 / date string; converts as you type",
   "tools.timestamp_converter.input_placeholder": "Enter a timestamp or date string...",
   "tools.timestamp_converter.timezone": "Timezone",
   "tools.timestamp_converter.timezone_hint": "Timezone used for local time display",
@@ -13,5 +13,14 @@
   "tools.timestamp_converter.unix_millis": "Unix (milliseconds)",
   "tools.timestamp_converter.local_time": "Local time ({{tz}})",
   "tools.timestamp_converter.relative_time": "Relative",
-  "tools.timestamp_converter.empty_state": "Enter a timestamp and click Convert to see every format"
+  "tools.timestamp_converter.empty_state": "Enter a timestamp or date string to convert automatically",
+  "tools.timestamp_converter.now_title": "Current time",
+  "tools.timestamp_converter.now_btn": "Now",
+  "tools.timestamp_converter.tz_local": "Local timezone",
+  "tools.timestamp_converter.unix_seconds_short": "{{value}} s",
+  "tools.timestamp_converter.unix_millis_short": "{{value}} ms",
+  "tools.timestamp_converter.utc_offset": "UTC offset",
+  "tools.timestamp_converter.weekday": "Weekday",
+  "tools.timestamp_converter.day_of_year": "Day of year",
+  "tools.timestamp_converter.iso_week": "ISO week"
 }

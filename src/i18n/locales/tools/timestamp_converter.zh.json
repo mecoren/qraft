@@ -1,7 +1,7 @@
 {
   "tools.timestamp_converter.copy": "复制",
   "tools.timestamp_converter.input": "输入",
-  "tools.timestamp_converter.input_hint": "Unix 秒 / 毫秒 / 日期字符串",
+  "tools.timestamp_converter.input_hint": "Unix 秒 / 毫秒 / 微秒 / 纳秒 / 浮点 / 负数 / now / ISO 8601 / 日期字符串,输入后自动转换",
   "tools.timestamp_converter.input_placeholder": "输入时间戳或日期字符串...",
   "tools.timestamp_converter.timezone": "时区",
   "tools.timestamp_converter.timezone_hint": "本地时间展示所用时区",
@@ -13,5 +13,14 @@
   "tools.timestamp_converter.unix_millis": "Unix(毫秒)",
   "tools.timestamp_converter.local_time": "本地时间({{tz}})",
   "tools.timestamp_converter.relative_time": "相对时间",
-  "tools.timestamp_converter.empty_state": "输入时间戳后点击「转换」查看各格式结果"
+  "tools.timestamp_converter.empty_state": "输入时间戳或日期字符串后自动转换",
+  "tools.timestamp_converter.now_title": "当前时间",
+  "tools.timestamp_converter.now_btn": "现在",
+  "tools.timestamp_converter.tz_local": "本地时区",
+  "tools.timestamp_converter.unix_seconds_short": "{{value}} s",
+  "tools.timestamp_converter.unix_millis_short": "{{value}} ms",
+  "tools.timestamp_converter.utc_offset": "UTC 偏移",
+  "tools.timestamp_converter.weekday": "星期",
+  "tools.timestamp_converter.day_of_year": "年内天",
+  "tools.timestamp_converter.iso_week": "ISO 周号"
 }

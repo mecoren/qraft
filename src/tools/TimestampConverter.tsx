@@ -2,14 +2,18 @@
  * 日期/时间戳转换器 —— 新代统一布局
  *
  * 结构(对齐 JsonFormatter 基准):
- * - 外层 shell 卡片,顶部为扁平「配置」区:输入(Unix 秒 / 毫秒 / 日期字符串)+ 时区 + 执行按钮
- * - 下方结果区:带标题栏的卡片,字段逐行展示并支持单独复制
+ * - 外层 shell 卡片,顶部为扁平「配置」区:当前时间横幅 + 输入(自动识别
+ *   Unix 秒/毫秒/微秒/纳秒、浮点、负数、"now"、ISO 8601、常见日期字符串)
+ *   + 时区(默认本地时区)。「现在」一键填入当前毫秒。
+ * - 输入与时区变化后防抖自动转换(300ms),无需点击按钮。
+ * - 下方结果区:多种格式逐行展示并支持单独复制;
+ *   星期 / 相对时间经 Intl 随界面语言本地化。
  *
  * 错误处理遵循新代约定:工具内联 alert 展示。
  */
-import { useState, type JSX } from 'react';
+import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CalendarClock, Globe2 } from 'lucide-react';
+import { CalendarClock, Globe2, TimerReset } from 'lucide-react';
 import { formatError } from '@/lib/format-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,19 +41,66 @@ interface TimestampExtra {
   iso8601: string;
   local: string;
   relative: string;
+  /** 距当前的秒差(前端经 Intl.RelativeTimeFormat 本地化) */
+  relative_seconds: number;
+  /** ISO 星期 1=周一 … 7=周日 */
+  weekday_index: number;
+  day_of_year: number;
+  iso_week: number;
+  /** 所选时区相对 UTC 的偏移,如 +08:00 */
+  utc_offset: string;
 }
 
+/** 时区选项:local 表示跟随系统(运行时解析为 IANA 名称) */
 const COMMON_TIMEZONES = [
+  'local',
   'UTC',
   'Asia/Shanghai',
-  'Asia/Tokyo',
+  'Asia/Hong_Kong',
+  'Asia/Taipei',
   'Asia/Singapore',
+  'Asia/Tokyo',
+  'Asia/Seoul',
+  'Asia/Kolkata',
+  'Asia/Dubai',
   'Europe/London',
+  'Europe/Paris',
   'Europe/Berlin',
+  'Europe/Moscow',
   'America/New_York',
+  'America/Chicago',
+  'America/Denver',
   'America/Los_Angeles',
+  'America/Sao_Paulo',
   'Australia/Sydney',
+  'Pacific/Auckland',
 ] as const;
+
+/** 时区显示名:local 在运行时解析为实际 IANA 名称 */
+function useTimezoneOptions(): { value: string; label: string }[] {
+  const { t } = useTranslation();
+  const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return COMMON_TIMEZONES.map((tz) => ({
+    value: tz,
+    label:
+      tz === 'local'
+        ? `${t('tools.timestamp_converter.tz_local')}${localTz ? ` (${localTz})` : ''}`
+        : tz,
+  }));
+}
+
+/** 把相对秒差选择最大合适单位后本地化格式化 */
+function formatRelative(seconds: number, locale: string): string {
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  const abs = Math.abs(seconds);
+  if (abs >= 365.25 * 86400) return rtf.format(Math.round(seconds / (365.25 * 86400)), 'year');
+  if (abs >= 30 * 86400) return rtf.format(Math.round(seconds / (30 * 86400)), 'month');
+  if (abs >= 7 * 86400) return rtf.format(Math.round(seconds / (7 * 86400)), 'week');
+  if (abs >= 86400) return rtf.format(Math.round(seconds / 86400), 'day');
+  if (abs >= 3600) return rtf.format(Math.round(seconds / 3600), 'hour');
+  if (abs >= 60) return rtf.format(Math.round(seconds / 60), 'minute');
+  return rtf.format(seconds, 'second');
+}
 
 /** 结果行:值 + 独立复制按钮 */
 function ResultRow({
@@ -79,33 +130,108 @@ function ResultRow({
   );
 }
 
+/** 当前时间横幅:本地计算,每秒刷新 */
+function NowBanner(): JSX.Element {
+  const { t, i18n } = useTranslation();
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const secs = Math.floor(now.getTime() / 1000);
+  const millis = now.getTime();
+  const local = new Intl.DateTimeFormat(i18n.language, {
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+  }).format(now);
+  return (
+    <ConfigRow
+      icon={TimerReset}
+      label={t('tools.timestamp_converter.now_title')}
+      searchAnchor="timestamp_converter:now"
+    >
+      <div className="flex items-center gap-2 text-right">
+        <div className="text-xs leading-tight">
+          <div className="font-mono">
+            {t('tools.timestamp_converter.unix_seconds_short', { value: secs })}
+          </div>
+          <div className="font-mono text-muted-foreground">
+            {t('tools.timestamp_converter.unix_millis_short', { value: millis })}
+          </div>
+        </div>
+        <span className="hidden text-xs text-muted-foreground sm:inline">{local}</span>
+        <button
+          type="button"
+          className="text-xs text-primary hover:underline"
+          onClick={() => void copyTextWithFeedback(String(millis))}
+          data-testid="ts-now-copy"
+        >
+          {t('tools.timestamp_converter.copy')}
+        </button>
+      </div>
+    </ConfigRow>
+  );
+}
+
 export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [text, setText] = useState('');
-  const [timezone, setTimezone] = useState('UTC');
+  const [timezone, setTimezone] = useState('local');
   const [output, setOutput] = useState<ToolOutput | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [converting, setConverting] = useState(false);
+  const tzOptions = useTimezoneOptions();
+  // 防抖竞态防护:仅采纳最后一次请求的响应
+  const requestSeq = useRef(0);
 
-  async function handleConvert() {
-    setLoading(true);
-    setError(null);
-    try {
-      const params: TimestampParams = { timezone };
-      const result = await invokeCommand<ToolOutput>('tool_execute', {
-        toolId,
-        input: { text, params },
-      });
-      setOutput(result);
-    } catch (e) {
-      setOutput(null);
-      setError(formatError(e));
-    } finally {
-      setLoading(false);
-    }
-  }
+  const handleConvert = useCallback(
+    async (input: string, tz: string) => {
+      const seq = ++requestSeq.current;
+      setConverting(true);
+      setError(null);
+      try {
+        const params: TimestampParams = { timezone: tz };
+        const result = await invokeCommand<ToolOutput>('tool_execute', {
+          toolId,
+          input: { text: input, params },
+        });
+        if (seq === requestSeq.current) setOutput(result);
+      } catch (e) {
+        if (seq === requestSeq.current) {
+          setOutput(null);
+          setError(formatError(e));
+        }
+      } finally {
+        if (seq === requestSeq.current) setConverting(false);
+      }
+    },
+    [toolId],
+  );
 
-  const extra = output?.extra as TimestampExtra | undefined;
+  // 输入/时区变化防抖自动转换;空输入不发请求(旧结果在渲染层按输入派生屏蔽)
+  useEffect(() => {
+    const trimmed = text.trim();
+    if (!trimmed) return undefined;
+    const timer = window.setTimeout(() => void handleConvert(trimmed, timezone), 300);
+    return () => window.clearTimeout(timer);
+  }, [text, timezone, handleConvert]);
+
+  const hasInput = text.trim() !== '';
+  const visibleOutput = hasInput ? output : null;
+  const visibleError = hasInput ? error : null;
+  const showConverting = hasInput && converting;
+  const extra = visibleOutput?.extra as TimestampExtra | undefined;
+
+  /** 星期(随界面语言本地化):按所选时区计算 */
+  const weekday = (() => {
+    if (!extra) return null;
+    const tz = timezone === 'local' ? undefined : timezone === 'UTC' ? 'UTC' : timezone;
+    return new Intl.DateTimeFormat(i18n.language, { weekday: 'long', timeZone: tz }).format(
+      new Date(extra.unix_millis),
+    );
+  })();
+
+  const relative = extra ? formatRelative(extra.relative_seconds, i18n.language) : null;
 
   return (
     // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与结果区收进同一卡片
@@ -114,6 +240,7 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
       data-testid="timestamp-converter"
     >
       <ConfigSection title="" searchAnchor="timestamp_converter:config">
+        <NowBanner />
         <ConfigRow
           icon={CalendarClock}
           label={t('tools.timestamp_converter.input')}
@@ -128,6 +255,14 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
             className="w-72 text-sm"
             data-testid="input"
           />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setText(String(Date.now()))}
+            data-testid="ts-now-btn"
+          >
+            {t('tools.timestamp_converter.now_btn')}
+          </Button>
         </ConfigRow>
         <ConfigRow
           icon={Globe2}
@@ -135,33 +270,33 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
           hint={t('tools.timestamp_converter.timezone_hint')}
         >
           <Select value={timezone} onValueChange={setTimezone}>
-            <SelectTrigger className="w-48" aria-label={t('tools.timestamp_converter.timezone')}>
+            <SelectTrigger className="w-56" aria-label={t('tools.timestamp_converter.timezone')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {COMMON_TIMEZONES.map((tz) => (
-                <SelectItem key={tz} value={tz}>
-                  {tz}
+              {tzOptions.map((tz) => (
+                <SelectItem key={tz.value} value={tz.value}>
+                  {tz.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={() => void handleConvert()} disabled={loading || !text} size="sm">
-            {loading
-              ? t('tools.timestamp_converter.converting')
-              : t('tools.timestamp_converter.convert')}
-          </Button>
+          {showConverting && (
+            <span className="text-xs text-muted-foreground" data-testid="ts-converting">
+              {t('tools.timestamp_converter.converting')}
+            </span>
+          )}
         </ConfigRow>
       </ConfigSection>
 
       {/* 配置区下方内容收进带内边距的滚动 wrapper(对齐 shell 布局基准) */}
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
-        {error && (
+        {visibleError && (
           <div
             role="alert"
             className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
           >
-            {error}
+            {visibleError}
           </div>
         )}
 
@@ -175,11 +310,11 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
             <span className="pl-1 text-xs font-medium">
               {t('tools.timestamp_converter.result_title')}
             </span>
-            {output?.meta && (
+            {visibleOutput?.meta && (
               <span className="text-xs text-muted-foreground">
                 {t('tools.timestamp_converter.bytes_unit', {
-                  count: output.meta.input_bytes,
-                  ms: output.meta.duration_ms,
+                  count: visibleOutput.meta.input_bytes,
+                  ms: visibleOutput.meta.duration_ms,
                 })}
               </span>
             )}
@@ -202,8 +337,25 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
                     value={extra.local}
                   />
                   <ResultRow
+                    label={t('tools.timestamp_converter.utc_offset')}
+                    value={extra.utc_offset}
+                  />
+                  <ResultRow
+                    label={t('tools.timestamp_converter.weekday')}
+                    value={weekday ?? '-'}
+                    mono={false}
+                  />
+                  <ResultRow
+                    label={t('tools.timestamp_converter.day_of_year')}
+                    value={String(extra.day_of_year)}
+                  />
+                  <ResultRow
+                    label={t('tools.timestamp_converter.iso_week')}
+                    value={String(extra.iso_week)}
+                  />
+                  <ResultRow
                     label={t('tools.timestamp_converter.relative_time')}
-                    value={extra.relative}
+                    value={relative ?? '-'}
                     mono={false}
                   />
                 </dl>
@@ -219,5 +371,3 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
     </div>
   );
 }
-
-/** 把任意异常格式化为可显示的错误文本(CommandError 附带错误码便于排障) */
