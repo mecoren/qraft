@@ -32,7 +32,7 @@ use std::sync::Mutex;
 use serde::Serialize;
 use tauri::Emitter;
 
-use crate::commands::fs::{AuthorizedPaths, bytes_look_like_text};
+use crate::commands::fs::{AuthorizedPaths, TextKind, bytes_look_like_text_kind};
 use crate::shell::AppError;
 
 /// 推送给前端的待打开文件负载
@@ -41,6 +41,24 @@ use crate::shell::AppError;
 pub struct OpenFilePayload {
     pub path: String,
     pub content: String,
+    /// 探测到的编码标识(utf-8 / gb18030 等);前端打开 Tab 时沿用
+    #[serde(default)]
+    pub encoding: String,
+}
+
+/// 打开失败的载荷变体:
+/// - `Unsupported`:内容为二进制,无法作为文本打开(前端提供「仍要打开」)
+/// - `TooLarge`:超过编辑器大小上限(前端提示,不可恢复)
+/// - `Error`:读取失败等其他原因
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum OpenFileUnsupported {
+    /// 二进制内容(`reason="binary"`);payload 为完整路径
+    Unsupported { path: String },
+    /// 文件过大(`reason="too-large"`)
+    TooLarge { path: String },
+    /// 其他错误(路径非法/读取失败等)
+    Error { message: String },
 }
 
 /// 待打开文件队列(事件可能因前端未就绪而丢失,队列作为兜底)
@@ -105,30 +123,42 @@ pub fn is_openable_file(path: &str) -> bool {
     Path::new(path).is_file()
 }
 
-/// 读取文件文本内容
+/// 读取文件文本内容(编码自动探测,与 `fs_open_dialog` 同一策略:
+/// GBK/Big5/Shift-JIS/UTF-16 等自动解码;仅二进制内容返回 None)
 ///
 /// # Errors
 ///
-/// - 文件读取失败(权限不足/编码非法)时返回 `AppError::Io`(`ERR_FILE_IO`)
-fn read_file_text(path: &str) -> Result<String, AppError> {
-    std::fs::read_to_string(path).map_err(AppError::from)
+/// - 文件读取失败(权限不足等)时返回 `AppError::Io`(`ERR_FILE_IO`)
+fn read_file_text(path: &str) -> Result<Option<(String, String)>, AppError> {
+    let bytes = std::fs::read(path).map_err(AppError::from)?;
+    match bytes_look_like_text_kind(&bytes) {
+        TextKind::Text | TextKind::Utf16NoBom => {
+            let encoding = detect_encoding_for_bytes(&bytes);
+            let content = crate::media::text_encoding::decode_text(&bytes, encoding);
+            Ok(Some((content, encoding.to_string())))
+        }
+        TextKind::Binary => Ok(None),
+    }
 }
 
-/// 检测文件内容是否为可编辑文本
-///
-/// NUL 字节启发式与 `commands::fs` 共用(`bytes_look_like_text`,参考 VS Code):
-/// 前 8192 字节出现 NUL 即二进制。空文件视为文本。
-///
-/// # Errors
-///
-/// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
-fn file_is_text(path: &str) -> Result<bool, AppError> {
-    let bytes = std::fs::read(path).map_err(AppError::from)?;
-    Ok(bytes_look_like_text(&bytes))
+/// 无 BOM UTF-16 的编码回退(LE);其余交给 `detect_encoding`
+fn detect_encoding_for_bytes(bytes: &[u8]) -> &'static str {
+    match bytes_look_like_text_kind(bytes) {
+        TextKind::Utf16NoBom => "utf-16le",
+        _ => crate::media::text_encoding::detect_encoding(bytes),
+    }
+}
+
+/// 推送「无法打开」提示事件到前端(载荷含完整路径与原因)
+fn emit_unsupported(app: &tauri::AppHandle, payload: &OpenFileUnsupported) {
+    if let Err(e) = app.emit("app:open-file-unsupported", payload) {
+        tracing::warn!("failed to emit app:open-file-unsupported event: {e}");
+    }
 }
 
 /// 通过文件关联/命令行/拖放打开单个文件;若为二进制或目录,不打开并推送
-/// `app:open-file-unsupported` 事件(文件名),供前端提示(参考 VS Code)。
+/// `app:open-file-unsupported` 事件(载荷含路径与原因),供前端提示
+/// 并提供「仍要打开」(参考 VS Code Open Anyway)。
 ///
 /// # Errors
 ///
@@ -141,10 +171,7 @@ pub fn open_dropped_file(
     path: &str,
 ) -> Result<(), AppError> {
     let p = Path::new(path);
-    let name = || {
-        p.file_name()
-            .map_or_else(|| path.to_string(), |n| n.to_string_lossy().into_owned())
-    };
+    let full_path = p.to_string_lossy().into_owned();
 
     if !p.exists() {
         return Err(AppError::Io(std::io::Error::new(
@@ -155,7 +182,7 @@ pub fn open_dropped_file(
 
     // 拖入目录:不支持在单文件编辑器中打开文件夹,提示用户
     if p.is_dir() {
-        emit_unsupported(app, &name());
+        emit_unsupported(app, &OpenFileUnsupported::Error { message: full_path });
         return Ok(());
     }
 
@@ -167,20 +194,26 @@ pub fn open_dropped_file(
         )));
     }
 
-    // 二进制内容:不打开,通知前端「格式不支持」
-    if !file_is_text(path)? {
-        emit_unsupported(app, &name());
+    // 大小上限先行(读取 20MB+ 二进制进内存再丢弃没有意义)
+    if let Ok(meta) = std::fs::metadata(&full_path) {
+        if meta.len() > crate::commands::fs::EDITOR_FILE_MAX_BYTES {
+            emit_unsupported(app, &OpenFileUnsupported::TooLarge { path: full_path });
+            return Ok(());
+        }
+    }
+
+    // 二进制内容:不打开,通知前端提供「仍要打开」兜底
+    if read_file_text(path)?.is_none() {
+        emit_unsupported(
+            app,
+            &OpenFileUnsupported::Unsupported {
+                path: path.to_string(),
+            },
+        );
         return Ok(());
     }
 
     open_file_in_app(app, authorized, pending, path)
-}
-
-/// 推送「无法打开」提示事件到前端(文件名)
-fn emit_unsupported(app: &tauri::AppHandle, name: &str) {
-    if let Err(e) = app.emit("app:open-file-unsupported", name) {
-        tracing::warn!("failed to emit app:open-file-unsupported event: {e}");
-    }
 }
 
 /// 批量处理拖放的文件路径列表
@@ -216,9 +249,9 @@ pub fn sanitize_dropped_path(path: &str) -> &str {
 /// 处理一个待打开的文件路径:授权 + 读取内容 + 入队 + 推送给前端
 ///
 /// - 将路径加入 `AuthorizedPaths`,使前端可读写该文件;
-/// - 读取文件文本内容;
+/// - 读取文件文本内容(编码自动探测,返回内容 + 编码标识);
 /// - 写入 `PendingOpenFiles` 队列(兜底);
-/// - 通过 `app:open-file` 事件推送 `{ path, content }` 给前端。
+/// - 通过 `app:open-file` 事件推送 `{ path, content, encoding }` 给前端。
 ///
 /// # Errors
 ///
@@ -237,7 +270,11 @@ pub fn open_file_in_app(
         )));
     }
 
-    let content = read_file_text(path)?;
+    // 编码自动探测(与 fs_open_dialog 同一策略):二进制返回 None,
+    // 由调用方决定 emit 「仍要打开」载荷还是报错
+    let Some((content, encoding)) = read_file_text(path)? else {
+        return Err(AppError::Unsupported("binary content".into()));
+    };
 
     // 授权路径,使前端可 fs_read_file 重新读取 / fs_write_file 覆盖保存
     authorized.authorize(path);
@@ -245,6 +282,7 @@ pub fn open_file_in_app(
     let payload = OpenFilePayload {
         path: path.to_string(),
         content,
+        encoding,
     };
 
     // 写入待打开队列作为兜底(即使事件因前端未就绪而丢失也能补齐)
@@ -319,42 +357,80 @@ mod tests {
         pending.push(OpenFilePayload {
             path: "/a.txt".into(),
             content: "a".into(),
+            encoding: "utf-8".into(),
         });
         pending.push(OpenFilePayload {
             path: "/b.json".into(),
             content: "{}".into(),
+            encoding: "utf-8".into(),
         });
         assert!(!pending.is_empty());
 
         let drained = pending.drain_all();
         assert_eq!(drained.len(), 2);
         assert_eq!(drained[0].path, "/a.txt");
+        assert_eq!(drained[0].encoding, "utf-8");
         assert_eq!(drained[1].path, "/b.json");
         assert!(pending.is_empty());
     }
 
     #[test]
-    fn file_is_text_detects_binary_nul_byte() {
+    fn read_file_text_detects_binary_nul_byte() {
         let dir = std::env::temp_dir();
         let text = dir.join("qraft_text_detect.txt");
         let bin = dir.join("qraft_bin_detect.bin");
         std::fs::write(&text, b"hello world").expect("write text file");
-        // 含 NUL 字节 → 二进制
+        // 含 NUL 字节 → 二进制(None)
         std::fs::write(&bin, b"\x00\x01\x02").expect("write binary file");
 
-        assert!(file_is_text(text.to_str().unwrap()).unwrap());
-        assert!(!file_is_text(bin.to_str().unwrap()).unwrap());
+        let (content, encoding) = read_file_text(text.to_str().unwrap())
+            .unwrap()
+            .expect("text");
+        assert_eq!(content, "hello world");
+        assert_eq!(encoding, "utf-8");
+        assert!(read_file_text(bin.to_str().unwrap()).unwrap().is_none());
 
         let _ = std::fs::remove_file(&text);
         let _ = std::fs::remove_file(&bin);
     }
 
     #[test]
-    fn file_is_text_empty_is_text() {
+    fn read_file_text_decodes_legacy_encodings() {
+        let dir = std::env::temp_dir();
+        // GBK 编码的「你好」(非合法 UTF-8):旧 read_to_string 会直接失败
+        let gbk = dir.join("qraft_gbk_open.dat");
+        std::fs::write(&gbk, [0xD6_u8, 0xD0, 0xCE, 0xC4]).expect("write gbk");
+        // UTF-16 LE 无 BOM 的 ASCII 文本(偶数位 NUL):旧实现判为二进制
+        let utf16 = dir.join("qraft_utf16le_open.dat");
+        let bytes: Vec<u8> = b"hi".iter().flat_map(|&b| [b, 0]).collect();
+        std::fs::write(&utf16, bytes).expect("write utf16le");
+
+        let (content, encoding) = read_file_text(gbk.to_str().unwrap())
+            .unwrap()
+            .expect("gbk text");
+        assert_eq!(content, "中文");
+        assert_eq!(encoding, "gb18030");
+
+        let (content, encoding) = read_file_text(utf16.to_str().unwrap())
+            .unwrap()
+            .expect("utf16 text");
+        assert_eq!(content, "hi");
+        assert_eq!(encoding, "utf-16le");
+
+        let _ = std::fs::remove_file(&gbk);
+        let _ = std::fs::remove_file(&utf16);
+    }
+
+    #[test]
+    fn read_file_text_empty_is_text() {
         let dir = std::env::temp_dir();
         let empty = dir.join("qraft_empty_detect.txt");
         std::fs::write(&empty, b"").expect("write empty file");
-        assert!(file_is_text(empty.to_str().unwrap()).unwrap());
+        let (content, encoding) = read_file_text(empty.to_str().unwrap())
+            .unwrap()
+            .expect("text");
+        assert_eq!(content, "");
+        assert_eq!(encoding, "utf-8");
         let _ = std::fs::remove_file(&empty);
     }
 

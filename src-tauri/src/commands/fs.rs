@@ -21,6 +21,17 @@ use crate::shell::AppError;
 use crate::shell::fs_reveal::fs_reveal_in_explorer_inner;
 use crate::shell::response::CommandResponse;
 
+/// `bytes_look_like_text_kind` 的探测结果
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextKind {
+    /// 普通文本(无 NUL,或带 BOM)
+    Text,
+    /// 无 BOM 的 UTF-16(按 NUL 奇偶位模式识别;LE/BE 无法细分,回退 LE 解码)
+    Utf16NoBom,
+    /// 二进制内容
+    Binary,
+}
+
 /// 授权路径集合
 ///
 /// 用户通过 dialog 显式选择的文件路径或文件夹根路径会被加入此集合,
@@ -141,12 +152,70 @@ pub async fn save_bytes_to_path(path: &str, bytes: &[u8]) -> Result<(), AppError
     tokio::fs::write(path, bytes).await.map_err(AppError::from)
 }
 
-/// NUL 字节启发式:前 8192 字节中出现 NUL(`\0`)即视为二进制内容。
-/// 与 `shell/file_open` 的系统级打开入口共用同一策略(参考 VS Code)。
+/// NUL 字节检测窗口(字节):与 VS Code `ZERO_BYTE_DETECTION_BUFFER_MAX_LEN`
+/// 一致,只看头部 512 字节,避免长文本中后段偶发 NUL 被误判为二进制。
+const ZERO_BYTE_DETECTION_BUFFER_MAX_LEN: usize = 512;
+
+/// 探测结果:文本 / 无 BOM 的 UTF-16(仍可打开)/ 二进制
+///
+/// 语义对齐 VS Code `detectEncodingFromBuffer`(workbench/services/textfile/common/encoding.ts):
+/// 1. 先查 BOM(`Encoding::for_bom`)—— 带 BOM 的 UTF-16 恒视为文本
+/// 2. 前 512 字节内出现 NUL 时,用「NUL 是否固定落在奇/偶字节位」识别
+///    无 BOM 的 UTF-16(LE 期望 0xAA 0x00 模式、BE 期望 0x00 0xAA 模式)
+/// 3. 两者都不满足才判为二进制
+///
+/// 与 `shell/file_open` 的系统级打开入口共用同一策略。
 #[must_use]
 pub fn bytes_look_like_text(bytes: &[u8]) -> bool {
-    !bytes[..bytes.len().min(8192)].contains(&0)
+    !matches!(bytes_look_like_text_kind(bytes), TextKind::Binary)
 }
+
+/// `bytes_look_like_text` 的细分版本,供需要区分「无 BOM UTF-16」的调用方使用
+#[must_use]
+pub fn bytes_look_like_text_kind(bytes: &[u8]) -> TextKind {
+    // 带 BOM(含 UTF-16 LE/BE)一律视为文本,编码交给 detect_encoding 分流
+    if encoding_rs::Encoding::for_bom(bytes).is_some() {
+        return TextKind::Text;
+    }
+    let window = &bytes[..bytes.len().min(ZERO_BYTE_DETECTION_BUFFER_MAX_LEN)];
+    let mut le_shape_possible = true;
+    let mut be_shape_possible = true;
+    let mut contains_zero = false;
+    for (i, &b) in window.iter().enumerate() {
+        let is_odd = i % 2 == 1;
+        let is_zero = b == 0;
+        if is_zero {
+            contains_zero = true;
+        }
+        // UTF-16 LE:期望 0xAA 0x00(NUL 只出现在奇数位)
+        if le_shape_possible && (is_odd != is_zero) {
+            le_shape_possible = false;
+        }
+        // UTF-16 BE:期望 0x00 0xAA(NUL 只出现在偶数位)
+        if be_shape_possible && (is_odd == is_zero) {
+            be_shape_possible = false;
+        }
+        // 与 VS Code 一致:确认非 UTF-16 且遇到 NUL 即提前退出
+        if is_zero && !le_shape_possible && !be_shape_possible {
+            break;
+        }
+    }
+    if !contains_zero {
+        return TextKind::Text;
+    }
+    if le_shape_possible || be_shape_possible {
+        // 无 BOM 的 UTF-16:探测为文本,但 detect_encoding 不带 BOM 分不出
+        // LE/BE,标记出来供调用方按 LE 优先处理
+        TextKind::Utf16NoBom
+    } else {
+        TextKind::Binary
+    }
+}
+
+/// 文件内容上限(字节):编辑器走 IPC 传全文,超过该值拒绝打开并提示
+/// (对齐 VS Code 文本编辑器打开大文件的代价控制;二进制视图另议)。
+/// `shell/file_open` 的拖放/关联入口共用同一上限。
+pub const EDITOR_FILE_MAX_BYTES: u64 = 20 * 1024 * 1024;
 
 /// 枚举目录内容(必须在授权集合或其授权目录子树内)
 ///
@@ -182,33 +251,6 @@ pub async fn fs_read_dir_inner(
     Ok(CommandResponse::ok(entries))
 }
 
-/// 读取文本文件并校验可编辑性(必须在授权范围内)
-///
-/// 用于「文件夹树」点击文件打开:
-/// - 二进制内容(NUL 字节启发式)→ `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
-/// - 非 UTF-8 编码 → 同样视为不受支持(编辑器聚焦 UTF-8 文本)
-///
-/// 前端据此弹「格式不支持」提示;文件仍保留在树列表中。
-///
-/// # Errors
-///
-/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
-/// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
-/// - 二进制/非 UTF-8 时返回 `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
-pub async fn fs_read_text_file_checked_inner(
-    path: &str,
-    authorized: &AuthorizedPaths,
-) -> Result<CommandResponse<String>, AppError> {
-    validate_path(path, authorized)?;
-    let bytes = tokio::fs::read(path).await.map_err(AppError::from)?;
-    if !bytes_look_like_text(&bytes) {
-        return Err(AppError::Unsupported("binary content".into()));
-    }
-    String::from_utf8(bytes)
-        .map(CommandResponse::ok)
-        .map_err(|_| AppError::Unsupported("non-utf-8 content".into()))
-}
-
 // ============ 文件编码(编辑器编码切换;纯逻辑见 media::text_encoding)============
 
 use crate::media::text_encoding::{
@@ -224,7 +266,7 @@ pub struct EncodedTextContent {
     pub encoding: String,
 }
 
-/// 读取文本文件并探测编码(必须在授权范围内);支持显式指定编码
+/// 读取文本文件并探测编码(必须在授权范围内);支持显式指定编码与强制打开
 ///
 /// 与 `fs_read_text_file_checked` 的差异:
 /// - 不要求严格 UTF-8:GBK/Big5 等编码自动探测并解码
@@ -232,21 +274,26 @@ pub struct EncodedTextContent {
 ///
 /// `encoding` 提供且非空时跳过探测,直接按该编码解码
 /// (VSCode「通过编码重新打开」语义);编码不受支持时返回 `AppError::Unsupported`。
+/// `force` 为 true 时跳过二进制启发式(VSCode「仍要打开」),按探测编码
+/// 有损解码;同时受 `EDITOR_FILE_MAX_BYTES` 大小上限约束。
 ///
 /// # Errors
 ///
 /// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
 /// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+/// - 文件超过编辑器大小上限时返回 `AppError::Unsupported`(`ERR_FILE_TOO_LARGE`)
 /// - 二进制内容时返回 `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
 /// - 显式指定的编码不受支持时返回 `AppError::Unsupported`
 pub async fn fs_read_text_file_encoded_inner(
     path: &str,
     encoding: Option<&str>,
+    force: bool,
     authorized: &AuthorizedPaths,
 ) -> Result<CommandResponse<EncodedTextContent>, AppError> {
     validate_path(path, authorized)?;
+    ensure_editable_size(path).await?;
     let bytes = tokio::fs::read(path).await.map_err(AppError::from)?;
-    if !bytes_look_like_text(&bytes) {
+    if !force && !bytes_look_like_text(&bytes) {
         return Err(AppError::Unsupported("binary content".into()));
     }
     let encoding_id = match encoding {
@@ -256,12 +303,40 @@ pub async fn fs_read_text_file_encoded_inner(
             }
             id
         }
-        _ => detect_encoding(&bytes),
+        _ => detect_encoding_forced(&bytes),
     };
     Ok(CommandResponse::ok(EncodedTextContent {
         content: decode_text(&bytes, encoding_id),
         encoding: encoding_id.to_string(),
     }))
+}
+
+/// 打开前校验文件大小,超过编辑器上限时拒绝(VSCode 大文件保护语义)
+///
+/// # Errors
+///
+/// - 文件超过 `EDITOR_FILE_MAX_BYTES` 时返回 `AppError::Unsupported`(`ERR_FILE_TOO_LARGE`)
+async fn ensure_editable_size(path: &str) -> Result<(), AppError> {
+    let meta = tokio::fs::metadata(path).await.map_err(AppError::from)?;
+    if meta.len() > EDITOR_FILE_MAX_BYTES {
+        return Err(AppError::FileTooLarge {
+            size: meta.len(),
+            max: EDITOR_FILE_MAX_BYTES,
+        });
+    }
+    Ok(())
+}
+
+/// 强制打开路径下的编码探测:二进制数据经 `decode_text` 按兜底编码
+/// (Windows-1252)有损解码;无 BOM UTF-16 回退 LE 解码。
+/// 普通路径由 `detect_encoding` 处理,避免行为分叉。
+fn detect_encoding_forced(bytes: &[u8]) -> &'static str {
+    match bytes_look_like_text_kind(bytes) {
+        TextKind::Text => detect_encoding(bytes),
+        // detect_encoding 依赖 BOM 分流 UTF-16 方向,无 BOM 时保持 LE 回退
+        TextKind::Utf16NoBom => "utf-16le",
+        TextKind::Binary => "windows-1252",
+    }
 }
 
 /// 以指定编码把内容写入文件(路径必须已授权)
@@ -460,6 +535,26 @@ pub struct OpenFileResult {
     pub encoding: String,
 }
 
+/// 打开对话框失败的可恢复原因(`openDialogReason` / `reason` 字段值)
+///
+/// 前端据此展示带「仍要打开」动作的提示(VSCode Open Anyway 语义):
+/// - `binary`:二进制启发式命中,用户可强制按探测编码有损打开
+/// - `too-large`:超过编辑器大小上限,不可恢复
+pub const OPEN_DIALOG_REASON_BINARY: &str = "binary";
+pub const OPEN_DIALOG_REASON_TOO_LARGE: &str = "too-large";
+
+/// 打开文件对话框的失败载荷(路径 + 原因;前端「仍要打开」需回读该路径)
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenFileFailure {
+    pub path: String,
+    /// `OPEN_DIALOG_REASON_*` 常量
+    pub reason: String,
+    /// 文件大小(字节,too-large 时展示)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<u64>,
+}
+
 /// 打开文件夹对话框的返回结果(目录根路径)
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -482,6 +577,10 @@ pub struct DirEntryInfo {
 /// `fs_read_file` 重新读取或 `fs_write_file` 直接覆盖保存。
 /// 用户取消对话框时返回 `Ok(CommandResponse::ok(None))`。
 ///
+/// 与文件树/拖放路径共用 `read_openable_text_file` 打开逻辑:二进制 /
+/// 超大文件不再整体失败,而是返回 `OpenFileOutcome::Failed` 携带路径与
+/// 原因,供前端展示「仍要打开」(VSCode Open Anyway)。
+///
 /// # Errors
 ///
 /// - 文件读取失败(不存在/权限不足/编码非法)时返回 `AppError::Io`(`ERR_FILE_IO`)
@@ -489,7 +588,7 @@ pub struct DirEntryInfo {
 pub async fn fs_open_dialog(
     app: tauri::AppHandle,
     authorized: tauri::State<'_, AuthorizedPaths>,
-) -> Result<CommandResponse<Option<OpenFileResult>>, AppError> {
+) -> Result<CommandResponse<OpenFileOutcome>, AppError> {
     let Some(path) = app
         .dialog()
         .file()
@@ -497,7 +596,7 @@ pub async fn fs_open_dialog(
         .blocking_pick_file()
     else {
         // 用户取消对话框:返回 None,前端据此静默处理(不视为错误)
-        return Ok(CommandResponse::ok(None));
+        return Ok(CommandResponse::ok(OpenFileOutcome::cancelled()));
     };
 
     let path_buf = path
@@ -505,17 +604,80 @@ pub async fn fs_open_dialog(
         .map_err(|e| AppError::Unknown(format!("open path invalid: {e}")))?;
     let path_str = path_buf.to_string_lossy().into_owned();
     authorized.authorize(&path_str);
-    let bytes = tokio::fs::read(&path_str).await.map_err(AppError::from)?;
+    // 读取失败(不存在/权限)仍走错误通道:与「内容不可编辑」性质不同
+    read_openable_text_file(&path_str)
+        .await
+        .map(CommandResponse::ok)
+}
+
+/// 打开文件对话框的结果:成功 / 用户取消 / 内容不可直接编辑(带原因)
+///
+/// 「不可直接编辑」不再整体报错(VSCode 对二进制文件也照常进入占位
+/// 编辑器,由用户决定是否仍要以文本打开),前端据 `failed` 展示提示与
+/// 「仍要打开」动作;取消与失败是两种独立的静默/交互路径。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenFileOutcome {
+    /// 成功打开的文件内容;取消 / 失败时为 None
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file: Option<OpenFileResult>,
+    /// 未能直接打开的文件信息(二进制/过大),供前端展示「仍要打开」
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed: Option<OpenFileFailure>,
+}
+
+impl OpenFileOutcome {
+    /// 用户取消对话框
+    #[must_use]
+    pub const fn cancelled() -> Self {
+        Self {
+            file: None,
+            failed: None,
+        }
+    }
+}
+
+/// 读取已授权路径为可编辑文本(对话框 / 文件树 / 拖放共用)
+///
+/// - 大小超上限 → `failed.reason = "too-large"`(不可恢复)
+/// - 二进制启发式命中 → `failed.reason = "binary"`(前端可强制打开)
+///
+/// # Errors
+///
+/// - 文件读取失败(不存在/权限不足)时返回 `AppError::Io`(`ERR_FILE_IO`)
+pub async fn read_openable_text_file(path: &str) -> Result<OpenFileOutcome, AppError> {
+    let meta = tokio::fs::metadata(path).await.map_err(AppError::from)?;
+    if meta.len() > EDITOR_FILE_MAX_BYTES {
+        return Ok(OpenFileOutcome {
+            file: None,
+            failed: Some(OpenFileFailure {
+                path: path.to_string(),
+                reason: OPEN_DIALOG_REASON_TOO_LARGE.to_string(),
+                size: Some(meta.len()),
+            }),
+        });
+    }
+    let bytes = tokio::fs::read(path).await.map_err(AppError::from)?;
     if !bytes_look_like_text(&bytes) {
-        return Err(AppError::Unsupported("binary content".into()));
+        return Ok(OpenFileOutcome {
+            file: None,
+            failed: Some(OpenFileFailure {
+                path: path.to_string(),
+                reason: OPEN_DIALOG_REASON_BINARY.to_string(),
+                size: None,
+            }),
+        });
     }
     let encoding = detect_encoding(&bytes).to_string();
     let content = decode_text(&bytes, &encoding);
-    Ok(CommandResponse::ok(Some(OpenFileResult {
-        path: path_str,
-        content,
-        encoding,
-    })))
+    Ok(OpenFileOutcome {
+        file: Some(OpenFileResult {
+            path: path.to_string(),
+            content,
+            encoding,
+        }),
+        failed: None,
+    })
 }
 
 /// 弹出打开文件夹对话框,返回所选目录根路径
@@ -609,38 +771,32 @@ pub fn fs_authorize_dropped_paths(
     fs_authorize_dropped_paths_inner(paths, &authorized)
 }
 
-/// 读取文本文件并校验可编辑性,供文件夹树点击文件时调用
-///
-/// 二进制或非 UTF-8 内容返回 `ERR_FILE_UNSUPPORTED`,前端弹「格式不支持」提示。
-///
-/// # Errors
-///
-/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
-/// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
-/// - 二进制/非 UTF-8 时返回 `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
-#[tauri::command]
-pub async fn fs_read_text_file_checked(
-    path: String,
-    authorized: tauri::State<'_, AuthorizedPaths>,
-) -> Result<CommandResponse<String>, AppError> {
-    fs_read_text_file_checked_inner(&path, &authorized).await
-}
-
 /// 读取文本文件并自动探测编码(GBK/Big5/Shift-JIS 等自动解码)
 ///
+/// `force=true` 跳过二进制启发式并按兜底编码有损解码(VSCode「仍要打开」);
+/// 其余语义同 `fs_read_text_file_encoded_inner`。
+///
 /// # Errors
 ///
 /// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
 /// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
-/// - 二进制内容时返回 `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
+/// - 文件超过编辑器大小上限时返回 `AppError::FileTooLarge`(`ERR_FILE_TOO_LARGE`)
+/// - 二进制内容且未 force 时返回 `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
 /// - 显式指定的编码不受支持时返回 `AppError::Unsupported`
 #[tauri::command]
 pub async fn fs_read_text_file_encoded(
     path: String,
     encoding: Option<String>,
+    force: Option<bool>,
     authorized: tauri::State<'_, AuthorizedPaths>,
 ) -> Result<CommandResponse<EncodedTextContent>, AppError> {
-    fs_read_text_file_encoded_inner(&path, encoding.as_deref(), &authorized).await
+    fs_read_text_file_encoded_inner(
+        &path,
+        encoding.as_deref(),
+        force.unwrap_or(false),
+        &authorized,
+    )
+    .await
 }
 
 /// 以指定编码写入文本文件(utf-8-bom 自动补 BOM)
@@ -807,12 +963,36 @@ mod tests {
         assert!(bytes_look_like_text(b"hello world"));
         // 空文件视为文本(与 file_open 一致)
         assert!(bytes_look_like_text(b""));
-        // 前 8192 字节内含 NUL → 二进制
+        // 头部含 NUL → 二进制
         assert!(!bytes_look_like_text(&[0x00, 0x01, 0x02]));
-        // NUL 在 8192 之后:启发式只看头部
-        let mut late_nul = vec![b'a'; 9000];
-        late_nul[8500] = 0;
+        // NUL 在 512 字节检测窗口之后:启发式只看头部(VSCode 同款窗口)
+        let mut late_nul = vec![b'a'; 600];
+        late_nul[520] = 0;
         assert!(bytes_look_like_text(&late_nul));
+    }
+
+    #[test]
+    fn test_bytes_look_like_text_utf16_without_bom_is_text() {
+        // 无 BOM 的 UTF-16 LE(ASCII 文本,偶数位 0x00):VSCode 判为文本
+        let bytes: Vec<u8> = b"hello world".iter().flat_map(|&b| [b, 0]).collect();
+        assert!(bytes_look_like_text(&bytes));
+        assert_eq!(bytes_look_like_text_kind(&bytes), TextKind::Utf16NoBom);
+        // UTF-16 BE(NUL 在偶数位)
+        let be: Vec<u8> = b"hello world".iter().flat_map(|&b| [0, b]).collect();
+        assert_eq!(bytes_look_like_text_kind(&be), TextKind::Utf16NoBom);
+        // NUL 位置混杂 → 二进制
+        assert_eq!(
+            bytes_look_like_text_kind(&[0x41, 0x00, 0x00, 0x42]),
+            TextKind::Binary
+        );
+    }
+
+    #[test]
+    fn test_bytes_look_like_text_bom_utf16_is_text() {
+        // 带 BOM 的 UTF-16 恒为文本(即使后段出现「非 UTF-16 模式」的 NUL)
+        let mut bytes = vec![0xFF, 0xFE];
+        bytes.extend_from_slice(&[0x41, 0x00, 0x00, 0x00]);
+        assert!(bytes_look_like_text(&bytes));
     }
 
     #[tokio::test]
@@ -849,58 +1029,150 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_fs_read_text_file_checked_binary_is_unsupported() {
+    async fn test_fs_read_text_file_encoded_force_opens_binary() {
         let dir = std::env::temp_dir();
-        let path = dir.join("qraft_test_checked_bin.bin");
-        std::fs::write(&path, [0x00u8, 0x01, 0x02]).expect("write bin");
+        let path = dir.join("qraft_test_encoded_force.bin");
+        std::fs::write(&path, [0x00u8, 0x01, 0xFF, 0x0A]).expect("write bin");
 
         let paths = AuthorizedPaths::new();
         paths.authorize(path.to_str().unwrap());
 
-        let err = fs_read_text_file_checked_inner(path.to_str().unwrap(), &paths)
+        // 未 force:二进制 → ERR_FILE_UNSUPPORTED
+        let err = fs_read_text_file_encoded_inner(path.to_str().unwrap(), None, false, &paths)
             .await
             .unwrap_err();
         assert_eq!(err.code(), "ERR_FILE_UNSUPPORTED");
 
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[tokio::test]
-    async fn test_fs_read_text_file_checked_non_utf8_is_unsupported() {
-        let dir = std::env::temp_dir();
-        let path = dir.join("qraft_test_checked_latin1.txt");
-        // 无 NUL 但非 UTF-8(Latin-1 高位字节)
-        std::fs::write(&path, [0xFFu8, 0xFE, 0x41]).expect("write non-utf8");
-
-        let paths = AuthorizedPaths::new();
-        paths.authorize(path.to_str().unwrap());
-
-        let err = fs_read_text_file_checked_inner(path.to_str().unwrap(), &paths)
-            .await
-            .unwrap_err();
-        assert_eq!(err.code(), "ERR_FILE_UNSUPPORTED");
-
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[tokio::test]
-    async fn test_fs_read_text_file_checked_round_trip_and_subtree() {
-        let dir = std::env::temp_dir().join("qraft_test_checked_subtree");
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).expect("create dir");
-        let path = dir.join("inner.txt");
-        std::fs::write(&path, "hello folder").expect("write text");
-
-        // 仅授权目录根:子树内文件可读(打开文件夹语义)
-        let paths = AuthorizedPaths::new();
-        paths.authorize(dir.to_str().unwrap());
-
-        let resp = fs_read_text_file_checked_inner(path.to_str().unwrap(), &paths)
+        // force:按兜底编码有损解码打开(VSCode「仍要打开」)
+        let resp = fs_read_text_file_encoded_inner(path.to_str().unwrap(), None, true, &paths)
             .await
             .unwrap();
-        assert_eq!(resp.data.unwrap(), "hello folder");
+        let data = resp.data.unwrap();
+        assert_eq!(data.encoding, "windows-1252");
+        assert!(!data.content.is_empty());
 
-        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn test_fs_read_text_file_encoded_explicit_encoding() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_test_encoded_explicit.txt");
+        std::fs::write(&path, [0xFFu8, 0xFE]).expect("write");
+
+        let paths = AuthorizedPaths::new();
+        paths.authorize(path.to_str().unwrap());
+
+        let resp =
+            fs_read_text_file_encoded_inner(path.to_str().unwrap(), Some("gb18030"), false, &paths)
+                .await
+                .unwrap();
+        let data = resp.data.unwrap();
+        assert_eq!(data.encoding, "gb18030");
+        assert_eq!(data.content, "\u{FFFD}\u{FFFD}");
+
+        // 不受支持的编码标识 → ERR_FILE_UNSUPPORTED
+        let err = fs_read_text_file_encoded_inner(
+            path.to_str().unwrap(),
+            Some("iso-2022-jp"),
+            false,
+            &paths,
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(err.code(), "ERR_FILE_UNSUPPORTED");
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn test_fs_read_text_file_encoded_utf16_without_bom() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_test_encoded_utf16le_nobom.dat");
+        // ASCII 内容的 UTF-16 LE,无 BOM:旧实现直接判二进制
+        let bytes: Vec<u8> = b"hello world".iter().flat_map(|&b| [b, 0]).collect();
+        std::fs::write(&path, bytes).expect("write utf16le");
+
+        let paths = AuthorizedPaths::new();
+        paths.authorize(path.to_str().unwrap());
+
+        let resp = fs_read_text_file_encoded_inner(path.to_str().unwrap(), None, false, &paths)
+            .await
+            .unwrap();
+        let data = resp.data.unwrap();
+        // 无 BOM UTF-16 → LE 回退解码,内容可读
+        assert_eq!(data.encoding, "utf-16le");
+        assert_eq!(data.content, "hello world");
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn test_fs_read_text_file_encoded_rejects_too_large() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_test_encoded_huge.txt");
+        // 用 sparse file 伪造超限大小,避免真实写入 20MB
+        let file = std::fs::File::create(&path).expect("create");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::FileExt;
+            file.set_len(EDITOR_FILE_MAX_BYTES + 1).expect("sparse");
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::FileExt;
+            // seek+write 单字节即可把文件长度撑到目标值(NTFS 稀疏扩展)
+            file.seek_write(
+                &[0],
+                EDITOR_FILE_MAX_BYTES, // 写在 max 处 → len = max+1
+            )
+            .expect("sparse extend");
+        }
+        drop(file);
+
+        let paths = AuthorizedPaths::new();
+        paths.authorize(path.to_str().unwrap());
+
+        let err = fs_read_text_file_encoded_inner(path.to_str().unwrap(), None, false, &paths)
+            .await
+            .unwrap_err();
+        assert_eq!(err.code(), "ERR_FILE_TOO_LARGE");
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn test_read_openable_text_file_binary_reports_failure_payload() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_test_openable_bin.dat");
+        std::fs::write(&path, [0x00u8, 0x01, 0x02]).expect("write bin");
+
+        let outcome = read_openable_text_file(path.to_str().unwrap())
+            .await
+            .unwrap();
+        assert!(outcome.file.is_none());
+        let failed = outcome.failed.expect("failed payload");
+        assert_eq!(failed.reason, OPEN_DIALOG_REASON_BINARY);
+        assert_eq!(failed.path, path.to_string_lossy());
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn test_read_openable_text_file_utf8_round_trip() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_test_openable_utf8.txt");
+        std::fs::write(&path, "hello qraft").expect("write");
+
+        let outcome = read_openable_text_file(path.to_str().unwrap())
+            .await
+            .unwrap();
+        let file = outcome.file.expect("opened");
+        assert_eq!(file.content, "hello qraft");
+        assert_eq!(file.encoding, "utf-8");
+        assert!(outcome.failed.is_none());
+
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]

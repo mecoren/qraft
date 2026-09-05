@@ -1,4 +1,5 @@
 use serde::{Serialize, ser::SerializeMap};
+use serde_json::json;
 use std::time::Duration;
 use thiserror::Error;
 
@@ -101,6 +102,11 @@ pub enum AppError {
     #[error("unsupported file: {0}")]
     Unsupported(String),
 
+    /// 文件超过编辑器可打开的大小上限。前端据此提示文件过大
+    /// (与「二进制不可编辑」区分:过大不可恢复,不提供「仍要打开」)。
+    #[error("file too large: {size} bytes (max {max})")]
+    FileTooLarge { size: u64, max: u64 },
+
     #[error("permission denied: {0}")]
     Permission(String),
 
@@ -128,6 +134,7 @@ impl AppError {
             Self::History(_) => "ERR_HISTORY_IO",
             Self::Io(_) => "ERR_FILE_IO",
             Self::Unsupported(_) => "ERR_FILE_UNSUPPORTED",
+            Self::FileTooLarge { .. } => "ERR_FILE_TOO_LARGE",
             Self::Permission(_) | Self::Forbidden(_) => "ERR_PERMISSION_DENIED",
             Self::Internal(_) | Self::Unknown(_) => "ERR_INTERNAL",
         }
@@ -191,6 +198,9 @@ impl Serialize for AppError {
             }
             Self::Internal(e) => {
                 map.serialize_entry("detail", &format!("{e:#}"))?;
+            }
+            Self::FileTooLarge { size, max } => {
+                map.serialize_entry("detail", &json!({ "size": size, "max": max }))?;
             }
         }
         map.end()
