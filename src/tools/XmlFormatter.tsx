@@ -111,9 +111,7 @@ export function XmlFormatter({ toolId }: ToolProps): JSX.Element {
             actions={
               <>
                 {output && <CopyAction text={output} testId="xmlfmt-copy" />}
-                {output && (
-                  <SendToMenu text={output} currentToolId={toolId} testId="xmlfmt-send" />
-                )}
+                {output && <SendToMenu text={output} currentToolId={toolId} testId="xmlfmt-send" />}
               </>
             }
           />

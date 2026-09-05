@@ -22,10 +22,7 @@ export function isGzipBase64(base64: string): boolean {
 
 /** 宽容 base64:去空白、补 padding、URL-safe → 标准,失败抛错 */
 export function base64ToBytesLoose(base64: string): Uint8Array {
-  const cleaned = base64
-    .replace(/\s+/g, '')
-    .replace(/-/g, '+')
-    .replace(/_/g, '/');
+  const cleaned = base64.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
   const padded = cleaned + '='.repeat((4 - (cleaned.length % 4)) % 4);
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);

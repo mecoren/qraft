@@ -28,7 +28,15 @@ vi.mock('@/components/ui/resizable', () => ({
 
 // Radix Select 在 jsdom 下需要真实指针事件,简化替身直接暴露原生 select
 vi.mock('@/components/ui/select', () => ({
-  Select: ({ value, onValueChange, children }: { value?: string; onValueChange?: (v: string) => void; children: React.ReactNode }) => (
+  Select: ({
+    value,
+    onValueChange,
+    children,
+  }: {
+    value?: string;
+    onValueChange?: (v: string) => void;
+    children: React.ReactNode;
+  }) => (
     <div>
       <div data-testid="select-value">{value}</div>
       <button

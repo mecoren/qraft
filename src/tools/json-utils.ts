@@ -282,7 +282,8 @@ export function sniffInputFormat(text: string): InputFormatId | null {
   // YAML 序列行(- 开头)不属于 Properties / TOML
   if (lines.some((l) => l.startsWith('- ') || l === '-')) return null;
 
-  const isTableHeader = (l: string): boolean => l.startsWith('[') && /^\[\[.+\]\]$|^\[.+\]$/.test(l);
+  const isTableHeader = (l: string): boolean =>
+    l.startsWith('[') && /^\[\[.+\]\]$|^\[.+\]$/.test(l);
   const hasUnescapedEq = (l: string): boolean => /(?<![\\])=/.test(l);
   const hasUnescapedColon = (l: string): boolean => /(?<![\\]):/.test(l);
   /** TOML 惯例键值行:`key = value`(= 两侧留空;properties 惯例为紧贴 `k=v`) */

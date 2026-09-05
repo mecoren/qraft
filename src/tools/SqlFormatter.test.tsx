@@ -30,7 +30,15 @@ vi.mock('@/components/ui/resizable', () => ({
 vi.mock('@/components/ui/select', () => {
   let index = 0;
   return {
-    Select: ({ value, onValueChange, children }: { value?: string; onValueChange?: (v: string) => void; children: React.ReactNode }) => (
+    Select: ({
+      value,
+      onValueChange,
+      children,
+    }: {
+      value?: string;
+      onValueChange?: (v: string) => void;
+      children: React.ReactNode;
+    }) => (
       <div>
         <div data-testid={`select-${value}`}>{value}</div>
         <button

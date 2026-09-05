@@ -59,7 +59,10 @@ interface TomlParser {
 }
 
 function tomlSkipInline(p: TomlParser): void {
-  while (p.pos < p.src.length && (p.src[p.pos] === ' ' || p.src[p.pos] === '\t' || p.src[p.pos] === '\r')) {
+  while (
+    p.pos < p.src.length &&
+    (p.src[p.pos] === ' ' || p.src[p.pos] === '\t' || p.src[p.pos] === '\r')
+  ) {
     p.pos++;
   }
 }
@@ -212,8 +215,7 @@ function tomlParseNumberOrDate(text: string): unknown {
 /** RFC 3339 / TOML 本地日期时间:合法返回 ISO 字符串,否则 null */
 function parseTomlDateTime(text: string): string | null {
   const s = text.trim();
-  const re =
-    /^(\d{4}-\d{2}-\d{2})([Tt ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|z|[+-]\d{2}:\d{2})?)?$/;
+  const re = /^(\d{4}-\d{2}-\d{2})([Tt ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|z|[+-]\d{2}:\d{2})?)?$/;
   const m = re.exec(s);
   if (!m) return null;
   // 用 Date 校验分量合法性(如 2026-13-01 无效)
@@ -433,11 +435,7 @@ export function tomlToJson(input: string): unknown {
           const next: Record<string, unknown> = {};
           node[seg] = next;
           node = next;
-        } else if (
-          existing !== null &&
-          typeof existing === 'object' &&
-          !Array.isArray(existing)
-        ) {
+        } else if (existing !== null && typeof existing === 'object' && !Array.isArray(existing)) {
           node = existing as Record<string, unknown>;
         } else {
           throw new ParseFormatError(
@@ -452,11 +450,7 @@ export function tomlToJson(input: string): unknown {
         const table: Record<string, unknown> = {};
         node[last] = table;
         current = table;
-      } else if (
-        existing !== null &&
-        typeof existing === 'object' &&
-        !Array.isArray(existing)
-      ) {
+      } else if (existing !== null && typeof existing === 'object' && !Array.isArray(existing)) {
         // dotted 键隐式创建的表可被显式 [table] 补充定义(TOML 允许);
         // 但同一 [table] 头重复出现视为定义冲突
         if (definedTables.has(tableKey(path))) {
@@ -548,11 +542,7 @@ function isIdContinue(ch: string): boolean {
   if (cp === undefined) return false;
   if (cp >= 0x30 && cp <= 0x39) return true; // 0-9
   // 组合记号(U+0300–U+036F)与连接符(U+203F–U+2040)
-  return (
-    (cp >= 0x300 && cp <= 0x36f) ||
-    (cp >= 0x203f && cp <= 0x2040) ||
-    isIdStart(ch)
-  );
+  return (cp >= 0x300 && cp <= 0x36f) || (cp >= 0x203f && cp <= 0x2040) || isIdStart(ch);
 }
 
 function json5ParseString(p: Json5Parser, quote: string): string {
@@ -852,7 +842,7 @@ function splitPropertiesPath(key: string): string[] {
 export function propertiesToJson(input: string): unknown {
   const physical = input.replace(/\r\n?/g, '\n').split('\n');
   const entries: Array<[string, string]> = [];
-  for (let i = 0; i < physical.length; ) {
+  for (let i = 0; i < physical.length;) {
     let raw = physical[i];
     i++;
     // 续行:行尾单个反斜杠;下一行行首空白裁剪

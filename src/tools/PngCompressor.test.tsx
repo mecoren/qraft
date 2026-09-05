@@ -3,7 +3,15 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PngCompressor } from './PngCompressor';
 
 vi.mock('@/components/ui/select', () => ({
-  Select: ({ value, onValueChange, children }: { value?: string; onValueChange?: (v: string) => void; children: React.ReactNode }) => (
+  Select: ({
+    value,
+    onValueChange,
+    children,
+  }: {
+    value?: string;
+    onValueChange?: (v: string) => void;
+    children: React.ReactNode;
+  }) => (
     <div data-testid="select-box" data-value={value}>
       <button type="button" data-testid="select-toggle" onClick={() => onValueChange?.('0')}>
         toggle
@@ -31,7 +39,8 @@ vi.mock('@/lib/ipc', () => ({
 }));
 
 // FileReader stub
-const DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+const DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 class StubFileReader {
   result: string | ArrayBuffer | null = null;
   onload: (() => void) | null = null;

@@ -71,10 +71,7 @@ export function HtmlCodec({ toolId }: ToolProps): JSX.Element {
             label={t('tools.html_codec.label_escape_level')}
             hint={t('tools.html_codec.hint_escape_level')}
           >
-            <Select
-              value={escapeLevel}
-              onValueChange={(v) => setEscapeLevel(v as HtmlEncodeMode)}
-            >
+            <Select value={escapeLevel} onValueChange={(v) => setEscapeLevel(v as HtmlEncodeMode)}>
               <SelectTrigger data-testid="html-escape-level" className="w-44">
                 <SelectValue />
               </SelectTrigger>

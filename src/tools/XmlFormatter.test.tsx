@@ -43,20 +43,12 @@ describe('formatXml 纯逻辑', () => {
   });
 
   it('保留 XML 声明原文(encoding 不硬编码)', () => {
-    const out = formatXml(
-      '<?xml version="1.0" encoding="GBK"?><r><a/></r>',
-      '2',
-      false,
-    );
+    const out = formatXml('<?xml version="1.0" encoding="GBK"?><r><a/></r>', '2', false);
     expect(out).toContain('<?xml version="1.0" encoding="GBK"?>');
   });
 
   it('保留 DOCTYPE', () => {
-    const out = formatXml(
-      '<!DOCTYPE note><note><a/></note>',
-      '2',
-      false,
-    );
+    const out = formatXml('<!DOCTYPE note><note><a/></note>', '2', false);
     expect(out).toContain('<!DOCTYPE note>');
     expect(out).toContain('<note>');
   });
@@ -100,9 +92,7 @@ describe('XmlFormatter 组件', () => {
     fireEvent.change(screen.getByTestId('xmlfmt-input-textarea'), {
       target: { value: '<root><a/></root>' },
     });
-    expect(await screen.findByTestId('xmlfmt-output-text')).toHaveTextContent(
-      /<root>\s*<a \/>/,
-    );
+    expect(await screen.findByTestId('xmlfmt-output-text')).toHaveTextContent(/<root>\s*<a \/>/);
   });
 
   it('非法输入显示错误', async () => {

@@ -91,13 +91,9 @@ describe('tomlToJson', () => {
   });
 
   it('supports multi-line strings and dotted keys', () => {
-    const doc = [
-      'text = """',
-      'line1',
-      'line2"""',
-      "literal = 'no \\escape'",
-      'a.b.c = 1',
-    ].join('\n');
+    const doc = ['text = """', 'line1', 'line2"""', "literal = 'no \\escape'", 'a.b.c = 1'].join(
+      '\n',
+    );
     expect(tomlToJson(doc)).toEqual({
       text: 'line1\nline2',
       literal: 'no \\escape',

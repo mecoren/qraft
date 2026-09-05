@@ -176,9 +176,7 @@ export function SqlFormatter({ toolId }: ToolProps): JSX.Element {
             actions={
               <>
                 {output && <CopyAction text={output} testId="sql-copy" />}
-                {output && (
-                  <SendToMenu text={output} currentToolId={toolId} testId="sql-send" />
-                )}
+                {output && <SendToMenu text={output} currentToolId={toolId} testId="sql-send" />}
               </>
             }
           />

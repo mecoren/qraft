@@ -60,10 +60,8 @@ const fakeCtx = {
   fillRect: vi.fn(),
   drawImage: vi.fn(),
 } as unknown as CanvasRenderingContext2D;
-HTMLCanvasElement.prototype.getContext = ((
-  _contextId: string,
-  _options?: unknown,
-) => fakeCtx) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+HTMLCanvasElement.prototype.getContext = ((_contextId: string, _options?: unknown) =>
+  fakeCtx) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 HTMLCanvasElement.prototype.toDataURL = function toDataURLStub(): string {
   return DATA_URL;
 };

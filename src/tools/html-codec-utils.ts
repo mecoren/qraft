@@ -150,9 +150,7 @@ export function encodeHtml(input: string, mode: HtmlEncodeMode = 'minimal'): str
     return input.replace(/[&<>"']|[^\x00-\x7f]/gu, (ch) => {
       if (ESCAPE_MAP[ch]) return ESCAPE_MAP[ch];
       const cp = ch.codePointAt(0)!;
-      return cp > 0xffff
-        ? `&#x${cp.toString(16).toUpperCase()};`
-        : `&#${cp};`;
+      return cp > 0xffff ? `&#x${cp.toString(16).toUpperCase()};` : `&#${cp};`;
     });
   }
   // all:命名实体优先,无命名的码点转数字实体

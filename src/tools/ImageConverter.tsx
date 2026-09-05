@@ -64,9 +64,12 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
   const [exactWidth, setExactWidth] = useState('');
   const [dragOver, setDragOver] = useState(false);
   /** 实时转换产物:预览 + 体积 */
-  const [preview, setPreview] = useState<{ dataUrl: string; bytes: number; w: number; h: number } | null>(
-    null,
-  );
+  const [preview, setPreview] = useState<{
+    dataUrl: string;
+    bytes: number;
+    w: number;
+    h: number;
+  } | null>(null);
   const [converting, setConverting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -149,31 +152,34 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
   // 所有 setState 走异步路径,避免 effect 内同步 setState 触发级联渲染
   useEffect(() => {
     let cancelled = false;
-    const timer = window.setTimeout(() => {
-      if (cancelled) return;
-      if (!image) {
-        setPreview(null);
-        return;
-      }
-      setConverting(true);
-      void convert().then((dataUrl) => {
+    const timer = window.setTimeout(
+      () => {
         if (cancelled) return;
-        setConverting(false);
-        if (!dataUrl) {
+        if (!image) {
           setPreview(null);
           return;
         }
-        // dataUrl base64 长度 → 字节数(近似)
-        const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
-        const bytes = Math.round((base64.length * 3) / 4);
-        setPreview({
-          dataUrl,
-          bytes,
-          w: targetSize?.w ?? image.width,
-          h: targetSize?.h ?? image.height,
+        setConverting(true);
+        void convert().then((dataUrl) => {
+          if (cancelled) return;
+          setConverting(false);
+          if (!dataUrl) {
+            setPreview(null);
+            return;
+          }
+          // dataUrl base64 长度 → 字节数(近似)
+          const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+          const bytes = Math.round((base64.length * 3) / 4);
+          setPreview({
+            dataUrl,
+            bytes,
+            w: targetSize?.w ?? image.width,
+            h: targetSize?.h ?? image.height,
+          });
         });
-      });
-    }, image ? 250 : 0);
+      },
+      image ? 250 : 0,
+    );
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
@@ -186,8 +192,7 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
     const blob = await res.blob();
     const base = image.name.replace(/\.[^.]+$/, '') || 'image';
     const suffix =
-      targetSize &&
-      (targetSize.w !== image.width || targetSize.h !== image.height)
+      targetSize && (targetSize.w !== image.width || targetSize.h !== image.height)
         ? `-${targetSize.w}x${targetSize.h}`
         : '';
     downloadBlob(`${base}${suffix}.${EXT[format]}`, blob);
@@ -415,10 +420,7 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
                 />
                 {/* 转换后预览与信息 */}
                 {preview && (
-                  <div
-                    className="flex flex-col items-center gap-1"
-                    data-testid="ic-result"
-                  >
+                  <div className="flex flex-col items-center gap-1" data-testid="ic-result">
                     <Label>{t('tools.image_converter.output_preview')}</Label>
                     <img
                       src={preview.dataUrl}

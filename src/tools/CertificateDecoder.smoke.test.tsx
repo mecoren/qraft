@@ -74,7 +74,7 @@ beforeAll(() => {
 describe('certificate-utils', () => {
   it('normalizeCertInput 剥离首尾空白与引号', () => {
     expect(normalizeCertInput('  "abc" ')).toBe('abc');
-    expect(normalizeCertInput("`x`")).toBe('x');
+    expect(normalizeCertInput('`x`')).toBe('x');
   });
 
   it('hex 输出大写冒号分隔指纹', () => {

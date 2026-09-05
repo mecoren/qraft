@@ -306,10 +306,7 @@ pub async fn app_install_update(
     // 由前端跳转 GitHub Releases 手动下载整包(不同安装方式的核心分流)。
     // Windows NSIS 安装版与便携版一样由 tauri-plugin-updater 原生支持:
     // 下载安装器静默执行并自动重启,故走自动更新。
-    if !matches!(
-        mode,
-        InstallMode::InPlace | InstallMode::WindowsNsis
-    ) {
+    if !matches!(mode, InstallMode::InPlace | InstallMode::WindowsNsis) {
         return Err(AppError::Unknown("MANUAL_INSTALL_REQUIRED".into()));
     }
 

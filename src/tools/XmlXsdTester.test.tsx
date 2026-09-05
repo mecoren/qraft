@@ -29,15 +29,12 @@ vi.mock('@/components/ui/resizable', () => ({
 
 // 组件内默认引擎动态 import xmllint-wasm 浏览器版(需要 Worker + fetch wasm),
 // jsdom 下不可用:mock 为注入的假引擎(真实校验由纯逻辑用例用 Node 版验证)
-const fakeEngine = vi.fn<
-  (opts: { xml: string; xsd: string }) => Promise<{ valid: boolean; errors: unknown[] }>
->();
+const fakeEngine =
+  vi.fn<(opts: { xml: string; xsd: string }) => Promise<{ valid: boolean; errors: unknown[] }>>();
 vi.mock('xmllint-wasm/index-browser.mjs', () => ({
   // 默认实现委托给 fakeEngine;由各用例按需指定返回值
-  validateXML: (opts: {
-    xml: Array<{ contents: string }>;
-    schema: Array<{ contents: string }>;
-  }) => fakeEngine({ xml: opts.xml[0].contents, xsd: opts.schema[0].contents }),
+  validateXML: (opts: { xml: Array<{ contents: string }>; schema: Array<{ contents: string }> }) =>
+    fakeEngine({ xml: opts.xml[0].contents, xsd: opts.schema[0].contents }),
 }));
 
 const XSD = `<?xml version="1.0"?>
@@ -143,7 +140,8 @@ describe('XmlXsdTester 组件', () => {
       valid: false,
       errors: [
         {
-          rawMessage: "input.xml:1: element body: Schemas validity error : Element 'body': This element is not expected.",
+          rawMessage:
+            "input.xml:1: element body: Schemas validity error : Element 'body': This element is not expected.",
           message: "Schemas validity error : Element 'body': This element is not expected.",
           loc: { fileName: 'input.xml', lineNumber: 1 },
         },

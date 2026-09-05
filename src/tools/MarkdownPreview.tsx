@@ -1215,7 +1215,7 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
 
             {showPreview && (
               <ResizablePanel
-                defaultSize={showEditor ? "50" : "100"}
+                defaultSize={showEditor ? '50' : '100'}
                 minSize="20"
                 className="min-h-0 min-w-0"
               >

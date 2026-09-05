@@ -307,9 +307,7 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
                         <p className="text-xs" data-testid="pc-result">
                           <span
                             className={
-                              saving !== null && saving > 0
-                                ? 'font-semibold text-primary'
-                                : ''
+                              saving !== null && saving > 0 ? 'font-semibold text-primary' : ''
                             }
                           >
                             {formatBytes(result.outputBytes)}

@@ -120,9 +120,7 @@ export function BasicAuthGenerator({ toolId }: ToolProps): JSX.Element {
             actions={
               <>
                 {header && <CopyAction text={header} testId="copy-auth" />}
-                {header && (
-                  <SendToMenu text={header} currentToolId={toolId} testId="output-send" />
-                )}
+                {header && <SendToMenu text={header} currentToolId={toolId} testId="output-send" />}
               </>
             }
           />

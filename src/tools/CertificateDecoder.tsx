@@ -59,7 +59,15 @@ function StatusBadge({ status }: { status: CertValidityStatus }): JSX.Element {
 }
 
 /** 键值行:标签固定宽、值可选中复制,长值(主题/指纹)自动折行 */
-function Field({ label, value, wrap }: { label: string; value: string; wrap?: boolean }): JSX.Element {
+function Field({
+  label,
+  value,
+  wrap,
+}: {
+  label: string;
+  value: string;
+  wrap?: boolean;
+}): JSX.Element {
   return (
     <div className="flex items-start gap-4 py-1">
       <span className="w-40 shrink-0 text-xs text-muted-foreground select-none">{label}</span>

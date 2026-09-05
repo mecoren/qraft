@@ -49,9 +49,7 @@ function ResizablePanelGroup({
       )}
       {...props}
     >
-      <GroupOrientationContext value={orientation}>
-        {children}
-      </GroupOrientationContext>
+      <GroupOrientationContext value={orientation}>{children}</GroupOrientationContext>
     </ResizablePrimitive.Group>
   );
 }

@@ -288,8 +288,7 @@ mod tests {
 
     #[test]
     fn build_response_from_no_update_returns_available_false() {
-        let resp =
-            build_check_update_response("0.1.0".to_string(), None, PackageType::Portable);
+        let resp = build_check_update_response("0.1.0".to_string(), None, PackageType::Portable);
         assert!(!resp.available);
         assert!(resp.version.is_none());
         assert!(resp.package_type.is_none());
@@ -302,11 +301,8 @@ mod tests {
             notes: Some("fixes".to_string()),
             date: Some("2026-08-01".to_string()),
         };
-        let resp = build_check_update_response(
-            "0.1.0".to_string(),
-            Some(update),
-            PackageType::Portable,
-        );
+        let resp =
+            build_check_update_response("0.1.0".to_string(), Some(update), PackageType::Portable);
         assert!(resp.available);
         assert_eq!(resp.version.as_deref(), Some("0.2.0"));
         assert_eq!(resp.notes.as_deref(), Some("fixes"));
@@ -317,7 +313,10 @@ mod tests {
     #[test]
     fn resolve_package_type_maps_install_kinds() {
         // Windows 安装类别 → 更新包类型一一对应
-        assert_eq!(resolve_package_type(WindowsInstallKind::Msi), PackageType::Msi);
+        assert_eq!(
+            resolve_package_type(WindowsInstallKind::Msi),
+            PackageType::Msi
+        );
         assert_eq!(
             resolve_package_type(WindowsInstallKind::Nsis),
             PackageType::Nsis

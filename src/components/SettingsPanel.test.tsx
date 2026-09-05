@@ -209,7 +209,11 @@ describe('UpdateSection 检查更新错误提示', () => {
     expect(screen.queryByRole('button', { name: '前往 GitHub 下载整包' })).toBeNull();
     // 点击后调用自动安装命令,而非打开 Releases 页
     await user.click(screen.getByRole('button', { name: '立即更新' }));
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('app_install_update', { installMode: 'windows-nsis' }));
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith('app_install_update', {
+        installMode: 'windows-nsis',
+      }),
+    );
     expect(invokeMock).not.toHaveBeenCalledWith('app_open_release_page');
   });
 });
