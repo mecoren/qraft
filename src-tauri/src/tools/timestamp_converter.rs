@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Datelike, FixedOffset, NaiveDateTime, Offset, TimeZone, Utc};
+use chrono::{DateTime, Datelike, FixedOffset, Local, NaiveDateTime, Offset, TimeZone, Utc};
 use chrono_tz::Tz;
 use std::time::Instant;
 
@@ -128,10 +128,14 @@ const fn split_timestamp_by_magnitude(n: i64) -> (i64, u32) {
 }
 
 /// 将 UTC 时间转换为指定时区的字符串。
-/// timezone 为 IANA 名称(如 "Asia/Shanghai"),非法时回退到 UTC + 警告。
+/// timezone 为 IANA 名称(如 "Asia/Shanghai")、"local"(系统本地时区)或固定偏移。
 fn to_local_string(utc: DateTime<Utc>, timezone: &str) -> Result<String, ToolError> {
     if timezone == "UTC" || timezone.is_empty() {
         return Ok(utc.to_rfc3339());
+    }
+    // "local" 伪时区:跟随系统本地时区(前端已优先解析为 IANA,此处兜底)
+    if timezone.eq_ignore_ascii_case("local") {
+        return Ok(utc.with_timezone(&Local).to_rfc3339());
     }
     // 优先尝试 chrono_tz 的 IANA 解析
     if let Ok(tz) = timezone.parse::<Tz>() {
@@ -176,6 +180,14 @@ fn format_offset(total_secs: i32) -> String {
 fn offset_seconds(utc: DateTime<Utc>, timezone: &str) -> i32 {
     if timezone == "UTC" || timezone.is_empty() {
         return 0;
+    }
+    // "local" 伪时区兜底(与 to_local_string 的解析顺序保持一致)
+    if timezone.eq_ignore_ascii_case("local") {
+        return Local
+            .from_utc_datetime(&utc.naive_utc())
+            .offset()
+            .fix()
+            .local_minus_utc();
     }
     if let Ok(tz) = timezone.parse::<Tz>() {
         return tz
@@ -487,6 +499,22 @@ mod tests {
         // 上海时区应显示 +08:00
         let local = extra["local"].as_str().unwrap();
         assert!(local.contains("+08:00"));
+    }
+
+    #[tokio::test]
+    async fn test_convert_with_local_pseudo_timezone() {
+        let tool = TimestampConverter::new();
+        let ctx = mock_context();
+        // "local" 伪时区应跟随系统本地时区,而不是 InvalidInput
+        let output = tool
+            .execute(make_input_with_tz("1690272000", "local"), &ctx)
+            .await
+            .unwrap();
+
+        let extra = output.extra.unwrap();
+        assert!(extra["local"].as_str().is_some());
+        let offset = extra["utc_offset"].as_str().unwrap();
+        assert!(offset.starts_with('+') || offset.starts_with('-'));
     }
 
     #[tokio::test]

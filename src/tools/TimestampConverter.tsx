@@ -89,6 +89,12 @@ function useTimezoneOptions(): { value: string; label: string }[] {
   }));
 }
 
+/** 把 local 伪时区解析为真实 IANA 名称后再发给后端(后端只认 IANA / ±HH:MM) */
+function resolveTimezone(tz: string): string {
+  if (tz !== 'local') return tz;
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+}
+
 /** 把相对秒差选择最大合适单位后本地化格式化 */
 function formatRelative(seconds: number, locale: string): string {
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
@@ -190,7 +196,7 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
       setConverting(true);
       setError(null);
       try {
-        const params: TimestampParams = { timezone: tz };
+        const params: TimestampParams = { timezone: resolveTimezone(tz) };
         const result = await invokeCommand<ToolOutput>('tool_execute', {
           toolId,
           input: { text: input, params },
@@ -225,7 +231,7 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
   /** 星期(随界面语言本地化):按所选时区计算 */
   const weekday = (() => {
     if (!extra) return null;
-    const tz = timezone === 'local' ? undefined : timezone === 'UTC' ? 'UTC' : timezone;
+    const tz = resolveTimezone(timezone);
     return new Intl.DateTimeFormat(i18n.language, { weekday: 'long', timeZone: tz }).format(
       new Date(extra.unix_millis),
     );
@@ -333,7 +339,9 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
                   />
                   <ResultRow label="ISO 8601" value={extra.iso8601} />
                   <ResultRow
-                    label={t('tools.timestamp_converter.local_time', { tz: timezone })}
+                    label={t('tools.timestamp_converter.local_time', {
+                      tz: resolveTimezone(timezone),
+                    })}
                     value={extra.local}
                   />
                   <ResultRow

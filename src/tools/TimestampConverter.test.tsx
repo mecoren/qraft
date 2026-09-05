@@ -62,12 +62,13 @@ describe('TimestampConverter', () => {
 
     render(<TimestampConverter toolId="timestamp_converter" metadata={null as never} />);
     type('1690272000');
-    // 防抖 300ms 后自动触发(真实定时器)
+    // 防抖 300ms 后自动触发(真实定时器);local 伪时区解析为真实 IANA 名称
+    const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     await waitFor(
       () => {
         expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
           toolId: 'timestamp_converter',
-          input: { text: '1690272000', params: { timezone: 'local' } },
+          input: { text: '1690272000', params: { timezone: localTz } },
         });
       },
       { timeout: 3000 },
