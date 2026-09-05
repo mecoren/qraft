@@ -499,12 +499,12 @@ export function DuplicatesTable({
       data-search-anchor={searchAnchor}
       className="flex h-full flex-col overflow-hidden rounded-none border-0 border-l"
     >
-      {/* 顶部 汇总 */}
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-3 py-1.5 text-xs">
-        <span className="font-medium text-foreground">
+      {/* 标题栏:与左侧 CodeEditor 标题栏同高(26px)、同排版,统计汇总放右侧 */}
+      <div className="flex h-[26px] min-w-0 items-center justify-between gap-x-2 border-b border-input px-2">
+        <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground">
           {t('tools.duplicate_detector.result_title')}
         </span>
-        <span className="flex items-center gap-3 tabular-nums text-muted-foreground">
+        <span className="flex h-[26px] shrink-0 items-center gap-2 tabular-nums text-muted-foreground">
           <span data-testid="dd-stat-total">
             {t('tools.duplicate_detector.summary_total', { n: stats.total })}
           </span>

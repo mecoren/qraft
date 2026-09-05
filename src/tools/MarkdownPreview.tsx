@@ -1059,7 +1059,29 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
           />
         </label>
 
+        {/* 主题选择(同步滚动左侧):置顶全局工具条,预览标题栏仅保留复制/导出,
+            与 CodeEditor 26px 标题栏严格等高,不再被 h-7 的 Select 撑高 */}
         <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+          {t('tools.markdown_preview.theme_select_aria')}
+          <Select value={themeId} onValueChange={(v) => setThemeId(v as typeof themeId)}>
+            <SelectTrigger
+              aria-label={t('tools.markdown_preview.theme_select_aria')}
+              data-testid="md-theme-select"
+              className="h-6 w-28 px-2 text-xs"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {THEME_ITEMS.map((item) => (
+                <SelectItem key={item.id} value={item.id} data-testid={`theme-${item.id}`}>
+                  {t(item.labelKey)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {t('tools.markdown_preview.sync_scroll')}
           <Switch
             checked={syncScroll}
@@ -1201,37 +1223,18 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
                   className="flex h-full min-h-0 flex-col"
                   data-search-anchor="markdown_preview:preview"
                 >
-                  {/* 预览工具条:主题 / 复制 / 导出(打印隐藏) */}
-                  <div className="flex items-center gap-1.5 border-b border-border px-2 py-1 print:hidden">
-                    <span className="text-xs font-medium text-muted-foreground">
+                  {/* 预览标题栏:与左侧 CodeEditor 标题栏同高(26px)、同排版,
+                      复制/导出放动作区 */}
+                  <div className="flex h-[26px] min-w-0 items-center justify-between gap-x-2 border-b border-input px-2 print:hidden">
+                    <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground">
                       {t('tools.markdown_preview.preview_label')}
                     </span>
-                    <Select value={themeId} onValueChange={(v) => setThemeId(v as typeof themeId)}>
-                      <SelectTrigger
-                        aria-label={t('tools.markdown_preview.theme_select_aria')}
-                        data-testid="md-theme-select"
-                        className="h-7 w-28 px-2 text-xs"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {THEME_ITEMS.map((item) => (
-                          <SelectItem
-                            key={item.id}
-                            value={item.id}
-                            data-testid={`theme-${item.id}`}
-                          >
-                            {t(item.labelKey)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <div className="ml-auto flex items-center gap-0.5">
+                    <span className="flex h-[26px] shrink-0 items-center gap-0.5">
                       <button
                         type="button"
                         data-testid="btn-copy-rich"
                         onClick={handleCopyRichText}
-                        className="rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                        className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {t('tools.markdown_preview.copy_rich')}
                       </button>
@@ -1241,7 +1244,7 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
                             type="button"
                             data-testid="btn-export"
                             title={t('tools.markdown_preview.export')}
-                            className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                            className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <Download aria-hidden className="size-3.5" />
                             {t('tools.markdown_preview.export')}
@@ -1264,7 +1267,7 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    </div>
+                    </span>
                   </div>
 
                   {/* 共享预览面板(渲染/lightbox/脚注气泡/交互代理内聚) */}
