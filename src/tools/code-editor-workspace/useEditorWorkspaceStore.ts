@@ -21,6 +21,7 @@ import {
   WORKSPACE_CONFIG_KEY,
   normalizeWorkspace,
   type EditorTab,
+  type LargeFileMeta,
   type Workspace,
 } from './schema';
 import { detectLanguageFromContent, fileNameFromPath, inferLanguageFromPath } from './languageMap';
@@ -204,6 +205,25 @@ interface WorkspaceState {
   /** 打开本地文件:存在同路径 Tab 则激活,否则新建(encoding 为探测到的编码标识) */
   openLocalFile: (path: string, content: string, encoding?: string) => void;
   /**
+   * 以大文件只读模式打开本地文件(超过编辑器整读上限):
+   * 创建 `largeFile` Tab 并立即触发索引扫描;同路径 Tab 已存在则仅激活。
+   * 内容不进 store(行窗口由 LargeFileViewer 按需读取)。
+   */
+  openLargeFile: (path: string) => void;
+  /**
+   * 由系统触发的大文件打开(文件关联双击/命令行),行为同 `openLargeFile`
+   * 但**不**置位 `userTouched`(hydrate 合并分支,同 openLocalFileFromSystem)。
+   */
+  openLargeFileFromSystem: (path: string) => void;
+  /**
+   * 大文件索引扫描完成:写入元数据并清进度(fs_large_file_info 返回后调用)
+   */
+  setLargeFileInfo: (id: string, meta: LargeFileMeta) => void;
+  /** 大文件索引扫描进度更新(app:large-file-progress 事件,0-100) */
+  setLargeFileProgress: (id: string, progress: number) => void;
+  /** 大文件索引扫描失败(文件被删/损坏):记录错误消息 */
+  setLargeFileError: (id: string, message: string) => void;
+  /**
    * 由系统触发打开本地文件(文件关联双击 / 命令行参数),行为同 `openLocalFile`
    * 但**不**置位 `userTouched`。
    *
@@ -310,6 +330,86 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
   // 系统自动打开:刻意不置位 userTouched,让 hydrate 走合并分支保住历史 Tab
   openLocalFileFromSystem: (path, content, encoding) => {
     set({ workspace: openFileIntoWorkspace(get().workspace, path, content, encoding) });
+  },
+
+  // —— 大文件只读模式(超过 EDITOR_FILE_MAX_BYTES 的文件)——
+  // 索引扫描由 openLargeFile 触发 → LargeFileViewer 消费 largeFileInfo;
+  // 内容永不进入 store(虚拟滚动按需经 fs_read_file_lines 拉取行窗口)
+  openLargeFile: (path) => {
+    const { workspace } = get();
+    const existing = workspace.tabs.find((t) => t.path === path);
+    if (existing) {
+      set({ workspace: { ...workspace, activeTabId: existing.id }, userTouched: true });
+      return;
+    }
+    const tab: EditorTab = {
+      id: createId(),
+      title: fileNameFromPath(path),
+      path,
+      language: 'plaintext',
+      languageAuto: false,
+      content: '',
+      savedContent: '',
+      pinned: false,
+      largeFile: true,
+      largeFileProgress: 0,
+    };
+    set({
+      workspace: { ...workspace, tabs: [...workspace.tabs, tab], activeTabId: tab.id },
+      userTouched: true,
+    });
+  },
+
+  // 系统触发(文件关联/命令行):不置位 userTouched,同 openLocalFileFromSystem
+  openLargeFileFromSystem: (path) => {
+    const { workspace } = get();
+    const existing = workspace.tabs.find((t) => t.path === path);
+    if (existing) {
+      set({ workspace: { ...workspace, activeTabId: existing.id } });
+      return;
+    }
+    const tab: EditorTab = {
+      id: createId(),
+      title: fileNameFromPath(path),
+      path,
+      language: 'plaintext',
+      languageAuto: false,
+      content: '',
+      savedContent: '',
+      pinned: false,
+      largeFile: true,
+      largeFileProgress: 0,
+    };
+    set({
+      workspace: { ...workspace, tabs: [...workspace.tabs, tab], activeTabId: tab.id },
+    });
+  },
+
+  setLargeFileInfo: (id, meta) => {
+    const { workspace } = get();
+    const tabs = workspace.tabs.map((t) =>
+      t.id === id
+        ? { ...t, largeFileInfo: meta, largeFileProgress: null, largeFileError: null }
+        : t,
+    );
+    set({ workspace: { ...workspace, tabs } });
+  },
+
+  setLargeFileProgress: (id, progress) => {
+    const { workspace } = get();
+    // 只更新仍在扫描中的 Tab(完成后到达的迟到进度事件不复活进度条)
+    const tabs = workspace.tabs.map((t) =>
+      t.id === id && t.largeFileInfo === undefined ? { ...t, largeFileProgress: progress } : t,
+    );
+    set({ workspace: { ...workspace, tabs } });
+  },
+
+  setLargeFileError: (id, message) => {
+    const { workspace } = get();
+    const tabs = workspace.tabs.map((t) =>
+      t.id === id ? { ...t, largeFileProgress: null, largeFileError: message } : t,
+    );
+    set({ workspace: { ...workspace, tabs } });
   },
 
   openDroppedText: (title, content) => {
@@ -509,7 +609,9 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   setTabContent: (id, content) => {
     const { workspace } = get();
+    // 大文件 Tab 恒只读:不经该入口写入内容(防御性守卫,正常 UI 不会触达)
     const tabs = workspace.tabs.map((t) => {
+      if (t.largeFile) return t;
       if (t.id !== id) return t;
       // 自动检测模式:随内容重新识别语言(已知扩展名文件以路径为准不变;
       // 未命名 / 未知扩展名文件按内容特征识别。仅识别变化时才写入,
@@ -630,6 +732,8 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
       // 单 Tab 内容超过该字符数时不随工作区持久化(仅保留 Tab 元数据):
       // 强制打开的二进制/超大文件内容可能达数十万字符,序列化 + 写盘
       // 的代价远超收益,且这类 Tab 的内容重启后重读磁盘即可恢复
+      // 大文件 Tab 的会话态(校准点/进度/错误)不落盘:重开重新扫描;
+      // sanitizeTab 在 hydrate 侧已剥离,此处兜底剥离(直写 persist 路径)
       value: stripOversizedContents(get().workspace, PERSIST_STRIP_CONTENT_CHARS),
     });
     if (!r.ok) set({ error: r.error.message });
@@ -643,6 +747,18 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
 function stripOversizedContents(workspace: Workspace, maxChars: number): Workspace {
   let changed = false;
   const tabs = workspace.tabs.map((t) => {
+    // 大文件 Tab:剥离会话态字段(largeFileInfo/进度/错误),内容恒空
+    if (t.largeFile) {
+      if (t.largeFileInfo !== undefined || t.largeFileProgress !== undefined) {
+        changed = true;
+        const { largeFileInfo, largeFileProgress, largeFileError, ...rest } = t;
+        void largeFileInfo;
+        void largeFileProgress;
+        void largeFileError;
+        return { ...rest, largeFile: true };
+      }
+      return t;
+    }
     if (t.content.length <= maxChars) return t;
     changed = true;
     return { ...t, content: '', savedContent: '' };

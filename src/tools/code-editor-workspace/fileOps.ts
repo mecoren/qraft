@@ -18,6 +18,7 @@
 import { bytesToBase64 } from '@/lib/file-utils';
 import { invokeCommand, safeInvoke } from '@/lib/ipc';
 import { DEFAULT_ENCODING_ID } from '@/lib/text-encodings';
+import type { LargeFileMeta } from './schema';
 
 export interface OpenFileResult {
   path: string;
@@ -56,13 +57,29 @@ export interface DirEntry {
   isDir: boolean;
 }
 
-/** 通过文件关联/命令行「用 Qraft 打开」的待打开文件 */
-export interface PendingOpenFile {
+/** `app:open-file` 事件载荷(Rust `OpenFilePayload`,无判别字段) */
+export interface OpenFileEventPayload {
   path: string;
   content: string;
   /** 探测到的编码标识(Rust 端附带;省略时按 UTF-8 处理) */
   encoding?: string;
 }
+
+/** 通过文件关联/命令行「用 Qraft 打开」的待打开项(Rust PendingOpenItem) */
+export type PendingOpenItem =
+  | {
+      /** 正常打开:内容 + 编码 */
+      kind: 'file';
+      path: string;
+      content: string;
+      /** 探测到的编码标识(Rust 端附带;省略时按 UTF-8 处理) */
+      encoding?: string;
+    }
+  | {
+      /** 超限文件:切换大文件只读查看模式(fs_large_file_info 流式打开) */
+      kind: 'tooLarge';
+      path: string;
+    };
 
 /** 拖放/打开失败的载荷(Rust `OpenFileUnsupported` 事件的 serde 形态) */
 export interface OpenFileUnsupportedPayload {
@@ -126,6 +143,99 @@ export async function forceOpenFile(path: string): Promise<OpenFileResult> {
   return { path, content: result.content, encoding: result.encoding };
 }
 
+// ============ 大文件只读查看(超过编辑器整读上限的文件)============
+
+/** `fs_large_file_info` 返回载荷(Rust LargeFileInfo 的 camelCase 形态) */
+export interface LargeFileInfoResult {
+  path: string;
+  size: number;
+  encoding: string;
+  /** lf / crlf */
+  eol: string;
+  lineCount: number;
+  /** 行校准点:[行号, 该行首字节偏移](升序,首项 [1, BOM 长度]) */
+  calibration: Array<[number, number]>;
+}
+
+/** `fs_read_file_lines` 返回载荷(Rust LinesWindow 的 camelCase 形态) */
+export interface LinesWindowResult {
+  /** 窗口首行(1-based);目标行超出文件末尾时为 0 */
+  startLine: number;
+  count: number;
+  lines: string[];
+  /** 下一窗口精确锚点(偏移 + 行号配对) */
+  nextOffset: number;
+  nextLine: number;
+  /** 末行因超长被截断 */
+  truncated: boolean;
+}
+
+/** 行索引扫描进度事件载荷(`app:large-file-progress`) */
+export interface LargeFileProgressPayload {
+  path: string;
+  scanned: number;
+  total: number;
+}
+
+/**
+ * 大文件索引扫描:一次顺序扫描建立行校准点(10GB 文件数秒完成),
+ * 期间经 `app:large-file-progress` 事件上报进度。
+ * 返回元数据 + 校准点,供 LargeFileViewer 做行号 → 偏移折算与窗口读取。
+ */
+export async function largeFileInfo(path: string): Promise<LargeFileMeta> {
+  const result = await invokeCommand<LargeFileInfoResult>('fs_large_file_info', { path });
+  return {
+    size: result.size,
+    encoding: result.encoding,
+    eol: result.eol,
+    lineCount: result.lineCount,
+    calibration: result.calibration,
+  };
+}
+
+/**
+ * 行窗口读取(大文件滚动/跳转按需加载)。
+ *
+ * `anchorOffset/anchorLine` 为精确锚点(校准点或上一窗口 nextOffset/nextLine),
+ * `targetLine` 为要读取的首行(1-based);后端从锚点顺序数行到目标行,
+ * 行号恒精确。返回内容与下一个精确锚点(接续滚动零数行开销)。
+ */
+export async function readFileLines(
+  path: string,
+  encoding: string,
+  anchorOffset: number,
+  anchorLine: number,
+  targetLine: number,
+  maxLines: number,
+): Promise<LinesWindowResult> {
+  return invokeCommand<LinesWindowResult>('fs_read_file_lines', {
+    path,
+    encoding,
+    anchorOffset,
+    anchorLine,
+    targetLine,
+    maxLines,
+  });
+}
+
+/**
+ * 由校准点选取目标行的最近锚点(不超过目标行的最大校准点):
+ * 跳转读取用「锚点 → 数行到目标」保证行号精确,锚点越近扫描越短。
+ * 无合适校准点(目标行在首点之前)时退回首行锚点 (0, 1)。
+ */
+export function anchorForLine(
+  calibration: ReadonlyArray<[number, number]>,
+  targetLine: number,
+): { offset: number; line: number } {
+  let best: [number, number] | null = null;
+  for (const point of calibration) {
+    if (point[0] <= targetLine) best = point;
+    else break;
+  }
+  if (!best) return { offset: 0, line: 1 };
+  return { offset: best[1], line: best[0] };
+}
+
 /** 直接覆盖写入已授权路径;成功返回 true,失败抛 CommandError */
 export async function saveToPath(path: string, content: string): Promise<boolean> {
   await invokeCommand<boolean>('fs_write_file', { path, content });
@@ -149,11 +259,12 @@ export async function revealInExplorer(path: string): Promise<boolean> {
 }
 
 /**
- * 拉取「通过文件关联/命令行打开」的待打开文件列表(并清空 Rust 端队列)。
- * 作为 `app:open-file` 事件在 webview 就绪前丢失时的兜底,前端初始化时调用一次。
+ * 拉取「通过文件关联/命令行打开」的待打开项列表(并清空 Rust 端队列)。
+ * 作为 `app:open-file` / `app:open-file-unsupported` 事件在 webview
+ * 就绪前丢失时的兜底,前端初始化时调用一次。
  */
-export async function pullPendingOpenFiles(): Promise<PendingOpenFile[]> {
-  return invokeCommand<PendingOpenFile[]>('app_pull_open_files', {});
+export async function pullPendingOpenFiles(): Promise<PendingOpenItem[]> {
+  return invokeCommand<PendingOpenItem[]>('app_pull_open_files', {});
 }
 
 /** 弹「另存为」对话框并写入;用户取消返回 null,成功返回保存路径 */

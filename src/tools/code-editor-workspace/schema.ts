@@ -55,6 +55,41 @@ export interface EditorTab {
    * 打开文件时由后端探测,保存时以该编码写回;可选字段缺省视为 utf-8。
    */
   encoding?: string;
+  /**
+   * 大文件只读查看模式标记(超过编辑器整读上限的文件):
+   * - true 时本 Tab 不持有 content/savedContent(内容不进内存与持久化),
+   *   由 LargeFileViewer 经行窗口 IPC 按需读取
+   * - 编辑/保存/对比/语言高亮对大文件 Tab 不可用(右键菜单与状态栏裁剪)
+   * - 缺省视为普通 Tab(旧持久化数据兼容)
+   */
+  largeFile?: boolean;
+  /**
+   * 大文件元数据(fs_large_file_info 返回;largeFile=true 时使用):
+   * 行数 / 编码 / 行尾 / 大小与行校准点。会话内有效,不随工作区持久化
+   * (重开时重新扫描,避免校准点数组膨胀持久化数据)。
+   */
+  largeFileInfo?: LargeFileMeta;
+  /**
+   * 大文件行索引扫描进度(0-100):null 表示扫描完成或未开始。
+   * 扫描中由 app:large-file-progress 事件更新,UI 展示「正在索引」。
+   */
+  largeFileProgress?: number | null;
+  /** 大文件行索引扫描是否发生错误(损坏/被删除):展示错误占位 */
+  largeFileError?: string | null;
+}
+
+/** 大文件元数据(largeFile Tab 专用;不持久化) */
+export interface LargeFileMeta {
+  /** 文件大小(字节) */
+  size: number;
+  /** 探测到的编码标识 */
+  encoding: string;
+  /** 行尾序列:lf / crlf */
+  eol: string;
+  /** 总行数 */
+  lineCount: number;
+  /** 行校准点(升序):[行号, 该行首字节偏移],首项恒为 [1, BOM 长度] */
+  calibration: Array<[number, number]>;
 }
 
 /**
@@ -180,6 +215,22 @@ function sanitizeTab(raw: unknown): EditorTab | null {
   if (typeof t.title !== 'string' || !t.title) return null;
   const path = typeof t.path === 'string' ? t.path : null;
   const language = typeof t.language === 'string' ? (t.language as EditorLanguage) : 'plaintext';
+  // 大文件 Tab:内容不随工作区持久化(重开按磁盘重扫),校准点等
+  // 会话态字段也不落盘;只保留身份(largeFile 标记 + 路径)
+  if (t.largeFile === true) {
+    if (typeof path !== 'string' || !path) return null;
+    return {
+      id: t.id,
+      title: t.title,
+      path,
+      language,
+      languageAuto: false,
+      content: '',
+      savedContent: '',
+      pinned: t.pinned === true,
+      largeFile: true,
+    };
+  }
   const content = typeof t.content === 'string' ? t.content : '';
   const savedContent = typeof t.savedContent === 'string' ? t.savedContent : content;
   // 旧版本持久化数据无 pinned 字段,回退 false 保证兼容

@@ -43,6 +43,8 @@ import type { ToolProps } from '@/tools/registry';
 import { MarkdownPreviewPane, isMarkdownDocument } from '@/tools/markdown-preview-pane';
 import { useMarkdownPreviewStore, type MdViewMode } from '@/tools/markdownPreviewStore';
 import { useEditorWorkspaceStore, folderNameFromPath } from './useEditorWorkspaceStore';
+import { useLargeFileScan } from './useLargeFileScan';
+import { LargeFileViewer } from './LargeFileViewer';
 import { EditorTabsBar } from './EditorTabsBar';
 import { EditorLeftSidebar } from './EditorLeftSidebar';
 import { PathBreadcrumb } from './PathBreadcrumb';
@@ -205,6 +207,9 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const activeTab = workspace.tabs.find((t) => t.id === workspace.activeTabId) ?? null;
   const activeEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
+  // 大文件 Tab:激活时自动触发行索引扫描(进度事件订阅在 hook 内)
+  useLargeFileScan(activeTab);
+
   // 状态栏文件大小:当前内容按 UTF-8 编码的字节长度,随编辑实时更新
   // (非磁盘文件实际大小:编码为 GBK 等时与磁盘字节数有差异)
   const activeContentSizeBytes = useMemo(() => {
@@ -289,11 +294,10 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     (failure: OpenFileFailure | { path: string; reason?: undefined; message?: string }) => {
       const name = fileNameFromPath(failure.path);
       if ('reason' in failure && failure.reason === OPEN_REASON_TOO_LARGE) {
-        toast.error(
-          t('tools.text_editor.err_file_too_large', {
-            name,
-            size: formatBytes(failure.size ?? 0),
-          }),
+        // 超限文件切换到大文件只读查看模式(fs_large_file_info 流式打开)
+        useEditorWorkspaceStore.getState().openLargeFile(failure.path);
+        toast.info(
+          t('tools.text_editor.toast_large_opened', { name, size: formatBytes(failure.size ?? 0) }),
         );
         return;
       }
@@ -382,13 +386,15 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         if (e instanceof CommandError && e.code === 'ERR_FILE_UNSUPPORTED') {
           showOpenFailure({ path, reason: OPEN_REASON_BINARY });
         } else if (e instanceof CommandError && e.code === 'ERR_FILE_TOO_LARGE') {
-          // details 形如 { size, max }(AppError::FileTooLarge 序列化载荷)
+          // 超限文件:切换大文件只读查看模式(details 形如 { size, max })
           const detail = e.details as { size?: number; max?: number } | undefined;
-          showOpenFailure({
-            path,
-            reason: OPEN_REASON_TOO_LARGE,
-            size: detail?.size,
-          });
+          useEditorWorkspaceStore.getState().openLargeFile(path);
+          toast.info(
+            t('tools.text_editor.toast_large_opened', {
+              name,
+              size: formatBytes(detail?.size ?? 0),
+            }),
+          );
         } else {
           // 其余失败(未授权/不存在等):展示后端返回的真实错误信息
           toast.error(
@@ -412,6 +418,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       const state = useEditorWorkspaceStore.getState();
       const tab = state.workspace.tabs.find((t) => t.id === id);
       if (!tab) return false;
+      // 大文件 Tab 恒只读:保存是 no-op(菜单项已禁用,防御性守卫)
+      if (tab.largeFile) return false;
       try {
         if (tab.path) {
           // 按 Tab 记录的编码写回(状态栏可切换;缺省 UTF-8)
@@ -832,7 +840,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                 label: t('tools.text_editor.save'),
                 shortcut: 'Ctrl+S',
                 onSelect: handleSave,
-                disabled: !activeTab,
+                // 大文件 Tab 恒只读,保存不可用
+                disabled: !activeTab || activeTab.largeFile,
                 testId: 'toolbar-save',
               },
               {
@@ -1176,7 +1185,15 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                   data-testid="compare-view"
                 />
               ) : activeTab ? (
-                showMdPreview ? (
+                activeTab.largeFile ? (
+                  /* 大文件只读视图:超过编辑器整读上限的文件流式查看
+                   * (虚拟滚动 + 行窗口按需读取,内容不进内存) */
+                  <LargeFileViewer
+                    key={activeTab.id}
+                    tab={activeTab}
+                    data-testid="large-file-viewer"
+                  />
+                ) : showMdPreview ? (
                   // Markdown 分屏/预览:左侧编辑器(预览模式下隐藏)+ 右侧渲染面板。
                   // 预览模式下编辑器(连同其工具栏按钮)已卸载,
                   // 故在面板右上角以浮层渲染同一组视图切换按钮,保证始终可切回

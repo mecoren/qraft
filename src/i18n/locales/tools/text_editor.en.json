@@ -79,5 +79,22 @@
   "tools.text_editor.action_open_folder": "Open folder",
   "tools.text_editor.resize_hint": "Drag to resize file list",
   "tools.text_editor.restore_hint": "Drag right to show the file list",
-  "tools.text_editor.shortcut_needs_selection": "Select text in the editor before using this shortcut"
+  "tools.text_editor.shortcut_needs_selection": "Select text in the editor before using this shortcut",
+  "tools.text_editor.toast_large_opened": "\"{{name}}\" ({{size}}) opened in large file read-only mode",
+  "tools.text_editor.large_badge": "Large",
+  "tools.text_editor.large_badge_title": "Large file read-only mode: content streamed from disk on demand",
+  "tools.text_editor.large_scanning": "Building line index {{percent}}%",
+  "tools.text_editor.large_scan_failed": "Failed to build line index: {{reason}}",
+  "tools.text_editor.large_copy_selection": "Copy selection",
+  "tools.text_editor.large_copy_empty": "Select some text to copy first",
+  "tools.text_editor.large_copy_done": "Selection copied",
+  "tools.text_editor.large_truncated": "Truncated",
+  "tools.text_editor.large_truncated_title": "Line exceeds {{bytes}} and was truncated; remainder skipped",
+  "tools.text_editor.large_goto_label": "Go to line",
+  "tools.text_editor.large_goto_title": "Go to line",
+  "tools.text_editor.large_eol_title": "End of line sequence",
+  "tools.text_editor.large_encoding_title": "File encoding",
+  "tools.text_editor.large_lines_title": "Total lines",
+  "tools.text_editor.large_lines": "{{lines}} lines",
+  "tools.text_editor.large_size_title": "File size"
 }

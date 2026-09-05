@@ -1040,3 +1040,149 @@ describe('useEditorWorkspaceStore 语言自动检测', () => {
     expect(tabs[tabs.length - 1].language).toBe('markdown');
   });
 });
+
+// ============ 大文件只读模式(openLargeFile 动作族)============
+
+describe('useEditorWorkspaceStore.openLargeFile', () => {
+  it('创建 largeFile Tab:内容为空、不置 dirty、记录路径', () => {
+    useEditorWorkspaceStore.getState().openLargeFile('C:\\logs\\huge.log');
+
+    const state = useEditorWorkspaceStore.getState();
+    const tab = state.workspace.tabs[0];
+    expect(tab.largeFile).toBe(true);
+    expect(tab.path).toBe('C:\\logs\\huge.log');
+    expect(tab.title).toBe('huge.log');
+    expect(tab.content).toBe('');
+    expect(tab.savedContent).toBe('');
+    // dirty 判定恒 false(空内容 == 空快照):批量关闭/保存不受影响
+    expect(tab.content === tab.savedContent).toBe(true);
+    expect(state.workspace.activeTabId).toBe(tab.id);
+    expect(state.userTouched).toBe(true);
+  });
+
+  it('同路径重复打开仅激活既有 Tab', () => {
+    useEditorWorkspaceStore.getState().openLargeFile('C:\\logs\\huge.log');
+    useEditorWorkspaceStore.getState().openLocalFile('C:\\docs\\small.txt', 'hi');
+    useEditorWorkspaceStore.getState().openLargeFile('C:\\logs\\huge.log');
+
+    const state = useEditorWorkspaceStore.getState();
+    expect(state.workspace.tabs).toHaveLength(2);
+    // 激活回到大文件 Tab,而非新建
+    expect(state.workspace.activeTabId).toBe(state.workspace.tabs[0].id);
+  });
+
+  it('openLargeFileFromSystem 不置位 userTouched(hydrate 合并分支)', () => {
+    useEditorWorkspaceStore.getState().openLargeFileFromSystem('C:\\logs\\huge.log');
+    const state = useEditorWorkspaceStore.getState();
+    expect(state.workspace.tabs).toHaveLength(1);
+    expect(state.workspace.tabs[0].largeFile).toBe(true);
+    expect(state.userTouched).toBe(false);
+  });
+
+  it('setLargeFileInfo 写入元数据并清进度;迟到的进度事件不复活进度条', () => {
+    useEditorWorkspaceStore.getState().openLargeFile('C:\\logs\\huge.log');
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+    // 扫描中:进度事件更新
+    useEditorWorkspaceStore.getState().setLargeFileProgress(id, 42);
+    expect(useEditorWorkspaceStore.getState().workspace.tabs[0].largeFileProgress).toBe(42);
+
+    // 完成:元数据写入,进度清空
+    const meta = {
+      size: 2214590991,
+      encoding: 'utf-8',
+      eol: 'lf',
+      lineCount: 33722759,
+      calibration: [[1, 0]] as Array<[number, number]>,
+    };
+    useEditorWorkspaceStore.getState().setLargeFileInfo(id, meta);
+    const done = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(done.largeFileInfo).toEqual(meta);
+    expect(done.largeFileProgress).toBeNull();
+
+    // 迟到的进度事件(完成后到达):不再更新(largeFileInfo 已存在)
+    useEditorWorkspaceStore.getState().setLargeFileProgress(id, 99);
+    expect(useEditorWorkspaceStore.getState().workspace.tabs[0].largeFileProgress).toBeNull();
+  });
+
+  it('setLargeFileError 记录错误并清进度', () => {
+    useEditorWorkspaceStore.getState().openLargeFile('C:\\logs\\huge.log');
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+    useEditorWorkspaceStore.getState().setLargeFileProgress(id, 30);
+    useEditorWorkspaceStore.getState().setLargeFileError(id, 'scan failed');
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab.largeFileError).toBe('scan failed');
+    expect(tab.largeFileProgress).toBeNull();
+  });
+
+  it('setTabContent 对大文件 Tab 是 no-op(只读守卫)', () => {
+    useEditorWorkspaceStore.getState().openLargeFile('C:\\logs\\huge.log');
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+    useEditorWorkspaceStore.getState().setTabContent(id, 'should not write');
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab.content).toBe('');
+  });
+
+  it('persist 剥离大文件 Tab 的会话态字段(校准点/进度不落盘)', async () => {
+    useEditorWorkspaceStore.setState({ ready: true });
+    useEditorWorkspaceStore.getState().openLargeFile('C:\\logs\\huge.log');
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+    useEditorWorkspaceStore.getState().setLargeFileInfo(id, {
+      size: 100,
+      encoding: 'utf-8',
+      eol: 'lf',
+      lineCount: 10,
+      calibration: [[1, 0]] as Array<[number, number]>,
+    });
+    safeInvokeMock.mockResolvedValueOnce({ ok: true, value: true });
+
+    await useEditorWorkspaceStore.getState().persist();
+
+    const call = safeInvokeMock.mock.calls.find((c) => c[0] === 'config_set');
+    const persisted = (call?.[1] as { value: { tabs: unknown[] } }).value.tabs as Array<
+      Record<string, unknown>
+    >;
+    const large = persisted.find((t) => t.largeFile === true);
+    // largeFile 标记 + 路径保留;会话态字段剥离
+    expect(large).toBeDefined();
+    expect(large?.largeFileInfo).toBeUndefined();
+    expect(large?.largeFileProgress).toBeUndefined();
+    // 内存中的工作区不受影响
+    const inMemory = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(inMemory.largeFileInfo?.lineCount).toBe(10);
+  });
+
+  it('hydrate 还原含 largeFile 标记的持久化数据(normalizeWorkspace 兼容)', async () => {
+    const restored = {
+      ok: true,
+      value: {
+        tabs: [
+          {
+            id: 'tab-1',
+            title: 'huge.log',
+            path: 'C:\\logs\\huge.log',
+            language: 'plaintext',
+            largeFile: true,
+            // 旧持久化可能残留的会话态字段:被剥离
+            largeFileInfo: { lineCount: 999 },
+            largeFileProgress: 77,
+            content: '',
+            savedContent: '',
+            pinned: false,
+          },
+        ],
+        activeTabId: 'tab-1',
+      },
+    };
+    safeInvokeMock.mockResolvedValueOnce(restored);
+    await useEditorWorkspaceStore.getState().hydrate();
+
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab.largeFile).toBe(true);
+    expect(tab.path).toBe('C:\\logs\\huge.log');
+    expect(tab.largeFileInfo).toBeUndefined();
+    expect(tab.largeFileProgress).toBeUndefined();
+  });
+});

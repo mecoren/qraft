@@ -458,6 +458,15 @@ export function EditorTabsBar({
                         <span className="min-w-0 truncate" title={tab.title}>
                           {tab.title}
                         </span>
+                        {tab.largeFile && (
+                          <span
+                            title={t('tools.text_editor.large_badge_title')}
+                            data-testid={`${dataTestId}-large-${tab.title}`}
+                            className="shrink-0 rounded-sm bg-accent px-1 text-[10px] leading-4 text-accent-foreground"
+                          >
+                            {t('tools.text_editor.large_badge')}
+                          </span>
+                        )}
                         {/*
                          * 未保存圆点 / 关闭按钮 共用槽位(ml-auto 锚定右侧):
                          * 平时显示未保存圆点(有未保存改动时),悬停 Tab 时

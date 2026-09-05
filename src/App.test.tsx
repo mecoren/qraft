@@ -205,15 +205,21 @@ describe('App', () => {
     expect(useToolStateStore.getState().currentToolId).toBe('text_editor');
   });
 
-  it('拖放过大文件:提示不可打开,不提供「仍要打开」', async () => {
+  it('拖放过大文件:切换到大文件只读模式打开(不提示失败)', async () => {
     const handlers = await renderAndCaptureEvents(['app:open-file-unsupported']);
     await act(async () => {
       handlers['app:open-file-unsupported']({ kind: 'too-large', path: 'C:\\big\\huge.dat' });
     });
-    // 提示文案出现,但没有任何「仍要打开」按钮
-    expect(await screen.findByText(/过大/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '仍要打开' })).not.toBeInTheDocument();
-    expect(useEditorWorkspaceStore.getState().workspace.tabs).toHaveLength(0);
+    // 不再提示「过大」错误:超限文件进入大文件只读查看模式
+    expect(screen.queryByText(/过大/i)).not.toBeInTheDocument();
+    // 创建 largeFile Tab(内容不进内存,由 Workbench 激活时触发索引扫描)
+    const tab = useEditorWorkspaceStore
+      .getState()
+      .workspace.tabs.find((t) => t.path === 'C:\\big\\huge.dat');
+    expect(tab).toBeDefined();
+    expect(tab?.largeFile).toBe(true);
+    expect(tab?.content).toBe('');
+    expect(useToolStateStore.getState().currentToolId).toBe('text_editor');
   });
 
   it('文件关联打开事件:payload 携带编码时一并记录到 Tab', async () => {

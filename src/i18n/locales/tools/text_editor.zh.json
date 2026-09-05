@@ -79,5 +79,22 @@
   "tools.text_editor.action_open_folder": "打开文件夹",
   "tools.text_editor.resize_hint": "拖动调整文件列表宽度",
   "tools.text_editor.restore_hint": "向右拖动显示文件列表",
-  "tools.text_editor.shortcut_needs_selection": "请在文本编辑器中选中文字后使用该快捷键"
+  "tools.text_editor.shortcut_needs_selection": "请在文本编辑器中选中文字后使用该快捷键",
+  "tools.text_editor.toast_large_opened": "「{{name}}」({{size}})已切换到大文件只读模式打开",
+  "tools.text_editor.large_badge": "大文件",
+  "tools.text_editor.large_badge_title": "大文件只读查看模式:内容按需从磁盘读取,不占内存",
+  "tools.text_editor.large_scanning": "正在建立行索引 {{percent}}%",
+  "tools.text_editor.large_scan_failed": "建立行索引失败:{{reason}}",
+  "tools.text_editor.large_copy_selection": "复制选中",
+  "tools.text_editor.large_copy_empty": "请先选中要复制的文本",
+  "tools.text_editor.large_copy_done": "已复制选中内容",
+  "tools.text_editor.large_truncated": "已截断",
+  "tools.text_editor.large_truncated_title": "该行超过 {{bytes}},已截断展示;其余部分跳过",
+  "tools.text_editor.large_goto_label": "转到行",
+  "tools.text_editor.large_goto_title": "转到指定行",
+  "tools.text_editor.large_eol_title": "行尾序列",
+  "tools.text_editor.large_encoding_title": "文件编码",
+  "tools.text_editor.large_lines_title": "总行数",
+  "tools.text_editor.large_lines": "{{lines}} 行",
+  "tools.text_editor.large_size_title": "文件大小"
 }

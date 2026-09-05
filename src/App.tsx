@@ -27,8 +27,8 @@ import { cn } from '@/lib/utils';
 import {
   forceOpenFile,
   pullPendingOpenFiles,
+  type OpenFileEventPayload,
   type OpenFileUnsupportedPayload,
-  type PendingOpenFile,
 } from '@/tools/code-editor-workspace/fileOps';
 import { fileNameFromPath } from '@/tools/code-editor-workspace/languageMap';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
@@ -59,6 +59,16 @@ import type { HistoryEntry } from '@/types/history';
 function openFileInEditor(path: string, content: string, encoding?: string): void {
   useUiStore.getState().openTool(DEFAULT_TOOL_ID);
   useEditorWorkspaceStore.getState().openLocalFileFromSystem(path, content, encoding);
+}
+
+/**
+ * 以大文件只读模式在编辑器工作区打开本地文件(超过整读上限的文件):
+ * 切到编辑器工具后创建 largeFile Tab;行索引扫描由 EditorWorkbench 的
+ * useLargeFileScan 在 Tab 激活时触发。同样不置位 userTouched(hydrate 合并)。
+ */
+function openLargeFileInEditor(path: string): void {
+  useUiStore.getState().openTool(DEFAULT_TOOL_ID);
+  useEditorWorkspaceStore.getState().openLargeFileFromSystem(path);
 }
 
 export function App(): JSX.Element {
@@ -115,14 +125,15 @@ export function App(): JSX.Element {
       );
       // 通过文件关联/命令行/拖放「用 Qraft 打开」的文件:实时在编辑器工作区打开
       unlisteners.push(
-        await listen<PendingOpenFile>('app:open-file', (p) => {
+        await listen<OpenFileEventPayload>('app:open-file', (p) => {
           if (p?.path) openFileInEditor(p.path, p.content, p.encoding);
         }),
       );
       // 拖放/打开的文件无法直接作为文本打开:按载荷分流提示(参考 VS Code)
       // - unsupported(二进制):提示 + 「仍要打开」动作,点击经 fs_read_text_file_encoded
       //   的 force 参数按探测编码有损解码打开(Open Anyway)
-      // - too-large:超过编辑器大小上限,仅提示
+      // - too-large:超过编辑器整读上限 → 切换大文件只读查看模式
+      //   (fs_large_file_info 流式打开,非错误)
       // - error:路径非法等其他原因,展示消息
       unlisteners.push(
         await listen<OpenFileUnsupportedPayload>('app:open-file-unsupported', (p) => {
@@ -146,11 +157,8 @@ export function App(): JSX.Element {
               },
             );
           } else if (p.kind === 'too-large' && p.path) {
-            toast.error(
-              translate('chrome.toast.open_file_too_large', {
-                name: fileNameFromPath(p.path),
-              }),
-            );
+            // 大文件:切换编辑器工具并以只读模式打开(索引扫描由 Workbench 触发)
+            openLargeFileInEditor(p.path);
           } else if (p.message) {
             toast.warning(translate('chrome.toast.open_binary_unsupported', { name: p.message }));
           }
@@ -178,17 +186,23 @@ export function App(): JSX.Element {
   ]);
 
   // 初始化兜底:拉取「打开文件」待处理队列。
-  // 若应用在 webview 就绪前就收到打开文件请求,`app:open-file` 事件可能丢失,
-  // 这里从 Rust 端队列补齐,确保文件最终被打开。
+  // 若应用在 webview 就绪前就收到打开文件请求,`app:open-file` /
+  // `app:open-file-unsupported` 事件可能丢失,这里从 Rust 端队列补齐:
+  // - File 项 → 常规打开
+  // - TooLarge 项 → 大文件只读查看模式
   useEffect(() => {
     if (!('__TAURI_INTERNALS__' in window)) return;
     let cancelled = false;
     void (async () => {
       try {
-        const files = await pullPendingOpenFiles();
+        const items = await pullPendingOpenFiles();
         if (cancelled) return;
-        for (const f of files) {
-          if (f?.path) openFileInEditor(f.path, f.content, f.encoding);
+        for (const item of items) {
+          if (item?.kind === 'file' && item.path) {
+            openFileInEditor(item.path, item.content, item.encoding);
+          } else if (item?.kind === 'tooLarge' && item.path) {
+            openLargeFileInEditor(item.path);
+          }
         }
       } catch {
         // 拉取失败静默处理:事件通道仍可能已送达,避免启动阻塞
