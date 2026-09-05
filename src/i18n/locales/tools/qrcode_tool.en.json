@@ -4,6 +4,8 @@
   "tools.qrcode_tool.error_not_found": "No QR code detected",
   "tools.qrcode_tool.tab_generate": "Generate QR Code",
   "tools.qrcode_tool.tab_scan": "Read QR Code",
+  "tools.qrcode_tool.label_mode": "Mode",
+  "tools.qrcode_tool.mode_hint": "Generate or read a QR code",
   "tools.qrcode_tool.input_title": "Text",
   "tools.qrcode_tool.input_placeholder": "Enter text or a link to encode",
   "tools.qrcode_tool.preview_title": "QR Code",

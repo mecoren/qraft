@@ -9,9 +9,10 @@ import { useCallback, useEffect, useRef, useState, type DragEvent, type JSX } fr
 import { useTranslation } from 'react-i18next';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
-import { Download, FolderOpen, QrCode as QrIcon, ScanLine } from 'lucide-react';
+import { ArrowLeftRight, Download, FolderOpen, QrCode as QrIcon, ScanLine } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -120,25 +121,30 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
   );
 
   return (
-    // 外层 shell 卡片(对齐 JsonFormatter 基准):Tab 条置于卡片顶部,内容收进同一卡片
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与工作区收进同一卡片
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm">
       <Tabs
         defaultValue="generate"
         className="flex h-full min-h-0 flex-col"
         data-testid="qrcode-tool"
       >
-        {/* Tab 条贴 shell 顶缘:通栏背景层 + 底部分隔线(对齐 JsonFormatter 文档 Tab 栏风格) */}
-        <TabsList
-          data-search-anchor="qrcode_tool:tabs"
-          className="h-10 w-full shrink-0 justify-start rounded-none border-b border-border bg-background-layer pl-3"
-        >
-          <TabsTrigger value="generate" data-testid="qr-tab-generate">
-            <QrIcon aria-hidden className="size-3.5" /> {t('tools.qrcode_tool.tab_generate')}
-          </TabsTrigger>
-          <TabsTrigger value="scan" data-testid="qr-tab-scan">
-            <ScanLine aria-hidden className="size-3.5" /> {t('tools.qrcode_tool.tab_scan')}
-          </TabsTrigger>
-        </TabsList>
+        {/* 模式切换:与 Base64 转换器同款「配置行 + 分段切换」,替换原通栏文档式 Tab 条 */}
+        <ConfigSection title="" searchAnchor="qrcode_tool:tabs">
+          <ConfigRow
+            icon={ArrowLeftRight}
+            label={t('tools.qrcode_tool.label_mode')}
+            hint={t('tools.qrcode_tool.mode_hint')}
+          >
+            <TabsList>
+              <TabsTrigger value="generate" data-testid="qr-tab-generate">
+                <QrIcon aria-hidden className="size-3.5" /> {t('tools.qrcode_tool.tab_generate')}
+              </TabsTrigger>
+              <TabsTrigger value="scan" data-testid="qr-tab-scan">
+                <ScanLine aria-hidden className="size-3.5" /> {t('tools.qrcode_tool.tab_scan')}
+              </TabsTrigger>
+            </TabsList>
+          </ConfigRow>
+        </ConfigSection>
 
         {/* 生成:参考文本比较器(TextDiffView)的双编辑框布局 —— 并排可拖动宽度,
             左右标题栏同高(26px),二维码预览面板把「下载 PNG/SVG」收进标题栏动作区 */}

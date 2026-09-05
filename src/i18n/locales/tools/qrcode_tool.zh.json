@@ -4,6 +4,8 @@
   "tools.qrcode_tool.error_not_found": "未识别到二维码",
   "tools.qrcode_tool.tab_generate": "生成二维码",
   "tools.qrcode_tool.tab_scan": "读取二维码",
+  "tools.qrcode_tool.label_mode": "模式",
+  "tools.qrcode_tool.mode_hint": "选择生成或读取二维码",
   "tools.qrcode_tool.input_title": "文本",
   "tools.qrcode_tool.input_placeholder": "输入要编码的文本或链接",
   "tools.qrcode_tool.preview_title": "二维码",
