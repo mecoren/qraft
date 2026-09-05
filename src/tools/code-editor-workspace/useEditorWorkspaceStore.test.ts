@@ -817,6 +817,34 @@ describe('useEditorWorkspaceStore.persist', () => {
     await useEditorWorkspaceStore.getState().persist();
     expect(safeInvokeMock).not.toHaveBeenCalled();
   });
+
+  it('strips oversized tab contents before persisting but keeps small ones', async () => {
+    useEditorWorkspaceStore.setState({ ready: true });
+    // 模拟:一个超大 Tab(强制打开的二进制转储)+ 一个普通 Tab
+    useEditorWorkspaceStore
+      .getState()
+      .openLocalFile('C:\\big\\dump.dat', 'x'.repeat(200_001), 'windows-1252');
+    useEditorWorkspaceStore.getState().openLocalFile('C:\\docs\\small.txt', 'hello', 'utf-8');
+    safeInvokeMock.mockResolvedValueOnce({ ok: true, value: true });
+
+    await useEditorWorkspaceStore.getState().persist();
+
+    const call = safeInvokeMock.mock.calls.find((c) => c[0] === 'config_set');
+    const persisted = (call?.[1] as { value: { tabs: unknown[] } }).value.tabs as Array<{
+      title: string;
+      content: string;
+    }>;
+    const dump = persisted.find((t) => t.title === 'dump.dat');
+    const small = persisted.find((t) => t.title === 'small.txt');
+    // 超大内容剥离为空串落盘(重开按磁盘重读),普通内容原样保留
+    expect(dump?.content).toBe('');
+    expect(small?.content).toBe('hello');
+    // 内存中的工作区不受影响:超大 Tab 内容仍在
+    const inMemory = useEditorWorkspaceStore
+      .getState()
+      .workspace.tabs.find((t) => t.title === 'dump.dat');
+    expect(inMemory?.content).toBe('x'.repeat(200_001));
+  });
 });
 
 describe('useEditorWorkspaceStore.openFolder / closeFolder / toggleDirExpanded', () => {

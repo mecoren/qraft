@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { App } from './App';
 import type { ToolMetadata } from '@/types/tool';
 import type { CommandResponse } from '@/types/ipc';
@@ -9,8 +10,11 @@ import type { UserConfig } from '@/types/config';
 import { DEFAULT_USER_CONFIG } from '@/types/config';
 import { useToolStateStore } from '@/store/toolStateStore';
 import { useUiStore } from '@/store/uiStore';
+import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
+import { DEFAULT_WORKSPACE } from '@/tools/code-editor-workspace/schema';
 
 const invokeMock = invoke as unknown as ReturnType<typeof vi.fn>;
+const listenMock = listen as unknown as ReturnType<typeof vi.fn>;
 
 // 仅用于满足 tool_list IPC 的 happy-path mock;侧栏实际从静态目录渲染
 const tools: ToolMetadata[] = [
@@ -51,6 +55,9 @@ function setupHappyPath() {
 
 beforeEach(() => {
   invokeMock.mockReset();
+  // setup.ts 的全局 listen mock 返回空 unlisten;此处捕获各事件的 handler 供测试触发
+  listenMock.mockReset();
+  listenMock.mockImplementation(() => Promise.resolve(() => {}));
   // uiStore 经 localStorage 持久化,跨测试会泄漏,这里复位到确定状态
   useUiStore.setState({
     view: 'welcome',
@@ -64,6 +71,13 @@ beforeEach(() => {
     currentToolId: null,
     running: false,
     streamingTasks: new Map(),
+  });
+  // 编辑器工作区为全局单例,跨用例泄漏 Tab;事件用例依赖空工作区断言
+  useEditorWorkspaceStore.setState({
+    workspace: { ...DEFAULT_WORKSPACE },
+    ready: false,
+    userTouched: false,
+    error: null,
   });
 });
 
@@ -129,9 +143,92 @@ describe('App', () => {
       render(<App />);
     });
     const sidebar = screen.getByRole('navigation');
-    // 「最近使用」区域已从侧边栏移除,Base64 转换器不应出现在侧边栏
+    // 「最近使用」区域已从侧栏移除,Base64 转换器不应出现在侧栏
     expect(
       within(sidebar).queryByRole('button', { name: /Base64 转换器/i }),
     ).not.toBeInTheDocument();
+  });
+
+  /** 渲染 App 并捕获指定事件的 handler。
+   * 注意:mock 到的是 @tauri-apps/api/event 的原始 listen,而 App 经
+   * src/lib/ipc 的包装订阅(handler 收 `e.payload`)→ 触发时须传事件信封。 */
+  async function renderAndCaptureEvents(
+    eventNames: string[],
+  ): Promise<Record<string, (payload: unknown) => void>> {
+    const handlers: Record<string, (payload: unknown) => void> = {};
+    listenMock.mockImplementation((name: string, cb: (event: { payload: unknown }) => void) => {
+      handlers[name] = (payload: unknown) => cb({ payload });
+      return Promise.resolve(() => {});
+    });
+    setupHappyPath();
+    await act(async () => {
+      render(<App />);
+    });
+    for (const name of eventNames) {
+      if (!handlers[name]) throw new Error(`listener for ${name} not registered`);
+    }
+    return handlers;
+  }
+
+  it('拖放二进制文件:提示「仍要打开」,点击后强制打开并记录编码', async () => {
+    const handlers = await renderAndCaptureEvents(['app:open-file-unsupported']);
+    // 强制打开走 fs_read_text_file_encoded(force=true):mock 返回有损解码结果
+    invokeMock.mockImplementation((cmd: string, args: Record<string, unknown>) => {
+      if (cmd === 'fs_read_text_file_encoded') {
+        expect(args.force).toBe(true);
+        return Promise.resolve({
+          success: true,
+          data: { content: '\u{FFFD}bin\u{FFFD}', encoding: 'windows-1252' },
+        });
+      }
+      return Promise.resolve({ success: true, data: null });
+    });
+
+    // Rust 端二进制载荷:{ kind: 'unsupported', path }
+    await act(async () => {
+      handlers['app:open-file-unsupported']({ kind: 'unsupported', path: 'C:\\data\\x.dat' });
+    });
+
+    // toast 提供「仍要打开」动作;点击触发强制打开
+    const openAnyway = await screen.findByRole('button', { name: '仍要打开' });
+    await act(async () => {
+      openAnyway.click();
+    });
+    await act(async () => {});
+
+    // 编辑器工具被打开且 Tab 携带强制解码内容与编码标识
+    const ws = useEditorWorkspaceStore.getState().workspace;
+    const tab = ws.tabs.find((t) => t.path === 'C:\\data\\x.dat');
+    expect(tab).toBeDefined();
+    expect(tab?.content).toBe('\u{FFFD}bin\u{FFFD}');
+    expect(tab?.encoding).toBe('windows-1252');
+    expect(useToolStateStore.getState().currentToolId).toBe('text_editor');
+  });
+
+  it('拖放过大文件:提示不可打开,不提供「仍要打开」', async () => {
+    const handlers = await renderAndCaptureEvents(['app:open-file-unsupported']);
+    await act(async () => {
+      handlers['app:open-file-unsupported']({ kind: 'too-large', path: 'C:\\big\\huge.dat' });
+    });
+    // 提示文案出现,但没有任何「仍要打开」按钮
+    expect(await screen.findByText(/过大/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '仍要打开' })).not.toBeInTheDocument();
+    expect(useEditorWorkspaceStore.getState().workspace.tabs).toHaveLength(0);
+  });
+
+  it('文件关联打开事件:payload 携带编码时一并记录到 Tab', async () => {
+    const handlers = await renderAndCaptureEvents(['app:open-file']);
+    await act(async () => {
+      handlers['app:open-file']({
+        path: 'C:\\docs\\gbk.txt',
+        content: '你好',
+        encoding: 'gb18030',
+      });
+    });
+    const tab = useEditorWorkspaceStore
+      .getState()
+      .workspace.tabs.find((t) => t.path === 'C:\\docs\\gbk.txt');
+    expect(tab?.content).toBe('你好');
+    expect(tab?.encoding).toBe('gb18030');
   });
 });

@@ -263,8 +263,10 @@ describe('CodeEditorTool workspace', () => {
 
   it('opens a local file and infers language from extension', async () => {
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: 'C:\\work\\app.json',
-      content: '{"a":1}',
+      file: {
+        path: 'C:\\work\\app.json',
+        content: '{"a":1}',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -300,8 +302,10 @@ describe('CodeEditorTool workspace', () => {
 
   it('shows markdown view actions and split preview for .md files', async () => {
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: 'C:\\work\\README.md',
-      content: '# 标题\n\n正文',
+      file: {
+        path: 'C:\\work\\README.md',
+        content: '# 标题\n\n正文',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -320,8 +324,10 @@ describe('CodeEditorTool workspace', () => {
   it('switches markdown view mode: preview hides editor, edit hides pane', async () => {
     const user = userEvent.setup();
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: 'C:\\work\\notes.md',
-      content: '内容',
+      file: {
+        path: 'C:\\work\\notes.md',
+        content: '内容',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -341,8 +347,10 @@ describe('CodeEditorTool workspace', () => {
 
   it('does not show markdown actions for non-markdown files', async () => {
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: 'C:\\work\\app.json',
-      content: '{}',
+      file: {
+        path: 'C:\\work\\app.json',
+        content: '{}',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -352,9 +360,9 @@ describe('CodeEditorTool workspace', () => {
   });
 
   it('does not duplicate a tab when the same file is opened twice', async () => {
-    const file = { path: '/x.json', content: '{}' };
-    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce(file);
-    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce(file);
+    const result = { file: { path: '/x.json', content: '{}' } };
+    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce(result);
+    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce(result);
     renderTool();
     await screen.findByTestId('editor-empty');
     await clickToolbarItem('toolbar-open');
@@ -366,8 +374,10 @@ describe('CodeEditorTool workspace', () => {
 
   it('marks a tab dirty after editing and clears on save', async () => {
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: '/a.txt',
-      content: 'hello',
+      file: {
+        path: '/a.txt',
+        content: 'hello',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -500,8 +510,10 @@ describe('CodeEditorTool workspace', () => {
 
   it('saves all dirty tabs via the sidebar header action button', async () => {
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: '/a.txt',
-      content: 'a',
+      file: {
+        path: '/a.txt',
+        content: 'a',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -522,8 +534,10 @@ describe('CodeEditorTool workspace', () => {
 
   it('prompts before closing a dirty tab via the sidebar close icon', async () => {
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: '/s.txt',
-      content: 'hello',
+      file: {
+        path: '/s.txt',
+        content: 'hello',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -628,8 +642,10 @@ describe('CodeEditorTool workspace', () => {
 
   it('prompts before closing a dirty tab and keeps it on cancel', async () => {
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: '/b.txt',
-      content: 'hi',
+      file: {
+        path: '/b.txt',
+        content: 'hi',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -654,8 +670,10 @@ describe('CodeEditorTool workspace', () => {
 
   it('closes a dirty tab after confirming discard', async () => {
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: '/b.txt',
-      content: 'hi',
+      file: {
+        path: '/b.txt',
+        content: 'hi',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -675,8 +693,10 @@ describe('CodeEditorTool workspace', () => {
 
   it('saves and closes a dirty tab via the confirm dialog', async () => {
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: '/c.txt',
-      content: 'x',
+      file: {
+        path: '/c.txt',
+        content: 'x',
+      },
     });
     (saveToPathEncoded as unknown as Mock).mockResolvedValueOnce(true);
     renderTool();
@@ -697,8 +717,10 @@ describe('CodeEditorTool workspace', () => {
 
   it('prompts before closing all tabs when any tab is dirty', async () => {
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: '/d.txt',
-      content: 'z',
+      file: {
+        path: '/d.txt',
+        content: 'z',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -736,8 +758,10 @@ describe('CodeEditorTool workspace', () => {
     });
 
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: '/q.txt',
-      content: 'q',
+      file: {
+        path: '/q.txt',
+        content: 'q',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -799,8 +823,10 @@ describe('CodeEditorTool workspace', () => {
 
     // 打开一个未编辑文件(无 dirty)
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: '/clean.txt',
-      content: 'clean',
+      file: {
+        path: '/clean.txt',
+        content: 'clean',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -831,9 +857,11 @@ describe('CodeEditorTool workspace', () => {
   it('reopens the file with the chosen encoding when onEncodingReopen fires', async () => {
     const { readTextFileEncoded } = await import('./code-editor-workspace/fileOps');
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: '/a.txt',
-      content: '乱码内容',
-      encoding: 'gb18030',
+      file: {
+        path: '/a.txt',
+        content: '乱码内容',
+        encoding: 'gb18030',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -862,9 +890,11 @@ describe('CodeEditorTool workspace', () => {
   it('asks before discarding unsaved changes on encoding reopen', async () => {
     const { readTextFileEncoded } = await import('./code-editor-workspace/fileOps');
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: '/a.txt',
-      content: '原始',
-      encoding: 'utf-8',
+      file: {
+        path: '/a.txt',
+        content: '原始',
+        encoding: 'utf-8',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -877,9 +907,11 @@ describe('CodeEditorTool workspace', () => {
 
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     (readTextFileEncoded as unknown as Mock).mockResolvedValueOnce({
-      path: '/a.txt',
-      content: '磁盘内容',
-      encoding: 'utf-8',
+      file: {
+        path: '/a.txt',
+        content: '磁盘内容',
+        encoding: 'utf-8',
+      },
     });
     try {
       act(() => {
@@ -896,9 +928,11 @@ describe('CodeEditorTool workspace', () => {
 
   it('saves immediately with the chosen encoding when onEncodingSave fires', async () => {
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: '/a.txt',
-      content: 'hello',
-      encoding: 'utf-8',
+      file: {
+        path: '/a.txt',
+        content: 'hello',
+        encoding: 'utf-8',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -920,9 +954,11 @@ describe('CodeEditorTool workspace', () => {
 
   it('converts end of line when onEolChange fires', async () => {
     (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
-      path: '/a.txt',
-      content: 'a\r\nb',
-      encoding: 'utf-8',
+      file: {
+        path: '/a.txt',
+        content: 'a\r\nb',
+        encoding: 'utf-8',
+      },
     });
     renderTool();
     await screen.findByTestId('editor-empty');
