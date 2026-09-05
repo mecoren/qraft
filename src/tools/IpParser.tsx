@@ -13,7 +13,7 @@ import { Globe2, Loader2, Network } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ConfigSection } from '@/components/config-card';
+import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
 import { t } from '@/i18n';
 import { analyzeIp, IpParseError, IP_PUBLIC_SCOPE_KEYS, type IpAnalysis } from './ip-parser';
@@ -248,24 +248,22 @@ export function IpParser(_props: ToolProps): JSX.Element {
       data-testid="ip-parser"
     >
       <ConfigSection title="" searchAnchor="ip_parser:input">
-        <div className="flex items-center gap-3 px-4 py-2.5">
-          <Globe2 aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-          <div className="min-w-0 flex-1">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={t('tools.ip_parser.input_placeholder')}
-              aria-label={t('tools.ip_parser.input_aria')}
-              data-testid="ip-input"
-              spellCheck={false}
-              className="h-8 text-body-sm"
-            />
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {t('tools.ip_parser.input_hint')}
-            </p>
-          </div>
+        <ConfigRow
+          icon={Globe2}
+          label={t('tools.ip_parser.input_aria')}
+          hint={t('tools.ip_parser.input_hint')}
+        >
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={t('tools.ip_parser.input_placeholder')}
+            aria-label={t('tools.ip_parser.input_aria')}
+            data-testid="ip-input"
+            spellCheck={false}
+            className="w-72 text-sm"
+          />
           <CopyAction text={input.trim()} testId="ip-copy-input" />
-        </div>
+        </ConfigRow>
       </ConfigSection>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
@@ -314,9 +312,9 @@ export function IpParser(_props: ToolProps): JSX.Element {
         ) : null}
 
         {!parsed.result && !parsed.error ? (
-          <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
+          <div className="flex h-28 shrink-0 items-center justify-center text-sm text-muted-foreground">
             {t('tools.ip_parser.empty_state')}
-          </p>
+          </div>
         ) : null}
 
         {/* 归属地与运营商(联网查询,手动触发):布局对齐 iplocation.net Lookup Summary */}
@@ -325,12 +323,18 @@ export function IpParser(_props: ToolProps): JSX.Element {
           data-search-anchor="ip_parser:geo"
           className="flex flex-col gap-2"
         >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-body-sm font-semibold">{t('tools.ip_parser.geo_heading')}</h2>
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-body-sm font-semibold">{t('tools.ip_parser.geo_heading')}</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {t('tools.ip_parser.geo_hint')}
+              </p>
+            </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
+              className="shrink-0"
               onClick={() => void handleGeoQuery()}
               disabled={geo.status === 'loading'}
               data-testid="ip-geo-query"
@@ -345,7 +349,6 @@ export function IpParser(_props: ToolProps): JSX.Element {
                 : t('tools.ip_parser.geo_query_btn')}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">{t('tools.ip_parser.geo_hint')}</p>
 
           {geo.status === 'error' ? (
             <p
