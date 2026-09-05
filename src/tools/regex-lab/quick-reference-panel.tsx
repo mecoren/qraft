@@ -48,7 +48,7 @@ export function QuickReferencePanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="quick-reference">
-      <div className="flex items-center gap-1.5 border-b border-border px-2 py-1.5">
+      <div className="flex h-[26px] items-center gap-1.5 border-b border-input px-2">
         <BookOpen aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="text-xs font-medium">{t('tools.regex_tester.quick_reference')}</span>
       </div>

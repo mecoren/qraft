@@ -386,9 +386,9 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
             className="flex h-full min-h-0 flex-col border-x border-border"
             data-testid="mode-workspace"
           >
-            {/* 页签头 */}
+            {/* 页签头:与左右两栏编辑器标题栏同高 26px(项目基准) */}
             <div
-              className="flex shrink-0 items-center gap-0.5 border-b border-border px-1.5"
+              className="flex h-[26px] shrink-0 items-center gap-0.5 border-b border-input px-1.5"
               role="tablist"
               aria-label={t('tools.regex_tester.mode_tabs_aria')}
             >
@@ -402,7 +402,7 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
                   data-active={mode === id}
                   onClick={() => setMode(id)}
                   className={cn(
-                    'flex items-center gap-1 rounded-t px-2.5 py-1.5 text-xs transition-colors',
+                    'flex h-full items-center gap-1 rounded-t px-2.5 text-xs transition-colors',
                     mode === id
                       ? 'border-b-2 border-primary font-medium text-foreground'
                       : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground',
@@ -484,7 +484,7 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
           className="min-h-0 min-w-0 border-l border-border"
         >
           <div className="flex h-full min-h-0 flex-col" data-testid="explain-panel">
-            <div className="flex shrink-0 items-center gap-1.5 border-b border-border px-2 py-1.5">
+            <div className="flex h-[26px] shrink-0 items-center gap-1.5 border-b border-input px-2">
               <Info aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="text-xs font-medium">{t('tools.regex_tester.explanation')}</span>
             </div>
