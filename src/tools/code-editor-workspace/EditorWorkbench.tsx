@@ -51,6 +51,9 @@ import { EditorLanguagePicker } from './EditorLanguagePicker';
 import { LANGUAGE_LABELS, fileNameFromPath, inferLanguageFromPath } from './languageMap';
 import { LanguageIcon } from './languageIcons';
 import {
+  OPEN_REASON_BINARY,
+  OPEN_REASON_TOO_LARGE,
+  forceOpenFile,
   openTextFileDialog,
   openFolderDialog,
   readTextFileEncoded,
@@ -59,7 +62,9 @@ import {
   saveWithDialog,
   saveWithDialogEncoded,
   windowCloseReady,
+  type OpenFileFailure,
 } from './fileOps';
+import { formatBytes } from '@/lib/file-utils';
 import { useToolMenus } from '@/store/toolMenubarStore';
 import type { ToolMenu } from '@/types/tool-menu';
 import {
@@ -79,6 +84,9 @@ type BatchCloseAction = 'close-others' | 'close-right' | 'close-all';
 
 /** workspace 变更后持久化防抖间隔(ms) */
 const PERSIST_DEBOUNCE_MS = 400;
+
+/** 超过该字符数的 Tab 不渲染 minimap(超大内容下缩略图无导航价值且渲染开销大) */
+const MINIMAP_DISABLE_CONTENT_CHARS = 200_000;
 
 /** 生成稳定唯一对比 id */
 function createCompareId(): string {
@@ -270,20 +278,69 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     : null;
   const showCompare = Boolean(activeCompare && compareLeft && compareRight);
 
+  /**
+   * 打开文件失败的统一提示(仿 VSCode 二进制文件占位编辑器):
+   * - `binary`:可恢复,toast 带「仍要打开」动作按钮,点击经 `forceOpenFile`
+   *   按探测编码有损解码打开(VSCode Open Anyway)
+   * - `too-large`:不可恢复,仅提示文件大小与上限
+   * - 其余读取错误:展示后端真实错误消息
+   */
+  const showOpenFailure = useCallback(
+    (failure: OpenFileFailure | { path: string; reason?: undefined; message?: string }) => {
+      const name = fileNameFromPath(failure.path);
+      if ('reason' in failure && failure.reason === OPEN_REASON_TOO_LARGE) {
+        toast.error(
+          t('tools.text_editor.err_file_too_large', {
+            name,
+            size: formatBytes(failure.size ?? 0),
+          }),
+        );
+        return;
+      }
+      if ('reason' in failure && failure.reason === OPEN_REASON_BINARY) {
+        toast.error(t('tools.text_editor.err_file_binary', { name }), {
+          duration: 10_000,
+          action: {
+            label: t('tools.text_editor.open_anyway'),
+            onClick: () => {
+              void forceOpenFile(failure.path)
+                .then((result) => {
+                  useEditorWorkspaceStore
+                    .getState()
+                    .openLocalFile(result.path, result.content, result.encoding);
+                  setActiveCompareId(null);
+                })
+                .catch((e) => {
+                  toast.error(
+                    e instanceof Error ? e.message : t('tools.text_editor.err_open_file'),
+                  );
+                });
+            },
+          },
+        });
+        return;
+      }
+      toast.error(t('tools.text_editor.err_open_file'));
+    },
+    [t],
+  );
+
   /** 打开本地文件对话框并载入(或激活已打开的同路径 Tab);编码随文件探测结果记录 */
   const handleOpen = useCallback(async () => {
     try {
       const result = await openTextFileDialog();
-      if (result) {
+      if (result?.file) {
         useEditorWorkspaceStore
           .getState()
-          .openLocalFile(result.path, result.content, result.encoding);
+          .openLocalFile(result.file.path, result.file.content, result.file.encoding);
         setActiveCompareId(null);
+      } else if (result?.failed) {
+        showOpenFailure(result.failed);
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_open_file'));
     }
-  }, [t]);
+  }, [showOpenFailure, t]);
 
   /** 打开文件夹:加入左栏「文件夹」树(多根并存),默认展开根 */
   const handleOpenFolder = useCallback(async () => {
@@ -303,7 +360,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
    * 点击文件夹树中的文件:
    * - 已有同路径 Tab → 直接激活(不重复读取)
    * - 否则经 `fs_read_text_file_encoded` 读取并载入(编码自动探测);
-   *   二进制(ERR_FILE_UNSUPPORTED)→ 弹错误提示,
+   *   二进制(ERR_FILE_UNSUPPORTED)→ 弹「仍要打开」提示(仿 VSCode),
+   *   超大(ERR_FILE_TOO_LARGE)→ 提示文件过大,
    *   文件节点保留在树中(组件层不做剔除)
    */
   const handleOpenTreeFile = useCallback(
@@ -322,7 +380,15 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       } catch (e) {
         const name = fileNameFromPath(path);
         if (e instanceof CommandError && e.code === 'ERR_FILE_UNSUPPORTED') {
-          toast.error(t('tools.text_editor.err_file_unsupported', { name }));
+          showOpenFailure({ path, reason: OPEN_REASON_BINARY });
+        } else if (e instanceof CommandError && e.code === 'ERR_FILE_TOO_LARGE') {
+          // details 形如 { size, max }(AppError::FileTooLarge 序列化载荷)
+          const detail = e.details as { size?: number; max?: number } | undefined;
+          showOpenFailure({
+            path,
+            reason: OPEN_REASON_TOO_LARGE,
+            size: detail?.size,
+          });
         } else {
           // 其余失败(未授权/不存在等):展示后端返回的真实错误信息
           toast.error(
@@ -334,7 +400,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         }
       }
     },
-    [t],
+    [showOpenFailure, t],
   );
 
   /**
@@ -961,7 +1027,9 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       }}
       // 右键菜单按页面定制:命名风格切换 / 大小写转换(作用于当前编辑器选区)
       contextMenuSections={editorMenuSections}
-      minimap
+      // 缩略图:超大内容(如强制打开的二进制转储)下 minimap 渲染开销
+      // 显著且无导航价值,直接关闭(普通文件保持开启)
+      minimap={(activeTab.content?.length ?? 0) <= MINIMAP_DISABLE_CONTENT_CHARS}
       onMount={handleEditorMount}
       // 右上角 Markdown 视图切换(编辑/分屏/预览),仅 md 文档渲染
       actions={mdViewActions}

@@ -66,6 +66,15 @@ function resolveAutoLanguage(t: EditorTab): EditorLanguage {
 /** 未命名 Tab 标题的最大显示长度(超出截断加省略号) */
 const UNTITLED_TITLE_MAX = 32;
 /**
+ * 超过该字符数的 Tab 不再随每次编辑做内容语言嗅探:
+ * 强制打开的二进制文件(base64/十六进制转储等)体量巨大且无结构特征,
+ * 嗅探徒增每次按键的开销,保持现有语言(默认 plaintext)即可
+ */
+const SNIFF_DISABLE_CONTENT_CHARS = 500_000;
+
+/** 持久化前剥离 Tab 内容的字符数门槛(超大内容不落盘,重开按磁盘重读) */
+const PERSIST_STRIP_CONTENT_CHARS = 200_000;
+/**
  * 内容派生标题的门槛:首个非空行需超过 3 个字符才会放到 Tab 名位置。
  * 按首行而非全文判断,避免「{ + 多行内容」这类输入把单个 `{` 变成 Tab 名。
  */
@@ -504,9 +513,11 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
       if (t.id !== id) return t;
       // 自动检测模式:随内容重新识别语言(已知扩展名文件以路径为准不变;
       // 未命名 / 未知扩展名文件按内容特征识别。仅识别变化时才写入,
-      // 识别只扫描开头 2000 字符,单次编辑开销可忽略)
+      // 识别只扫描开头 2000 字符,单次编辑开销可忽略)。
+      // 强制打开的二进制文件常为几十万字符且毫无结构特征,短路为 plaintext
+      // 避免每次按键都做一轮嗅探
       let language = t.language;
-      if (t.languageAuto ?? true) {
+      if ((t.languageAuto ?? true) && content.length <= SNIFF_DISABLE_CONTENT_CHARS) {
         const detected = resolveAutoLanguage({ ...t, content });
         if (detected !== t.language) language = detected;
       }
@@ -616,8 +627,25 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
     if (!get().ready) return;
     const r = await safeInvoke<boolean>('config_set', {
       key: WORKSPACE_CONFIG_KEY,
-      value: get().workspace,
+      // 单 Tab 内容超过该字符数时不随工作区持久化(仅保留 Tab 元数据):
+      // 强制打开的二进制/超大文件内容可能达数十万字符,序列化 + 写盘
+      // 的代价远超收益,且这类 Tab 的内容重启后重读磁盘即可恢复
+      value: stripOversizedContents(get().workspace, PERSIST_STRIP_CONTENT_CHARS),
     });
     if (!r.ok) set({ error: r.error.message });
   },
 }));
+
+/**
+ * 持久化前剥离超大 Tab 内容(对齐 VSCode:备份不保存超大文件全文)。
+ * 内容超限的 Tab 以空内容落盘;重开时因路径仍存在,点击即按磁盘重读。
+ */
+function stripOversizedContents(workspace: Workspace, maxChars: number): Workspace {
+  let changed = false;
+  const tabs = workspace.tabs.map((t) => {
+    if (t.content.length <= maxChars) return t;
+    changed = true;
+    return { ...t, content: '', savedContent: '' };
+  });
+  return changed ? { ...workspace, tabs } : workspace;
+}

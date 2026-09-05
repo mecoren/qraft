@@ -24,7 +24,13 @@ import { readClipboardText } from '@/lib/clipboard';
 import { detectClipboardTools } from '@/lib/clipboard-detect';
 import { listen } from '@/lib/ipc';
 import { cn } from '@/lib/utils';
-import { pullPendingOpenFiles, type PendingOpenFile } from '@/tools/code-editor-workspace/fileOps';
+import {
+  forceOpenFile,
+  pullPendingOpenFiles,
+  type OpenFileUnsupportedPayload,
+  type PendingOpenFile,
+} from '@/tools/code-editor-workspace/fileOps';
+import { fileNameFromPath } from '@/tools/code-editor-workspace/languageMap';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
 import { getPopoutToolIdFromLabel, rehydrateToolStateFromPopout } from '@/lib/popout-sync';
 import {
@@ -48,10 +54,11 @@ import type { HistoryEntry } from '@/types/history';
  * 这里的调用一律来自系统侧(文件关联双击 / 命令行参数 / 「用 Qraft 打开」),
  * 因此必须走 `openLocalFileFromSystem`:该入口不置位 `userTouched`,
  * 让随后挂载的编辑器 hydrate 把上次的 Tab 列表合并回来而不是整体丢弃。
+ * `encoding` 为 Rust 端探测到的编码标识,打开 Tab 时一并记录(状态栏展示)。
  */
-function openFileInEditor(path: string, content: string): void {
+function openFileInEditor(path: string, content: string, encoding?: string): void {
   useUiStore.getState().openTool(DEFAULT_TOOL_ID);
-  useEditorWorkspaceStore.getState().openLocalFileFromSystem(path, content);
+  useEditorWorkspaceStore.getState().openLocalFileFromSystem(path, content, encoding);
 }
 
 export function App(): JSX.Element {
@@ -109,14 +116,43 @@ export function App(): JSX.Element {
       // 通过文件关联/命令行/拖放「用 Qraft 打开」的文件:实时在编辑器工作区打开
       unlisteners.push(
         await listen<PendingOpenFile>('app:open-file', (p) => {
-          if (p?.path) openFileInEditor(p.path, p.content);
+          if (p?.path) openFileInEditor(p.path, p.content, p.encoding);
         }),
       );
-      // 拖放/打开的文件为二进制或不受支持的格式:提示用户(参考 VS Code)
+      // 拖放/打开的文件无法直接作为文本打开:按载荷分流提示(参考 VS Code)
+      // - unsupported(二进制):提示 + 「仍要打开」动作,点击经 fs_read_text_file_encoded
+      //   的 force 参数按探测编码有损解码打开(Open Anyway)
+      // - too-large:超过编辑器大小上限,仅提示
+      // - error:路径非法等其他原因,展示消息
       unlisteners.push(
-        await listen<string>('app:open-file-unsupported', (fileName) => {
-          if (fileName) {
-            toast.warning(translate('chrome.toast.open_binary_unsupported', { name: fileName }));
+        await listen<OpenFileUnsupportedPayload>('app:open-file-unsupported', (p) => {
+          if (!p) return;
+          if (p.kind === 'unsupported' && p.path) {
+            const path = p.path;
+            toast.warning(
+              translate('chrome.toast.open_binary_unsupported', { name: fileNameFromPath(path) }),
+              {
+                duration: 10_000,
+                action: {
+                  label: translate('tools.text_editor.open_anyway'),
+                  onClick: () => {
+                    void forceOpenFile(path)
+                      .then((r) => openFileInEditor(r.path, r.content, r.encoding))
+                      .catch(() => {
+                        // 强制打开失败(读取错误/超大):静默,后端已有对应提示渠道
+                      });
+                  },
+                },
+              },
+            );
+          } else if (p.kind === 'too-large' && p.path) {
+            toast.error(
+              translate('chrome.toast.open_file_too_large', {
+                name: fileNameFromPath(p.path),
+              }),
+            );
+          } else if (p.message) {
+            toast.warning(translate('chrome.toast.open_binary_unsupported', { name: p.message }));
           }
         }),
       );
@@ -152,7 +188,7 @@ export function App(): JSX.Element {
         const files = await pullPendingOpenFiles();
         if (cancelled) return;
         for (const f of files) {
-          if (f?.path) openFileInEditor(f.path, f.content);
+          if (f?.path) openFileInEditor(f.path, f.content, f.encoding);
         }
       } catch {
         // 拉取失败静默处理:事件通道仍可能已送达,避免启动阻塞

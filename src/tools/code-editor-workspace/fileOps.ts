@@ -1,14 +1,15 @@
 /**
  * 本地文件操作 —— 封装 Tauri fs IPC 命令
  *
- * - `openTextFileDialog`:弹出系统打开对话框,返回 `{ path, content, encoding }` 或 null(取消)。
- *   Rust 端 `fs_open_dialog` 已把所选路径加入授权集合,后续可直接 `fs_write_file`;
- *   内容按探测到的编码自动解码(UTF-8 / GB18030 / Big5 / Shift-JIS 等)。
+ * - `openTextFileDialog`:弹出系统打开对话框,返回 `OpenDialogOutcome`:
+ *   成功 `{ file }` / 取消 `null` / 二进制或过大 `{ failed }`(前端展示
+ *   「仍要打开」,VSCode Open Anyway 语义)。
  * - `openFolderDialog`:弹出「打开文件夹」对话框,返回目录根路径或 null(取消)。
  *   所选目录加入授权集合,其子树内文件可读写/枚举。
  * - `readDirectory`:枚举已授权目录的子项(目录在前、名称不分大小写升序)。
  * - `readTextFileEncoded`:读取文本并自动探测编码;二进制抛
- *   code=`ERR_FILE_UNSUPPORTED` 的 CommandError,前端弹「格式不支持」提示。
+ *   code=`ERR_FILE_UNSUPPORTED` 的 CommandError,超大抛 `ERR_FILE_TOO_LARGE`,
+ *   均可经 `forceOpenFile` 强制打开(按探测编码有损解码)。
  * - `saveToPath`:直接覆盖写回已授权路径(`fs_write_file`,恒 UTF-8)。
  * - `saveToPathEncoded`:以指定编码写回(`fs_write_file_encoded`)。
  * - `saveWithDialog`:弹「另存为」对话框(`fs_save_bytes`),保存后路径同样被授权。
@@ -25,6 +26,29 @@ export interface OpenFileResult {
   encoding?: string;
 }
 
+/** 打开失败的可恢复原因(`OpenFileFailure.reason` 字段值) */
+export const OPEN_REASON_BINARY = 'binary' as const;
+export const OPEN_REASON_TOO_LARGE = 'too-large' as const;
+
+/**
+ * 打开文件对话框 / 文件树读取的失败载荷。
+ * - `binary`:二进制启发式命中,可用 `forceOpenFile` 强制按探测编码打开
+ * - `too-large`:超过编辑器大小上限,不可恢复
+ */
+export interface OpenFileFailure {
+  path: string;
+  reason: typeof OPEN_REASON_BINARY | typeof OPEN_REASON_TOO_LARGE;
+  /** 文件大小(字节;too-large 时后端附带)
+   *  `binary` 时为 null,序列化时省略 */
+  size?: number | null;
+}
+
+/** 打开对话框结果:成功(file)、失败(failed)二选一;取消返回 null */
+export interface OpenDialogOutcome {
+  file?: OpenFileResult | null;
+  failed?: OpenFileFailure | null;
+}
+
 /** 目录条目(fs_read_dir 返回) */
 export interface DirEntry {
   name: string;
@@ -36,6 +60,17 @@ export interface DirEntry {
 export interface PendingOpenFile {
   path: string;
   content: string;
+  /** 探测到的编码标识(Rust 端附带;省略时按 UTF-8 处理) */
+  encoding?: string;
+}
+
+/** 拖放/打开失败的载荷(Rust `OpenFileUnsupported` 事件的 serde 形态) */
+export interface OpenFileUnsupportedPayload {
+  kind: 'unsupported' | 'too-large' | 'error';
+  /** kind=unsupported / too-large 时为文件完整路径 */
+  path?: string;
+  /** kind=error 时为错误消息 */
+  message?: string;
 }
 
 /** 通知后端:前端已加载完成,可拦截窗口关闭以冲刷工作区缓存 */
@@ -43,9 +78,9 @@ export async function windowCloseReady(): Promise<void> {
   await safeInvoke('window_close_ready');
 }
 
-/** 弹出打开对话框选择单个文本文件;用户取消返回 null */
-export async function openTextFileDialog(): Promise<OpenFileResult | null> {
-  return invokeCommand<OpenFileResult | null>('fs_open_dialog', {});
+/** 弹出打开文件对话框;取消返回 null,成功返回 `{ file }`,二进制/过大返回 `{ failed }` */
+export async function openTextFileDialog(): Promise<OpenDialogOutcome | null> {
+  return invokeCommand<OpenDialogOutcome | null>('fs_open_dialog', {});
 }
 
 /** 弹出「打开文件夹」对话框;用户取消返回 null,成功返回目录根路径 */
@@ -60,18 +95,10 @@ export async function readDirectory(path: string): Promise<DirEntry[]> {
 }
 
 /**
- * 读取文本文件并校验可编辑性(文件夹树点击文件时使用)。
- * 二进制 / 非 UTF-8 时抛 CommandError(code=`ERR_FILE_UNSUPPORTED`)。
- */
-export async function readTextFileChecked(path: string): Promise<OpenFileResult> {
-  const content = await invokeCommand<string>('fs_read_text_file_checked', { path });
-  return { path, content };
-}
-
-/**
  * 读取文本文件并探测编码(编辑器打开文件的推荐入口)。
  * GB18030/Big5/Shift-JIS 等编码自动解码;二进制内容抛
- * CommandError(code=`ERR_FILE_UNSUPPORTED`)。返回内容 + 编码标识。
+ * CommandError(code=`ERR_FILE_UNSUPPORTED`),超大文件抛
+ * `ERR_FILE_TOO_LARGE`。返回内容 + 编码标识。
  *
  * `encoding` 提供时跳过探测,直接按该编码解码(VSCode「通过编码重新打开」);
  * 编码不受支持时后端抛 CommandError(ERR_FILE_UNSUPPORTED)。
@@ -83,6 +110,18 @@ export async function readTextFileEncoded(
   const result = await invokeCommand<{ content: string; encoding: string }>(
     'fs_read_text_file_encoded',
     { path, encoding: encoding ?? null },
+  );
+  return { path, content: result.content, encoding: result.encoding };
+}
+
+/**
+ * 强制以文本打开文件(VSCode「仍要打开」):跳过二进制启发式,
+ * 按探测编码有损解码;仍受大小上限约束(超大抛 `ERR_FILE_TOO_LARGE`)。
+ */
+export async function forceOpenFile(path: string): Promise<OpenFileResult> {
+  const result = await invokeCommand<{ content: string; encoding: string }>(
+    'fs_read_text_file_encoded',
+    { path, encoding: null, force: true },
   );
   return { path, content: result.content, encoding: result.encoding };
 }
