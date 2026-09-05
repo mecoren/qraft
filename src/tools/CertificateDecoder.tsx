@@ -173,13 +173,13 @@ export function CertificateDecoder(_props: ToolProps): JSX.Element {
     : '';
 
   return (
-    // 外层 shell 卡片:无配置区,纵向双编辑器面板组直接填充
+    // 外层 shell 卡片:无配置区,左右双栏面板组直接填充(与 Base64 转换器同构)
     <div
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="certificate-decoder"
     >
-      <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={40} minSize={20} className="min-h-0">
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.certificate_decoder.title_input')}
             language="plaintext"
@@ -187,13 +187,13 @@ export function CertificateDecoder(_props: ToolProps): JSX.Element {
             onChange={setInput}
             placeholder={'-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'}
             data-testid="cert-input"
-            className="h-full rounded-none border-0"
+            className="h-full rounded-none border-0 border-r"
             searchAnchor="certificate_decoder:input"
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={60} minSize={20} className="min-h-0">
-          <div className="flex h-full flex-col">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
+          <div className="flex h-full flex-col border-l">
             {/* 输出工具栏:标题 + 复制(输出区不再走 CodeEditor,独立承载) */}
             <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
               <span className="text-body-sm font-medium">

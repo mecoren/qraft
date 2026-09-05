@@ -88,27 +88,27 @@ export function HtmlCodec({ toolId }: ToolProps): JSX.Element {
         ) : null}
       </ConfigSection>
 
-      <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.html_codec.title_input')}
             language="html"
             value={input}
             onChange={setInput}
             data-testid="html-input"
-            className="h-full rounded-none border-0"
+            className="h-full rounded-none border-0 border-r"
             searchAnchor="html_codec:input"
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.html_codec.title_output')}
             language="html"
             value={output}
             readOnly
             data-testid="html-output"
-            className="h-full rounded-none border-0"
+            className="h-full rounded-none border-0 border-l"
             searchAnchor="html_codec:output"
             actions={<CopyAction text={output} testId="html-copy" />}
           />

@@ -89,13 +89,13 @@ export function JwtParser({ toolId }: ToolProps): JSX.Element {
     : null;
 
   return (
-    // 外层 shell 卡片:上输入 / 下解析结果双栏收进同一卡片
+    // 外层 shell 卡片:左输入 / 右解析结果双栏收进同一卡片(与 Base64 转换器同构)
     <div
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="jwt-parser"
     >
-      <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={35} minSize={20} className="min-h-0">
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.jwt_parser.token_label')}
             language="plaintext"
@@ -103,13 +103,13 @@ export function JwtParser({ toolId }: ToolProps): JSX.Element {
             onChange={setText}
             placeholder={t('tools.jwt_parser.token_placeholder')}
             data-testid="jwt-input"
-            className="h-full rounded-none border-0"
+            className="h-full rounded-none border-0 border-r"
             searchAnchor="jwt_parser:input"
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={65} minSize={20} className="min-h-0">
-          <div className="flex h-full flex-col" data-testid="jwt-result">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
+          <div className="flex h-full flex-col border-l" data-testid="jwt-result">
             {state.error ? (
               <div
                 role="alert"

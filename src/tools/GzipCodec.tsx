@@ -238,8 +238,8 @@ export function GzipCodec({ toolId }: ToolProps): JSX.Element {
         onDragOver={(e) => e.preventDefault()}
         onDrop={onDrop}
       >
-        <ResizablePanelGroup orientation="vertical" className="h-full min-h-0">
-          <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
+        <ResizablePanelGroup orientation="horizontal" className="h-full min-h-0">
+          <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
             <CodeEditor
               title={t('tools.gzip_codec.title_input')}
               language="plaintext"
@@ -251,19 +251,19 @@ export function GzipCodec({ toolId }: ToolProps): JSX.Element {
                   : t('tools.gzip_codec.placeholder_decompress_input')
               }
               data-testid="gzip-input"
-              className="h-full rounded-none border-0"
+              className="h-full rounded-none border-0 border-r"
               searchAnchor="gzip_codec:input"
             />
           </ResizablePanel>
           <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={50} minSize={20} className="min-h-0">
+          <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
             <CodeEditor
               title={t('tools.gzip_codec.title_output')}
               language="plaintext"
               value={error ?? output}
               readOnly
               data-testid="gzip-output"
-              className="h-full rounded-none border-0"
+              className="h-full rounded-none border-0 border-l"
               searchAnchor="gzip_codec:output"
               actions={<CopyAction text={output} testId="gzip-copy" />}
             />
