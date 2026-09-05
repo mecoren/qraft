@@ -6,6 +6,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { SearchDialog } from './SearchDialog';
 import { useSearchStore } from '@/store/searchStore';
+import { useUiStore } from '@/store/uiStore';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
 import { MATCH_BATCH_SIZE } from '@/lib/editor-text-search';
 import type { EditorTab } from '@/tools/code-editor-workspace/schema';
@@ -41,6 +42,10 @@ function setTabs(tabs: EditorTab[]) {
 
 beforeEach(() => {
   useSearchStore.setState({ target: null });
+  // uiStore 经 localStorage 持久化,全量运行时可能拿到其他用例写入的
+  // recents / detectedTools(工具排序与 Smart Detection 分区随之变化,
+  // 影响 cmdk 首项与初始选中),这里复位到确定状态
+  useUiStore.setState({ recents: [], detectedTools: [], favorites: [] });
   setTabs([]);
 });
 
