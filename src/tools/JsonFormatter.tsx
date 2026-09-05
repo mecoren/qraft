@@ -1015,7 +1015,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
       </div>
 
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.json_formatter.input_title')}
             language={inputLanguage}
@@ -1371,7 +1371,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
 
         <ResizableHandle withHandle />
 
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           {viewMode === 'tree' ? (
             <div className="flex h-full flex-col overflow-hidden rounded-none border-0 border-l border-input bg-background-layer">
               {/* 与 CodeEditor 工具栏(文本模式)严格同高同色:py-0.5 + border-input,

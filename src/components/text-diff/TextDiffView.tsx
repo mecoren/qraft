@@ -450,7 +450,7 @@ export function TextDiffView({
           className="min-h-0 flex-1"
           data-search-anchor={searchAnchor}
         >
-          <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+          <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
             <CodeEditor
               title={originalTitle}
               language={originalLanguage}
@@ -474,7 +474,7 @@ export function TextDiffView({
 
           <ResizableHandle withHandle />
 
-          <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+          <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
             <CodeEditor
               title={modifiedTitle}
               language={modifiedLanguage}

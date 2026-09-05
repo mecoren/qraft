@@ -7,10 +7,14 @@
  *
  * 用法:
  *   <ResizablePanelGroup orientation="horizontal">
- *     <ResizablePanel defaultSize={50} minSize={20}>左</ResizablePanel>
+ *     <ResizablePanel defaultSize="50" minSize="20">左</ResizablePanel>
  *     <ResizableHandle withHandle />
- *     <ResizablePanel defaultSize={50} minSize={20}>右</ResizablePanel>
+ *     <ResizablePanel defaultSize="50" minSize="20">右</ResizablePanel>
  *   </ResizablePanelGroup>
+ *
+ * 注意:v4 尺寸传参中数字按像素解释、无单位字符串按百分比解释,
+ * 因此 defaultSize/minSize 一律传百分比字符串(数字是像素,与
+ * v3 的百分比语义不同,直接迁移会得到错误的初始比例与最小值)。
  */
 
 import * as React from 'react';
@@ -20,13 +24,20 @@ import { cn } from '@/lib/utils';
 
 function ResizablePanelGroup({
   className,
+  orientation,
   ...props
 }: React.ComponentProps<typeof ResizablePrimitive.Group>) {
   return (
     <ResizablePrimitive.Group
+      orientation={orientation}
+      // v4 只在组元素上输出 data-group/data-separator,不再输出 v3 的
+      // data-panel-group-direction;这里自行落一个 data-orientation 供
+      // 分隔条以 group-data-[orientation=vertical] 区分横纵(缺了它纵向
+      // 分隔条会以 h-full 撑满整列,两块面板 flex-basis:0 被压成 0 高 → 白屏)
+      data-orientation={orientation}
       className={cn(
         // 分割间隙 2px(gap-0.5),与编辑器工作台左栏分隔一致,紧凑贴近 VSCode
-        'flex h-full w-full gap-0.5 data-[panel-group-direction=vertical]:flex-col',
+        'group flex h-full w-full gap-0.5',
         className,
       )}
       {...props}
@@ -55,8 +66,8 @@ function ResizableHandle({
         // 旧版 shadcn 的 data-resize-handle-state 在该版本中不存在。
         'group relative flex h-full w-0.5 shrink-0 items-center justify-center self-stretch bg-transparent outline-none',
         'focus-visible:ring-1 focus-visible:ring-ring',
-        // 纵向分隔条(横向细线)
-        'data-[panel-group-direction=vertical]:h-0.5 data-[panel-group-direction=vertical]:w-full',
+        // 纵向分隔条(横向细线):依赖组元素自落的 data-orientation(见上)
+        'group-data-[orientation=vertical]:h-0.5 group-data-[orientation=vertical]:w-full',
         className,
       )}
       {...props}

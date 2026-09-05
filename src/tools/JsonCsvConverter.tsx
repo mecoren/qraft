@@ -80,7 +80,7 @@ export function JsonCsvConverter({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={50} minSize={20}>
+        <ResizablePanel defaultSize="50" minSize="20">
           <CodeEditor
             title={
               direction === 'json_to_csv'
@@ -98,7 +98,7 @@ export function JsonCsvConverter({ toolId }: ToolProps): JSX.Element {
           />
         </ResizablePanel>
         <ResizableHandle />
-        <ResizablePanel defaultSize={50} minSize={20}>
+        <ResizablePanel defaultSize="50" minSize="20">
           <CodeEditor
             title={t('tools.json_csv_converter.output_title')}
             language={direction === 'csv_to_json' ? 'json' : 'plaintext'}

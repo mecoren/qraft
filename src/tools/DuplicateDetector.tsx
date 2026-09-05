@@ -427,7 +427,7 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
       </section>
 
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.duplicate_detector.input_title')}
             value={input}
@@ -439,7 +439,7 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <DuplicatesTable
             rows={tableRows}
             statUnique={statUnique}

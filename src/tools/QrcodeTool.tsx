@@ -144,7 +144,7 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
             左右标题栏同高(26px),二维码预览面板把「下载 PNG/SVG」收进标题栏动作区 */}
         <TabsContent value="generate" className="mt-0 flex min-h-0 flex-1 p-0">
           <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-            <ResizablePanel defaultSize={50} minSize={25} className="min-h-0 min-w-0">
+            <ResizablePanel defaultSize="50" minSize="25" className="min-h-0 min-w-0">
               <CodeEditor
                 title={t('tools.qrcode_tool.input_title')}
                 language="plaintext"
@@ -159,7 +159,7 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
 
             <ResizableHandle withHandle />
 
-            <ResizablePanel defaultSize={50} minSize={25} className="min-h-0 min-w-0">
+            <ResizablePanel defaultSize="50" minSize="25" className="min-h-0 min-w-0">
               {/* 预览面板:与左侧编辑器同高同构的「编辑框」,边框对称(只留左侧朝向分隔缝) */}
               <div
                 className="flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 border-l"
@@ -218,7 +218,7 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
             左侧图片预览「编辑框」标题栏动作区放「选择图片」 */}
         <TabsContent value="scan" className="mt-0 flex min-h-0 flex-1 p-0">
           <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-            <ResizablePanel defaultSize={50} minSize={25} className="min-h-0 min-w-0">
+            <ResizablePanel defaultSize="50" minSize="25" className="min-h-0 min-w-0">
               {/* 图片预览「编辑框」:与右侧识别结果编辑器同高同构,边框对称(只留右缘朝向分隔缝) */}
               <div
                 className="flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 border-r"
@@ -285,7 +285,7 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
 
             <ResizableHandle withHandle />
 
-            <ResizablePanel defaultSize={50} minSize={25} className="min-h-0 min-w-0">
+            <ResizablePanel defaultSize="50" minSize="25" className="min-h-0 min-w-0">
               <CodeEditor
                 title={t('tools.qrcode_tool.result_title')}
                 language="plaintext"

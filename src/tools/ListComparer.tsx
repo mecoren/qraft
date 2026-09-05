@@ -133,7 +133,7 @@ export function ListComparer(_props: ToolProps): JSX.Element {
       </ConfigSection>
 
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={34} minSize={15} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="34" minSize="15" className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.list_comparer.list_a')}
             language="plaintext"
@@ -146,7 +146,7 @@ export function ListComparer(_props: ToolProps): JSX.Element {
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={33} minSize={15} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="33" minSize="15" className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.list_comparer.list_b')}
             language="plaintext"
@@ -159,7 +159,7 @@ export function ListComparer(_props: ToolProps): JSX.Element {
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={33} minSize={15} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="33" minSize="15" className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.list_comparer.result_title', { mode: t(MODE_LABEL_KEY[mode]) })}
             language="plaintext"

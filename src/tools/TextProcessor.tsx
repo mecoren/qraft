@@ -708,7 +708,7 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
       {/* 双栏工作区直接置于 shell 卡片内(外框由根元素提供):
           两侧编辑器只保留朝向中缝的边框,避免双线/双圆角 */}
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.json_minifier.input_title')}
             language="plaintext"
@@ -730,7 +730,7 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <CodeEditor
             readOnly
             title={t('tools.json_minifier.output_title')}

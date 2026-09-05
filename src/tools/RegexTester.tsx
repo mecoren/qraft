@@ -367,7 +367,7 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
       {/* ============ 主体三栏:编辑器 | 模式工作区 | 解释+参考 ============ */}
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         {/* —— 左:测试文本(带命中高亮)—— */}
-        <ResizablePanel defaultSize={40} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="40" minSize="20" className="min-h-0 min-w-0">
           <TestTextEditor
             value={testText}
             onChange={(v) => patch({ testText: v })}
@@ -381,7 +381,7 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
         <ResizableHandle withHandle />
 
         {/* —— 中:模式页签工作区 —— */}
-        <ResizablePanel defaultSize={36} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="36" minSize="20" className="min-h-0 min-w-0">
           <div
             className="flex h-full min-h-0 flex-col border-x border-border"
             data-testid="mode-workspace"
@@ -479,8 +479,8 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
 
         {/* —— 右:解释树 + 快速参考 —— */}
         <ResizablePanel
-          defaultSize={24}
-          minSize={16}
+          defaultSize="24"
+          minSize="16"
           className="min-h-0 min-w-0 border-l border-border"
         >
           <div className="flex h-full min-h-0 flex-col" data-testid="explain-panel">

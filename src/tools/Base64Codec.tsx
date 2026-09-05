@@ -655,7 +655,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
           两侧编辑器只保留朝向中缝的边框,避免双线/双圆角 */}
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         {/* 左区:输入 */}
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           {isTextMode || isFileDecode ? (
             <CodeEditor
               title={
@@ -691,7 +691,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
         <ResizableHandle withHandle />
 
         {/* 右区:输出 */}
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           {isTextMode || isFileEncode ? (
             <CodeEditor
               readOnly

@@ -1100,7 +1100,7 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
           <ResizablePanelGroup orientation="horizontal" className="h-full">
             {showEditor && (
               <>
-                <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+                <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
                   <CodeEditor
                     // 切换 Tab 重挂编辑器:Monaco 实例与文档内容绑定(滚动同步/
                     // 光标监听/快捷键注册都以单实例为前提),复用实例会串内容
@@ -1215,8 +1215,8 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
 
             {showPreview && (
               <ResizablePanel
-                defaultSize={showEditor ? 50 : 100}
-                minSize={20}
+                defaultSize={showEditor ? "50" : "100"}
+                minSize="20"
                 className="min-h-0 min-w-0"
               >
                 {/* 分屏时补 border-l 与编辑框 border-r 对称(对齐 DuplicateDetector

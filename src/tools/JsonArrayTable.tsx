@@ -100,7 +100,7 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
       data-testid="json-array-table"
     >
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.json_array_table.input_title')}
             language="json"
@@ -116,7 +116,7 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
 
         <ResizableHandle withHandle />
 
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           {/* 表格面板:与左侧编辑器同高同构的「编辑框」,边框对称(只留左侧朝向分隔缝) */}
           <div
             className="flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 border-l"

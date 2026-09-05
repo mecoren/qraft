@@ -114,7 +114,7 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
 
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         {/* 左区:输入文本(「计算」动作在工具栏) */}
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.hash_calculator.input_title')}
             placeholder={t('tools.hash_calculator.input_placeholder')}
@@ -138,7 +138,7 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
         <ResizableHandle withHandle />
 
         {/* 右区:哈希值(内联错误 / 输出编辑器 + 复制) */}
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <div className="relative h-full">
             {error ? (
               <div className="flex h-full flex-col overflow-hidden rounded-none border-0">

@@ -87,7 +87,7 @@ export function XmlFormatter({ toolId }: ToolProps): JSX.Element {
       </ConfigSection>
 
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.xml_formatter.input_title')}
             language="xml"
@@ -99,7 +99,7 @@ export function XmlFormatter({ toolId }: ToolProps): JSX.Element {
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.xml_formatter.output_title')}
             language="xml"

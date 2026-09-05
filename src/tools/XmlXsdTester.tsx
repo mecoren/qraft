@@ -138,7 +138,7 @@ export function XmlXsdTester(_props: ToolProps): JSX.Element {
       </div>
 
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <CodeEditor
             title="XSD"
             language="xml"
@@ -151,7 +151,7 @@ export function XmlXsdTester(_props: ToolProps): JSX.Element {
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+        <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <CodeEditor
             title="XML"
             language="xml"
