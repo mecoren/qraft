@@ -163,12 +163,19 @@ function NowBanner(): JSX.Element {
       searchAnchor="timestamp_converter:now"
     >
       <div className="flex items-center gap-2 text-right">
+        {/* 单位收进固定宽度列,两行数字右边缘落在同一 x 上(ms 比 s 宽会顶歪数字) */}
         <div className="text-xs leading-tight">
-          <div className="font-mono">
-            {t('tools.timestamp_converter.unix_seconds_short', { value: secs })}
+          <div className="flex items-baseline justify-end gap-x-1 font-mono">
+            <span>{secs}</span>
+            <span className="w-5 text-left">
+              {t('tools.timestamp_converter.unix_seconds_short')}
+            </span>
           </div>
-          <div className="font-mono text-muted-foreground">
-            {t('tools.timestamp_converter.unix_millis_short', { value: millis })}
+          <div className="flex items-baseline justify-end gap-x-1 font-mono text-muted-foreground">
+            <span>{millis}</span>
+            <span className="w-5 text-left">
+              {t('tools.timestamp_converter.unix_millis_short')}
+            </span>
           </div>
         </div>
         <span className="hidden text-xs text-muted-foreground sm:inline">{local}</span>
@@ -304,25 +311,26 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
       </ConfigSection>
 
-      {/* 配置区下方内容收进带内边距的滚动 wrapper(对齐 shell 布局基准) */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+      {/* 结果区直接贴合 shell 外框(对齐 JsonCsvConverter 融合布局,不再有内层 p-3 边距卡) */}
+      <div className="flex min-h-0 flex-1 flex-col">
         {visibleError && (
           <div
             role="alert"
-            className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
+            className="mx-3 mt-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
           >
             {visibleError}
           </div>
         )}
 
-        {/* 结果区:常驻卡片承载,空态给引导文案;锚点保持 timestamp_converter:result */}
+        {/* 结果区:常驻面板承载,空态给引导文案;锚点保持 timestamp_converter:result */}
         <div
-          className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border bg-card"
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
           data-testid="output"
           data-search-anchor="timestamp_converter:result"
         >
-          <div className="flex items-center justify-between border-b px-3 py-1.5">
-            <span className="pl-1 text-xs font-medium">
+          {/* 与 CodeEditor 标题栏同高(26px)同排版 */}
+          <div className="flex h-[26px] min-w-0 items-center justify-between gap-x-2 border-b border-input px-2">
+            <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground">
               {t('tools.timestamp_converter.result_title')}
             </span>
             {visibleOutput?.meta && (
