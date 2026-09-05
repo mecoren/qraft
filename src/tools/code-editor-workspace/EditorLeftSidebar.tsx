@@ -344,6 +344,8 @@ export function EditorLeftSidebar({
       className="flex h-full min-w-0 w-full flex-col overflow-hidden text-sidebar-foreground"
     >
       {/* 标题区:点击任意位置切换展开/折叠;面板悬浮时三个动作按钮显示。
+          高度固定 h-7(28px)与 Tab 栏(EditorTabsBar)对齐,三个分组标题
+          (打开的编辑器/文件夹/对比差异)统一该高度。
           徽章与 3 个动作按钮在 flex 布局中互斥显隐(同一位置最右)。
           用 JS hovered state 控制,与列表项每项独立的 group-hover(关闭图标)互不干扰。 */}
       <div
@@ -358,7 +360,7 @@ export function EditorLeftSidebar({
             setCollapsed((c) => !c);
           }
         }}
-        className="flex min-w-0 cursor-pointer select-none items-center gap-1 overflow-hidden border-b border-sidebar-border px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-sidebar-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring @max-[240px]/sidebar:gap-0.5 @max-[240px]/sidebar:px-2"
+        className="flex h-7 shrink-0 min-w-0 cursor-pointer select-none items-center gap-1 overflow-hidden border-b border-sidebar-border px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-sidebar-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring @max-[240px]/sidebar:gap-0.5 @max-[240px]/sidebar:px-2"
       >
         <ChevronDown
           aria-hidden
@@ -684,7 +686,7 @@ export function EditorLeftSidebar({
             // 数量徽章始终显示在标题右侧(外层 `{compares.length > 0}` 已包,
             // 这里无条件渲染),按钮组 ml-auto 推最右,hover 时 w-auto 展开,
             // 徽章被自然挤到左侧(完全对齐「打开的编辑器」)
-            className="flex min-w-0 cursor-pointer select-none items-center gap-1 overflow-hidden border-b border-sidebar-border px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-sidebar-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring @max-[240px]/sidebar:gap-0.5 @max-[240px]/sidebar:px-2"
+            className="flex h-7 shrink-0 min-w-0 cursor-pointer select-none items-center gap-1 overflow-hidden border-b border-sidebar-border px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-sidebar-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring @max-[240px]/sidebar:gap-0.5 @max-[240px]/sidebar:px-2"
           >
             <ChevronDown
               aria-hidden

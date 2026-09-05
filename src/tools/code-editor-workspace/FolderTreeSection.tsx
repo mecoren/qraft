@@ -252,7 +252,7 @@ export function FolderTreeSection({
             setCollapsed((c) => !c);
           }
         }}
-        className="flex min-w-0 cursor-pointer select-none items-center gap-1 overflow-hidden border-b border-sidebar-border px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-sidebar-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring @max-[240px]/sidebar:gap-0.5 @max-[240px]/sidebar:px-2"
+        className="flex h-7 shrink-0 min-w-0 cursor-pointer select-none items-center gap-1 overflow-hidden border-b border-sidebar-border px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-sidebar-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring @max-[240px]/sidebar:gap-0.5 @max-[240px]/sidebar:px-2"
       >
         <ChevronDown
           aria-hidden

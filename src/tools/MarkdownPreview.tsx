@@ -1219,8 +1219,11 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
                 minSize={20}
                 className="min-h-0 min-w-0"
               >
+                {/* 分屏时补 border-l 与编辑框 border-r 对称(对齐 DuplicateDetector
+                    结果面板):分隔条两侧都有边线;纯预览模式左侧已是 shell 外框
+                    /大纲面板 border-r,再加会出双线,故仅 showEditor 时生效 */}
                 <section
-                  className="flex h-full min-h-0 flex-col"
+                  className={cn('flex h-full min-h-0 flex-col', showEditor && 'border-l')}
                   data-search-anchor="markdown_preview:preview"
                 >
                   {/* 预览标题栏:与左侧 CodeEditor 标题栏同高(26px)、同排版,

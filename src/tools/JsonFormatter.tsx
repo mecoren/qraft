@@ -1159,7 +1159,16 @@ export function JsonFormatter({ toolId }: ToolProps) {
                       )}
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent align="end" className="w-96 p-0" data-testid="history-popover">
+                  <PopoverContent
+                    align="end"
+                    className="w-96 p-0"
+                    data-testid="history-popover"
+                    // 打开时阻止 FocusScope 默认聚焦首个 tabbable(「保存当前」按钮):
+                    // Radix Tooltip 对 focus 走即时打开路径(不施加 hover 延迟),
+                    // 焦点自动落上会出现「刚打开历史就弹出保存当前悬浮提示」的观感;
+                    // 焦点留在「历史」触发按钮,提示仅在真正悬浮按钮时出现
+                    onOpenAutoFocus={(event) => event.preventDefault()}
+                  >
                     <div className="flex items-center gap-1 border-b border-border px-3 py-2">
                       <span className="flex-1 text-xs font-semibold">
                         {t('tools.json_formatter.history_title')}

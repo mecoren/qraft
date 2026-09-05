@@ -224,6 +224,16 @@ describe('JsonFormatter', () => {
     expect(useJsonFormatterStore.getState().history).toHaveLength(0);
   });
 
+  it('opens history popover without auto-focusing save-current (no instant tooltip)', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.click(screen.getByTestId('btn-history'));
+    await screen.findByTestId('history-popover');
+    // Radix Tooltip 对 focus 走即时打开路径(不施加 hover 延迟):若 FocusScope
+    // 默认聚焦弹层首个 tabbable(保存当前按钮),其悬浮提示会在打开瞬间直接弹出
+    expect(screen.getByTestId('history-save-current')).not.toHaveFocus();
+    expect(screen.queryByText('把当前输入保存为一条历史记录')).not.toBeInTheDocument();
+  });
+
   it('shows a frontend parse error in the right-side output when the JSON is invalid', async () => {
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
     fireEvent.change(getInputEditor(), { target: { value: '{invalid}' } });
