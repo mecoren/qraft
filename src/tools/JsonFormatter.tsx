@@ -67,7 +67,13 @@ import {
 } from 'lucide-react';
 import type { ToolProps } from './registry';
 import type { OutputMeta, ToolOutput } from '@/types/tool';
-import { parseSmart, sortJsonKeysBy, type JsonKeySortMode } from './json-utils';
+import {
+  parseSmart,
+  sniffInputFormat,
+  sortJsonKeysBy,
+  type InputFormatId,
+  type JsonKeySortMode,
+} from './json-utils';
 import { ENTITY_LANGUAGE_ITEMS, generateEntityCode, type EntityLanguage } from './json-entity';
 import {
   DATA_FORMAT_ITEMS,
@@ -141,6 +147,26 @@ const DATA_OUTPUT_LANGUAGE: Record<DataFormatId, EditorLanguage> = {
   json5: 'javascript',
   properties: 'ini',
   urlparams: 'plaintext',
+};
+
+/** 输入格式 → 编辑器高亮语言(JSON 之外的六种输入自动转 JSON,就近映射同上) */
+const INPUT_LANGUAGE_MAP: Record<Exclude<InputFormatId, 'json'>, EditorLanguage> = {
+  xml: 'xml',
+  yaml: 'yaml',
+  toml: 'ini',
+  json5: 'javascript',
+  properties: 'ini',
+  urlparams: 'plaintext',
+};
+
+/** 输入格式 → 「已识别 XX」提示文案键(null = 无提示,JSON 自身不提示) */
+const INPUT_HINT_KEY: Record<Exclude<InputFormatId, 'json'>, string> = {
+  xml: 'tools.json_formatter.xml_hint',
+  yaml: 'tools.json_formatter.yaml_hint',
+  toml: 'tools.json_formatter.toml_hint',
+  json5: 'tools.json_formatter.json5_hint',
+  properties: 'tools.json_formatter.properties_hint',
+  urlparams: 'tools.json_formatter.urlparams_hint',
 };
 
 /** 排序菜单项定义(与 Json Assistant 风格一致的三组排序);label 存 i18n 键,渲染时经 t() 解析 */
@@ -368,7 +394,16 @@ export function JsonFormatter({ toolId }: ToolProps) {
   /** 待确认删除的历史条目 id(null = 关闭;受控单开,同时只允许一个确认框) */
   const [historyRemoveId, setHistoryRemoveId] = useState<string | null>(null);
 
-  const isXmlInput = useMemo(() => text.trim().startsWith('<'), [text]);
+  /**
+   * 嗅探输入格式:驱动输入编辑器高亮语言与「已识别 XX」提示。
+   * parseSmart 内部同样嗅探,此处单独 useMemo 只为展示层服务。
+   */
+  const inputFormat = useMemo(() => sniffInputFormat(text), [text]);
+  const inputLanguage: EditorLanguage = useMemo(() => {
+    if (!inputFormat || inputFormat === 'json') return 'json';
+    return INPUT_LANGUAGE_MAP[inputFormat];
+  }, [inputFormat]);
+  const formatHintKey = inputFormat && inputFormat !== 'json' ? INPUT_HINT_KEY[inputFormat] : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
@@ -983,7 +1018,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
         <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
           <CodeEditor
             title={t('tools.json_formatter.input_title')}
-            language={isXmlInput ? 'xml' : 'json'}
+            language={inputLanguage}
             value={text}
             onChange={setText}
             // 只保留右侧边框(朝向中间分隔缝),去掉外三边:外层卡片已提供
@@ -1317,10 +1352,8 @@ export function JsonFormatter({ toolId }: ToolProps) {
                     )}
                   </PopoverContent>
                 </Popover>
-                {isXmlInput && (
-                  <span className="text-xs text-muted-foreground">
-                    {t('tools.json_formatter.xml_hint')}
-                  </span>
+                {formatHintKey && (
+                  <span className="text-xs text-muted-foreground">{t(formatHintKey)}</span>
                 )}
               </>
             }

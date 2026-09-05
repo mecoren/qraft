@@ -5,8 +5,8 @@
 import { useDeferredValue, useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/ui/code-editor';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { downloadText } from '@/lib/file-utils';
 import { t as translate } from '@/i18n';
@@ -85,103 +85,136 @@ export function JsonArrayTable(_props: ToolProps): JSX.Element {
     }
   }, [deferredInput]);
 
+  /** 表格数据非空时的状态栏摘要(N 行 × M 列);空态由占位文案兜底 */
+  const summary = result.table
+    ? t('tools.json_array_table.table_summary', {
+        rows: result.table.rows.length,
+        cols: result.table.columns.length,
+      })
+    : null;
+
   return (
-    // 外层 shell 卡片(对齐 JsonFormatter 基准):左侧输入编辑器贴边成区,
-    // 右侧为带内边距的结果面板,表格卡片去阴影后浮于其中
+    // 外层 shell 卡片(对齐 JsonFormatter / QrcodeTool 基准):左右双栏收进同一卡片
     <div
-      className="grid h-full min-h-0 grid-cols-2 overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      className="flex h-full min-h-0 overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="json-array-table"
     >
-      <CodeEditor
-        title={t('tools.json_array_table.input_title')}
-        language="json"
-        value={input}
-        onChange={setInput}
-        placeholder='[{"name":"Alice","age":30},{"name":"Bob","age":25}]'
-        data-testid="jat-input"
-        // 只保留右侧边框(朝向右侧面板),外三边由外层 shell 卡片提供
-        className="min-h-0 rounded-none border-0 border-r"
-        searchAnchor="json_array_table:input"
-      />
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+          <CodeEditor
+            title={t('tools.json_array_table.input_title')}
+            language="json"
+            value={input}
+            onChange={setInput}
+            placeholder='[{"name":"Alice","age":30},{"name":"Bob","age":25}]'
+            data-testid="jat-input"
+            // 只保留右侧边框(朝向中间分隔缝),外三边由外层 shell 卡片提供
+            className="h-full rounded-none border-0 border-r"
+            searchAnchor="json_array_table:input"
+          />
+        </ResizablePanel>
 
-      <div className="flex min-h-0 flex-col gap-2 p-2" data-search-anchor="json_array_table:table">
-        <div className="flex items-center justify-between">
-          <h2 className="text-body-sm font-semibold">{t('tools.json_array_table.table_title')}</h2>
-          <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              data-testid="jat-csv"
-              disabled={!result.table || result.table.columns.length === 0}
-              onClick={() =>
-                result.table &&
-                downloadText('table.csv', tableToDelimited(result.table, ','), 'text/csv')
-              }
-            >
-              <Download aria-hidden className="size-3.5" /> CSV
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              data-testid="jat-tsv"
-              disabled={!result.table || result.table.columns.length === 0}
-              onClick={() =>
-                result.table &&
-                downloadText(
-                  'table.tsv',
-                  tableToDelimited(result.table, '\t'),
-                  'text/tab-separated-values',
-                )
-              }
-            >
-              <Download aria-hidden className="size-3.5" /> TSV
-            </Button>
-          </div>
-        </div>
+        <ResizableHandle withHandle />
 
-        <ScrollArea className="min-h-0 flex-1 rounded-md border border-border bg-card">
-          {result.error ? (
-            <p data-testid="jat-error" className="px-4 py-3 text-xs text-destructive">
-              {result.error}
-            </p>
-          ) : !result.table || result.table.columns.length === 0 ? (
-            <p className="px-4 py-3 text-xs text-muted-foreground">
-              {t('tools.json_array_table.empty_state')}
-            </p>
-          ) : (
-            <>
-              <table className="w-full border-collapse text-body-sm" data-testid="jat-table">
-                <thead className="sticky top-0 bg-secondary">
-                  <tr>
-                    {result.table.columns.map((c) => (
-                      <th
-                        key={c}
-                        className="border-b border-border px-3 py-2 text-left font-semibold"
-                      >
-                        {c}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.table.rows.map((row, i) => (
-                    // eslint-disable-next-line react-x/no-array-index-key -- 行无稳定业务主键,表格为只读展示
-                    <tr key={i} className="odd:bg-transparent even:bg-muted/40">
-                      {row.map((cell, j) => (
-                        // eslint-disable-next-line react-x/no-array-index-key -- 单元格随行重建
-                        <td key={j} className="border-b border-border px-3 py-1.5 align-top">
-                          {cell}
-                        </td>
+        <ResizablePanel defaultSize={50} minSize={20} className="min-h-0 min-w-0">
+          {/* 表格面板:与左侧编辑器同高同构的「编辑框」,边框对称(只留左侧朝向分隔缝) */}
+          <div
+            className="flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 border-l"
+            data-search-anchor="json_array_table:table"
+          >
+            {/* 标题栏:与 CodeEditor 标题栏同高(26px)、同排版,CSV/TSV 下载放动作区 */}
+            <div className="flex h-[26px] min-w-0 items-center justify-between gap-x-2 border-b border-input px-2">
+              <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground">
+                {t('tools.json_array_table.table_title')}
+              </span>
+              <span className="flex h-[26px] shrink-0 items-center gap-0.5">
+                <button
+                  type="button"
+                  data-testid="jat-csv"
+                  disabled={!result.table || result.table.columns.length === 0}
+                  onClick={() =>
+                    result.table &&
+                    downloadText('table.csv', tableToDelimited(result.table, ','), 'text/csv')
+                  }
+                  className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                >
+                  <Download aria-hidden className="size-3.5" /> CSV
+                </button>
+                <button
+                  type="button"
+                  data-testid="jat-tsv"
+                  disabled={!result.table || result.table.columns.length === 0}
+                  onClick={() =>
+                    result.table &&
+                    downloadText(
+                      'table.tsv',
+                      tableToDelimited(result.table, '\t'),
+                      'text/tab-separated-values',
+                    )
+                  }
+                  className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                >
+                  <Download aria-hidden className="size-3.5" /> TSV
+                </button>
+              </span>
+            </div>
+
+            <ScrollArea className="min-h-0 flex-1">
+              {result.error ? (
+                <p data-testid="jat-error" className="px-4 py-3 text-xs text-destructive">
+                  {result.error}
+                </p>
+              ) : !result.table || result.table.columns.length === 0 ? (
+                <p className="px-4 py-3 text-xs text-muted-foreground">
+                  {t('tools.json_array_table.empty_state')}
+                </p>
+              ) : (
+                <>
+                  <table className="w-full border-collapse text-body-sm" data-testid="jat-table">
+                    <thead className="sticky top-0 bg-secondary">
+                      <tr>
+                        {result.table.columns.map((c) => (
+                          <th
+                            key={c}
+                            className="border-b border-border px-3 py-2 text-left font-semibold"
+                          >
+                            {c}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.table.rows.map((row, i) => (
+                        // eslint-disable-next-line react-x/no-array-index-key -- 行无稳定业务主键,表格为只读展示
+                        <tr key={i} className="odd:bg-transparent even:bg-muted/40">
+                          {row.map((cell, j) => (
+                            // eslint-disable-next-line react-x/no-array-index-key -- 单元格随行重建
+                            <td key={j} className="border-b border-border px-3 py-1.5 align-top">
+                              {cell}
+                            </td>
+                          ))}
+                        </tr>
                       ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <ScrollBar orientation="horizontal" />
-            </>
-          )}
-        </ScrollArea>
-      </div>
+                    </tbody>
+                  </table>
+                  <ScrollBar orientation="horizontal" />
+                </>
+              )}
+            </ScrollArea>
+
+            {/* 底部状态栏:与 CodeEditor 状态栏同构(border-t + py-0.5 + text-xs),展示行×列 */}
+            {summary && (
+              <div
+                data-testid="jat-status"
+                className="flex items-center justify-between gap-1 border-t border-input px-2 py-0.5 text-xs tabular-nums text-muted-foreground"
+              >
+                <span className="flex min-w-0 items-center gap-2" />
+                <span className="flex items-center gap-2">{summary}</span>
+              </div>
+            )}
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }

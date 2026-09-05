@@ -304,6 +304,53 @@ describe('JsonFormatter', () => {
     });
   });
 
+  it('auto-formats YAML input to JSON after input changes', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: 'name: qraft\ncount: 3' } });
+
+    await waitFor(() => {
+      expect(getOutputValue()).toBe('{\n  "name": "qraft",\n  "count": 3\n}');
+    });
+  });
+
+  it('auto-formats TOML input to JSON after input changes', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), {
+      target: { value: 'title = "demo"\n[owner]\nname = "qraft"' },
+    });
+
+    await waitFor(() => {
+      expect(getOutputValue()).toContain('"title": "demo"');
+      expect(getOutputValue()).toContain('"owner": {\n    "name": "qraft"\n  }');
+    });
+  });
+
+  it('auto-formats Properties and URL params input to JSON for quick actions', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), {
+      target: { value: 'db.host=localhost\ndb.port=5432' },
+    });
+    fireEvent.click(screen.getByTestId('btn-minify'));
+    await waitFor(() => {
+      expect(getOutputValue()).toBe('{"db":{"host":"localhost","port":"5432"}}');
+    });
+
+    fireEvent.change(getInputEditor(), { target: { value: 'page=1&q=hello' } });
+    fireEvent.click(screen.getByTestId('btn-minify'));
+    await waitFor(() => {
+      expect(getOutputValue()).toBe('{"page":"1","q":"hello"}');
+    });
+  });
+
+  it('auto-formats JSON5 input (unquoted keys) to JSON', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: '{ a: 1, b: [1, 2,], }' } });
+
+    await waitFor(() => {
+      expect(getOutputValue()).toBe('{\n  "a": 1,\n  "b": [\n    1,\n    2\n  ]\n}');
+    });
+  });
+
   it('shows a frontend parse error in the right-side output when quick action input is invalid', async () => {
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
     fireEvent.change(getInputEditor(), { target: { value: '{bad json}' } });

@@ -2,5 +2,6 @@
   "tools.json_array_table.not_array": "输入必须是 JSON 数组",
   "tools.json_array_table.input_title": "JSON 数组",
   "tools.json_array_table.table_title": "表格",
-  "tools.json_array_table.empty_state": "输入 JSON 对象数组后自动生成表格"
+  "tools.json_array_table.empty_state": "输入 JSON 对象数组后自动生成表格",
+  "tools.json_array_table.table_summary": "{{rows}} 行 × {{cols}} 列"
 }

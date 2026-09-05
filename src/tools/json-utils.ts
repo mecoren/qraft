@@ -16,6 +16,13 @@
  * - random         随机(洗牌)
  */
 import { t } from '@/i18n';
+import {
+  json5ToJson,
+  propertiesToJson,
+  tomlToJson,
+  urlParamsToJson,
+  yamlToJson,
+} from './parse-any-format';
 
 export type JsonKeySortMode =
   'alpha' | 'alpha-insensitive' | 'natural' | 'length' | 'hex' | 'reverse' | 'random';
@@ -233,9 +240,117 @@ export function generateTsInterface(value: unknown, rootName = 'Root'): string {
   return interfaces.join('\n\n');
 }
 
-/** 智能解析:输入以 < 开头视为 XML(自动转 JSON),否则按 JSON 解析。 */
+/**
+ * 输入格式的运行时标识(parseSmart 嗅探结果 / JsonFormatter 输入语言高亮)。
+ * 与 DataFormatId(json-formats 输出方向)互为镜像,额外含 json 自身。
+ */
+export type InputFormatId = 'json' | 'xml' | 'yaml' | 'toml' | 'json5' | 'properties' | 'urlparams';
+
+/**
+ * 嗅探输入文本的数据格式(轻量启发,仅看结构特征,不做完整解析)。
+ * 判定规则保守:特征不明确时返回 null(按 JSON 处理),宁可解析失败报错
+ * 也不把破损 JSON 误判成别的格式静默吞掉。
+ * - XML:以 `<` 开头
+ * - URL 参数:以 `?`/`#` 开头,或无空白且含未转义 `=`/`&` 的 k=v 串
+ * - Properties:无 JSON/YAML 结构字符({}[]<>、序列符 `- `、文档符 ---),
+ *   至少一行含未转义 `=`,且每行有 `=`/`:` 分隔(仅 `:` 分隔的文本视作
+ *   YAML 而非 properties:两者文本同形,YAML 的标量类型推断更符合直觉)
+ * - TOML:非空行(忽略注释)全部为 `[table]` / `[[table]]` 头或含未转义
+ *   `=` 的键值对,且不含 {} 结构符
+ * - YAML / JSON5:无可靠结构特征,由 parseSmart 在 JSON 解析失败后回退尝试
+ */
+export function sniffInputFormat(text: string): InputFormatId | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('<')) return 'xml';
+
+  // URL 参数:前导 ?/#,或单行无空白 k=v(含 &)
+  if (/^[?#]/.test(trimmed)) return 'urlparams';
+  if (!/\s/.test(trimmed) && /=|&/.test(trimmed) && !/^[[{]/.test(trimmed)) return 'urlparams';
+
+  // 含 JSON / flow-YAML 结构特征的内容不进入 Properties / TOML 判定:
+  // {} 结构符、文档符 ---/...、YAML 锚点/引用/标签(&x *x !x 需为空格后首词)
+  if (/[{}]|^(---|\.\.\.)|[&*!]\S* /m.test(trimmed)) return null;
+
+  // 按行分析(Properties / TOML 判定共用);去掉注释与空行
+  const lines = trimmed
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !l.startsWith('#') && !l.startsWith('!'));
+  if (lines.length === 0) return null;
+  // YAML 序列行(- 开头)不属于 Properties / TOML
+  if (lines.some((l) => l.startsWith('- ') || l === '-')) return null;
+
+  const isTableHeader = (l: string): boolean => l.startsWith('[') && /^\[\[.+\]\]$|^\[.+\]$/.test(l);
+  const hasUnescapedEq = (l: string): boolean => /(?<![\\])=/.test(l);
+  const hasUnescapedColon = (l: string): boolean => /(?<![\\]):/.test(l);
+  /** TOML 惯例键值行:`key = value`(= 两侧留空;properties 惯例为紧贴 `k=v`) */
+  const hasSpacedEq = (l: string): boolean => /(?<![\\\s]) = /.test(l);
+
+  const hasTableHeader = lines.some(isTableHeader);
+  const hasTomlKv = lines.some(hasSpacedEq);
+  // TOML:出现 [table] 头或 ` = ` 键值行,且每行都是头/键值对(未转义 =)
+  if (hasTableHeader || hasTomlKv) {
+    const isToml = lines.every((l) => isTableHeader(l) || hasUnescapedEq(l));
+    return isToml ? 'toml' : null;
+  }
+
+  // Properties:每行都有未转义 = / : / 空白分隔,且至少一行含 =
+  // (仅 `:` 分隔的文本视作 YAML:两者同形时 YAML 的类型推断更符合直觉)
+  const everyHasSeparator = lines.every(
+    (l) => hasUnescapedEq(l) || hasUnescapedColon(l) || /(?<![\\])[ \t]/.test(l),
+  );
+  if (everyHasSeparator && lines.some(hasUnescapedEq)) return 'properties';
+
+  return null;
+}
+
+/**
+ * 智能解析:任意支持格式(XML / YAML / TOML / JSON5 / Properties / URL 参数)
+ * 输入自动转为 JSON 值;无法嗅探的按 JSON 解析(JSON.parse 失败再回退
+ * YAML / JSON5,覆盖两者无结构特征的常规写法)。
+ * 解析失败抛出 SyntaxError / ParseFormatError,由调用方把错误写入输出框。
+ */
 export function parseSmart(text: string): unknown {
   const trimmed = text.trim();
-  if (trimmed.startsWith('<')) return xmlToJson(trimmed);
-  return JSON.parse(trimmed);
+  if (!trimmed) throw new SyntaxError('Unexpected end of JSON input');
+  const sniffed = sniffInputFormat(trimmed);
+  switch (sniffed) {
+    case 'xml':
+      return xmlToJson(trimmed);
+    case 'urlparams':
+      return urlParamsToJson(trimmed);
+    case 'properties':
+      return propertiesToJson(trimmed);
+    case 'toml':
+      return tomlToJson(trimmed);
+    default:
+      break;
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch (jsonError) {
+    // YAML / JSON5 无可靠结构特征,仅当 JSON 解析失败时回退:
+    // - 以 { / [ 开头(类 JSON 轮廓):破损 JSON 与 JSON5 同形,回退 JSON5;
+    //   不再走 YAML(其流式语法过宽,会把 {bad json} 静默吞成映射)
+    // - 其余:先 YAML(常规粘贴),再 JSON5
+    // 两者都失败时如实抛出原始 JSON 错误(用户最可能的意图仍是 JSON)
+    if (/^[[{]/.test(trimmed)) {
+      try {
+        return json5ToJson(trimmed);
+      } catch {
+        throw jsonError;
+      }
+    }
+    try {
+      return yamlToJson(trimmed);
+    } catch {
+      try {
+        return json5ToJson(trimmed);
+      } catch {
+        throw jsonError;
+      }
+    }
+  }
 }

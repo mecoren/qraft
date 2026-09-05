@@ -226,10 +226,26 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     id: 'json_formatter',
     name: 'JSON 格式化器',
     description:
-      '格式化、压缩、排序 JSON,生成 TypeScript 实体类,JSONPath 查询,并支持 XML 自动转 JSON',
+      '格式化、压缩、排序 JSON,生成 TypeScript 实体类,JSONPath 查询;输入支持 JSON / XML / YAML / TOML / JSON5 / Properties / URL 参数自动转换为 JSON',
     category: 'formatter',
     icon: Braces,
-    keywords: ['json', 'format', 'beautify', 'minify', '排序', '实体类', 'jsonpath', '查询', 'xml'],
+    keywords: [
+      'json',
+      'format',
+      'beautify',
+      'minify',
+      '排序',
+      '实体类',
+      'jsonpath',
+      '查询',
+      'xml',
+      'yaml',
+      'yml',
+      'toml',
+      'json5',
+      'properties',
+      'url 参数',
+    ],
     backendId: 'json_formatter',
   },
   // 原 json_minifier 槽位已改造为纯前端文本处理工具(详见 TextProcessor.tsx)。
@@ -487,14 +503,6 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     keywords: ['number', 'base', '进制', '二进制', '十六进制'],
   },
   {
-    id: 'json_yaml_converter',
-    name: 'JSON <> YAML 转换工具',
-    description: 'JSON 和 YAML 数据格式互相转换',
-    category: 'converter',
-    icon: ArrowLeftRight,
-    keywords: ['json', 'yaml', 'yml', '转换'],
-  },
-  {
     id: 'json_array_table',
     name: 'JSON 数组到表格',
     description: '将 JSON 数组转换为表格,导出至 CSV 或 TSV 格式。',
@@ -562,7 +570,7 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
   json_formatter: {
     name: 'JSON Formatter',
     description:
-      'Format, minify and sort JSON, generate TypeScript entities, run JSONPath queries, with automatic XML → JSON conversion',
+      'Format, minify and sort JSON, generate TypeScript entities, run JSONPath queries; input supports JSON / XML / YAML / TOML / JSON5 / Properties / URL params with automatic conversion to JSON',
   },
   json_minifier: {
     name: 'Text Utilities',
@@ -642,10 +650,6 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
   number_base_converter: {
     name: 'Number Base Converter',
     description: 'Convert numbers between different bases',
-  },
-  json_yaml_converter: {
-    name: 'JSON <> YAML Converter',
-    description: 'Convert between JSON and YAML',
   },
   json_array_table: {
     name: 'JSON Array to Table',

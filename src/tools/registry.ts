@@ -100,9 +100,6 @@ registerTool('number_base_converter', () =>
 );
 registerTool('cron_parser', () => import('./CronParser').then((m) => ({ default: m.CronParser })));
 registerTool('ip_parser', () => import('./IpParser').then((m) => ({ default: m.IpParser })));
-registerTool('json_yaml_converter', () =>
-  import('./JsonYamlConverter').then((m) => ({ default: m.JsonYamlConverter })),
-);
 registerTool('json_array_table', () =>
   import('./JsonArrayTable').then((m) => ({ default: m.JsonArrayTable })),
 );

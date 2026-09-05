@@ -2,5 +2,6 @@
   "tools.json_array_table.not_array": "Input must be a JSON array",
   "tools.json_array_table.input_title": "JSON array",
   "tools.json_array_table.table_title": "Table",
-  "tools.json_array_table.empty_state": "Paste a JSON array of objects to build the table automatically"
+  "tools.json_array_table.empty_state": "Paste a JSON array of objects to build the table automatically",
+  "tools.json_array_table.table_summary": "{{rows}} rows × {{cols}} columns"
 }

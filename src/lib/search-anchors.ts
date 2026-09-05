@@ -651,26 +651,6 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       keywords: ['二进制', '八进制', '十进制', '十六进制', '结果'],
     },
   ],
-  json_yaml_converter: [
-    {
-      key: 'config',
-      title: { zh: '转换选项', en: 'Convert options' },
-      description: { zh: '方向与缩进', en: 'Direction and indent' },
-      keywords: ['方向', '缩进', 'json', 'yaml'],
-    },
-    {
-      key: 'input',
-      title: T_INPUT,
-      description: { zh: 'JSON / YAML', en: 'JSON / YAML' },
-      keywords: ['输入'],
-    },
-    {
-      key: 'output',
-      title: T_OUTPUT,
-      description: { zh: 'YAML / JSON', en: 'YAML / JSON' },
-      keywords: ['结果'],
-    },
-  ],
   json_array_table: [
     {
       key: 'input',
