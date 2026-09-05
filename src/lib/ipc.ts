@@ -37,6 +37,25 @@ const INTERNAL_ERROR: ErrorInfo = {
   code: 'ERR_INTERNAL',
   message: 'Unexpected IPC response',
 };
+
+/**
+ * 从 detail 提取最内层字符串消息。
+ *
+ * `AppError::Tool` 序列化为 `{ kind, detail: <ToolError> }`,而 ToolError 自身
+ * 又是 `#[serde(tag = "kind", content = "detail")]` 形态,真实消息位于嵌套对象
+ * 的 `detail` 字符串里(如 `{ kind: "invalid_input", detail: "…" }`);结构化
+ * 载荷(如 InputTooLarge 的 `{ size, max }`)提取不到字符串时返回 undefined。
+ */
+function extractDetailMessage(value: unknown, depth = 0): string | undefined {
+  if (typeof value === 'string') return value || undefined;
+  if (typeof value === 'object' && value !== null && depth < 4) {
+    const obj = value as Record<string, unknown>;
+    const message = typeof obj.message === 'string' && obj.message ? obj.message : undefined;
+    return message ?? extractDetailMessage(obj.detail, depth + 1);
+  }
+  return undefined;
+}
+
 /**
  * 归一化 Tauri 命令的 reject 载荷为 ErrorInfo。
  *
@@ -46,7 +65,8 @@ const INTERNAL_ERROR: ErrorInfo = {
  * 若不映射,上层会拿到 `[object Object]` 消息且错误码丢失(恒为
  * ERR_INTERNAL)。这里做与 unwrapResponse 同构的归一化:
  * - Error 实例 → 保留 message(插件/网络层异常)
- * - `{ kind | code, detail | details, message? }` → 还原错误码与消息
+ * - `{ kind | code, detail | details, message? }` → 还原错误码与消息;
+ *   detail 为嵌套 `{ kind, detail }` 对象时递归取最内层字符串(Tool 错误)
  * - 字符串 → 直接作为消息;其余原样字符串化兜底
  */
 export function normalizeIpcError(e: unknown): ErrorInfo {
@@ -64,10 +84,7 @@ export function normalizeIpcError(e: unknown): ErrorInfo {
     const rawMessage = typeof obj.message === 'string' && obj.message ? obj.message : undefined;
     return {
       code: kind ?? code ?? INTERNAL_ERROR.code,
-      message:
-        rawMessage ??
-        (typeof detail === 'string' && detail ? detail : undefined) ??
-        INTERNAL_ERROR.message,
+      message: rawMessage ?? extractDetailMessage(detail) ?? INTERNAL_ERROR.message,
       ...(detail !== undefined ? { details: detail } : {}),
     };
   }

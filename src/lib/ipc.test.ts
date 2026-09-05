@@ -105,6 +105,39 @@ describe('safeInvoke', () => {
     }
   });
 
+  it('unwraps nested ToolError detail object in rejection payload', async () => {
+    // AppError::Tool 序列化为 { kind, detail: <ToolError> },而 ToolError 自身
+    // 又是 { kind, detail } tag/content 形态 —— 真实消息在最内层 detail 字符串里
+    invokeMock.mockRejectedValueOnce({
+      kind: 'ERR_INVALID_INPUT',
+      detail: {
+        kind: 'invalid_input',
+        detail: "from_format must be 'hex', 'rgb' or 'hsl', got 'auto'",
+      },
+    });
+    const r = await safeInvoke<unknown>('tool_execute');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.code).toBe('ERR_INVALID_INPUT');
+      expect(r.error.message).toBe("from_format must be 'hex', 'rgb' or 'hsl', got 'auto'");
+      expect(r.error.message).not.toBe('Unexpected IPC response');
+    }
+  });
+
+  it('nested detail without string payload still falls back to internal message', async () => {
+    // InputTooLarge 的 detail 是 { size, max } 结构对象,无字符串可提取
+    invokeMock.mockRejectedValueOnce({
+      kind: 'ERR_INPUT_TOO_LARGE',
+      detail: { kind: 'input_too_large', detail: { size: 300, max: 256 } },
+    });
+    const r = await safeInvoke<unknown>('tool_execute');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.code).toBe('ERR_INPUT_TOO_LARGE');
+      expect(r.error.message).toBe('Unexpected IPC response');
+    }
+  });
+
   it('prefers explicit message over string detail in rejection payload', async () => {
     invokeMock.mockRejectedValueOnce({
       kind: 'ERR_CONFIG_IO',
