@@ -109,6 +109,26 @@ describe('MarkdownPreview', () => {
     );
   });
 
+  it('首次使用时系统打开 .md:注入文档挂载后不被示例文档覆盖', async () => {
+    // 模拟 App 层系统打开(拖入/文件关联):组件挂载 hydrate 之前注入文档
+    act(() => {
+      useMdDocsStore.getState().openDocFromSystem('# Dropped Doc\n\n来自拖入的内容');
+    });
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForHydrate();
+
+    const s = useMdDocsStore.getState();
+    // 注入文档保留且激活(不被 firstUse 示例文档顶掉)
+    const doc = s.docs.find((d) => d.content === '# Dropped Doc\n\n来自拖入的内容');
+    expect(doc).toBeDefined();
+    expect(s.activeDocId).toBe(doc?.id);
+    expect(s.docs.some((d) => d.content.includes('Qraft Markdown 预览'))).toBe(false);
+    // 预览渲染注入内容
+    await waitFor(() =>
+      expect(screen.getByTestId('md-preview').textContent).toContain('Dropped Doc'),
+    );
+  });
+
   it('输入更新当前文档内容(不再写 localStorage 草稿)', async () => {
     render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
     await waitForHydrate();

@@ -12,6 +12,9 @@ import { useToolStateStore } from '@/store/toolStateStore';
 import { useUiStore } from '@/store/uiStore';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
 import { DEFAULT_WORKSPACE } from '@/tools/code-editor-workspace/schema';
+import { useMdDocsStore } from '@/tools/markdownPreviewDocsStore';
+import { useMarkdownPreviewStore } from '@/tools/markdownPreviewStore';
+import { usePdfDocsStore } from '@/tools/pdf/pdfDocsStore';
 
 const invokeMock = invoke as unknown as ReturnType<typeof vi.fn>;
 const listenMock = listen as unknown as ReturnType<typeof vi.fn>;
@@ -79,6 +82,17 @@ beforeEach(() => {
     userTouched: false,
     error: null,
   });
+  // Markdown 文档工作区同为全局单例,复位避免跨用例泄漏
+  useMdDocsStore.setState({
+    docs: [],
+    activeDocId: null,
+    ready: true,
+    userTouched: false,
+    firstUse: false,
+    error: null,
+  });
+  // PDF 文档工作区同为全局单例,复位避免跨用例泄漏
+  usePdfDocsStore.setState({ docs: [], activeDocId: null });
 });
 
 describe('App', () => {
@@ -236,5 +250,230 @@ describe('App', () => {
       .workspace.tabs.find((t) => t.path === 'C:\\docs\\gbk.txt');
     expect(tab?.content).toBe('你好');
     expect(tab?.encoding).toBe('gb18030');
+  });
+
+  it('打开 .md 文件(文件关联/命令行):自动切到 Markdown 预览工具并注入文档', async () => {
+    const handlers = await renderAndCaptureEvents(['app:open-file']);
+    // 视图偏好停在「仅编辑」:注入后应被切回分屏(自动打开预览)
+    useMarkdownPreviewStore.setState({ viewMode: 'edit' });
+    await act(async () => {
+      // 文件关联/命令行入口无 dropPosition
+      handlers['app:open-file']({
+        path: 'C:\\docs\\README.md',
+        content: '# 标题\n\n正文',
+        encoding: 'utf-8',
+      });
+    });
+    // 切到 markdown_preview 工具且文档已注入激活
+    expect(useToolStateStore.getState().currentToolId).toBe('markdown_preview');
+    const md = useMdDocsStore.getState();
+    const doc = md.docs.find((d) => d.content === '# 标题\n\n正文');
+    expect(doc).toBeDefined();
+    expect(md.activeDocId).toBe(doc?.id);
+    // 自动开启预览:上次偏好为「仅编辑」时切回分屏
+    expect(useMarkdownPreviewStore.getState().viewMode).not.toBe('edit');
+    // 不进入文本编辑器工作区
+    expect(useEditorWorkspaceStore.getState().workspace.tabs).toHaveLength(0);
+  });
+
+  it('拖入 .md 到编辑框外的区域:同样切到 Markdown 预览工具打开', async () => {
+    const handlers = await renderAndCaptureEvents(['app:open-file']);
+    await act(async () => {
+      handlers['app:open-file']({
+        path: '/home/user/notes.md',
+        content: '拖到窗口空白处',
+        dropPosition: { x: 300, y: 500 },
+      });
+    });
+    expect(useToolStateStore.getState().currentToolId).toBe('markdown_preview');
+    const md = useMdDocsStore.getState();
+    expect(md.docs.some((d) => d.content === '拖到窗口空白处')).toBe(true);
+    expect(useEditorWorkspaceStore.getState().workspace.tabs).toHaveLength(0);
+  });
+
+  it('拖入 .md 直接落在文本编辑器的编辑框内:维持编辑器打开,不分流到 Markdown 预览', async () => {
+    const handlers = await renderAndCaptureEvents(['app:open-file']);
+    // 模拟落点命中 Monaco 编辑区:jsdom 无 elementFromPoint,这里定义
+    // 一个桩,返回位于 .monaco-editor 根节点内的元素(还原删除标记)
+    const editorRoot = document.createElement('div');
+    editorRoot.className = 'monaco-editor';
+    const child = editorRoot.appendChild(document.createElement('textarea'));
+    const original = document.elementFromPoint;
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: () => child,
+    });
+    try {
+      await act(async () => {
+        handlers['app:open-file']({
+          path: '/home/user/notes.md',
+          content: '直接拖进编辑框',
+          dropPosition: { x: 300, y: 500 },
+        });
+      });
+    } finally {
+      if (original) {
+        Object.defineProperty(document, 'elementFromPoint', {
+          configurable: true,
+          value: original,
+        });
+      } else {
+        delete (document as { elementFromPoint?: unknown }).elementFromPoint;
+      }
+    }
+    // 停留在文本编辑器工具,文件 Tab 正常打开
+    expect(useToolStateStore.getState().currentToolId).toBe('text_editor');
+    const tab = useEditorWorkspaceStore
+      .getState()
+      .workspace.tabs.find((t) => t.path === '/home/user/notes.md');
+    expect(tab?.content).toBe('直接拖进编辑框');
+    // Markdown 工具未收到注入
+    expect(useMdDocsStore.getState().docs).toHaveLength(0);
+  });
+
+  it('打开/拖入 .pdf:自动切到 PDF 工具并注入文档(Rust 经 Pdf 变体分流)', async () => {
+    const handlers = await renderAndCaptureEvents(['app:open-file-unsupported']);
+    // fs_read_pdf mock:返回 base64 字节载荷
+    invokeMock.mockImplementation((cmd: string, args: Record<string, unknown>) => {
+      if (cmd === 'fs_read_pdf') {
+        expect(args.path).toBe('C:\\docs\\表单.pdf');
+        return Promise.resolve({
+          success: true,
+          data: { path: 'C:\\docs\\表单.pdf', size: 4, base64: 'JVBERj==' },
+        });
+      }
+      return Promise.resolve({ success: true, data: null });
+    });
+
+    // Rust 端 .pdf 分流载荷:{ kind: 'pdf', path }
+    await act(async () => {
+      handlers['app:open-file-unsupported']({ kind: 'pdf', path: 'C:\\docs\\表单.pdf' });
+    });
+    await act(async () => {});
+
+    // 切到 pdf_editor 工具且文档 Tab 已注入激活
+    expect(useToolStateStore.getState().currentToolId).toBe('pdf_editor');
+    const pdf = usePdfDocsStore.getState();
+    expect(pdf.docs).toHaveLength(1);
+    expect(pdf.docs[0].path).toBe('C:\\docs\\表单.pdf');
+    expect(pdf.docs[0].base64).toBe('JVBERj==');
+    expect(pdf.activeDocId).toBe(pdf.docs[0].id);
+    // 不进入文本编辑器工作区
+    expect(useEditorWorkspaceStore.getState().workspace.tabs).toHaveLength(0);
+  });
+
+  it('pdf 超过大小上限:留在原视图并 toast 报错(fs_read_pdf 拒绝)', async () => {
+    const handlers = await renderAndCaptureEvents(['app:open-file-unsupported']);
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === 'fs_read_pdf') {
+        return Promise.resolve({
+          success: false,
+          error: {
+            code: 'ERR_FILE_TOO_LARGE',
+            message: 'PDF too large',
+            details: { size: 26214400, max: 20971520 },
+          },
+        });
+      }
+      return Promise.resolve({ success: true, data: null });
+    });
+
+    await act(async () => {
+      handlers['app:open-file-unsupported']({ kind: 'pdf', path: 'C:\\huge\\big.pdf' });
+    });
+    await act(async () => {});
+
+    // 工具已切换(pdf_editor),但读取失败:无 Tab 注入,toast 提示文件过大
+    // (带具体大小与上限的本地化文案,而非通用「打开失败」)
+    expect(useToolStateStore.getState().currentToolId).toBe('pdf_editor');
+    expect(usePdfDocsStore.getState().docs).toHaveLength(0);
+    expect(screen.getByText(/PDF 过大/)).toBeInTheDocument();
+    expect(screen.getByText(/25\.0 MB/)).toBeInTheDocument();
+    expect(screen.getByText(/20\.0 MB/)).toBeInTheDocument();
+  });
+
+  /** elementFromPoint 桩:命中(inside=true)返回 .monaco-editor 内的元素 */
+  function stubElementFromPoint(inside: boolean): () => void {
+    const editorRoot = document.createElement('div');
+    editorRoot.className = 'monaco-editor';
+    const child = editorRoot.appendChild(document.createElement('textarea'));
+    const original = document.elementFromPoint;
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: () => (inside ? child : document.createElement('div')),
+    });
+    return () => {
+      if (original) {
+        Object.defineProperty(document, 'elementFromPoint', {
+          configurable: true,
+          value: original,
+        });
+      } else {
+        delete (document as { elementFromPoint?: unknown }).elementFromPoint;
+      }
+    };
+  }
+
+  it('拖入 .pdf 落点在编辑框外:落点坐标不豁免,仍切到 PDF 工具打开', async () => {
+    const handlers = await renderAndCaptureEvents(['app:open-file-unsupported']);
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === 'fs_read_pdf') {
+        return Promise.resolve({
+          success: true,
+          data: { path: '/home/user/合同.pdf', size: 4, base64: 'JVBERj==' },
+        });
+      }
+      return Promise.resolve({ success: true, data: null });
+    });
+    const restore = stubElementFromPoint(false);
+    try {
+      await act(async () => {
+        // Rust 端拖放入口:Pdf 载荷附带落点坐标,但落点不在 Monaco 编辑框内
+        handlers['app:open-file-unsupported']({
+          kind: 'pdf',
+          path: '/home/user/合同.pdf',
+          dropPosition: { x: 300, y: 500 },
+        });
+      });
+      await act(async () => {});
+    } finally {
+      restore();
+    }
+    // 编辑框外:维持 PDF 工具分流
+    expect(useToolStateStore.getState().currentToolId).toBe('pdf_editor');
+    expect(usePdfDocsStore.getState().docs).toHaveLength(1);
+    expect(usePdfDocsStore.getState().docs[0].path).toBe('/home/user/合同.pdf');
+  });
+
+  it('拖入 .pdf 直接落在文本编辑器的编辑框内:豁免 PDF 分流,回退编辑器二进制提示', async () => {
+    const handlers = await renderAndCaptureEvents(['app:open-file-unsupported']);
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === 'fs_read_pdf') {
+        throw new Error('fs_read_pdf should not be called for editor-box drops');
+      }
+      return Promise.resolve({ success: true, data: null });
+    });
+    const restore = stubElementFromPoint(true);
+    try {
+      await act(async () => {
+        // Rust 端拖放入口:Pdf 载荷附带的落点命中 Monaco 编辑区
+        handlers['app:open-file-unsupported']({
+          kind: 'pdf',
+          path: '/home/user/合同.pdf',
+          dropPosition: { x: 300, y: 500 },
+        });
+      });
+    } finally {
+      restore();
+    }
+    // 不切到 PDF 工具、不读取字节、不注入 PDF 工作区
+    expect(useToolStateStore.getState().currentToolId).not.toBe('pdf_editor');
+    expect(usePdfDocsStore.getState().docs).toHaveLength(0);
+    // 回退编辑器对二进制文件的既有提示路径:toast + 「仍要打开」动作
+    const openAnyway = await screen.findByRole('button', { name: '仍要打开' });
+    expect(
+      screen.getByText(/无法在编辑器中打开「合同\.pdf」/),
+    ).toBeInTheDocument();
+    openAnyway.click();
   });
 });

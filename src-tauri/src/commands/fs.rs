@@ -817,6 +817,106 @@ pub async fn fs_write_file_encoded(
     fs_write_file_encoded_inner(&path, &content, &encoding, &authorized).await
 }
 
+/// PDF 文件大小上限(字节):PDF 视图按 base64 全量过 IPC,
+/// 与文本编辑器 20MB 对齐,超过则提示用户(二进制视图另议)。
+pub const PDF_FILE_MAX_BYTES: u64 = 20 * 1024 * 1024;
+
+/// PDF 文件读取结果(`fs_read_pdf` / `fs_open_pdf_dialog` 返回)
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfFileContent {
+    pub path: String,
+    /// 文件字节数
+    pub size: u64,
+    /// 文件内容(UTF-8 无填充 base64)
+    pub base64: String,
+}
+
+/// 读取 PDF 文件为 base64(必须在授权范围内)
+///
+/// PDF 工具按需读取整文件字节(渲染 + 表单 + 编辑共用);
+/// 大小超过 `PDF_FILE_MAX_BYTES` 时返回 `AppError::FileTooLarge`。
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件不存在/读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+/// - 文件超过 PDF 大小上限时返回 `AppError::FileTooLarge`(`ERR_FILE_TOO_LARGE`)
+#[tauri::command]
+pub async fn fs_read_pdf(
+    path: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<PdfFileContent>, AppError> {
+    validate_path(&path, &authorized)?;
+    let bytes = tokio::fs::read(&path).await.map_err(AppError::from)?;
+    let size = bytes.len() as u64;
+    if size > PDF_FILE_MAX_BYTES {
+        return Err(AppError::FileTooLarge {
+            size,
+            max: PDF_FILE_MAX_BYTES,
+        });
+    }
+    let base64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+    Ok(CommandResponse::ok(PdfFileContent {
+        path,
+        size,
+        base64,
+    }))
+}
+
+/// 以 base64 覆盖写入已授权路径(PDF 等二进制工作区的「保存」)
+///
+/// 与 `fs_write_file`(文本)对齐:必须在 `authorized` 集合中。
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - base64 解码失败或写入失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+#[tauri::command]
+pub async fn fs_save_bytes_to_path(
+    path: String,
+    base64: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<bool>, AppError> {
+    validate_path(&path, &authorized)?;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(base64.as_bytes())
+        .map_err(|e| AppError::Io(std::io::Error::other(format!("base64 decode: {e}"))))?;
+    save_bytes_to_path(&path, &bytes).await?;
+    Ok(CommandResponse::ok(true))
+}
+
+/// 弹出「打开 PDF」对话框:选择文件、授权并读取为 base64
+///
+/// 用户取消时返回 `Ok(CommandResponse::ok(None))`。
+///
+/// # Errors
+///
+/// - 所选文件超过 PDF 大小上限时返回 `AppError::FileTooLarge`(`ERR_FILE_TOO_LARGE`)
+/// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+#[tauri::command]
+pub async fn fs_open_pdf_dialog(
+    app: tauri::AppHandle,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<Option<PdfFileContent>>, AppError> {
+    let Some(path) = app
+        .dialog()
+        .file()
+        .set_title("打开 PDF 文件")
+        .add_filter("PDF 文档", &["pdf"])
+        .blocking_pick_file()
+    else {
+        return Ok(CommandResponse::ok(None));
+    };
+    let path_buf = path
+        .into_path()
+        .map_err(|e| AppError::Unknown(format!("open path invalid: {e}")))?;
+    let path_str = path_buf.to_string_lossy().into_owned();
+    authorized.authorize(&path_str);
+    let content = fs_read_pdf(path_str, authorized).await?.data;
+    Ok(CommandResponse::ok(content))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

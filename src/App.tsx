@@ -22,8 +22,10 @@ import { useSearchJump } from '@/hooks/useSearchJump';
 import { clearInputAction, copyOutputAction, executeToolAction } from '@/lib/tool-actions';
 import { readClipboardText } from '@/lib/clipboard';
 import { detectClipboardTools } from '@/lib/clipboard-detect';
-import { listen } from '@/lib/ipc';
+import { listen, CommandError } from '@/lib/ipc';
+import { formatBytes } from '@/lib/file-utils';
 import { cn } from '@/lib/utils';
+import { isMarkdownPath, isPdfPath, isDropInsideEditorBox } from '@/lib/open-file-routing';
 import {
   forceOpenFile,
   pullPendingOpenFiles,
@@ -32,6 +34,10 @@ import {
 } from '@/tools/code-editor-workspace/fileOps';
 import { fileNameFromPath } from '@/tools/code-editor-workspace/languageMap';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
+import { useMdDocsStore } from '@/tools/markdownPreviewDocsStore';
+import { useMarkdownPreviewStore } from '@/tools/markdownPreviewStore';
+import { usePdfDocsStore } from '@/tools/pdf/pdfDocsStore';
+import { readPdfFile } from '@/tools/pdf/pdfOps';
 import { getPopoutToolIdFromLabel, rehydrateToolStateFromPopout } from '@/lib/popout-sync';
 import {
   cycleNamingCaseShortcutHandler,
@@ -62,6 +68,22 @@ function openFileInEditor(path: string, content: string, encoding?: string): voi
 }
 
 /**
+ * 以 Markdown 预览工具打开 .md 文档:切换到 markdown_preview 工具,
+ * 并把内容作为新文档注入其工作区(经 openDocFromSystem:追加并激活、
+ * 不置位 userTouched,hydrate 未完成时由 mergeInjectedDocs 合并保留)。
+ * 视图偏好 viewMode 持久化且默认 split:注入后自动带出预览面板,
+ * 用户上次若停在「仅编辑」,此处切到分屏,保证「自动打开预览」的目标体验。
+ * 路径授权由 Rust 侧在读取前完成(authorize),前端无需在编辑器工作区
+ * 额外建 Tab。
+ */
+function openFileInMarkdownPreview(content: string): void {
+  useUiStore.getState().openTool('markdown_preview');
+  useMdDocsStore.getState().openDocFromSystem(content);
+  const { viewMode, setViewMode } = useMarkdownPreviewStore.getState();
+  if (viewMode === 'edit') setViewMode('split');
+}
+
+/**
  * 以大文件只读模式在编辑器工作区打开本地文件(超过整读上限的文件):
  * 切到编辑器工具后创建 largeFile Tab;行索引扫描由 EditorWorkbench 的
  * useLargeFileScan 在 Tab 激活时触发。同样不置位 userTouched(hydrate 合并)。
@@ -69,6 +91,82 @@ function openFileInEditor(path: string, content: string, encoding?: string): voi
 function openLargeFileInEditor(path: string): void {
   useUiStore.getState().openTool(DEFAULT_TOOL_ID);
   useEditorWorkspaceStore.getState().openLargeFileFromSystem(path);
+}
+
+/**
+ * 以 PDF 工具打开本地 .pdf 文件:切换到 pdf_editor 工具,读取字节后
+ * 注入其工作区(路径授权由 Rust 侧在分流时完成)。读取失败(超限/IO)
+ * 经 toast 提示,不回退编辑器(PDF 无法以文本编辑)。
+ */
+function openFileInPdfEditor(path: string): void {
+  useUiStore.getState().openTool('pdf_editor');
+  void readPdfFile(path)
+    .then((file) => {
+      usePdfDocsStore.getState().openPdfFromSystem({
+        path: file.path,
+        base64: file.base64,
+        size: file.size,
+      });
+    })
+    .catch((e: unknown) => {
+      // 超出 PDF 大小上限(fs_read_pdf 的 FileTooLarge,details 形如 {size, max}):
+      // 本地化提示具体大小与上限;details 缺失或其余失败时展示后端原始消息
+      if (e instanceof CommandError && e.code === 'ERR_FILE_TOO_LARGE') {
+        const detail = e.details as { size?: number; max?: number } | undefined;
+        if (typeof detail?.size === 'number' && typeof detail?.max === 'number') {
+          toast.error(
+            translate('tools.pdf_editor.err_file_too_large', {
+              size: formatBytes(detail.size),
+              max: formatBytes(detail.max),
+            }),
+          );
+          return;
+        }
+      }
+      toast.error(
+        translate('tools.pdf_editor.open_failed', {
+          message: e instanceof Error ? e.message : String(e),
+        }),
+      );
+    });
+}
+
+/**
+ * 二进制文件编辑器提示路径(「无法在编辑器中打开」toast + 「仍要打开」动作)。
+ * 供 `unsupported` 载荷与「拖 PDF 落入 Monaco 编辑框」的例外回退共用:
+ * 点击「仍要打开」经 fs_read_text_file_encoded 的 force 参数按探测编码
+ * 有损解码打开(Open Anyway),成功后按扩展名二次分流(md/pdf/编辑器)。
+ */
+function showBinaryUnsupportedToast(path: string): void {
+  toast.warning(translate('chrome.toast.open_binary_unsupported', { name: fileNameFromPath(path) }), {
+    duration: 10_000,
+    action: {
+      label: translate('tools.text_editor.open_anyway'),
+      onClick: () => {
+        void forceOpenFile(path)
+          .then((r) => {
+            // 强制打开成功后与正常打开同一分流:.md 进 Markdown 预览工具,
+            // .pdf 进 PDF 工具,其余进编辑器
+            if (isMarkdownPath(r.path)) openFileInMarkdownPreview(r.content);
+            else if (isPdfPath(r.path)) openFileInPdfEditor(r.path);
+            else openFileInEditor(r.path, r.content, r.encoding);
+          })
+          .catch(() => {
+            // 强制打开失败(读取错误/超大):静默,后端已有对应提示渠道
+          });
+      },
+    },
+  });
+}
+
+/**
+ * 拖放落点元素查询(从 Rust 传来的 CSS 像素坐标换 DOM 命中)。
+ * jsdom 等无坐标命中能力的环境返回 null → 视为落点不在编辑框内。
+ */
+function resolveDropElement(x: number, y: number): Element | null {
+  return typeof document !== 'undefined' && typeof document.elementFromPoint === 'function'
+    ? document.elementFromPoint(x, y)
+    : null;
 }
 
 export function App(): JSX.Element {
@@ -123,39 +221,46 @@ export function App(): JSX.Element {
           toast.error(translate('chrome.toast.tool_failed', { message: p.error.message }));
         }),
       );
-      // 通过文件关联/命令行/拖放「用 Qraft 打开」的文件:实时在编辑器工作区打开
+      // 通过文件关联/命令行/拖放「用 Qraft 打开」的文件:实时在编辑器工作区打开。
+      // .md 文件例外:自动切到 Markdown 预览工具打开(目标体验对齐 Typora);
+      // .pdf 文件同理:自动切到 PDF 工具打开(渲染 + 表单 + 叠加编辑)。
+      // 拖放且落点在文本编辑器的编辑框(Monaco)内时不分流 —— 用户意图是
+      // 直接编辑该文件,维持原有的编辑器 Tab 打开路径(.pdf 为二进制,编辑框
+      // 内的例外不适用 —— 仍走 PDF 工具,二进制无法以文本打开)。
       unlisteners.push(
         await listen<OpenFileEventPayload>('app:open-file', (p) => {
-          if (p?.path) openFileInEditor(p.path, p.content, p.encoding);
+          if (!p?.path) return;
+          const dropInsideEditor = isDropInsideEditorBox(p.dropPosition, resolveDropElement);
+          if (isMarkdownPath(p.path) && !dropInsideEditor) {
+            openFileInMarkdownPreview(p.content);
+            return;
+          }
+          openFileInEditor(p.path, p.content, p.encoding);
         }),
       );
       // 拖放/打开的文件无法直接作为文本打开:按载荷分流提示(参考 VS Code)
-      // - unsupported(二进制):提示 + 「仍要打开」动作,点击经 fs_read_text_file_encoded
-      //   的 force 参数按探测编码有损解码打开(Open Anyway)
+      // - unsupported(二进制):提示 + 「仍要打开」动作(见模块级
+      //   showBinaryUnsupportedToast;点击经 fs_read_text_file_encoded 的
+      //   force 参数按探测编码有损解码打开,Open Anyway)
       // - too-large:超过编辑器整读上限 → 切换大文件只读查看模式
       //   (fs_large_file_info 流式打开,非错误)
+      // - pdf:切到 PDF 工具打开(渲染 + 表单 + 叠加编辑;Rust 侧已授权路径);
+      //   例外——拖放落点命中 Monaco 编辑框时豁免分流(isDropInsideEditorBox,
+      //   与 .md 同口径),回退到编辑器的二进制提示路径(toast + 「仍要打开」)
       // - error:路径非法等其他原因,展示消息
       unlisteners.push(
         await listen<OpenFileUnsupportedPayload>('app:open-file-unsupported', (p) => {
           if (!p) return;
           if (p.kind === 'unsupported' && p.path) {
-            const path = p.path;
-            toast.warning(
-              translate('chrome.toast.open_binary_unsupported', { name: fileNameFromPath(path) }),
-              {
-                duration: 10_000,
-                action: {
-                  label: translate('tools.text_editor.open_anyway'),
-                  onClick: () => {
-                    void forceOpenFile(path)
-                      .then((r) => openFileInEditor(r.path, r.content, r.encoding))
-                      .catch(() => {
-                        // 强制打开失败(读取错误/超大):静默,后端已有对应提示渠道
-                      });
-                  },
-                },
-              },
-            );
+            showBinaryUnsupportedToast(p.path);
+          } else if (p.kind === 'pdf' && p.path) {
+            // 「直接拖入文本编辑器编辑框」例外:落点命中 Monaco 编辑区时不进
+            // PDF 工具,回退编辑器对二进制文件的既有提示路径(toast + 仍要打开)
+            if (isDropInsideEditorBox(p.dropPosition, resolveDropElement)) {
+              showBinaryUnsupportedToast(p.path);
+            } else {
+              openFileInPdfEditor(p.path);
+            }
           } else if (p.kind === 'too-large' && p.path) {
             // 大文件:切换编辑器工具并以只读模式打开(索引扫描由 Workbench 触发)
             openLargeFileInEditor(p.path);
@@ -188,8 +293,9 @@ export function App(): JSX.Element {
   // 初始化兜底:拉取「打开文件」待处理队列。
   // 若应用在 webview 就绪前就收到打开文件请求,`app:open-file` /
   // `app:open-file-unsupported` 事件可能丢失,这里从 Rust 端队列补齐:
-  // - File 项 → 常规打开
+  // - File 项 → 常规打开(.md 走 Markdown 预览工具,同事件路径的分流规则)
   // - TooLarge 项 → 大文件只读查看模式
+  // - Pdf 项 → PDF 工具打开(同事件路径分流)
   useEffect(() => {
     if (!('__TAURI_INTERNALS__' in window)) return;
     let cancelled = false;
@@ -199,9 +305,21 @@ export function App(): JSX.Element {
         if (cancelled) return;
         for (const item of items) {
           if (item?.kind === 'file' && item.path) {
-            openFileInEditor(item.path, item.content, item.encoding);
+            if (isMarkdownPath(item.path)) {
+              openFileInMarkdownPreview(item.content);
+            } else {
+              openFileInEditor(item.path, item.content, item.encoding);
+            }
           } else if (item?.kind === 'tooLarge' && item.path) {
             openLargeFileInEditor(item.path);
+          } else if (item?.kind === 'pdf' && item.path) {
+            // 与事件路径同一例外口径:落点命中 Monaco 编辑框 → 编辑器二进制提示
+            // (启动兜底阶段界面多未挂载,elementFromPoint 通常命中不了,自然走 PDF 分流)
+            if (isDropInsideEditorBox(item.dropPosition, resolveDropElement)) {
+              showBinaryUnsupportedToast(item.path);
+            } else {
+              openFileInPdfEditor(item.path);
+            }
           }
         }
       } catch {

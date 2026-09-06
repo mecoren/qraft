@@ -57,12 +57,20 @@ export interface DirEntry {
   isDir: boolean;
 }
 
+/** 拖放落点坐标(webview CSS 像素;Rust 端已除以 scale factor) */
+export interface DropPosition {
+  x: number;
+  y: number;
+}
+
 /** `app:open-file` 事件载荷(Rust `OpenFilePayload`,无判别字段) */
 export interface OpenFileEventPayload {
   path: string;
   content: string;
   /** 探测到的编码标识(Rust 端附带;省略时按 UTF-8 处理) */
   encoding?: string;
+  /** 拖放落点(拖放入口附带;文件关联/命令行打开不携带) */
+  dropPosition?: DropPosition;
 }
 
 /** 通过文件关联/命令行「用 Qraft 打开」的待打开项(Rust PendingOpenItem) */
@@ -79,15 +87,24 @@ export type PendingOpenItem =
       /** 超限文件:切换大文件只读查看模式(fs_large_file_info 流式打开) */
       kind: 'tooLarge';
       path: string;
+    }
+  | {
+      /** PDF 文档:切换到 PDF 工具打开(fs_read_pdf 读取);拖放入口附带落点 */
+      kind: 'pdf';
+      path: string;
+      /** 拖放落点(拖放入口附带;命中 Monaco 编辑框时前端豁免 PDF 分流) */
+      dropPosition?: DropPosition;
     };
 
 /** 拖放/打开失败的载荷(Rust `OpenFileUnsupported` 事件的 serde 形态) */
 export interface OpenFileUnsupportedPayload {
-  kind: 'unsupported' | 'too-large' | 'error';
-  /** kind=unsupported / too-large 时为文件完整路径 */
+  kind: 'unsupported' | 'too-large' | 'error' | 'pdf';
+  /** kind=unsupported / too-large / pdf 时为文件完整路径 */
   path?: string;
   /** kind=error 时为错误消息 */
   message?: string;
+  /** kind=pdf 拖放入口的落点坐标(前端据此豁免「拖入 Monaco 编辑框」的 PDF 分流) */
+  dropPosition?: DropPosition;
 }
 
 /** 通知后端:前端已加载完成,可拦截窗口关闭以冲刷工作区缓存 */

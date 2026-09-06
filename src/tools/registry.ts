@@ -139,6 +139,9 @@ registerTool('json_csv_converter', () =>
 registerTool('text_editor', () =>
   import('./CodeEditor').then((m) => ({ default: m.CodeEditorTool })),
 );
+registerTool('pdf_editor', () =>
+  import('./pdf/PdfEditor').then((m) => ({ default: m.PdfEditorTool })),
+);
 registerTool('folder_analyzer', () =>
   import('./FolderAnalyzer').then((m) => ({ default: m.FolderAnalyzer })),
 );

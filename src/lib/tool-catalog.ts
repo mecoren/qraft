@@ -42,6 +42,7 @@ import {
   QrCode,
   Regex,
   Settings,
+  SquarePen,
   Table,
   Type,
   Wand2,
@@ -85,7 +86,9 @@ export const CATALOG_CATEGORIES: readonly CatalogCategory[] = [
   { id: 'formatter', label: { zh: '格式化工具', en: 'Formatters' }, icon: Paintbrush },
   { id: 'generator', label: { zh: '生成器', en: 'Generators' }, icon: Wand2 },
   { id: 'graphic', label: { zh: '图像处理', en: 'Graphics' }, icon: Image },
-  { id: 'editor', label: { zh: '文本编辑器', en: 'Editor' }, icon: FileCode2 },
+  // 「编辑器」分类:侧栏以可展开分组渲染,含文本编辑器(已固定顶部,分组内不重复)与 PDF 编辑器;
+  // 图标避开文本编辑器工具的 FileCode2,避免折叠栏两个同形图标相邻
+  { id: 'editor', label: { zh: '编辑器', en: 'Editor' }, icon: SquarePen },
   { id: 'text', label: { zh: '文本处理', en: 'Text' }, icon: Type },
   { id: 'converter', label: { zh: '转换器', en: 'Converters' }, icon: ArrowLeftRight },
 ] as const;
@@ -117,6 +120,10 @@ export interface CatalogEntry {
   popoutSize?: { width: number; height: number };
 }
 
+/**
+ * 应用启动默认打开的工具 id(纯前端文本编辑器,registry 中注册值)。
+ * 供 store 初始状态与侧边栏固定菜单项共享引用。
+ */
 /**
  * 应用启动默认打开的工具 id(纯前端文本编辑器,registry 中注册值)。
  * 供 store 初始状态与侧边栏固定菜单项共享引用。
@@ -435,6 +442,28 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     ],
     popoutSize: { width: 1100, height: 720 },
   },
+  {
+    id: 'pdf_editor',
+    name: 'PDF 编辑器',
+    description:
+      '打开/拖入 PDF 自动进入:多 Tab 阅读、AcroForm 表单填写、文本/便签/高亮/删除线叠加编辑,支持覆盖保存与另存为',
+    category: 'editor',
+    icon: FileText,
+    keywords: [
+      'pdf',
+      '表单',
+      'acroform',
+      'form',
+      '填写',
+      'annotate',
+      '批注',
+      '高亮',
+      '签名',
+      '文档',
+      '编辑',
+    ],
+    popoutSize: { width: 1100, height: 760 },
+  },
 
   // —— 转换器 ——
   {
@@ -624,6 +653,11 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
     name: 'Text Editor',
     description:
       'VSCode-style workspace: open-editor list, multi-tab editing, open/save local files, persistent across restarts',
+  },
+  pdf_editor: {
+    name: 'PDF Editor',
+    description:
+      'Opens automatically for PDF files: multi-tab reading, AcroForm form filling, text/note/highlight/strike overlay editing, with overwrite save and save-as',
   },
   cron_parser: {
     name: 'Cron Parser',

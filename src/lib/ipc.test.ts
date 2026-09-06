@@ -124,8 +124,9 @@ describe('safeInvoke', () => {
     }
   });
 
-  it('nested detail without string payload still falls back to internal message', async () => {
-    // InputTooLarge 的 detail 是 { size, max } 结构对象,无字符串可提取
+  it('structured size/max detail is formatted into a real message (InputTooLarge)', async () => {
+    // InputTooLarge 的 detail 是 { size, max } 结构对象,无字符串可提取;
+    // 按错误码合成与 Rust #[error(...)] Display 同构的消息,而非误导性兜底
     invokeMock.mockRejectedValueOnce({
       kind: 'ERR_INPUT_TOO_LARGE',
       detail: { kind: 'input_too_large', detail: { size: 300, max: 256 } },
@@ -134,7 +135,36 @@ describe('safeInvoke', () => {
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.error.code).toBe('ERR_INPUT_TOO_LARGE');
-      expect(r.error.message).toBe('Unexpected IPC response');
+      expect(r.error.message).toBe('input too large: 300 bytes, max 256 bytes');
+    }
+  });
+
+  it('structured size/max detail is formatted into a real message (FileTooLarge)', async () => {
+    // fs_read_pdf 超 PDF 上限时 AppError::FileTooLarge,detail 序列化为 {size, max};
+    // 此前这里会显示「Unexpected IPC response」(PDF 打不开的误导性 toast)
+    invokeMock.mockRejectedValueOnce({
+      kind: 'ERR_FILE_TOO_LARGE',
+      detail: { size: 26214400, max: 20971520 },
+    });
+    const r = await safeInvoke<unknown>('fs_read_pdf');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.code).toBe('ERR_FILE_TOO_LARGE');
+      expect(r.error.message).toBe('file too large: 26214400 bytes (max 20971520)');
+      expect(r.error.details).toEqual({ size: 26214400, max: 20971520 });
+    }
+  });
+
+  it('known code without formattable detail falls back to the code itself', async () => {
+    invokeMock.mockRejectedValueOnce({
+      kind: 'ERR_TOOL',
+      detail: { kind: 'cancelled' },
+    });
+    const r = await safeInvoke<unknown>('tool_execute');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.code).toBe('ERR_TOOL');
+      expect(r.error.message).toBe('ERR_TOOL');
     }
   });
 

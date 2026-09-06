@@ -31,6 +31,12 @@ export interface MdDoc {
   pinned: boolean;
   /** 当前输入文本 */
   content: string;
+  /**
+   * 系统打开标记(openDocFromSystem 创建;瞬时字段,持久化/还原时被
+   * sanitizeDoc 剥离)。hydrate 合并注入文档时据此识别系统打开的文档,
+   * 使空内容文件(空 .md)也不被 content 非空过滤条件丢弃。
+   */
+  fromSystem?: true;
 }
 
 /** 文档工作区(整体持久化单元) */
@@ -98,6 +104,7 @@ function sanitizeDoc(raw: unknown): MdDoc | null {
   const autoTitle = typeof t.autoTitle === 'string' && t.autoTitle ? t.autoTitle : undefined;
   const pinned = t.pinned === true;
   const content = typeof t.content === 'string' ? t.content : '';
+  // fromSystem 是会话内瞬时标记,持久化还原时一律剥离(旧数据冗余字段防污染)
   return {
     id: t.id,
     title: t.title,
@@ -143,6 +150,12 @@ interface MdDocsState {
   newDoc: (content?: string) => void;
   /** 由其他工具注入内容(「发送到…」),不置位 userTouched(语义同 jsonFormatterStore) */
   injectDocFromTool: (content: string) => void;
+  /**
+   * 由系统触发打开 .md 文件(文件关联/命令行/拖放):作为新文档追加并激活,
+   * 不置位 userTouched(语义同编辑器 openLocalFileFromSystem —— hydrate 走
+   * mergeInjectedDocs 合并,持久化文档列表不被丢弃)。
+   */
+  openDocFromSystem: (content: string) => void;
   /** 关闭文档,激活态自动跳到相邻 */
   closeDoc: (id: string) => void;
   /** 切换激活文档 */
@@ -190,15 +203,30 @@ function clearLegacyDraft(): void {
   }
 }
 
+/** 旧版 localStorage 单文档草稿 → 首个文档的工作区(迁移基底) */
+function legacyWorkspace(content: string): MdDocsWorkspace {
+  const derived = content.trim() ? deriveMdTitle(content) : null;
+  const doc: MdDoc = {
+    id: createId(),
+    title: derived ?? 'md-1',
+    ...(derived ? {} : { autoTitle: 'md-1' }),
+    pinned: false,
+    content,
+  };
+  return { docs: [doc], activeDocId: doc.id };
+}
+
 /**
  * 把跨工具注入的内容合并进 hydrate 还原出的文档列表。
  *
  * 只在「userTouched 为 false 但当前文档已有内容」时调用,即内容只可能来自
- * `injectDocFromTool`(其余增删改文档的 action 都会置位 userTouched)。
- * 注入内容一律作为新文档追加到还原列表末尾并激活(语义同 jsonFormatterStore)。
+ * `injectDocFromTool` 或 `openDocFromSystem`(其余增删改文档的 action 都会
+ * 置位 userTouched)。注入内容一律作为新文档追加到还原列表末尾并激活
+ * (语义同 jsonFormatterStore)。系统打开的空 .md(content 为空)经
+ * `fromSystem` 标记同样保留,不被非空过滤条件丢弃。
  */
 function mergeInjectedDocs(restored: MdDocsWorkspace, current: MdDocsWorkspace): MdDocsWorkspace {
-  const injected = current.docs.filter((d) => d.content.trim() !== '');
+  const injected = current.docs.filter((d) => d.content.trim() !== '' || d.fromSystem === true);
   if (injected.length === 0) return restored;
   const docs = [...restored.docs];
   let activeDocId = restored.activeDocId;
@@ -207,8 +235,11 @@ function mergeInjectedDocs(restored: MdDocsWorkspace, current: MdDocsWorkspace):
     // React key 冲突,故换发新 id
     const id = docs.some((d) => d.id === doc.id) ? createId() : doc.id;
     const autoTitle = doc.autoTitle !== undefined ? `md-${nextMdAutoNumber(docs)}` : undefined;
+    // 合并进还原列表时剥掉瞬时标记 fromSystem(系统打开语义在此消费完毕)
+    const { fromSystem: _fromSystem, ...plain } = doc;
+    void _fromSystem;
     docs.push({
-      ...doc,
+      ...plain,
       id,
       ...(autoTitle !== undefined
         ? { autoTitle, title: deriveMdTitle(doc.content) ?? autoTitle }
@@ -238,14 +269,20 @@ export const useMdDocsStore = create<MdDocsState>((set, get) => ({
     set((s) => {
       // 若 hydrate 完成前用户已主动操作,保留用户操作,避免异步恢复覆盖用户意图
       if (s.userTouched) return { ready: true, error: errorMessage, firstUse: false };
-      if (restored) {
-        if (restored.docs.length === 0) {
-          // 上次主动关闭了全部文档:还原空列表(组件 effect 补一个空白文档)
-          return { ready: true, error: errorMessage, docs: [], activeDocId: null, firstUse: false };
-        }
-        // userTouched 为 false 但文档已有内容:只可能来自跨工具「发送到…」注入,
-        // 需与持久化列表合并而非互相覆盖
-        const merged = mergeInjectedDocs(restored, { docs: s.docs, activeDocId: s.activeDocId });
+      // userTouched 为 false 但文档已有内容:只可能来自跨工具「发送到…」注入或
+      // 系统打开 .md(openDocFromSystem,发生在工具挂载 hydrate 之前),
+      // 需与还原列表合并而非互相覆盖。restored 为空列表(上次主动关闭全部文档)
+      // 时同样经 mergeInjectedDocs 走「无注入 → 原样返回」路径
+      if (restored || legacy.exists) {
+        // 旧草稿只在无持久化数据时参与迁移,作为还原列表基底
+        const restoredWorkspace: MdDocsWorkspace = restored
+          ? restored
+          : legacyWorkspace(legacy.content);
+        if (!restored) clearLegacyDraft();
+        const merged = mergeInjectedDocs(restoredWorkspace, {
+          docs: s.docs,
+          activeDocId: s.activeDocId,
+        });
         return {
           ready: true,
           error: errorMessage,
@@ -254,26 +291,24 @@ export const useMdDocsStore = create<MdDocsState>((set, get) => ({
           firstUse: false,
         };
       }
-      if (legacy.exists) {
-        clearLegacyDraft();
-        const derived = legacy.content.trim() ? deriveMdTitle(legacy.content) : null;
-        const doc: MdDoc = {
-          id: createId(),
-          title: derived ?? 'md-1',
-          ...(derived ? {} : { autoTitle: 'md-1' }),
-          pinned: false,
-          content: legacy.content,
-        };
-        return {
-          ready: true,
-          error: errorMessage,
-          docs: [doc],
-          activeDocId: doc.id,
-          firstUse: false,
-        };
-      }
-      // 真正首次使用:空文档列表,组件 effect 填入当前语言的示例文档
-      return { ready: true, error: errorMessage, docs: [], activeDocId: null, firstUse: true };
+      // 真正首次使用(无任何持久化数据):组件 effect 填入示例文档。
+      // 但 hydrate 前已有系统打开(openDocFromSystem)注入的文档时,文档列表
+      // 非空 —— 直接保留注入结果并清掉 firstUse,避免示例文档覆盖用户
+      // 刚打开的 md 内容(注入文档即用户意图,不应再展示首次示例)。
+      // 无注入时显式清成空列表(store 初始的默认空文档不属于用户数据),
+      // 让组件 effect 按原有 firstUse 语义补示例文档。
+      const injected = mergeInjectedDocs(
+        { docs: [], activeDocId: null },
+        { docs: s.docs, activeDocId: s.activeDocId },
+      );
+      const hasInjected = injected.docs.length > 0;
+      return {
+        ready: true,
+        error: errorMessage,
+        docs: hasInjected ? injected.docs : [],
+        activeDocId: hasInjected ? injected.activeDocId : null,
+        firstUse: !hasInjected,
+      };
     });
   },
 
@@ -319,6 +354,29 @@ export const useMdDocsStore = create<MdDocsState>((set, get) => ({
         }
         return { ...d, content };
       }),
+    }));
+  },
+
+  // 系统触发(文件关联/命令行/拖放 .md):追加新文档并激活。
+  // userTouched 分两档:hydrate 未完成(ready=false)时保持 false,让 hydrate 走
+  // mergeInjectedDocs 合并分支保住持久化文档;ready 后已无合并机会,置位使
+  // 防抖 persist 把注入文档落盘(重启不丢)。fromSystem 标记让空 .md 文件
+  // 在合并时同样保留(见 mergeInjectedDocs)
+  openDocFromSystem: (content) => {
+    const { docs, ready } = get();
+    const derived = deriveMdTitle(content);
+    const doc: MdDoc = {
+      id: createId(),
+      title: derived ?? `md-${nextMdAutoNumber(docs)}`,
+      ...(derived ? {} : { autoTitle: `md-${nextMdAutoNumber(docs)}` }),
+      pinned: false,
+      content,
+      fromSystem: true,
+    };
+    set((s) => ({
+      docs: [...s.docs, doc],
+      activeDocId: doc.id,
+      ...(ready ? { userTouched: true } : {}),
     }));
   },
 
@@ -373,9 +431,14 @@ export const useMdDocsStore = create<MdDocsState>((set, get) => ({
     // hydrate 完成前不写,避免覆盖已存数据
     const { ready, docs, activeDocId } = get();
     if (!ready) return;
+    // fromSystem 为会话内瞬时标记,落盘前剥离(还原时 sanitizeDoc 亦会兜底剥离)
+    const plainDocs = docs.map(({ fromSystem: _fromSystem, ...doc }) => {
+      void _fromSystem;
+      return doc;
+    });
     const r = await safeInvoke<boolean>('config_set', {
       key: MD_DOCS_CONFIG_KEY,
-      value: { docs, activeDocId } satisfies MdDocsWorkspace,
+      value: { docs: plainDocs, activeDocId } satisfies MdDocsWorkspace,
     });
     if (!r.ok) set({ error: r.error.message });
   },

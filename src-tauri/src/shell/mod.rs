@@ -23,8 +23,8 @@ pub mod state;
 pub mod file_open;
 #[cfg(not(test))]
 pub use file_open::{
-    OpenFilePayload, PendingOpenFiles, open_dropped_files, open_file_in_app, open_files_from_args,
-    sanitize_dropped_path,
+    DropPosition, OpenFilePayload, PendingOpenFiles, is_pdf_path, open_dropped_files,
+    open_file_in_app, open_files_from_args, sanitize_dropped_path,
 };
 
 // AppError 在 core::error 中定义,Shell 层直接复用,避免类型割裂

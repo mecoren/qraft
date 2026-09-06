@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
-import { readFileSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync } from 'node:fs';
 
 // 应用版本唯一数据源 = package.json 的 version 字段。
 // 通过 define 注入全局常量 __APP_VERSION__,前端不再硬编码版本号;
@@ -11,14 +11,37 @@ import { readFileSync } from 'node:fs';
 const appVersion = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf8'))
   .version as string;
 
+// PDF 工具运行时资源(由 scripts/copy-pdf-assets.mjs 同步进 src/tools/pdf/assets/pdf):
+// pdfjs 的 standard_fonts(标准 14 字体替代)与 cmaps(CJK 映射表)是按路径
+// 动态加载的资源,不经 import 图 —— Vite 不会打包。这里用 closeBundle 钩子
+// 整目录拷进产物,运行时以 import.meta.url 相对寻址(与 pdfRender.ts 的
+// URL 拼法对齐:dist/assets/pdf/standard_fonts/…)。
+function copyPdfRuntimeAssets() {
+  return {
+    name: 'copy-pdf-runtime-assets',
+    closeBundle() {
+      const src = path.resolve(__dirname, 'src/tools/pdf/assets/pdf');
+      const dest = path.resolve(__dirname, 'dist/assets/pdf');
+      if (!existsSync(src)) {
+        throw new Error(
+          `[copy-pdf-runtime-assets] 缺少 ${src}:请先运行 pnpm copy:pdf 同步 pdfjs 资源`,
+        );
+      }
+      cpSync(src, dest, { recursive: true });
+    },
+  };
+}
+
 // Vite 配置:Tauri + React + HMR
-// - server.port 1420 是 Tauri 约定的开发端口
+// - server.port 14200:Tauri 约定的 1420 落在 Windows Hyper-V/winnat 的
+//   保留端口区间内(本机实测排除 1330-1429,listen 报 EACCES),故改用 14200;
+//   需与 src-tauri/tauri.conf.json 的 devUrl / devCsp 保持一致
 // - envPrefix 包含 TAURI_ENV_ 前缀变量
   // - build.target 适配三平台 WebView(Chrome 100 / Safari 14)
   //   注:Safari 14 起支持 BigInt,进制转换器等工具依赖 BigInt 做任意精度运算,故不低于 14
 // - Tailwind v4 通过 @tailwindcss/vite 插件接入,CSS 内 @import "tailwindcss" 即可
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), copyPdfRuntimeAssets()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -29,7 +52,7 @@ export default defineConfig({
   },
   clearScreen: false,
   server: {
-    port: 1420,
+    port: 14200,
     strictPort: true,
     watch: {
       // 避免 Vite 监听 Rust 编译产物(target 目录中的 dll 在链接时会被锁定,导致 EBUSY 崩溃)

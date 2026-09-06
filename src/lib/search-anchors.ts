@@ -519,6 +519,38 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       keywords: ['diff', '对比', '差异'],
     },
   ],
+  pdf_editor: [
+    {
+      key: 'viewer',
+      title: { zh: '页面视图', en: 'Page viewer' },
+      description: { zh: 'PDF 渲染阅读区,支持缩放与跳页', en: 'PDF rendering area with zoom and paging' },
+      keywords: ['pdf', '阅读', '渲染', '缩放', '页面'],
+    },
+    {
+      key: 'form',
+      title: { zh: '表单字段', en: 'Form fields' },
+      description: {
+        zh: 'AcroForm 表单填写:文本 / 复选 / 单选 / 下拉',
+        en: 'AcroForm filling: text / checkbox / radio / dropdown',
+      },
+      keywords: ['表单', '填写', 'acroform', 'form', '复选', '下拉'],
+    },
+    {
+      key: 'annotations',
+      title: { zh: '标注', en: 'Annotations' },
+      description: {
+        zh: '文本 / 便签 / 高亮 / 删除线叠加编辑',
+        en: 'Text / note / highlight / strikethrough overlays',
+      },
+      keywords: ['标注', '批注', '高亮', '删除线', '便签', 'annotate'],
+    },
+    {
+      key: 'save',
+      title: { zh: '保存', en: 'Save' },
+      description: { zh: '覆盖写回与另存为', en: 'Overwrite save and save-as' },
+      keywords: ['保存', '另存为', '覆盖', 'save'],
+    },
+  ],
   cron_parser: [
     {
       key: 'config',

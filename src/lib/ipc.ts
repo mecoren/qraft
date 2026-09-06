@@ -57,6 +57,35 @@ function extractDetailMessage(value: unknown, depth = 0): string | undefined {
 }
 
 /**
+ * 已知错误码 + 结构化 detail(无字符串可提取)时,按错误码合成人话消息。
+ *
+ * 部分错误(如 FileTooLarge / InputTooLarge / OutOfMemory / Timeout)的 detail
+ * 是 `{ size, max }` / `{ secs, nanos }` 结构对象,extractDetailMessage 提取不到
+ * 字符串;若直接落入「Unexpected IPC response」兜底会误导用户(那本意是
+ * 「响应包络解析失败」,而此处错误码是明确的)。文案与 Rust 端
+ * `AppError` / `ToolError` 的 `#[error(...)]` Display 保持同构。
+ */
+function formatStructuredDetail(code: string, detail: unknown, depth = 0): string | undefined {
+  if (typeof detail !== 'object' || detail === null || depth >= 4) return undefined;
+  const d = detail as Record<string, unknown>;
+  const size = typeof d.size === 'number' ? d.size : undefined;
+  const max = typeof d.max === 'number' ? d.max : undefined;
+  if (size !== undefined && max !== undefined) {
+    if (code === 'ERR_FILE_TOO_LARGE') return `file too large: ${size} bytes (max ${max})`;
+    if (code === 'ERR_OUT_OF_MEMORY') return `out of memory: ${size} bytes, max ${max} bytes`;
+    return `input too large: ${size} bytes, max ${max} bytes`;
+  }
+  const secs = d.secs;
+  if (code === 'ERR_TIMEOUT' && typeof secs === 'number') {
+    return `timeout after ${secs}s`;
+  }
+  // ToolError 嵌套形态:{ kind, detail: <结构化对象> } —— 递归向内层找
+  return typeof d.detail === 'object' && d.detail !== null
+    ? formatStructuredDetail(code, d.detail, depth + 1)
+    : undefined;
+}
+
+/**
  * 归一化 Tauri 命令的 reject 载荷为 ErrorInfo。
  *
  * 命令签名 `Result<CommandResponse<T>, AppError>` 失败时,Tauri 会以
@@ -82,9 +111,17 @@ export function normalizeIpcError(e: unknown): ErrorInfo {
     const kind = typeof obj.kind === 'string' && obj.kind ? obj.kind : undefined;
     const code = typeof obj.code === 'string' && obj.code ? obj.code : undefined;
     const rawMessage = typeof obj.message === 'string' && obj.message ? obj.message : undefined;
+    const resolvedCode = kind ?? code;
     return {
-      code: kind ?? code ?? INTERNAL_ERROR.code,
-      message: rawMessage ?? extractDetailMessage(detail) ?? INTERNAL_ERROR.message,
+      code: resolvedCode ?? INTERNAL_ERROR.code,
+      // 错误码明确时不再落入「Unexpected IPC response」:结构化 detail 按码合成,
+      // 仍无法合成则退而展示错误码本身(优于语义错误的兜底文案)
+      message:
+        rawMessage ??
+        extractDetailMessage(detail) ??
+        (resolvedCode
+          ? formatStructuredDetail(resolvedCode, detail) ?? resolvedCode
+          : INTERNAL_ERROR.message),
       ...(detail !== undefined ? { details: detail } : {}),
     };
   }

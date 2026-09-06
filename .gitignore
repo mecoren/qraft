@@ -13,6 +13,10 @@ dist.locked-*/
 public/monaco/
 public/monaco.locked-*/
 
+# PDF 工具运行时资源 — 由 scripts/copy-pdf-assets.mjs 在 dev/build 前
+# 从 node_modules/pdfjs-dist 重新生成,不纳入版本控制。
+src/tools/pdf/assets/pdf/
+
 # Rust / Tauri
 src-tauri/target/
 src-tauri/gen/

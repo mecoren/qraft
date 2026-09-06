@@ -71,8 +71,9 @@ pub fn run() -> anyhow::Result<()> {
     use crate::commands::font::list_system_fonts;
     use crate::commands::fs::{
         AuthorizedPaths, fs_authorize_dropped_paths, fs_open_dialog, fs_open_folder_dialog,
-        fs_read_dir, fs_read_file, fs_read_text_file_encoded, fs_reveal_in_explorer, fs_save_bytes,
-        fs_save_text_file_encoded, fs_write_file, fs_write_file_encoded,
+        fs_open_pdf_dialog, fs_read_dir, fs_read_file, fs_read_pdf, fs_read_text_file_encoded,
+        fs_reveal_in_explorer, fs_save_bytes, fs_save_bytes_to_path, fs_save_text_file_encoded,
+        fs_write_file, fs_write_file_encoded,
     };
     use crate::commands::fs_large_file::{fs_large_file_info, fs_read_file_lines};
     use crate::commands::history::{history_clear, history_list};
@@ -84,7 +85,8 @@ pub fn run() -> anyhow::Result<()> {
         tool_cancel, tool_execute, tool_execute_stream, tool_list, tool_metadata,
     };
     use crate::shell::file_open::{
-        PendingOpenFiles, open_dropped_files, open_files_from_args, sanitize_dropped_path,
+        DropPosition, PendingOpenFiles, open_dropped_files, open_files_from_args,
+        sanitize_dropped_path,
     };
     use crate::shell::state::AppState;
     use crate::store::config::{ConfigStore, JsonConfigStore};
@@ -254,6 +256,9 @@ pub fn run() -> anyhow::Result<()> {
             fs_read_dir,
             fs_read_text_file_encoded,
             fs_write_file_encoded,
+            fs_read_pdf,
+            fs_open_pdf_dialog,
+            fs_save_bytes_to_path,
             fs_large_file_info,
             fs_read_file_lines,
             fs_reveal_in_explorer,
@@ -300,9 +305,15 @@ pub fn run() -> anyhow::Result<()> {
             }
             // 拖放文件到窗口:把文本文件交给编辑器工作区打开(参考 VS Code),
             // 二进制/不支持的文件通过 open_dropped_files 内部 emit 提示前端。
+            // 落点坐标(物理像素)除以 scale factor 转为 webview CSS 像素,
+            // 前端据 elementFromPoint 判断是否落在 Monaco 编辑框内:
+            // .md 文件落在编辑框外 → 自动切到 Markdown 预览工具打开。
             RunEvent::WindowEvent {
+                label,
                 event:
-                    WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }),
+                    WindowEvent::DragDrop(DragDropEvent::Drop {
+                        paths, position, ..
+                    }),
                 ..
             } => {
                 let authorized = app_handle.state::<AuthorizedPaths>();
@@ -311,7 +322,21 @@ pub fn run() -> anyhow::Result<()> {
                     .iter()
                     .map(|p| sanitize_dropped_path(&p.to_string_lossy()).to_string())
                     .collect();
-                open_dropped_files(app_handle, &authorized, &pending, &cleaned);
+                // Drop 事件只可能来自已存在的 webview 窗口;取不到窗口时
+                // 退回无落点语义(与文件关联打开一致),打开行为不受影响
+                let scale = app_handle
+                    .get_webview_window(&label)
+                    .map_or(Ok(1.0), |w| w.scale_factor())
+                    .unwrap_or(1.0);
+                let drop_position = if scale > 0.0 {
+                    Some(DropPosition {
+                        x: position.x / scale,
+                        y: position.y / scale,
+                    })
+                } else {
+                    None
+                };
+                open_dropped_files(app_handle, &authorized, &pending, &cleaned, drop_position);
             }
             // 弹出窗口销毁后广播:主窗口据此把弹窗写入的持久化状态重新水合回
             // 内存 store(快照式模型的关闭时回写,载荷为窗口 label popout-<toolId>)

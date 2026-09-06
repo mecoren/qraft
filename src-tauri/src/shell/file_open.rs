@@ -44,6 +44,18 @@ pub struct OpenFilePayload {
     /// 探测到的编码标识(utf-8 / gb18030 等);前端打开 Tab 时沿用
     #[serde(default)]
     pub encoding: String,
+    /// 拖放落点的 CSS 像素坐标(webview 内 `{ x, y }`);非拖放入口(文件
+    /// 关联/命令行)不携带,前端按无落点处理
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drop_position: Option<DropPosition>,
+}
+
+/// 拖放落点坐标(CSS 像素,物理坐标已除以窗口 scale factor)
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DropPosition {
+    pub x: f64,
+    pub y: f64,
 }
 
 /// 打开失败的载荷变体:
@@ -58,11 +70,19 @@ pub enum OpenFileUnsupported {
     Unsupported { path: String },
     /// 文件过大(`reason="too-large"`):切换到大文件查看模式,并非错误
     TooLarge { path: String },
+    /// PDF 文档:切换到 PDF 工具打开(表单填写 + 编辑;前端经 `fs_read_pdf` 读取)。
+    /// 拖放入口附带落点坐标,前端据此豁免「直接拖入文本编辑器编辑框」
+    /// (命中 .monaco-editor 时回退编辑器的二进制提示路径,与 .md 同口径)。
+    Pdf {
+        path: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        drop_position: Option<DropPosition>,
+    },
     /// 其他错误(路径非法/读取失败等)
     Error { message: String },
 }
 
-/// 待打开项:成功读取的文本文件,或需前端分流处理的失败载荷(too-large)
+/// 待打开项:成功读取的文本文件,或需前端分流处理的失败载荷(too-large / pdf)
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum PendingOpenItem {
@@ -73,8 +93,14 @@ pub enum PendingOpenItem {
         #[serde(default)]
         encoding: String,
     },
-    /// 超限文件:前端切换大文件只读查看模式(fs_large_file_info 流式打开)
+    /// 超限文件:前端切换大文件只读查看模式(`fs_large_file_info` 流式打开)
     TooLarge { path: String },
+    /// PDF 文档:前端切换到 PDF 工具(`fs_read_pdf` 读取);拖放入口附带落点
+    Pdf {
+        path: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        drop_position: Option<DropPosition>,
+    },
 }
 
 /// 待打开文件队列(事件可能因前端未就绪而丢失,队列作为兜底)
@@ -102,6 +128,14 @@ impl PendingOpenFiles {
     pub fn push_too_large(&self, path: &str) {
         self.push_item(PendingOpenItem::TooLarge {
             path: path.to_string(),
+        });
+    }
+
+    /// 追加一个 PDF 文档(前端走 PDF 工具打开;拖放入口附带落点坐标)
+    pub fn push_pdf(&self, path: &str, drop_position: Option<DropPosition>) {
+        self.push_item(PendingOpenItem::Pdf {
+            path: path.to_string(),
+            drop_position,
         });
     }
 
@@ -187,9 +221,23 @@ fn emit_unsupported(app: &tauri::AppHandle, payload: &OpenFileUnsupported) {
     }
 }
 
+/// 判断路径是否指向 PDF 文档(扩展名 .pdf,大小写不敏感)
+///
+/// 判定口径与前端 PDF 工具(isPdfPath)保持一致;除扩展名外不嗅探
+/// 魔数(与 .md 分流同一策略,扩展名即用户意图)。
+#[must_use]
+pub fn is_pdf_path(path: &str) -> bool {
+    Path::new(path)
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf"))
+}
+
 /// 通过文件关联/命令行/拖放打开单个文件;若为二进制或目录,不打开并推送
 /// `app:open-file-unsupported` 事件(载荷含路径与原因),供前端提示
 /// 并提供「仍要打开」(参考 VS Code Open Anyway)。
+///
+/// `drop_position` 为拖放落点的 CSS 像素坐标(物理坐标 ÷ scale factor);
+/// 文件关联/命令行等非拖放入口传 `None`。
 ///
 /// # Errors
 ///
@@ -200,6 +248,7 @@ pub fn open_dropped_file(
     authorized: &AuthorizedPaths,
     pending: &PendingOpenFiles,
     path: &str,
+    drop_position: Option<DropPosition>,
 ) -> Result<(), AppError> {
     let p = Path::new(path);
     let full_path = p.to_string_lossy().into_owned();
@@ -238,6 +287,24 @@ pub fn open_dropped_file(
         }
     }
 
+    // PDF 文档:授权路径后交由前端 PDF 工具打开(渲染 + 表单 + 编辑;
+    // 前端经 fs_read_pdf 按需读取字节)。不走二进制启发式与文本解码。
+    // 大小上限与文本编辑器对齐(fs_read_pdf 超限时报 FileTooLarge)。
+    // 落点坐标透传给前端:命中 Monaco 编辑框时前端豁免 PDF 分流,
+    // 回退编辑器的二进制提示路径(与 .md 的编辑框例外同口径)。
+    if is_pdf_path(&full_path) {
+        authorized.authorize(&full_path);
+        pending.push_pdf(&full_path, drop_position);
+        emit_unsupported(
+            app,
+            &OpenFileUnsupported::Pdf {
+                path: full_path,
+                drop_position,
+            },
+        );
+        return Ok(());
+    }
+
     // 二进制内容:不打开,通知前端提供「仍要打开」兜底
     if read_file_text(path)?.is_none() {
         emit_unsupported(
@@ -249,25 +316,27 @@ pub fn open_dropped_file(
         return Ok(());
     }
 
-    open_file_in_app(app, authorized, pending, path)
+    open_file_in_app(app, authorized, pending, path, drop_position)
 }
 
 /// 批量处理拖放的文件路径列表
 ///
 /// 逐个调用 `open_dropped_file`;单个文件失败(不存在/读取失败)仅记录日志,
 /// 不中断其它文件。二进制文件由 `open_dropped_file` 内部 emit 提示。
+/// 所有文件共享同一拖放落点坐标。
 pub fn open_dropped_files(
     app: &tauri::AppHandle,
     authorized: &AuthorizedPaths,
     pending: &PendingOpenFiles,
     paths: &[String],
+    drop_position: Option<DropPosition>,
 ) {
     for path in paths {
         let trimmed = path.trim();
         if trimmed.is_empty() {
             continue;
         }
-        if let Err(e) = open_dropped_file(app, authorized, pending, trimmed) {
+        if let Err(e) = open_dropped_file(app, authorized, pending, trimmed, drop_position) {
             tracing::warn!("failed to open dropped file `{trimmed}`: {e}");
         }
     }
@@ -287,7 +356,8 @@ pub fn sanitize_dropped_path(path: &str) -> &str {
 /// - 将路径加入 `AuthorizedPaths`,使前端可读写该文件;
 /// - 读取文件文本内容(编码自动探测,返回内容 + 编码标识);
 /// - 写入 `PendingOpenFiles` 队列(兜底);
-/// - 通过 `app:open-file` 事件推送 `{ path, content, encoding }` 给前端。
+/// - 通过 `app:open-file` 事件推送 `{ path, content, encoding, dropPosition }`
+///   给前端(拖放入口附带落点坐标,前端据此实现「拖入编辑框则直接进编辑器」)。
 ///
 /// # Errors
 ///
@@ -298,6 +368,7 @@ pub fn open_file_in_app(
     authorized: &AuthorizedPaths,
     pending: &PendingOpenFiles,
     path: &str,
+    drop_position: Option<DropPosition>,
 ) -> Result<(), AppError> {
     if !is_openable_file(path) {
         return Err(AppError::Io(std::io::Error::new(
@@ -319,6 +390,7 @@ pub fn open_file_in_app(
         path: path.to_string(),
         content,
         encoding,
+        drop_position,
     };
 
     // 写入待打开队列作为兜底(即使事件因前端未就绪而丢失也能补齐)
@@ -336,6 +408,7 @@ pub fn open_file_in_app(
 ///
 /// 走 `open_dropped_file` 统一分流:超限文件进入大文件只读查看模式
 /// (emit TooLarge),二进制 emit Unsupported,普通文本正常打开。
+/// 命令行入口无拖放落点,`drop_position` 恒为 `None`。
 ///
 /// # Errors
 ///
@@ -349,7 +422,7 @@ pub fn open_files_from_args(
     let Some(path) = extract_file_arg_from_args(args) else {
         return Ok(());
     };
-    open_dropped_file(app, authorized, pending, &path)
+    open_dropped_file(app, authorized, pending, &path, None)
 }
 
 #[cfg(test)]
@@ -364,7 +437,6 @@ mod tests {
             Some(r"C:\a.txt")
         );
     }
-
     #[test]
     fn extract_file_arg_returns_none_when_missing() {
         let args = vec!["qraft.exe".to_string()];
@@ -397,11 +469,13 @@ mod tests {
             path: "/a.txt".into(),
             content: "a".into(),
             encoding: "utf-8".into(),
+            drop_position: None,
         });
         pending.push(OpenFilePayload {
             path: "/b.json".into(),
             content: "{}".into(),
             encoding: "utf-8".into(),
+            drop_position: Some(DropPosition { x: 12.0, y: 34.5 }),
         });
         // 超限文件入队:前端切换大文件只读查看模式
         pending.push_too_large("/huge.log");
@@ -439,6 +513,37 @@ mod tests {
 
         let _ = std::fs::remove_file(&text);
         let _ = std::fs::remove_file(&bin);
+    }
+
+    #[test]
+    fn is_pdf_path_matches_extension_case_insensitive() {
+        assert!(is_pdf_path("/home/user/doc.pdf"));
+        assert!(is_pdf_path(r"C:\a\B.PDF"));
+        assert!(is_pdf_path("report.Pdf"));
+        assert!(!is_pdf_path("/home/user/doc.pdfx"));
+        assert!(!is_pdf_path("/home/user/doc.pd"));
+        assert!(!is_pdf_path("/home/user/pdf"));
+        assert!(!is_pdf_path(""));
+    }
+
+    #[test]
+    fn pending_open_files_push_pdf_item() {
+        let pending = PendingOpenFiles::new();
+        // 非拖放入口(文件关联/命令行):无落点
+        pending.push_pdf("/forms/tax.pdf", None);
+        // 拖放入口:附带落点坐标
+        pending.push_pdf("/forms/other.pdf", Some(DropPosition { x: 12.0, y: 34.5 }));
+        let drained = pending.drain_all();
+        let PendingOpenItem::Pdf { path, drop_position } = &drained[0] else {
+            panic!("item must be Pdf");
+        };
+        assert_eq!(path, "/forms/tax.pdf");
+        assert_eq!(*drop_position, None);
+        let PendingOpenItem::Pdf { path, drop_position } = &drained[1] else {
+            panic!("item must be Pdf");
+        };
+        assert_eq!(path, "/forms/other.pdf");
+        assert_eq!(drop_position.map(|d| (d.x, d.y)), Some((12.0, 34.5)));
     }
 
     #[test]
