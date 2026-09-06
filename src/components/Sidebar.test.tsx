@@ -81,9 +81,43 @@ describe('Sidebar 工具右键菜单', () => {
     ).toBeTruthy();
   });
 
-  it('「文本编辑器」分类分组不再渲染(仅保留固定条目)', () => {
-    renderSidebar();
-    expect(screen.queryByTestId('nav-cat-editor')).not.toBeInTheDocument();
+  it('「编辑器」分类分组渲染,展开后「PDF 编辑器」为二级菜单项', async () => {
+    const user = userEvent.setup();
+    const sidebar = renderSidebar();
+    const cat = screen.getByTestId('nav-cat-editor');
+    await user.click(cat);
+    const pdf = within(sidebar).getByRole('button', { name: /PDF 编辑器/i });
+    // PDF 编辑器是分组内的二级项(depth=1),且位于分组头之后
+    expect(cat.compareDocumentPosition(pdf) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('「编辑器」分组内不重复渲染固定的文本编辑器', async () => {
+    const user = userEvent.setup();
+    const sidebar = renderSidebar();
+    await user.click(screen.getByTestId('nav-cat-editor'));
+    // 固定项仅顶部一个:全侧栏名为「文本编辑器」的按钮只有固定条目本身
+    expect(within(sidebar).getAllByRole('button', { name: /^文本编辑器$/ })).toHaveLength(1);
+    // 分组内仅 PDF 编辑器一个子项
+    expect(within(sidebar).getAllByRole('button', { name: /PDF 编辑器/i })).toHaveLength(1);
+  });
+
+  it('分类内的「PDF 编辑器」右键可收藏(普通工具语义)', async () => {
+    const user = userEvent.setup();
+    const sidebar = renderSidebar();
+    await user.click(screen.getByTestId('nav-cat-editor'));
+    const btn = within(sidebar).getByRole('button', { name: /PDF 编辑器/i });
+    await openContextMenu(user, btn);
+    await user.click(await screen.findByRole('menuitem', { name: '收藏' }));
+    expect(useUiStore.getState().favorites).toEqual(['pdf_editor']);
+  });
+
+  it('收藏的 PDF 编辑器平铺在固定文本编辑器下方(无重复固定项)', () => {
+    useUiStore.setState({ favorites: ['pdf_editor'] });
+    const sidebar = renderSidebar();
+    expect(within(sidebar).getAllByRole('button', { name: /PDF 编辑器/i })).toHaveLength(1);
+    const editor = screen.getByTestId('nav-text-editor');
+    const pdf = within(sidebar).getByRole('button', { name: /PDF 编辑器/i });
+    expect(editor.compareDocumentPosition(pdf) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('旧数据中收藏的文本编辑器不重复渲染', () => {

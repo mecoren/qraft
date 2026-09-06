@@ -3,7 +3,8 @@
  *
  * 两种形态:
  * - 展开(224px):汉堡按钮 + 搜索框;所有工具 / 文本编辑器(固定) /
- *   收藏的工具(平铺,无分组标题) / 分类分组(可展开);底部 管理扩展 + 设置
+ *   收藏的工具(平铺,无分组标题) / 分类分组(可展开,「编辑器」分类下含
+ *   PDF 编辑器等二级项);底部 管理扩展 + 设置
  * - 折叠(56px 图标栏):汉堡 / 所有工具 / 文本编辑器(固定) / 分类图标 /
  *   底部设置;点击分类图标会展开侧栏并展开对应分类
  *
@@ -11,7 +12,7 @@
  * - 搜索时切换为扁平过滤列表(匹配名称/描述/关键词)
  * - 当前工具 / 当前视图高亮,激活项左侧带 primary 指示条
  * - 固定的「文本编辑器」始终排第一且不可收藏(右键菜单仅含「在新窗口打开」);
- *   「文本编辑器」分类仅含该工具,不再重复渲染分组
+ *   它在「编辑器」分类分组内不重复渲染,分组仅呈现其余工具(如 PDF 编辑器)
  */
 
 import { useMemo, useState, type JSX } from 'react';
@@ -54,10 +55,10 @@ import { ICON_STROKE_WIDTH } from '@/lib/icon-constants';
 const defaultEditorEntry = getCatalogEntry(DEFAULT_TOOL_ID);
 
 /**
- * 侧栏分类分组:排除「文本编辑器」分类 —— 该分类仅含固定的文本编辑器一个工具,
- * 已固定展示在「所有工具」正下方,展开态与折叠栏均不再重复渲染该分组。
+ * 侧栏分类分组:含全部分类。「编辑器」分类内的文本编辑器已固定展示在顶部,
+ * 渲染分组子项时跳过该工具避免重复(见 Sidebar 主组件)。
  */
-const SIDEBAR_CATEGORIES = CATALOG_CATEGORIES.filter((c) => c.id !== 'editor');
+const SIDEBAR_CATEGORIES = CATALOG_CATEGORIES;
 
 // ============================================================
 // 通用导航项
@@ -128,7 +129,7 @@ function NavItem({
 /**
  * 工具条目右键菜单内容:收藏/取消收藏 + 已收藏时追加排序(上移/下移)。
  * 固定的「文本编辑器」始终排第一且位置固定,不提供收藏/排序(见
- * DefaultEditorContextMenuContent 仅含「在新窗口打开」)。
+ * FixedToolContextMenuContent 仅含「在新窗口打开」)。
  */
 function ToolContextMenuContent({ entry }: { entry: CatalogEntry }): JSX.Element {
   const { t } = useTranslation();
@@ -169,7 +170,7 @@ function ToolContextMenuContent({ entry }: { entry: CatalogEntry }): JSX.Element
  * 固定「文本编辑器」右键菜单:仅含「在新窗口打开」。
  * 该工具不可收藏/排序,但同样支持弹出独立窗口。
  */
-function DefaultEditorContextMenuContent({ entry }: { entry: CatalogEntry }): JSX.Element {
+function FixedToolContextMenuContent({ entry }: { entry: CatalogEntry }): JSX.Element {
   const { t } = useTranslation();
   return (
     <ContextMenuItem onSelect={() => void openToolInNewWindow(entry.id)}>
@@ -182,7 +183,7 @@ function DefaultEditorContextMenuContent({ entry }: { entry: CatalogEntry }): JS
 function toolContextMenuFor(entry: CatalogEntry): JSX.Element | undefined {
   if (entry.special) return undefined;
   // 固定文本编辑器不可收藏/排序,仅提供「在新窗口打开」
-  if (entry.id === DEFAULT_TOOL_ID) return <DefaultEditorContextMenuContent entry={entry} />;
+  if (entry.id === DEFAULT_TOOL_ID) return <FixedToolContextMenuContent entry={entry} />;
   return <ToolContextMenuContent entry={entry} />;
 }
 
@@ -483,7 +484,11 @@ export function Sidebar(): JSX.Element {
               ))}
 
               {SIDEBAR_CATEGORIES.map((cat) => {
-                const entries = CATALOG_BY_CATEGORY.get(cat.id) ?? [];
+                // 固定文本编辑器已在「所有工具」正下方展示,分组内跳过避免重复;
+                // 「编辑器」分组因此仅呈现 PDF 编辑器等未固定的工具(二级菜单项)
+                const entries = (CATALOG_BY_CATEGORY.get(cat.id) ?? []).filter(
+                  (e) => e.id !== DEFAULT_TOOL_ID,
+                );
                 if (entries.length === 0) return null;
                 return (
                   <NavGroup
