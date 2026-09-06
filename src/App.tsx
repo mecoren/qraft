@@ -25,7 +25,12 @@ import { detectClipboardTools } from '@/lib/clipboard-detect';
 import { listen, CommandError } from '@/lib/ipc';
 import { formatBytes } from '@/lib/file-utils';
 import { cn } from '@/lib/utils';
-import { isMarkdownPath, isPdfPath, isDropInsideEditorBox } from '@/lib/open-file-routing';
+import {
+  isMarkdownPath,
+  isPdfPath,
+  isOfficePath,
+  isDropInsideEditorBox,
+} from '@/lib/open-file-routing';
 import {
   forceOpenFile,
   pullPendingOpenFiles,
@@ -38,6 +43,8 @@ import { useMdDocsStore } from '@/tools/markdownPreviewDocsStore';
 import { useMarkdownPreviewStore } from '@/tools/markdownPreviewStore';
 import { usePdfDocsStore } from '@/tools/pdf/pdfDocsStore';
 import { readPdfFile } from '@/tools/pdf/pdfOps';
+import { useOfficeDocsStore } from '@/tools/office/officeDocsStore';
+import { readOfficeFile } from '@/tools/office/officeOps';
 import { getPopoutToolIdFromLabel, rehydrateToolStateFromPopout } from '@/lib/popout-sync';
 import {
   cycleNamingCaseShortcutHandler,
@@ -132,31 +139,75 @@ function openFileInPdfEditor(path: string): void {
 }
 
 /**
+ * 以 Office 工具打开本地 Office 文档(docx/xlsx/pptx 及 WPS 旧格式
+ * doc/xls/ppt):切换到 office_editor 工具,读取字节后注入其工作区
+ * (路径授权由 Rust 侧在分流时完成)。读取失败(超限/IO)经 toast 提示,
+ * 不回退编辑器(Office 文档无法以文本编辑)。
+ */
+function openFileInOfficeEditor(path: string): void {
+  useUiStore.getState().openTool('office_editor');
+  void readOfficeFile(path)
+    .then((file) => {
+      useOfficeDocsStore.getState().openOfficeFromSystem({
+        path: file.path,
+        base64: file.base64,
+        size: file.size,
+      });
+    })
+    .catch((e: unknown) => {
+      // 超出 Office 大小上限(fs_read_office 的 FileTooLarge,details 形如
+      // {size, max}):本地化提示具体大小与上限;其余失败展示原始消息
+      if (e instanceof CommandError && e.code === 'ERR_FILE_TOO_LARGE') {
+        const detail = e.details as { size?: number; max?: number } | undefined;
+        if (typeof detail?.size === 'number' && typeof detail?.max === 'number') {
+          toast.error(
+            translate('tools.office_editor.err_file_too_large', {
+              size: formatBytes(detail.size),
+              max: formatBytes(detail.max),
+            }),
+          );
+          return;
+        }
+      }
+      toast.error(
+        translate('tools.office_editor.open_failed', {
+          message: e instanceof Error ? e.message : String(e),
+        }),
+      );
+    });
+}
+
+/**
  * 二进制文件编辑器提示路径(「无法在编辑器中打开」toast + 「仍要打开」动作)。
  * 供 `unsupported` 载荷与「拖 PDF 落入 Monaco 编辑框」的例外回退共用:
  * 点击「仍要打开」经 fs_read_text_file_encoded 的 force 参数按探测编码
  * 有损解码打开(Open Anyway),成功后按扩展名二次分流(md/pdf/编辑器)。
  */
 function showBinaryUnsupportedToast(path: string): void {
-  toast.warning(translate('chrome.toast.open_binary_unsupported', { name: fileNameFromPath(path) }), {
-    duration: 10_000,
-    action: {
-      label: translate('tools.text_editor.open_anyway'),
-      onClick: () => {
-        void forceOpenFile(path)
-          .then((r) => {
-            // 强制打开成功后与正常打开同一分流:.md 进 Markdown 预览工具,
-            // .pdf 进 PDF 工具,其余进编辑器
-            if (isMarkdownPath(r.path)) openFileInMarkdownPreview(r.content);
-            else if (isPdfPath(r.path)) openFileInPdfEditor(r.path);
-            else openFileInEditor(r.path, r.content, r.encoding);
-          })
-          .catch(() => {
-            // 强制打开失败(读取错误/超大):静默,后端已有对应提示渠道
-          });
+  toast.warning(
+    translate('chrome.toast.open_binary_unsupported', { name: fileNameFromPath(path) }),
+    {
+      duration: 10_000,
+      action: {
+        label: translate('tools.text_editor.open_anyway'),
+        onClick: () => {
+          void forceOpenFile(path)
+            .then((r) => {
+              // 强制打开成功后与正常打开同一分流:.md 进 Markdown 预览工具,
+              // .pdf 进 PDF 工具,.docx/.xlsx/.pptx 等 Office 文档进 Office 工具,
+              // 其余进编辑器
+              if (isMarkdownPath(r.path)) openFileInMarkdownPreview(r.content);
+              else if (isPdfPath(r.path)) openFileInPdfEditor(r.path);
+              else if (isOfficePath(r.path)) openFileInOfficeEditor(r.path);
+              else openFileInEditor(r.path, r.content, r.encoding);
+            })
+            .catch(() => {
+              // 强制打开失败(读取错误/超大):静默,后端已有对应提示渠道
+            });
+        },
       },
     },
-  });
+  );
 }
 
 /**
@@ -223,10 +274,12 @@ export function App(): JSX.Element {
       );
       // 通过文件关联/命令行/拖放「用 Qraft 打开」的文件:实时在编辑器工作区打开。
       // .md 文件例外:自动切到 Markdown 预览工具打开(目标体验对齐 Typora);
-      // .pdf 文件同理:自动切到 PDF 工具打开(渲染 + 表单 + 叠加编辑)。
+      // .pdf 文件同理:自动切到 PDF 工具打开(渲染 + 表单 + 叠加编辑);
+      // .docx/.xlsx/.pptx 等 Office 文档(含 WPS 旧格式 doc/xls/ppt)同理:
+      // 自动切到 Office 工具打开(渲染 + 表格编辑;旧格式展示转换指引)。
       // 拖放且落点在文本编辑器的编辑框(Monaco)内时不分流 —— 用户意图是
-      // 直接编辑该文件,维持原有的编辑器 Tab 打开路径(.pdf 为二进制,编辑框
-      // 内的例外不适用 —— 仍走 PDF 工具,二进制无法以文本打开)。
+      // 直接编辑该文件,维持原有的编辑器 Tab 打开路径(.pdf / Office 为二进制,
+      // 编辑框内的例外不适用 —— 仍走专用工具,二进制无法以文本打开)。
       unlisteners.push(
         await listen<OpenFileEventPayload>('app:open-file', (p) => {
           if (!p?.path) return;
@@ -247,6 +300,8 @@ export function App(): JSX.Element {
       // - pdf:切到 PDF 工具打开(渲染 + 表单 + 叠加编辑;Rust 侧已授权路径);
       //   例外——拖放落点命中 Monaco 编辑框时豁免分流(isDropInsideEditorBox,
       //   与 .md 同口径),回退到编辑器的二进制提示路径(toast + 「仍要打开」)
+      // - office:切到 Office 工具打开(docx/xlsx/pptx 渲染 + 编辑,旧格式
+      //   doc/xls/ppt 展示转换指引;Rust 侧已授权路径);例外同 pdf 口径
       // - error:路径非法等其他原因,展示消息
       unlisteners.push(
         await listen<OpenFileUnsupportedPayload>('app:open-file-unsupported', (p) => {
@@ -260,6 +315,14 @@ export function App(): JSX.Element {
               showBinaryUnsupportedToast(p.path);
             } else {
               openFileInPdfEditor(p.path);
+            }
+          } else if (p.kind === 'office' && p.path) {
+            // Office 分流同 PDF 例外口径:落点命中 Monaco 编辑区时不进
+            // Office 工具,回退编辑器的二进制提示路径(Office 文档同为二进制)
+            if (isDropInsideEditorBox(p.dropPosition, resolveDropElement)) {
+              showBinaryUnsupportedToast(p.path);
+            } else {
+              openFileInOfficeEditor(p.path);
             }
           } else if (p.kind === 'too-large' && p.path) {
             // 大文件:切换编辑器工具并以只读模式打开(索引扫描由 Workbench 触发)
@@ -296,6 +359,7 @@ export function App(): JSX.Element {
   // - File 项 → 常规打开(.md 走 Markdown 预览工具,同事件路径的分流规则)
   // - TooLarge 项 → 大文件只读查看模式
   // - Pdf 项 → PDF 工具打开(同事件路径分流)
+  // - Office 项 → Office 工具打开(同事件路径分流)
   useEffect(() => {
     if (!('__TAURI_INTERNALS__' in window)) return;
     let cancelled = false;
@@ -319,6 +383,13 @@ export function App(): JSX.Element {
               showBinaryUnsupportedToast(item.path);
             } else {
               openFileInPdfEditor(item.path);
+            }
+          } else if (item?.kind === 'office' && item.path) {
+            // Office 文档与 PDF 同一例外口径(启动兜底阶段同上,自然走 Office 分流)
+            if (isDropInsideEditorBox(item.dropPosition, resolveDropElement)) {
+              showBinaryUnsupportedToast(item.path);
+            } else {
+              openFileInOfficeEditor(item.path);
             }
           }
         }

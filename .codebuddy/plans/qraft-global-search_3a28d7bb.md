@@ -25,7 +25,7 @@ design:
       weight: 400
   colorSystem:
     primary:
-      - "#3b82f6"
+      - '#3b82f6'
       - var(--primary)
     background:
       - var(--background)
@@ -171,10 +171,10 @@ src/
 // src/lib/search-index.ts
 export type SearchEntryKind = 'tool' | 'tool-section' | 'setting' | 'setting-field' | 'page';
 export interface SearchTarget {
-  view: AppView;            // 'tool' | 'welcome' | 'settings' | 'history' | 'extensions' | 'about'
-  toolId?: string;          // view === 'tool' 时必填
-  anchor?: string;          // 完整锚点值 "${toolId}:${anchorKey}" 或设置字段锚点
-  settingsMenu?: MenuId;    // 设置弹窗目标菜单（theme/font/general/editor/shortcuts/update）
+  view: AppView; // 'tool' | 'welcome' | 'settings' | 'history' | 'extensions' | 'about'
+  toolId?: string; // view === 'tool' 时必填
+  anchor?: string; // 完整锚点值 "${toolId}:${anchorKey}" 或设置字段锚点
+  settingsMenu?: MenuId; // 设置弹窗目标菜单（theme/font/general/editor/shortcuts/update）
 }
 export interface SearchEntry {
   id: string;
@@ -182,7 +182,7 @@ export interface SearchEntry {
   title: string;
   description?: string;
   keywords: string[];
-  group: string;            // 分组标题（分类名/工具名/分区名）
+  group: string; // 分组标题（分类名/工具名/分区名）
   target: SearchTarget;
 }
 export function searchIndex(query: string): Map<SearchEntryKind, SearchEntry[]>;

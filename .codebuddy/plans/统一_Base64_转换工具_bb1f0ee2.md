@@ -25,19 +25,19 @@ design:
       weight: 400
   colorSystem:
     primary:
-      - "#4F6DF5"
-      - "#3D7BF5"
+      - '#4F6DF5'
+      - '#3D7BF5'
     background:
-      - "#FCFCFF"
-      - "#FFFFFF"
-      - "#F3F4FA"
+      - '#FCFCFF'
+      - '#FFFFFF'
+      - '#F3F4FA'
     text:
-      - "#2B2B33"
-      - "#85858F"
+      - '#2B2B33'
+      - '#85858F'
     functional:
-      - "#2BA471"
-      - "#E8A33D"
-      - "#E5484D"
+      - '#2BA471'
+      - '#E8A33D'
+      - '#E5484D'
 todos:
   - id: extend-rust-codec
     content: 使用 [skill:test-driven-development] 先写测试，再扩展 base64_codec.rs 支持 mode(text/ascii/hex/basic_auth/binary)+hex_case 与 MIME 嗅探，补全单元测试
@@ -152,15 +152,15 @@ Rust 参数与输出契约（`base64_codec.rs`）：
 type Direction = 'encode' | 'decode';
 type ModeKind = 'text' | 'file';
 interface Base64Mode {
-  id: string;            // 'text' | 'ascii' | 'hex' | 'basic_auth' | 'url' | 'css' | 'html' | 'file' | 'image' | 'audio' | 'video' | 'pdf'
+  id: string; // 'text' | 'ascii' | 'hex' | 'basic_auth' | 'url' | 'css' | 'html' | 'file' | 'image' | 'audio' | 'video' | 'pdf'
   label: string;
-  hint: string;          // 输出区占位/描述
-  kind: ModeKind;        // text → 双 CodeEditor;file → 拖放区/预览区
-  accept?: string;       // 文件类 input accept
+  hint: string; // 输出区占位/描述
+  kind: ModeKind; // text → 双 CodeEditor;file → 拖放区/预览区
+  accept?: string; // 文件类 input accept
   icon: LucideIcon;
 }
-const ENCODE_MODES: readonly Base64Mode[];   // text, url, css, html, hex(文本类) + file, image, audio, video, pdf(文件类)
-const DECODE_MODES: readonly Base64Mode[];   // text, ascii, hex, basic_auth(文本类) + file, image, audio, video, pdf(二进制类)
+const ENCODE_MODES: readonly Base64Mode[]; // text, url, css, html, hex(文本类) + file, image, audio, video, pdf(文件类)
+const DECODE_MODES: readonly Base64Mode[]; // text, ascii, hex, basic_auth(文本类) + file, image, audio, video, pdf(二进制类)
 ```
 
 ## 设计风格

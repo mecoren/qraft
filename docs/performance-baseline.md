@@ -5,20 +5,20 @@
 
 ## Rust 工具执行(criterion,`cargo bench --bench json_formatter`)
 
-| 日期 | 场景 | mean | 说明 | 机器 |
-|---|---|---|---|---|
-| 2026-08-25 | `json_format_small`(24B 输入) | **25.4µs**(±0.25) | 含 IPC 层之下的 Tool::execute 全链路 + spawn_blocking 开销;距「小输入 <50ms」目标有 ~2000 倍余量 | AMD Ryzen 7 7840H / 28GB / Windows 11 |
-| 2026-08-25 | `json_format_1mb`(~1MB 嵌套 JSON) | **39.3ms**(±0.63) | 线性外推 10MB ≈ 400ms,与 PRD「10MB JSON <500ms」目标吻合 | 同上 |
+| 日期       | 场景                              | mean              | 说明                                                                                             | 机器                                  |
+| ---------- | --------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| 2026-08-25 | `json_format_small`(24B 输入)     | **25.4µs**(±0.25) | 含 IPC 层之下的 Tool::execute 全链路 + spawn_blocking 开销;距「小输入 <50ms」目标有 ~2000 倍余量 | AMD Ryzen 7 7840H / 28GB / Windows 11 |
+| 2026-08-25 | `json_format_1mb`(~1MB 嵌套 JSON) | **39.3ms**(±0.63) | 线性外推 10MB ≈ 400ms,与 PRD「10MB JSON <500ms」目标吻合                                         | 同上                                  |
 
 ## 应用级(冷启动 / 内存)
 
 > 测量前置条件:必须先退出所有已运行的 Qraft 实例 —— single-instance 插件会让第二个进程静默退出,产生无效数据(scripts/perf-baseline.ps1 已内置预检)。
 
-| 日期 | 平台 | 冷启动(到主窗口) | 主进程峰值 WorkingSet | WebView2 子进程合计 | 脚本 |
-|---|---|---|---|---|---|
-| 待测 | Windows | 待测 | 待测 | 待测 | scripts/perf-baseline.ps1 |
-| 待测 | macOS | 手动秒表口径见 release-checklist.md | — | — | — |
-| 待测 | Linux | 同上 | — | — | — |
+| 日期 | 平台    | 冷启动(到主窗口)                    | 主进程峰值 WorkingSet | WebView2 子进程合计 | 脚本                      |
+| ---- | ------- | ----------------------------------- | --------------------- | ------------------- | ------------------------- |
+| 待测 | Windows | 待测                                | 待测                  | 待测                | scripts/perf-baseline.ps1 |
+| 待测 | macOS   | 手动秒表口径见 release-checklist.md | —                     | —                   | —                         |
+| 待测 | Linux   | 同上                                | —                     | —                   | —                         |
 
 ## 回归规则
 

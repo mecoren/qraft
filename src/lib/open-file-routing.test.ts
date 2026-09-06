@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { isMarkdownPath, isPdfPath, isDropInsideEditorBox } from './open-file-routing';
+import {
+  isMarkdownPath,
+  isPdfPath,
+  isOfficePath,
+  isDropInsideEditorBox,
+} from './open-file-routing';
 
 describe('isMarkdownPath', () => {
   it('识别 .md / .markdown / .mdx 扩展名(大小写不敏感)', () => {
@@ -41,6 +46,33 @@ describe('isPdfPath', () => {
   it('路径两侧空白被容忍', () => {
     expect(isPdfPath('  C:\\a\\b.pdf  ')).toBe(true);
     expect(isPdfPath('')).toBe(false);
+  });
+});
+
+describe('isOfficePath', () => {
+  it('识别 OOXML 扩展名(docx/docm/xlsx/xlsm/pptx/pptm)', () => {
+    for (const ext of ['docx', 'docm', 'xlsx', 'xlsm', 'pptx', 'pptm']) {
+      expect(isOfficePath(`/docs/report.${ext}`)).toBe(true);
+    }
+  });
+
+  it('识别 WPS / 旧二进制格式扩展名(doc/xls/ppt,大小写不敏感)', () => {
+    expect(isOfficePath('C:\\docs\\report.doc')).toBe(true);
+    expect(isOfficePath('/home/user/budget.xls')).toBe(true);
+    expect(isOfficePath('/home/user/预算表.XLS')).toBe(true);
+    expect(isOfficePath('/home/user/slides.Ppt')).toBe(true);
+  });
+
+  it('非 Office 扩展名 / 无扩展名返回 false', () => {
+    expect(isOfficePath('/docs/report.txt')).toBe(false);
+    expect(isOfficePath('/docs/report.pdf')).toBe(false);
+    expect(isOfficePath('/docs/report')).toBe(false);
+    expect(isOfficePath('/docs/report.docx~')).toBe(false);
+    expect(isOfficePath('')).toBe(false);
+  });
+
+  it('路径两侧空白被容忍', () => {
+    expect(isOfficePath('  /docs/report.pptx  ')).toBe(true);
   });
 });
 

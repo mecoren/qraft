@@ -20,14 +20,14 @@
 
 ## 背景:已核实的问题清单(含证据)
 
-| # | 问题 | 证据 | 影响 |
-|---|------|------|------|
-| 1 | 入口 chunk 静态导入 `vendor-@mermaid-js/parser`(686KB,min/gzip 152KB)只为拿 Vite preload-helper | `dist/assets/index-*.js` 含 `import{c as w}from"./vendor-@mermaid-js/parser-*.js"`,`w` 即 `__vitePreload`;dist/index.html modulepreload 该包 | 启动多下载/解析 ~686KB |
-| 2 | 入口 modulepreload `vendor-@peculiar/asn1-cms`(113KB):radix 右键菜单族与 @peculiar 族共享 tslib,rolldown 把 tslib 并进了 asn1-cms 分包 | sourcemap 显示 asn1-cms chunk sources 含 `tslib@2.8.1/tslib.es6.mjs`;react-context-menu chunk 有 `import{_t,ft,gt}from"...asn1-cms..."` | 启动多下载 ~113KB(27KB gzip) |
-| 3 | main.tsx 顶层静态 `import monacoLoader from '@monaco-editor/loader'` → monaco 包装 chunk 进入入口静态图 | dist/index.html modulepreload `monaco-QzYrj-lY.js`(21.5KB);src 内其余 monaco 引用全是 type-only | 启动多执行 22KB JS + loader.config |
-| 4 | index.html 以 `<link rel="stylesheet">` 阻塞式加载 editor.main.css(341.9KB)+ codicon.css,仅编辑器工具需要 | public/monaco/vs/editor/editor.main.css 实测 341.9KB | 首屏渲染被 CSS 解析阻塞 |
-| 5 | 8 个工具在 useMemo 中对**整个输入**做同步解析/转换,无 useDeferredValue:JsonPathTester(JSON.parse+JSONPath)、JsonYamlConverter(JSON.parse/YAML.parse)、JsonArrayTable(JSON.parse)、SqlFormatter(sql-formatter)、XmlFormatter(DOM 解析)、XmlXsdTester(DOM+遍历)、ListComparer(O(n·m) 对比)、IpParser(逐字符解析) | 各文件 useMemo 依赖 `[input…]`,输入框 onChange 直写 state;DuplicateDetector.tsx:241 已示范 `useDeferredValue` 模式 | 粘贴大文本后每个按键都触发全量重算,输入明显卡顿 |
-| 6 | ToolPanel 的 Suspense fallback 是纯虚线框文字「加载工具…」,无旋转指示器;项目其他加载态统一用 `<Loader2 className="animate-spin" />`(font-picker.tsx:210、IpParser.tsx:273) | ToolPanel.tsx:91-99 | 加载态视觉不一致 |
+| #   | 问题                                                                                                                                                                                                                                                                                                           | 证据                                                                                                                                         | 影响                                            |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| 1   | 入口 chunk 静态导入 `vendor-@mermaid-js/parser`(686KB,min/gzip 152KB)只为拿 Vite preload-helper                                                                                                                                                                                                                | `dist/assets/index-*.js` 含 `import{c as w}from"./vendor-@mermaid-js/parser-*.js"`,`w` 即 `__vitePreload`;dist/index.html modulepreload 该包 | 启动多下载/解析 ~686KB                          |
+| 2   | 入口 modulepreload `vendor-@peculiar/asn1-cms`(113KB):radix 右键菜单族与 @peculiar 族共享 tslib,rolldown 把 tslib 并进了 asn1-cms 分包                                                                                                                                                                         | sourcemap 显示 asn1-cms chunk sources 含 `tslib@2.8.1/tslib.es6.mjs`;react-context-menu chunk 有 `import{_t,ft,gt}from"...asn1-cms..."`      | 启动多下载 ~113KB(27KB gzip)                    |
+| 3   | main.tsx 顶层静态 `import monacoLoader from '@monaco-editor/loader'` → monaco 包装 chunk 进入入口静态图                                                                                                                                                                                                        | dist/index.html modulepreload `monaco-QzYrj-lY.js`(21.5KB);src 内其余 monaco 引用全是 type-only                                              | 启动多执行 22KB JS + loader.config              |
+| 4   | index.html 以 `<link rel="stylesheet">` 阻塞式加载 editor.main.css(341.9KB)+ codicon.css,仅编辑器工具需要                                                                                                                                                                                                      | public/monaco/vs/editor/editor.main.css 实测 341.9KB                                                                                         | 首屏渲染被 CSS 解析阻塞                         |
+| 5   | 8 个工具在 useMemo 中对**整个输入**做同步解析/转换,无 useDeferredValue:JsonPathTester(JSON.parse+JSONPath)、JsonYamlConverter(JSON.parse/YAML.parse)、JsonArrayTable(JSON.parse)、SqlFormatter(sql-formatter)、XmlFormatter(DOM 解析)、XmlXsdTester(DOM+遍历)、ListComparer(O(n·m) 对比)、IpParser(逐字符解析) | 各文件 useMemo 依赖 `[input…]`,输入框 onChange 直写 state;DuplicateDetector.tsx:241 已示范 `useDeferredValue` 模式                           | 粘贴大文本后每个按键都触发全量重算,输入明显卡顿 |
+| 6   | ToolPanel 的 Suspense fallback 是纯虚线框文字「加载工具…」,无旋转指示器;项目其他加载态统一用 `<Loader2 className="animate-spin" />`(font-picker.tsx:210、IpParser.tsx:273)                                                                                                                                     | ToolPanel.tsx:91-99                                                                                                                          | 加载态视觉不一致                                |
 
 UI 其余方面(焦点环、aria-label、空状态、tooltip、过渡动画、主题 token 化、滚动条统一、虚拟化列表)经核查均已达标,不在本次范围(YAGNI)。
 
@@ -36,9 +36,11 @@ UI 其余方面(焦点环、aria-label、空状态、tooltip、过渡动画、�
 ### Task 1: advancedChunks 分包修复(preload-helper 与 tslib 隔离)
 
 **Files:**
+
 - Modify: `vite.config.ts:48-69`(build.rollupOptions.output)
 
 **Interfaces:**
+
 - Consumes: 无(纯构建配置)
 - Produces: 产物 chunk 布局契约,后续任务的构建验证依赖它:
   - 存在 ~1KB 的 `dist/assets/runtime-*.js`(承载 `__vitePreload`)
@@ -107,22 +109,27 @@ Expected: 输出两行 modulepreload(`vendor-@mermaid-js/parser-*` 与 `vendor-@
 - [ ] **Step 3: 构建并断言产物布局**
 
 Run:
+
 ```powershell
 pnpm build
 Select-String -Path dist\index.html -Pattern 'modulepreload' | Select-String 'mermaid|peculiar'
 Get-ChildItem dist\assets -Filter 'runtime-*.js' | ForEach-Object { $_.Name }
 Get-ChildItem dist\assets -Filter '*tslib*' -Recurse | ForEach-Object { $_.Name }
 ```
+
 Expected:
+
 - 第一条 Select-String **无输出**(两个重型包均退出启动预载)
 - `runtime-*.js` 存在且 ≈1KB
 - `vendor-tslib-*.js` 存在且 <10KB
 
 再确认入口静态 import 列表不含 mermaid(双重保险):
+
 ```powershell
 $idx = Get-ChildItem dist\assets\index-*.js | Select-Object -First 1
 [regex]::Matches((Get-Content $idx.FullName -Raw), 'from"\./[^"]+"') | ForEach-Object Value | Sort-Object -Unique | Select-String 'mermaid'
 ```
+
 Expected: 无输出。
 
 - [ ] **Step 4: 回归三件套**
@@ -135,6 +142,7 @@ Expected: typecheck 无输出、lint 通过、783 个测试全部 passed。(vite
 ### Task 2: Monaco loader 配置延迟至编辑器模块图
 
 **Files:**
+
 - Create: `src/lib/monaco-loader-config.ts`
 - Modify: `src/main.tsx:3,9-27`(删除 import 与 config 调用,保留说明性注释迁移)
 - Modify: `src/components/ui/code-editor.tsx`(顶部 import 区追加一行 side-effect import)
@@ -142,6 +150,7 @@ Expected: typecheck 无输出、lint 通过、783 个测试全部 passed。(vite
 - Modify: `src/tools/TextCompare.tsx`(同上)
 
 **Interfaces:**
+
 - Consumes: `@monaco-editor/loader` 默认导出的 `.config()`(唯一运行时引用点,由 grep 核实)
 - Produces: `configureMonacoLoader(): void`(幂等;但消费方一律以 side-effect import 使用,不直接调用)。Task 3 的 code-editor.tsx 编辑依赖本任务先完成。
 
@@ -216,14 +225,18 @@ import '@/lib/monaco-loader-config';
 - [ ] **Step 5: 构建并断言 monaco 退出启动图**
 
 Run:
+
 ```powershell
 pnpm build
 Select-String -Path dist\index.html -Pattern 'modulepreload' | Select-String 'monaco'
 ```
+
 Expected: 无输出(modulepreload 不再含 monaco 包装 chunk)。同时确认懒 chunk 仍在:
+
 ```powershell
 Get-ChildItem dist\assets -Recurse -Filter '*CodeEditor*' | ForEach-Object Name
 ```
+
 Expected: CodeEditor-*.js 存在(~56KB,首次打开编辑器工具时才加载)。
 
 - [ ] **Step 6: 回归三件套**
@@ -236,10 +249,12 @@ Expected: 全绿。
 ### Task 3: Monaco CSS 非阻塞预取(消除 342KB 渲染阻塞)
 
 **Files:**
+
 - Modify: `index.html:10-48`
 - Modify: `src/components/ui/code-editor.tsx:49-76`(泛化 ensureMonacoCodiconStyle)
 
 **Interfaces:**
+
 - Consumes: Task 2 完成后的 code-editor.tsx(本任务在其模块初始化区扩展样式注入)
 - Produces: 无对外接口;验收依据为 dist/index.html 内容与编辑器功能正常
 
@@ -250,7 +265,7 @@ Expected: 全绿。
 把两条样式 link(editor.main.css 与 codicon.css)及其上方两段注释整体替换为:
 
 ```html
-    <!--
+<!--
      * Monaco 编辑器样式改为「非阻塞预取」:
      * - editor.main.css(~342KB)与 codicon.css 仅编辑器类工具需要,若以
      *   rel="stylesheet" 放这里会阻塞首屏渲染。rel="preload" as="style" 只提前
@@ -260,8 +275,8 @@ Expected: 全绿。
      * - Tauri 用 tauri://localhost 静态根,/monaco/... 直接命中 dist/monaco/...
      *   复制产物;dev 由 vite dev server 按 public/ 路径提供。
      -->
-    <link rel="preload" href="/monaco/vs/editor/editor.main.css" as="style" />
-    <link rel="preload" href="/monaco/vs/base/browser/ui/codicons/codicon/codicon.css" as="style" />
+<link rel="preload" href="/monaco/vs/editor/editor.main.css" as="style" />
+<link rel="preload" href="/monaco/vs/base/browser/ui/codicons/codicon/codicon.css" as="style" />
 ```
 
 (zh-cn.js 的 `<script>` 及其注释原样保留。)
@@ -313,11 +328,13 @@ ensureMonacoStyles();
 - [ ] **Step 3: 构建 + 断言 index.html 形态**
 
 Run:
+
 ```powershell
 pnpm build
 Select-String -Path dist\index.html -Pattern '<link rel="stylesheet"[^>]*monaco'
 Select-String -Path dist\index.html -Pattern 'rel="preload"[^>]*monaco' | Measure-Object | ForEach-Object Count
 ```
+
 Expected: 第一条无输出(不再有阻塞式 monaco 样式表);第二条输出 `2`(两条 preload)。
 
 - [ ] **Step 4: 手工冒烟(dev)**
@@ -336,11 +353,13 @@ Expected: 全绿。
 ### Task 4: JSON 解析类工具接入 useDeferredValue(JsonPathTester / JsonYamlConverter / JsonArrayTable)
 
 **Files:**
+
 - Modify: `src/tools/JsonPathTester.tsx:7,17-18,20-35`
 - Modify: `src/tools/JsonYamlConverter.tsx:5,33-44`
 - Modify: `src/tools/JsonArrayTable.tsx:5,72-81`
 
 **Interfaces:**
+
 - Consumes: React 19 `useDeferredValue`(项目既有用法参考 DuplicateDetector.tsx:241)
 - Produces: 无接口变化;组件 props/store 契约不变,现有测试即回归网
 
@@ -453,11 +472,13 @@ Expected: 全绿。
 ### Task 5: 格式化类工具接入 useDeferredValue(SqlFormatter / XmlFormatter / XmlXsdTester)
 
 **Files:**
+
 - Modify: `src/tools/SqlFormatter.tsx:7,34-51`
 - Modify: `src/tools/XmlFormatter.tsx:8,98-110`
 - Modify: `src/tools/XmlXsdTester.tsx:7,85-92`
 
 **Interfaces:**
+
 - Consumes / Produces: 同 Task 4(无接口变化,回归网为既有测试)
 
 - [ ] **Step 1: SqlFormatter.tsx**
@@ -556,6 +577,7 @@ Expected: 全绿。手工冒烟同 Task 4 Step 5,对象换成这三个工具。
 ### Task 6: ListComparer 与 IpParser 接入 useDeferredValue
 
 **Files:**
+
 - Modify: `src/tools/ListComparer.tsx:7,75-85`
 - Modify: `src/tools/IpParser.tsx:8,156-168`
 
@@ -628,9 +650,11 @@ Expected: 全绿(IpParser.test.tsx 13KB 用例是主要回归网)。手工:ListC
 ### Task 7: ToolPanel Suspense fallback 统一加载态(UI 打磨)
 
 **Files:**
+
 - Modify: `src/components/ToolPanel.tsx:82-99`
 
 **Interfaces:**
+
 - Consumes: lucide-react `Loader2` + `animate-spin`(项目加载态既有约定:font-picker.tsx:210、IpParser.tsx:273)
 - Produces: 无接口变化;data-testid/role 结构保持
 

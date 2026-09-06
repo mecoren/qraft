@@ -52,6 +52,9 @@ const ICON_NAMES = [
   'database', // sql
   'vue', // vue
   'svelte', // svelte
+  'word', // docx / docm / doc(Word 文档)
+  'table', // 已存在:csv;xlsx / xlsm / xls 复用同源
+  'powerpoint', // pptx / pptm / ppt(PowerPoint 幻灯片)
 ];
 
 /** 将多枚 PNG(含 size 字段)打包为 ICO(PNG 容器,Vista+ 原生支持) */

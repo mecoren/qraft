@@ -68,6 +68,10 @@
   !insertmacro _Qraft_AssocTypeIcon "SQL Document" "database.ico"
   !insertmacro _Qraft_AssocTypeIcon "Vue Document" "vue.ico"
   !insertmacro _Qraft_AssocTypeIcon "Svelte Document" "svelte.ico"
+  ; Office 三件套(Word / Excel / PowerPoint,含 WPS 旧二进制格式)
+  !insertmacro _Qraft_AssocTypeIcon "Word Document" "word.ico"
+  !insertmacro _Qraft_AssocTypeIcon "Excel Spreadsheet" "table.ico"
+  !insertmacro _Qraft_AssocTypeIcon "PowerPoint Presentation" "powerpoint.ico"
 
   ; ---- 清理历史版本遗留的分组 ProgID(源代码文件统一图标已被按语言拆分取代)----
   DeleteRegKey SHCTX "Software\Classes\Source Code File"

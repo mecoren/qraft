@@ -32,13 +32,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "app",
-      "nsis",
-      "dmg",
-      "deb",
-      "appimage"
-    ],
+    "targets": ["app", "nsis", "dmg", "deb", "appimage"],
     "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
@@ -47,221 +41,186 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "icons/file-assoc"
-    ],
+    "resources": ["icons/file-assoc"],
     "externalBin": [],
     "fileAssociations": [
       {
-        "ext": [
-          "txt"
-        ],
+        "ext": ["txt"],
         "name": "Text Document",
         "description": "纯文本文件",
         "mimeType": "text/plain",
         "role": "Editor"
       },
       {
-        "ext": [
-          "json"
-        ],
+        "ext": ["json"],
         "name": "JSON Document",
         "description": "JSON 数据文件",
         "mimeType": "application/json",
         "role": "Editor"
       },
       {
-        "ext": [
-          "md",
-          "markdown"
-        ],
+        "ext": ["md", "markdown"],
         "name": "Markdown Document",
         "description": "Markdown 文档",
         "mimeType": "text/markdown",
         "role": "Editor"
       },
       {
-        "ext": [
-          "csv"
-        ],
+        "ext": ["csv"],
         "name": "CSV Document",
         "description": "CSV 表格文件",
         "mimeType": "text/csv",
         "role": "Editor"
       },
       {
-        "ext": [
-          "pdf"
-        ],
+        "ext": ["pdf"],
         "name": "PDF Document",
         "description": "PDF 文档",
         "mimeType": "application/pdf",
         "role": "Editor"
       },
       {
-        "ext": [
-          "log"
-        ],
+        "ext": ["docx", "docm", "doc"],
+        "name": "Word Document",
+        "description": "Word 文档",
+        "mimeType": "application/msword",
+        "role": "Editor"
+      },
+      {
+        "ext": ["xlsx", "xlsm", "xls"],
+        "name": "Excel Spreadsheet",
+        "description": "Excel 表格",
+        "mimeType": "application/vnd.ms-excel",
+        "role": "Editor"
+      },
+      {
+        "ext": ["pptx", "pptm", "ppt"],
+        "name": "PowerPoint Presentation",
+        "description": "PowerPoint 幻灯片",
+        "mimeType": "application/vnd.ms-powerpoint",
+        "role": "Editor"
+      },
+      {
+        "ext": ["log"],
         "name": "Log File",
         "description": "日志文件",
         "mimeType": "text/plain",
         "role": "Editor"
       },
       {
-        "ext": [
-          "xml"
-        ],
+        "ext": ["xml"],
         "name": "XML Document",
         "description": "XML 文档",
         "mimeType": "application/xml",
         "role": "Editor"
       },
       {
-        "ext": [
-          "yaml",
-          "yml"
-        ],
+        "ext": ["yaml", "yml"],
         "name": "YAML Document",
         "description": "YAML 文档",
         "mimeType": "application/yaml",
         "role": "Editor"
       },
       {
-        "ext": [
-          "toml"
-        ],
+        "ext": ["toml"],
         "name": "TOML Document",
         "description": "TOML 文档",
         "mimeType": "text/plain",
         "role": "Editor"
       },
       {
-        "ext": [
-          "ini",
-          "conf",
-          "env"
-        ],
+        "ext": ["ini", "conf", "env"],
         "name": "Configuration Text File",
         "description": "配置文本文件",
         "mimeType": "text/plain",
         "role": "Editor"
       },
       {
-        "ext": [
-          "js"
-        ],
+        "ext": ["js"],
         "name": "JavaScript Document",
         "description": "JavaScript 源码文件",
         "mimeType": "text/javascript",
         "role": "Editor"
       },
       {
-        "ext": [
-          "ts"
-        ],
+        "ext": ["ts"],
         "name": "TypeScript Document",
         "description": "TypeScript 源码文件",
         "mimeType": "text/typescript",
         "role": "Editor"
       },
       {
-        "ext": [
-          "jsx",
-          "tsx"
-        ],
+        "ext": ["jsx", "tsx"],
         "name": "React Document",
         "description": "React JSX/TSX 文件",
         "mimeType": "text/plain",
         "role": "Editor"
       },
       {
-        "ext": [
-          "py"
-        ],
+        "ext": ["py"],
         "name": "Python Document",
         "description": "Python 源码文件",
         "mimeType": "text/x-python",
         "role": "Editor"
       },
       {
-        "ext": [
-          "rs"
-        ],
+        "ext": ["rs"],
         "name": "Rust Document",
         "description": "Rust 源码文件",
         "mimeType": "text/rust",
         "role": "Editor"
       },
       {
-        "ext": [
-          "go"
-        ],
+        "ext": ["go"],
         "name": "Go Document",
         "description": "Go 源码文件",
         "mimeType": "text/x-go",
         "role": "Editor"
       },
       {
-        "ext": [
-          "java"
-        ],
+        "ext": ["java"],
         "name": "Java Document",
         "description": "Java 源码文件",
         "mimeType": "text/x-java-source",
         "role": "Editor"
       },
       {
-        "ext": [
-          "c",
-          "h"
-        ],
+        "ext": ["c", "h"],
         "name": "C Document",
         "description": "C 源码与头文件",
         "mimeType": "text/plain",
         "role": "Editor"
       },
       {
-        "ext": [
-          "cpp",
-          "hpp"
-        ],
+        "ext": ["cpp", "hpp"],
         "name": "C++ Document",
         "description": "C++ 源码与头文件",
         "mimeType": "text/plain",
         "role": "Editor"
       },
       {
-        "ext": [
-          "sh",
-          "bash"
-        ],
+        "ext": ["sh", "bash"],
         "name": "Shell Script Document",
         "description": "Shell 脚本",
         "mimeType": "application/x-sh",
         "role": "Editor"
       },
       {
-        "ext": [
-          "sql"
-        ],
+        "ext": ["sql"],
         "name": "SQL Document",
         "description": "SQL 脚本",
         "mimeType": "application/sql",
         "role": "Editor"
       },
       {
-        "ext": [
-          "vue"
-        ],
+        "ext": ["vue"],
         "name": "Vue Document",
         "description": "Vue 单文件组件",
         "mimeType": "text/plain",
         "role": "Editor"
       },
       {
-        "ext": [
-          "svelte"
-        ],
+        "ext": ["svelte"],
         "name": "Svelte Document",
         "description": "Svelte 组件",
         "mimeType": "text/plain",
@@ -274,15 +233,11 @@
     "longDescription": "Qraft is a local-first developer toolbox with 10+ offline tools: JSON formatter, Base64, JWT parser, hash calculator, and more. Zero network, zero telemetry.",
     "windows": {
       "wix": {
-        "language": [
-          "en-US"
-        ]
+        "language": ["en-US"]
       },
       "nsis": {
         "installMode": "currentUser",
-        "languages": [
-          "SimpChinese"
-        ],
+        "languages": ["SimpChinese"],
         "template": "./windows/installer.nsi",
         "installerIcon": "./icons/icon.ico",
         "uninstallerIcon": "./icons/icon.ico",
@@ -302,10 +257,7 @@
     },
     "linux": {
       "deb": {
-        "depends": [
-          "libwebkit2gtk-4.1-0",
-          "libssl3"
-        ]
+        "depends": ["libwebkit2gtk-4.1-0", "libssl3"]
       },
       "appimage": {
         "bundleMediaFramework": true
@@ -315,9 +267,7 @@
   "plugins": {
     "updater": {
       "active": true,
-      "endpoints": [
-        "https://github.com/mecoren/qraft/releases/latest/download/latest.json"
-      ],
+      "endpoints": ["https://github.com/mecoren/qraft/releases/latest/download/latest.json"],
       "dialog": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZFOUZFMTdDMEQ0RDQ2NEUKUldST1JrME5mT0dmL2tObWhyMkY2TmVpemt5b3dSSVJlanpibHZ0VWtyMEd1bndCcUdleWpLVm4K"
     }

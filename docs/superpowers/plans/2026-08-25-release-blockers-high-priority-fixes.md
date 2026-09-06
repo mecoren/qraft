@@ -34,9 +34,11 @@
 ### Task 1: Monaco 资源裁剪（AMD 引用闭包分析）
 
 **Files:**
+
 - Modify: `scripts/copy-monaco.mjs`
 
 **Interfaces:**
+
 - Consumes: node_modules/monaco-editor/min/vs 目录结构（事实 1）
 - Produces: public/monaco/vs 仅含运行时可达文件；脚本输出 `[copy-trim] kept N files, deleted M files, freed X.X MB`
 - 运行时契约（后续构建与打包依赖）: loader.js、editor/editor.main.js、editor/editor.main.css、assets/ts.worker-*.js、nls/lang/zh-cn.js、basic-languages/ 全部存在
@@ -59,7 +61,8 @@ async function listFilesRel(rootDir, rel = '') {
   const out = [];
   for (const entry of await fs.readdir(rootDir, { withFileTypes: true })) {
     const relPath = rel ? `${rel}/${entry.name}` : entry.name;
-    if (entry.isDirectory()) out.push(...(await listFilesRel(path.join(rootDir, entry.name), relPath)));
+    if (entry.isDirectory())
+      out.push(...(await listFilesRel(path.join(rootDir, entry.name), relPath)));
     else if (entry.isFile()) out.push(relPath);
   }
   return out;
@@ -94,7 +97,13 @@ async function collectReachable(vsDir) {
     const m = /^define\("([^"]+)"\s*,\s*\[([^\]]*)\]/m.exec(content);
     if (m) {
       byId.set(m[1], rel);
-      defineDeps.set(rel, m[2].split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean));
+      defineDeps.set(
+        rel,
+        m[2]
+          .split(',')
+          .map((s) => s.trim().replace(/^["']|["']$/g, ''))
+          .filter(Boolean),
+      );
     }
     // 动态引用:worker 载荷经 toUrl("./assets/xx.worker-*.js") 构造 URL,闭包必须纳入
     for (const d of content.matchAll(/toUrl\(\s*["'](\.[^"']+\.js)["']\s*\)/g)) {
@@ -149,12 +158,18 @@ async function trimUnreachable(vsDir) {
     if (existsSync(dir)) {
       const rest = await fs.readdir(dir, { recursive: true });
       const filesLeft = rest.filter((r) => {
-        try { return fs.statSync(path.join(dir, r)).isFile(); } catch { return false; }
+        try {
+          return fs.statSync(path.join(dir, r)).isFile();
+        } catch {
+          return false;
+        }
       });
       if (filesLeft.length === 0) await fs.rm(dir, { recursive: true, force: true });
     }
   }
-  console.log(`[copy-trim] freed ${(freed / 1024 / 1024).toFixed(1)} MB (${deleted} files unreachable)`);
+  console.log(
+    `[copy-trim] freed ${(freed / 1024 / 1024).toFixed(1)} MB (${deleted} files unreachable)`,
+  );
   return freed;
 }
 ```
@@ -164,25 +179,25 @@ async function trimUnreachable(vsDir) {
 在 `main()` 的 codicon 校验之后、loaderJs 校验之前插入：
 
 ```javascript
-  // 裁剪不可达产物(见 trimUnachable 注释):旧版 language/**、聚合入口、非中文 locale 等
-  await trimUnreachable(DEST);
+// 裁剪不可达产物(见 trimUnachable 注释):旧版 language/**、聚合入口、非中文 locale 等
+await trimUnreachable(DEST);
 
-  // 裁剪后核验:运行时关键路径必须存活,否则视为闭包分析出错,立即失败
-  const mustExist = [
-    DEST,
-    path.join(DEST, 'loader.js'),
-    path.join(DEST, 'editor', 'editor.main.js'),
-    path.join(DEST, 'editor', 'editor.main.css'),
-    path.join(DEST, 'nls', 'lang', 'zh-cn.js'),
-  ];
-  for (const p of mustExist) {
-    if (!existsSync(p)) throw new Error(`裁剪后缺少运行时关键文件: ${p}`);
-  }
-  const assetsLeft = existsSync(path.join(DEST, 'assets'))
-    ? (await fs.readdir(path.join(DEST, 'assets'))).filter((f) => f.endsWith('.js'))
-    : [];
-  if (assetsLeft.length === 0) throw new Error('裁剪后 assets/ 无任何 worker 载荷,闭包分析有误');
-  if (existsSync(path.join(DEST, 'language'))) throw new Error('裁剪后仍存在旧版 language/ 目录');
+// 裁剪后核验:运行时关键路径必须存活,否则视为闭包分析出错,立即失败
+const mustExist = [
+  DEST,
+  path.join(DEST, 'loader.js'),
+  path.join(DEST, 'editor', 'editor.main.js'),
+  path.join(DEST, 'editor', 'editor.main.css'),
+  path.join(DEST, 'nls', 'lang', 'zh-cn.js'),
+];
+for (const p of mustExist) {
+  if (!existsSync(p)) throw new Error(`裁剪后缺少运行时关键文件: ${p}`);
+}
+const assetsLeft = existsSync(path.join(DEST, 'assets'))
+  ? (await fs.readdir(path.join(DEST, 'assets'))).filter((f) => f.endsWith('.js'))
+  : [];
+if (assetsLeft.length === 0) throw new Error('裁剪后 assets/ 无任何 worker 载荷,闭包分析有误');
+if (existsSync(path.join(DEST, 'language'))) throw new Error('裁剪后仍存在旧版 language/ 目录');
 ```
 
 - [ ] **Step 3: 运行脚本验证**
@@ -208,6 +223,7 @@ Expected: 全部通过（测试不触碰 public/monaco）。
 ### Task 2: ToolPanel keepalive LRU 上限
 
 **Files:**
+
 - Create: `src/lib/keepalive.ts`
 - Test: `src/lib/keepalive.test.ts`
 - Modify: `src/components/ToolPanel.tsx:56-67`（visited 更新逻辑）
@@ -215,6 +231,7 @@ Expected: 全部通过（测试不触碰 public/monaco）。
 - Test: `src/components/ToolPanel.test.tsx`（追加淘汰用例）
 
 **Interfaces:**
+
 - Produces: `pushVisited(visited: string[], toolId: string, max: number): string[]`（纯函数）; `MAX_KEEPALIVE_TOOLS = 8` 常量
 - 语义: toolId 已存在则移到末尾（最近使用）；否则追加；超限时从头淘汰，但永不淘汰 toolId 本身且至少保留 1 个
 
@@ -303,11 +320,11 @@ import { MAX_KEEPALIVE_TOOLS, pushVisited } from '@/lib/keepalive';
 将第 63-65 行 setTimeout 回调替换：
 
 ```typescript
-    const h = setTimeout(() => {
-      // LRU 容量上限:超出 MAX_KEEPALIVE_TOOLS 时淘汰最久未访问的工具(真卸载,
-      // 触发其 Monaco 实例 dispose),防止长会话内存无界增长
-      setVisited((v) => pushVisited(v, id, MAX_KEEPALIVE_TOOLS));
-    }, 0);
+const h = setTimeout(() => {
+  // LRU 容量上限:超出 MAX_KEEPALIVE_TOOLS 时淘汰最久未访问的工具(真卸载,
+  // 触发其 Monaco 实例 dispose),防止长会话内存无界增长
+  setVisited((v) => pushVisited(v, id, MAX_KEEPALIVE_TOOLS));
+}, 0);
 ```
 
 第 90 行容器 div 增加 data 属性：
@@ -364,10 +381,12 @@ Expected: 通过（基线 783 + 新增 ≥7 个用例）
 ### Task 3: dompurify 升级（pnpm overrides）
 
 **Files:**
+
 - Modify: `package.json`（dependencies.dompurify、新增 pnpm.overrides）
 - Modify: `pnpm-lock.yaml`（由 pnpm install 自动再生）
 
 **Interfaces:**
+
 - Consumes: 事实 3（三条 dompurify 引入路径）
 - Produces: 全仓 dompurify 单一实例 >=3.4.13；`pnpm audit --prod` 退出码 0
 
@@ -410,17 +429,18 @@ Expected: 通过。
 ### Task 4: CI 接入 pnpm audit 门禁
 
 **Files:**
+
 - Modify: `.github/workflows/ci.yml`（audit job,cargo audit 步骤之后）
 - Modify: `.github/workflows/release.yml`（audit job,同位置）
 
 - [ ] **Step 1: 两个 workflow 的 audit job 末尾追加相同步骤**
 
 ```yaml
-      - name: pnpm audit (生产依赖)
-        # 安全底线(prd/13-security.md):与 cargo audit 同级的强制门禁。
-        # --prod 排除 devDependencies;阈值 moderate 与既有 cargo audit 口径一致。
-        run: pnpm audit --prod --audit-level moderate
-        working-directory: .
+- name: pnpm audit (生产依赖)
+  # 安全底线(prd/13-security.md):与 cargo audit 同级的强制门禁。
+  # --prod 排除 devDependencies;阈值 moderate 与既有 cargo audit 口径一致。
+  run: pnpm audit --prod --audit-level moderate
+  working-directory: .
 ```
 
 （release.yml 同样追加；该 job 此前已装好 pnpm/node/依赖，无需额外步骤。）
@@ -440,6 +460,7 @@ Run: `node -e "const y=require('node:fs').readFileSync('.github/workflows/ci.yml
 ### Task 5: 仓库清理（temp-* / sharp-bin 出库）
 
 **Files:**
+
 - Modify: `.gitignore`
 - Index 变更（不提交）: temp-alpha-check.cjs、temp-fold-debug.mjs、temp-fold-summary-test.mjs、temp-logo-check.cjs、temp-build-check/、temp-sharp-bin/、vitest-result.json
 
@@ -475,6 +496,7 @@ Expected: 显示 `D`（staged 删除）。文件本体仍在磁盘上。
 ### Task 6: accent 对比度防护（TDD）
 
 **Files:**
+
 - Modify: `src/lib/design-tokens.ts`（新增解析/亮度函数 + deriveCustomPalette 使用）
 - Test: `src/lib/design-tokens.test.ts`（新建,若已存在则追加）
 - Modify: `src/lib/color-theme.ts:101-117`(注入前景色变量)
@@ -482,6 +504,7 @@ Expected: 显示 `D`（staged 删除）。文件本体仍在磁盘上。
 - Modify: `src/components/SettingsPanel.tsx:304-309,358-371`（HEX 校验与错误提示）
 
 **Interfaces:**
+
 - Produces: `parseHexColor(hex: string): [number, number, number] | null`; `pickAccentForeground(accentHex: string): string`（返回 oklch 颜色串）; applyPalette 自定义分支额外注入 `--primary-foreground` / `--sidebar-primary-foreground`,预设分支移除之
 
 - [ ] **Step 1: 写失败测试**
@@ -542,7 +565,13 @@ export function parseHexColor(hex: string): [number, number, number] | null {
   const m = /^#([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(hex.trim());
   if (!m) return null;
   const s = m[1];
-  const full = s.length === 3 ? s.split('').map((c) => c + c).join('') : s;
+  const full =
+    s.length === 3
+      ? s
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : s;
   return [
     parseInt(full.slice(0, 2), 16),
     parseInt(full.slice(2, 4), 16),
@@ -570,8 +599,7 @@ const FG_DARK_LUM = 0.023;
 export function pickAccentForeground(accentHex: string): string {
   const rgb = parseHexColor(accentHex);
   if (!rgb) return 'oklch(0.99 0 0)';
-  const lum =
-    0.2126 * linearize(rgb[0]) + 0.7152 * linearize(rgb[1]) + 0.0722 * linearize(rgb[2]);
+  const lum = 0.2126 * linearize(rgb[0]) + 0.7152 * linearize(rgb[1]) + 0.0722 * linearize(rgb[2]);
   const contrastOnLight = (FG_LIGHT_LUM + 0.05) / (lum + 0.05);
   const contrastOnDark = (lum + 0.05) / (FG_DARK_LUM + 0.05);
   return contrastOnLight >= 3 ? 'oklch(0.99 0 0)' : 'oklch(0.15 0 0)';
@@ -595,10 +623,10 @@ export function pickAccentForeground(accentHex: string): string {
 `applyPalette` 自定义分支（108 行 `--sidebar-accent` 之后）追加：
 
 ```typescript
-    // 前景色随 accent 亮度派生(pickAccentForeground):预设块中的恒白默认值
-    // 在浅色 accent 下会造成「白字浅底」不可读,必须一并覆盖
-    root.style.setProperty('--primary-foreground', palette.primaryForeground);
-    root.style.setProperty('--sidebar-primary-foreground', palette.sidebarPrimaryForeground);
+// 前景色随 accent 亮度派生(pickAccentForeground):预设块中的恒白默认值
+// 在浅色 accent 下会造成「白字浅底」不可读,必须一并覆盖
+root.style.setProperty('--primary-foreground', palette.primaryForeground);
+root.style.setProperty('--sidebar-primary-foreground', palette.sidebarPrimaryForeground);
 ```
 
 else 分支追加对应 removeProperty 两行（`--primary-foreground`、`--sidebar-primary-foreground`）。
@@ -608,18 +636,18 @@ else 分支追加对应 removeProperty 两行（`--primary-foreground`、`--side
 ThemeSection 中增加校验状态（customAccent useState 之后）：
 
 ```typescript
-  // HEX 手输校验:type=color 拾取器恒合法,仅手输可能产生非法中间态
-  const [accentInvalid, setAccentInvalid] = useState(false);
+// HEX 手输校验:type=color 拾取器恒合法,仅手输可能产生非法中间态
+const [accentInvalid, setAccentInvalid] = useState(false);
 
-  const handleCustomAccentChange = (hex: string) => {
-    setCustomAccent(hex);
-    const valid = parseHexColor(hex) !== null;
-    setAccentInvalid(!valid);
-    // 非法输入不落库不应用,避免半输入状态污染主题;合法时即时生效(原有行为)
-    if (valid && paletteId === 'custom') {
-      setPalette('custom', hex);
-    }
-  };
+const handleCustomAccentChange = (hex: string) => {
+  setCustomAccent(hex);
+  const valid = parseHexColor(hex) !== null;
+  setAccentInvalid(!valid);
+  // 非法输入不落库不应用,避免半输入状态污染主题;合法时即时生效(原有行为)
+  if (valid && paletteId === 'custom') {
+    setPalette('custom', hex);
+  }
+};
 ```
 
 import 区补充 `parseHexColor`（来自 '@/lib/design-tokens'）。JSX 的 Input（365-371 行）追加 `aria-invalid={accentInvalid}`；下方说明文字改为条件提示：
@@ -644,6 +672,7 @@ Expected: 全部通过。若 globals.test.ts 因 CSS 未变不受影响;Settings
 ### Task 7: 复制反馈统一 + HashCalculator 复制按钮
 
 **Files:**
+
 - Modify: `src/lib/toast-alert.ts`（新增共享 helper;先读现状再插入）
 - Modify: `src/components/copy-action.tsx`（复用 helper,DRY）
 - Modify: `src/tools/UuidGenerator.tsx:55-59`（handleCopyAll）
@@ -654,6 +683,7 @@ Expected: 全部通过。若 globals.test.ts 因 CSS 未变不受影响;Settings
 - Test: `src/tools/HashCalculator.test.tsx`（追加复制用例）
 
 **Interfaces:**
+
 - Produces: `copyTextWithFeedback(text: string): Promise<boolean>` —— 写入剪贴板并以统一文案弹 toast（成功「已复制到剪贴板」带 80 字符预览,失败「复制失败」）;全项目复制交互唯一入口
 
 - [ ] **Step 1: toast-alert.ts 增加 helper（置于 showAlert 之后）**
@@ -704,17 +734,17 @@ onClick 体替换为：
 - UuidGenerator.tsx：
 
 ```typescript
-  async function handleCopyAll() {
-    if (output?.text) await copyTextWithFeedback(output.text);
-  }
+async function handleCopyAll() {
+  if (output?.text) await copyTextWithFeedback(output.text);
+}
 ```
 
 - TimestampConverter.tsx：
 
 ```typescript
-  async function handleCopy(value: string) {
-    await copyTextWithFeedback(value);
-  }
+async function handleCopy(value: string) {
+  await copyTextWithFeedback(value);
+}
 ```
 
 - ColorConverter.tsx：三处 `onClick={() => handleCopy(extra.hex)}` 保持不变,其内部 handleCopy 同 TimestampConverter 方式替换。

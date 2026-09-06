@@ -25,7 +25,7 @@ design:
       weight: 400
   colorSystem:
     primary:
-      - "#3b82f6"
+      - '#3b82f6'
       - var(--primary)
     background:
       - var(--background)
@@ -126,7 +126,10 @@ EditorWorkbench 只有一个 Monaco 实例且切换 tab 时 `key` 变化导致�
 ### 5. 样式 `src/styles/globals.css` [MODIFY]
 
 ```css
-.search-text-match { background: rgba(234, 92, 0, 0.38); border-radius: 2px; }
+.search-text-match {
+  background: rgba(234, 92, 0, 0.38);
+  border-radius: 2px;
+}
 ```
 
 VSCode 搜索橙黄色半透明背景，深浅主题均可见；面板内匹配片段高亮使用相同色系。所有新样式基于项目 CSS 变量与半透明色，符合现有 DevToys 风格。
@@ -166,13 +169,21 @@ src/
 ```ts
 // src/lib/editor-text-search.ts
 export interface TextMatch {
-  tabId: string; tabTitle: string; path: string | null;
-  line: number; column: number; lineContent: string;
-  matchStart: number; matchEnd: number;
+  tabId: string;
+  tabTitle: string;
+  path: string | null;
+  line: number;
+  column: number;
+  lineContent: string;
+  matchStart: number;
+  matchEnd: number;
 }
 export interface TabGroup {
-  tabId: string; tabTitle: string; path: string | null;
-  count: number; matches: TextMatch[];
+  tabId: string;
+  tabTitle: string;
+  path: string | null;
+  count: number;
+  matches: TextMatch[];
 }
 export function searchTabsText(tabs: readonly EditorTab[], query: string): TabGroup[];
 
@@ -183,9 +194,12 @@ export function getTabEditor(tabId: string): editor.IStandaloneCodeEditor | null
 
 // SearchTarget 扩展（src/lib/search-index.ts）
 export interface SearchTarget {
-  view: AppView; toolId?: string; anchor?: string; settingsMenu?: string;
-  tabId?: string;      // 文本编辑器目标 tab
-  textQuery?: string;  // 文本搜索跳转:编辑器内高亮用
+  view: AppView;
+  toolId?: string;
+  anchor?: string;
+  settingsMenu?: string;
+  tabId?: string; // 文本编辑器目标 tab
+  textQuery?: string; // 文本搜索跳转:编辑器内高亮用
 }
 ```
 

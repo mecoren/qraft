@@ -523,7 +523,10 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
     {
       key: 'viewer',
       title: { zh: '页面视图', en: 'Page viewer' },
-      description: { zh: 'PDF 渲染阅读区,支持缩放与跳页', en: 'PDF rendering area with zoom and paging' },
+      description: {
+        zh: 'PDF 渲染阅读区,支持缩放与跳页',
+        en: 'PDF rendering area with zoom and paging',
+      },
       keywords: ['pdf', '阅读', '渲染', '缩放', '页面'],
     },
     {
@@ -549,6 +552,41 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       title: { zh: '保存', en: 'Save' },
       description: { zh: '覆盖写回与另存为', en: 'Overwrite save and save-as' },
       keywords: ['保存', '另存为', '覆盖', 'save'],
+    },
+  ],
+  office_editor: [
+    {
+      key: 'tabs',
+      title: { zh: '文档 Tab', en: 'Document tabs' },
+      description: {
+        zh: '多文档工作区,同路径重开即刷新',
+        en: 'Multi-document workspace; reopening refreshes',
+      },
+      keywords: ['office', '多文档', 'tab', '标签页'],
+    },
+    {
+      key: 'word',
+      title: { zh: 'Word 视图', en: 'Word view' },
+      description: { zh: 'docx 分页只读渲染', en: 'Paginated read-only docx rendering' },
+      keywords: ['word', 'docx', '文档', '分页', '渲染'],
+    },
+    {
+      key: 'excel',
+      title: { zh: 'Excel 表格', en: 'Excel grid' },
+      description: {
+        zh: 'xlsx 单元格查看与编辑,导出新文件',
+        en: 'xlsx cell viewing & editing, export to a new file',
+      },
+      keywords: ['excel', 'xlsx', '表格', '单元格', '导出'],
+    },
+    {
+      key: 'powerpoint',
+      title: { zh: 'PowerPoint 预览', en: 'PowerPoint preview' },
+      description: {
+        zh: 'pptx 逐页文本与图片简易预览',
+        en: 'Light per-slide text & image preview',
+      },
+      keywords: ['powerpoint', 'pptx', '幻灯片', '翻页', '预览'],
     },
   ],
   cron_parser: [

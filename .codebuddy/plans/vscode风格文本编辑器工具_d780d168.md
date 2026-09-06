@@ -22,19 +22,19 @@ design:
       weight: 400
   colorSystem:
     primary:
-      - "#4F7CFF"
+      - '#4F7CFF'
     background:
-      - "#1E1E1E"
-      - "#2F2F2F"
+      - '#1E1E1E'
+      - '#2F2F2F'
     text:
-      - "#D4D4D4"
-      - "#858585"
-      - "#FFFFFF"
+      - '#D4D4D4'
+      - '#858585'
+      - '#FFFFFF'
     functional:
-      - "#264F78"
-      - "#AEAFAD"
-      - "#F14C4C"
-      - "#CCA700"
+      - '#264F78'
+      - '#AEAFAD'
+      - '#F14C4C'
+      - '#CCA700'
 todos:
   - id: add-vscode-theme
     content: 在 monaco-theme.ts 新增 VSCODE_THEME_NAME 与 defineVsCodeTheme 固定深色主题

@@ -819,7 +819,11 @@ pub async fn fs_write_file_encoded(
 
 /// PDF 文件大小上限(字节):PDF 视图按 base64 全量过 IPC,
 /// 与文本编辑器 20MB 对齐,超过则提示用户(二进制视图另议)。
-pub const PDF_FILE_MAX_BYTES: u64 = 20 * 1024 * 1024;
+pub const PDF_FILE_MAX_BYTES: u64 = 100 * 1024 * 1024;
+
+/// PDF 分块读取的单块上限(字节):块过大 IPC 序列化与临时 String 都会
+/// 翻倍占用(base64 膨胀 4/3),2MB 一块在吞吐与峰值内存间平衡。
+pub const PDF_CHUNK_MAX_BYTES: u64 = 2 * 1024 * 1024;
 
 /// PDF 文件读取结果(`fs_read_pdf` / `fs_open_pdf_dialog` 返回)
 #[derive(Debug, Clone, Serialize)]
@@ -857,10 +861,104 @@ pub async fn fs_read_pdf(
         });
     }
     let base64 = base64::engine::general_purpose::STANDARD.encode(bytes);
-    Ok(CommandResponse::ok(PdfFileContent {
-        path,
-        size,
+    Ok(CommandResponse::ok(PdfFileContent { path, size, base64 }))
+}
+
+/// PDF 分块读取的探测结果(`fs_read_pdf_info` 返回):
+/// 只读元信息,不把文件内容载入内存,大文件打开前的第一步。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfFileInfo {
+    pub path: String,
+    pub size: u64,
+}
+
+/// 探测 PDF 文件元信息(大小校验,不读内容)
+///
+/// 大文件打开流程的第一步:先以元数据确认文件在大小上限内、路径已授权,
+/// 再由前端决定分块读取。避免「先整读再报错」的白白 IO。
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件不存在/元数据读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+/// - 文件超过 PDF 大小上限时返回 `AppError::FileTooLarge`(`ERR_FILE_TOO_LARGE`)
+#[tauri::command]
+pub async fn fs_read_pdf_info(
+    path: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<PdfFileInfo>, AppError> {
+    validate_path(&path, &authorized)?;
+    let meta = tokio::fs::metadata(&path).await.map_err(AppError::from)?;
+    let size = meta.len();
+    if size > PDF_FILE_MAX_BYTES {
+        return Err(AppError::FileTooLarge {
+            size,
+            max: PDF_FILE_MAX_BYTES,
+        });
+    }
+    Ok(CommandResponse::ok(PdfFileInfo { path, size }))
+}
+
+/// PDF 文件分块读取结果(`fs_read_pdf_chunk` 返回)
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfChunkContent {
+    /// 块在文件内的起始字节偏移
+    pub offset: u64,
+    /// 块字节数(尾块可小于请求长度)
+    pub length: u64,
+    /// 块内容(UTF-8 无填充 base64)
+    pub base64: String,
+    /// 是否最后一块(前端据此结束循环)
+    pub last: bool,
+}
+
+/// 分块读取 PDF(必须在授权范围内)
+///
+/// 大文件通道:`offset` + `length` 读取文件的连续片段,块大小由前端指定
+/// (钳制在 `PDF_CHUNK_MAX_BYTES`)。前端循环调用直至 `last`,拼装完整字节;
+/// 每次调用只过 IPC 一个小块,避免 20MB+ 文件整读时 base64 字符串(4/3 膨胀)
+/// 造成的序列化峰值与 UI 卡顿。
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - `offset` 超出文件大小或读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+#[tauri::command]
+pub async fn fs_read_pdf_chunk(
+    path: String,
+    offset: u64,
+    length: u64,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<PdfChunkContent>, AppError> {
+    use std::io::SeekFrom;
+    use tokio::io::{AsyncReadExt, AsyncSeekExt};
+
+    validate_path(&path, &authorized)?;
+    let size = tokio::fs::metadata(&path)
+        .await
+        .map_err(AppError::from)?
+        .len();
+    if offset >= size {
+        return Err(AppError::Io(std::io::Error::other(format!(
+            "chunk offset {offset} out of range (size {size})"
+        ))));
+    }
+    let length = length.min(PDF_CHUNK_MAX_BYTES).min(size - offset);
+    let mut file = tokio::fs::File::open(&path).await.map_err(AppError::from)?;
+    file.seek(SeekFrom::Start(offset))
+        .await
+        .map_err(AppError::from)?;
+    let mut bytes = vec![0u8; length as usize];
+    file.read_exact(&mut bytes).await.map_err(AppError::from)?;
+    let last = offset + length >= size;
+    let base64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+    Ok(CommandResponse::ok(PdfChunkContent {
+        offset,
+        length,
         base64,
+        last,
     }))
 }
 
@@ -886,19 +984,21 @@ pub async fn fs_save_bytes_to_path(
     Ok(CommandResponse::ok(true))
 }
 
-/// 弹出「打开 PDF」对话框:选择文件、授权并读取为 base64
+/// 弹出「打开 PDF」对话框:选择文件并授权,返回元信息(不读内容)
 ///
-/// 用户取消时返回 `Ok(CommandResponse::ok(None))`。
+/// 大文件优化:对话框阶段只确认路径 + 大小(经 `PDF_FILE_MAX_BYTES` 上限校验),
+/// 文件内容由前端按 `fs_read_pdf_chunk` 分块拉取,避免一次性把大文件
+/// base64 过 IPC。用户取消时返回 `Ok(CommandResponse::ok(None))`。
 ///
 /// # Errors
 ///
 /// - 所选文件超过 PDF 大小上限时返回 `AppError::FileTooLarge`(`ERR_FILE_TOO_LARGE`)
-/// - 文件读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+/// - 文件元数据读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 #[tauri::command]
 pub async fn fs_open_pdf_dialog(
     app: tauri::AppHandle,
     authorized: tauri::State<'_, AuthorizedPaths>,
-) -> Result<CommandResponse<Option<PdfFileContent>>, AppError> {
+) -> Result<CommandResponse<Option<PdfFileInfo>>, AppError> {
     let Some(path) = app
         .dialog()
         .file()
@@ -913,8 +1013,139 @@ pub async fn fs_open_pdf_dialog(
         .map_err(|e| AppError::Unknown(format!("open path invalid: {e}")))?;
     let path_str = path_buf.to_string_lossy().into_owned();
     authorized.authorize(&path_str);
-    let content = fs_read_pdf(path_str, authorized).await?.data;
-    Ok(CommandResponse::ok(content))
+    // 内层响应 .data 为 Option<PdfFileInfo>(envelope 的 data 字段本身是 Option);
+    // 路径无效/超限都会走 Err 分支,这里的 info 必为 Some,直透即可
+    let info = fs_read_pdf_info(path_str, authorized).await?.data;
+    Ok(CommandResponse::ok(info))
+}
+
+/// Office 文件大小上限(字节):与 PDF 通道对齐(100MB)。
+/// Office 文档同为 ZIP 容器(OOXML)或 OLE 复合文档(旧格式),
+/// 渲染库需整读解析,base64 过 IPC 的形态与 PDF 一致。
+pub const OFFICE_FILE_MAX_BYTES: u64 = PDF_FILE_MAX_BYTES;
+
+/// Office 文档支持扩展名的白名单(小写;判定大小写不敏感)
+///
+/// - OOXML:`docx` / `docm` / `xlsx` / `xlsm` / `pptx` / `pptm`
+/// - WPS 兼容的旧二进制格式:`doc` / `xls` / `ppt`(前端展示转换指引)
+///
+/// 与 `shell::file_open::is_office_path`、前端 `isOfficePath` 保持同口径。
+pub const OFFICE_FILE_EXTS: &[&str] = &[
+    "docx", "docm", "xlsx", "xlsm", "pptx", "pptm", "doc", "xls", "ppt",
+];
+
+/// 判断路径扩展名是否在 Office 白名单(供对话框打开后的校验复用)
+#[must_use]
+pub fn is_office_file_path(path: &str) -> bool {
+    std::path::Path::new(path)
+        .extension()
+        .is_some_and(|ext| OFFICE_FILE_EXTS.iter().any(|e| ext.eq_ignore_ascii_case(e)))
+}
+
+/// Office 文件读取结果(`fs_read_office` / `fs_open_office_dialog` 返回)。
+/// 结构与 `PdfFileContent` 一致:base64 全量过 IPC(前端渲染库需完整字节)。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OfficeFileContent {
+    pub path: String,
+    /// 文件字节数
+    pub size: u64,
+    /// 文件内容(UTF-8 无填充 base64)
+    pub base64: String,
+}
+
+/// 读取 Office 文件为 base64(必须在授权范围内)
+///
+/// Office 工具按需读取整文件字节(docx 渲染 / xlsx 解析 / pptx 幻灯片
+/// 共用);大小超过 `OFFICE_FILE_MAX_BYTES` 时返回 `AppError::FileTooLarge`。
+/// 扩展名不在白名单时返回 `AppError::Unsupported`(对话框入口防串格式)。
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件不存在/读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+/// - 扩展名非 Office 白名单时返回 `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
+/// - 文件超过 Office 大小上限时返回 `AppError::FileTooLarge`(`ERR_FILE_TOO_LARGE`)
+#[tauri::command]
+pub async fn fs_read_office(
+    path: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<OfficeFileContent>, AppError> {
+    if !is_office_file_path(&path) {
+        return Err(AppError::Unsupported(format!(
+            "not an office document: {path}"
+        )));
+    }
+    validate_path(&path, &authorized)?;
+    let bytes = tokio::fs::read(&path).await.map_err(AppError::from)?;
+    let size = bytes.len() as u64;
+    if size > OFFICE_FILE_MAX_BYTES {
+        return Err(AppError::FileTooLarge {
+            size,
+            max: OFFICE_FILE_MAX_BYTES,
+        });
+    }
+    let base64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+    Ok(CommandResponse::ok(OfficeFileContent {
+        path,
+        size,
+        base64,
+    }))
+}
+
+/// 弹出「打开 Office 文档」对话框(多格式过滤器)
+///
+/// 所选路径加入授权集合并返回元信息(路径 + 大小);字节由前端经
+/// `fs_read_office` 按需读取(与 `fs_open_pdf_dialog` 的 info → read 两步
+/// 模式一致,避免对话框即整读大文件)。用户取消返回 `None`。
+///
+/// # Errors
+///
+/// - 对话框路径转换失败时返回 `AppError::Unknown`
+/// - 所选文件超过 Office 大小上限时返回 `AppError::FileTooLarge`(`ERR_FILE_TOO_LARGE`)
+#[tauri::command]
+pub async fn fs_open_office_dialog(
+    app: tauri::AppHandle,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<Option<OfficeFileMeta>>, AppError> {
+    let Some(path) = app
+        .dialog()
+        .file()
+        .set_title("打开 Office 文档")
+        .add_filter("Word 文档", &["docx", "docm", "doc"])
+        .add_filter("Excel 表格", &["xlsx", "xlsm", "xls"])
+        .add_filter("PowerPoint 幻灯片", &["pptx", "pptm", "ppt"])
+        .blocking_pick_file()
+    else {
+        return Ok(CommandResponse::ok(None));
+    };
+    let path_buf = path
+        .into_path()
+        .map_err(|e| AppError::Unknown(format!("open path invalid: {e}")))?;
+    let path_str = path_buf.to_string_lossy().into_owned();
+    authorized.authorize(&path_str);
+    let meta = tokio::fs::metadata(&path_str)
+        .await
+        .map_err(AppError::from)?;
+    let size = meta.len();
+    if size > OFFICE_FILE_MAX_BYTES {
+        return Err(AppError::FileTooLarge {
+            size,
+            max: OFFICE_FILE_MAX_BYTES,
+        });
+    }
+    Ok(CommandResponse::ok(Some(OfficeFileMeta {
+        path: path_str,
+        size,
+    })))
+}
+
+/// Office 文档元信息(`fs_open_office_dialog` 返回):路径 + 大小
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OfficeFileMeta {
+    pub path: String,
+    pub size: u64,
 }
 
 #[cfg(test)]

@@ -115,7 +115,7 @@ jobs:
         env:
           # 必须 >=0.22:advisory-db 已含 CVSS 4.0 条目(RUSTSEC-2026-0038),
           # 0.21.x 的 cvss 库无法解析会直接报错。0.22.2 为当前最新稳定版。
-          CARGO_AUDIT_VERSION: "0.22.2"
+          CARGO_AUDIT_VERSION: '0.22.2'
         run: |
           set -euo pipefail
           # 固定版本安装,避免复用缓存中不可控的旧二进制导致行为不可复现。

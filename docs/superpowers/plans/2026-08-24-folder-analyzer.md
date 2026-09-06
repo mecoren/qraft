@@ -60,11 +60,13 @@ prd/07-tool-catalog.md             # 修改:P2 表追加一行(Task 16)
 ### Task 1: 分类与嗅探单元 classify.rs
 
 **Files:**
+
 - Create: `src-tauri/src/tools/folder_analyzer/classify.rs`
 - Create: `src-tauri/src/tools/folder_analyzer/mod.rs`(空壳,后续任务填充)
 - Modify: `src-tauri/src/tools/mod.rs`(追加 `pub mod folder_analyzer;`)
 
 **Interfaces:**
+
 - Consumes: 无(纯函数,仅 std + serde)
 - Produces:
   - `enum FileCategory { Code, Document, Image, Video, Audio, Archive, Binary, Other }`(`Serialize`,`snake_case`)
@@ -296,10 +298,12 @@ git commit -m "feat(analyzer): add file classification and magic-sniffing unit"
 ### Task 2: 文本度量单元 text_metrics.rs
 
 **Files:**
+
 - Create: `src-tauri/src/tools/folder_analyzer/text_metrics.rs`
 - Modify: `src-tauri/src/tools/folder_analyzer/mod.rs`(追加 `pub mod text_metrics;`)
 
 **Interfaces:**
+
 - Consumes: encoding_rs(Cargo.toml 已有)
 - Produces:
   - `struct TextMetrics { lines: u64, words: u64, chars: u64 }`(`Serialize`)
@@ -307,6 +311,7 @@ git commit -m "feat(analyzer): add file classification and magic-sniffing unit"
   - `fn count_metrics(text: &str) -> TextMetrics`
 
 **统计口径(实现与文档必须一致):**
+
 - 行数:按 `\n` 计数;末尾无换行的最后一段也算一行;空文本为 0 行;`\r\n` 视为一行。
 - 字符数:Unicode 标量值个数,**不含** `\r` / `\n`。
 - 字数:每个 CJK 字符独立计 1 词;连续的非空白、非 CJK 序列计 1 词(空白重置序列)。
@@ -495,10 +500,12 @@ git commit -m "feat(analyzer): add text decoding and line/word counting"
 ### Task 3: 目录扫描器 scanner.rs
 
 **Files:**
+
 - Create: `src-tauri/src/tools/folder_analyzer/scanner.rs`
 - Modify: `src-tauri/src/tools/folder_analyzer/mod.rs`(追加 `pub mod scanner;`)
 
 **Interfaces:**
+
 - Consumes: Task 1 全部函数、Task 2 全部函数、`tokio_util::sync::CancellationToken`(已有依赖)
 - Produces(Task 6/7 依赖,字段名精确一致):
   - `struct ScanOptions { include_hidden: bool, analyze_text_metrics: bool, max_text_file_bytes: u64, max_entries: u64 }` + `Default`(false / true / 8 MiB / 200_000)
@@ -1028,10 +1035,12 @@ git commit -m "feat(analyzer): add read-only folder scanner with per-type aggreg
 ### Task 4: 内容搜索引擎 search.rs
 
 **Files:**
+
 - Create: `src-tauri/src/tools/folder_analyzer/search.rs`
 - Modify: `src-tauri/src/tools/folder_analyzer/mod.rs`(追加 `pub mod search;`)
 
 **Interfaces:**
+
 - Consumes: Task 1/2 函数、Task 3 的 `ProgressFn`
 - Produces(Task 6/7 依赖):
   - `struct SearchOptions { pattern: String, is_regex: bool, case_insensitive: bool, extensions: Vec<String>(小写;空=全部文本扩展), include_hidden: bool, max_file_bytes: u64, max_matches_per_file: u32, max_matches_total: u64, max_entries: u64 }` + `Default`(4 MiB / 200 / 5000 / 200_000,false,false)
@@ -1469,10 +1478,12 @@ git commit -m "feat(analyzer): add content search across text files with caps"
 ### Task 5: 单文件解析 inspect.rs
 
 **Files:**
+
 - Create: `src-tauri/src/tools/folder_analyzer/inspect.rs`
 - Modify: `src-tauri/src/tools/folder_analyzer/mod.rs`(追加 `pub mod inspect;`)
 
 **Interfaces:**
+
 - Consumes: Task 1/2 函数、`sha2` + `hex`(已有)
 - Produces(Task 6 依赖):
   - `pub(crate) const MAX_INSPECT_BYTES: u64 = 64 * 1024 * 1024;`
@@ -1670,10 +1681,12 @@ git commit -m "feat(analyzer): add single-file inspection with hash and preview"
 ### Task 6: FolderAnalyzer Tool 注册(同步 execute)
 
 **Files:**
+
 - Modify: `src-tauri/src/tools/folder_analyzer/mod.rs`(主体)
 - Test: 同文件 `#[cfg(test)] mod tool_tests`
 
 **Interfaces:**
+
 - Consumes: Task 3 `scan_folder`/`ScanOptions`、Task 4 `search_folder`/`SearchOptions`/`build_matcher`、Task 5 `inspect_file`
 - Produces(前端与 Task 7 依赖):
   - toolId `folder_analyzer`;`params.mode` ∈ `"scan" | "search" | "file"`
@@ -1990,6 +2003,7 @@ git commit -m "feat(analyzer): register folder_analyzer tool with sync execute"
 ### Task 7: StreamingTool(进度事件 + 可取消)
 
 **Files:**
+
 - Modify: `src-tauri/src/core/tool.rs`(`StreamEvent::Progress` 增加字段)
 - Modify: `src-tauri/src/tools/hash_calculator.rs`(既有 Progress 构造点适配)
 - Modify: `src-tauri/src/commands/tool.rs`(emit payload 增加字段)
@@ -1997,6 +2011,7 @@ git commit -m "feat(analyzer): register folder_analyzer tool with sync execute"
 - 其他编译器指出的 `StreamEvent::Progress` 构造点(全量 grep 确认)
 
 **Interfaces:**
+
 - Consumes: Task 3/4 的 `ProgressFn`、`CancellationToken`
 - Produces:
   - `StreamEvent::Progress { percent, message, processed, total }`(新增 `processed: u64, total: u64`;total=0 表示未知)—— 修复前端 `ToolProgressPayload { taskId, processed, total }` 与后端只发 percent/message 的历史错位
@@ -2240,10 +2255,12 @@ git commit -m "feat(analyzer): streaming scan/search with progress and cancellat
 ### Task 8: IPC 层扩展(params/text + file_path 授权校验)
 
 **Files:**
+
 - Modify: `src-tauri/src/commands/tool.rs`
 - Test: 同文件底部 tests
 
 **Interfaces:**
+
 - Consumes: `AuthorizedPaths`(commands/fs.rs)、AppState
 - Produces(前端 Task 11 依赖):
   - `tool_execute_stream(tool_id, file_path, text?, params?, state, app_handle)`:`text: Option<String>`、`params: Option<HashMap<String, serde_json::Value>>` 可选,Tauri V2 自动映射 JS 缺省参数,旧调用 `{toolId, filePath}` 完全兼容
@@ -2358,11 +2375,13 @@ git commit -m "feat(ipc): pass params/text to streaming tools and enforce path a
 ### Task 9: 拖放授权命令 fs_authorize_dropped_paths
 
 **Files:**
+
 - Modify: `src-tauri/src/commands/fs.rs`
 - Modify: `src-tauri/src/lib.rs`(invoke_handler 列表追加命令名)
 - Test: fs.rs tests 模块
 
 **Interfaces:**
+
 - Consumes: `AuthorizedPaths`
 - Produces(前端 Task 11 依赖):
   - `fs_authorize_dropped_paths(paths: Vec<String>) -> CommandResponse<Vec<DroppedKind>>`
@@ -2465,10 +2484,12 @@ git commit -m "feat(ipc): authorize drag-dropped paths for read-only analysis"
 ### Task 10: 前端类型定义 types.ts
 
 **Files:**
+
 - Create: `src/tools/folder-analyzer/types.ts`
 - Test: `src/tools/folder-analyzer/types.test.ts`
 
 **Interfaces:**
+
 - Consumes: Rust Report JSON(snake_case 键)
 - Produces(Task 11–14 依赖,导出名精确一致):
   - `AnalyzerMode`, `FileCategory`, `CategoryStat`, `ExtStat`, `ExtTextStat`, `TextMetricsSummary`, `FileStat`, `ScanReport`
@@ -2520,14 +2541,7 @@ Expected: FAIL(模块不存在)
 export type AnalyzerMode = 'scan' | 'search' | 'file';
 
 export type FileCategory =
-  | 'code'
-  | 'document'
-  | 'image'
-  | 'video'
-  | 'audio'
-  | 'archive'
-  | 'binary'
-  | 'other';
+  'code' | 'document' | 'image' | 'video' | 'audio' | 'archive' | 'binary' | 'other';
 
 export interface CategoryStat {
   category: FileCategory;
@@ -2669,10 +2683,12 @@ git commit -m "feat(analyzer-ui): mirror backend report types and formatters"
 ### Task 11: IPC 服务层 analyzerApi.ts
 
 **Files:**
+
 - Create: `src/tools/folder-analyzer/analyzerApi.ts`
 - Test: `src/tools/folder-analyzer/analyzerApi.test.ts`
 
 **Interfaces:**
+
 - Consumes: `@/lib/ipc`(`invokeCommand/safeInvoke/Result`)、`@tauri-apps/api/event` 的 `listen`;Rust Task 8/9 命令
 - Produces(Task 12/13 依赖):
   - `pickFolder(): Promise<string | null>`
@@ -2899,10 +2915,12 @@ git commit -m "feat(analyzer-ui): ipc service layer for pick/drop/stream tasks"
 ### Task 12: 任务状态 hook useAnalyzerTask.ts
 
 **Files:**
+
 - Create: `src/tools/folder-analyzer/useAnalyzerTask.ts`
 - Test: `src/tools/folder-analyzer/useAnalyzerTask.test.tsx`
 
 **Interfaces:**
+
 - Consumes: Task 11 API
 - Produces(Task 13 依赖):
   - `interface AnalyzerTaskState { status: 'idle'|'running'|'done'|'failed'; processed: number; message: string; result: unknown; error: string | null }`(result 为 tool_completed.output.extra JSON)
@@ -3080,10 +3098,12 @@ git commit -m "feat(analyzer-ui): local task state hook with stale-event guardin
 ### Task 13: 主组件 FolderAnalyzer.tsx
 
 **Files:**
+
 - Create: `src/tools/FolderAnalyzer.tsx`
 - Test: `src/tools/FolderAnalyzer.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `ToolProps`(registry)、Task 10 类型、Task 11 API、Task 12 hook、`@/components/ui/*`(button/input/label/switch/tabs/progress 均已存在)、sonner toast
 - Produces: 导出 `FolderAnalyzer`;三种模式编排:
   - scan:选文件夹 → `run({ filePath, mode:'scan', options:{ include_hidden } })`
@@ -3214,7 +3234,13 @@ describe('FolderAnalyzer orchestration', () => {
   });
 
   it('shows running progress and enables cancel', () => {
-    fakeState = { status: 'running', processed: 42, message: '已扫描 42 文件', result: null, error: null };
+    fakeState = {
+      status: 'running',
+      processed: 42,
+      message: '已扫描 42 文件',
+      result: null,
+      error: null,
+    };
     renderTool();
     expect(screen.getByTestId('analyzer-progress-message')).toHaveTextContent('42');
     expect(screen.getByTestId('analyzer-cancel')).toBeEnabled();
@@ -3222,7 +3248,10 @@ describe('FolderAnalyzer orchestration', () => {
 
   it('shows failure alert', () => {
     fakeState = {
-      status: 'failed', processed: 0, message: '', result: null,
+      status: 'failed',
+      processed: 0,
+      message: '',
+      result: null,
       error: 'ERR_PERMISSION_DENIED: denied',
     };
     renderTool();
@@ -3238,7 +3267,13 @@ describe('FolderAnalyzer orchestration', () => {
   });
 
   it('renders done results panel by mode', async () => {
-    fakeState = { status: 'done', processed: 0, message: '', result: { total_files: 1 }, error: null };
+    fakeState = {
+      status: 'done',
+      processed: 0,
+      message: '',
+      result: { total_files: 1 },
+      error: null,
+    };
     renderTool(); // 默认 scan 模式
     expect(await screen.findByText('scan-panel')).toBeInTheDocument();
   });
@@ -3299,7 +3334,11 @@ export function FolderAnalyzer(_props: ToolProps) {
             setTarget(entry.path);
             if (entry.kind === 'dir') {
               setMode('scan');
-              void run({ filePath: entry.path, mode: 'scan', options: { include_hidden: includeHidden } });
+              void run({
+                filePath: entry.path,
+                mode: 'scan',
+                options: { include_hidden: includeHidden },
+              });
             } else {
               setMode('file');
               void run({ filePath: entry.path, mode: 'file' });
@@ -3331,7 +3370,12 @@ export function FolderAnalyzer(_props: ToolProps) {
       await run({
         filePath: target,
         mode: 'search',
-        options: { pattern, is_regex: isRegex, case_insensitive: caseInsensitive, include_hidden: includeHidden },
+        options: {
+          pattern,
+          is_regex: isRegex,
+          case_insensitive: caseInsensitive,
+          include_hidden: includeHidden,
+        },
       });
     } else if (mode === 'scan') {
       await run({ filePath: target, mode: 'scan', options: { include_hidden: includeHidden } });
@@ -3348,17 +3392,21 @@ export function FolderAnalyzer(_props: ToolProps) {
   }, [run]);
 
   const canRun =
-    !!target &&
-    state.status !== 'running' &&
-    (mode !== 'search' || pattern.trim().length > 0);
+    !!target && state.status !== 'running' && (mode !== 'search' || pattern.trim().length > 0);
 
   return (
     <div className="flex flex-col gap-4 h-full" data-testid="folder-analyzer">
       <Tabs value={mode} onValueChange={(v) => setMode(v as AnalyzerMode)}>
         <TabsList>
-          <TabsTrigger value="scan" data-testid="analyzer-mode-scan">文件夹统计</TabsTrigger>
-          <TabsTrigger value="search" data-testid="analyzer-mode-search">内容搜索</TabsTrigger>
-          <TabsTrigger value="file" data-testid="analyzer-mode-file">单文件解析</TabsTrigger>
+          <TabsTrigger value="scan" data-testid="analyzer-mode-scan">
+            文件夹统计
+          </TabsTrigger>
+          <TabsTrigger value="search" data-testid="analyzer-mode-search">
+            内容搜索
+          </TabsTrigger>
+          <TabsTrigger value="file" data-testid="analyzer-mode-file">
+            单文件解析
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -3377,7 +3425,9 @@ export function FolderAnalyzer(_props: ToolProps) {
         )}
         {mode === 'search' && (
           <div className="flex flex-col gap-1">
-            <Label htmlFor="analyzer-pattern-input" className="text-xs">搜索内容</Label>
+            <Label htmlFor="analyzer-pattern-input" className="text-xs">
+              搜索内容
+            </Label>
             <Input
               id="analyzer-pattern-input"
               value={pattern}
@@ -3390,17 +3440,27 @@ export function FolderAnalyzer(_props: ToolProps) {
         )}
         <div className="flex items-center gap-2 pb-1">
           <Switch id="hidden-switch" checked={includeHidden} onCheckedChange={setIncludeHidden} />
-          <Label htmlFor="hidden-switch" className="text-xs">包含隐藏文件</Label>
+          <Label htmlFor="hidden-switch" className="text-xs">
+            包含隐藏文件
+          </Label>
         </div>
         {mode === 'search' && (
           <>
             <div className="flex items-center gap-2 pb-1">
               <Switch id="regex-switch" checked={isRegex} onCheckedChange={setIsRegex} />
-              <Label htmlFor="regex-switch" className="text-xs">正则</Label>
+              <Label htmlFor="regex-switch" className="text-xs">
+                正则
+              </Label>
             </div>
             <div className="flex items-center gap-2 pb-1">
-              <Switch id="case-switch" checked={caseInsensitive} onCheckedChange={setCaseInsensitive} />
-              <Label htmlFor="case-switch" className="text-xs">忽略大小写</Label>
+              <Switch
+                id="case-switch"
+                checked={caseInsensitive}
+                onCheckedChange={setCaseInsensitive}
+              />
+              <Label htmlFor="case-switch" className="text-xs">
+                忽略大小写
+              </Label>
             </div>
           </>
         )}
@@ -3422,19 +3482,29 @@ export function FolderAnalyzer(_props: ToolProps) {
           <span className="text-xs text-muted-foreground" data-testid="analyzer-progress-message">
             {state.message}
           </span>
-          <Button variant="destructive" size="sm" onClick={() => void cancel()} data-testid="analyzer-cancel">
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => void cancel()}
+            data-testid="analyzer-cancel"
+          >
             取消
           </Button>
         </div>
       )}
 
       {state.error && (
-        <div role="alert" className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
+        >
           {state.error}
         </div>
       )}
 
-      {state.status === 'done' && mode === 'scan' && <ScanResultsPanel report={state.result as ScanReport} />}
+      {state.status === 'done' && mode === 'scan' && (
+        <ScanResultsPanel report={state.result as ScanReport} />
+      )}
       {state.status === 'done' && mode === 'search' && (
         <SearchResultsPanel report={state.result as SearchReport} />
       )}
@@ -3465,12 +3535,14 @@ git commit -m "feat(analyzer-ui): folder analyzer main tool page with modes and 
 ### Task 14: 结果面板组件(Scan / Search / Inspect)
 
 **Files:**
+
 - Create: `src/tools/folder-analyzer/ScanResultsPanel.tsx`
 - Create: `src/tools/folder-analyzer/SearchResultsPanel.tsx`
 - Create: `src/tools/folder-analyzer/FileInspectPanel.tsx`
 - Test: `src/tools/folder-analyzer/panels.test.tsx`
 
 **Interfaces:**
+
 - Consumes: Task 10 类型与格式化函数
 - Produces:
   - `<ScanResultsPanel report: ScanReport />`:概览卡片(文件数/目录数/总大小/耗时)+ Tabs(按扩展名表 | 按类别表 | 文本统计表+汇总 | 最大文件列表);truncated/cancelled 显示警示条
@@ -3567,10 +3639,20 @@ describe('SearchResultsPanel', () => {
 describe('FileInspectPanel', () => {
   it('renders details for text file', () => {
     const r: FileInspectReport = {
-      path: 'C:/x/a.md', file_name: 'a.md', ext: 'md', category: 'document',
-      magic: null, size_bytes: 7, is_text: true, encoding: 'UTF-8',
-      lines: 1, words: 2, chars: 6, sha256: 'ab'.repeat(32),
-      preview: ['你好 世界'], duration_ms: 1,
+      path: 'C:/x/a.md',
+      file_name: 'a.md',
+      ext: 'md',
+      category: 'document',
+      magic: null,
+      size_bytes: 7,
+      is_text: true,
+      encoding: 'UTF-8',
+      lines: 1,
+      words: 2,
+      chars: 6,
+      sha256: 'ab'.repeat(32),
+      preview: ['你好 世界'],
+      duration_ms: 1,
     };
     render(<FileInspectPanel report={r} />);
     expect(screen.getByText('UTF-8')).toBeInTheDocument();
@@ -3629,7 +3711,9 @@ export function ScanResultsPanel({ report }: Props) {
             key={key}
             type="button"
             onClick={() => setTab(key)}
-            className={tab === key ? 'font-semibold underline underline-offset-4' : 'text-muted-foreground'}
+            className={
+              tab === key ? 'font-semibold underline underline-offset-4' : 'text-muted-foreground'
+            }
           >
             {label}
           </button>
@@ -3638,7 +3722,13 @@ export function ScanResultsPanel({ report }: Props) {
 
       {tab === 'ext' && (
         <table className="text-sm w-full">
-          <thead><tr><th className="text-left py-1">扩展名</th><th className="text-right">数量</th><th className="text-right">大小</th></tr></thead>
+          <thead>
+            <tr>
+              <th className="text-left py-1">扩展名</th>
+              <th className="text-right">数量</th>
+              <th className="text-right">大小</th>
+            </tr>
+          </thead>
           <tbody>
             {report.by_extension.map((e: ExtStat) => (
               <tr key={e.ext} data-testid={`scan-ext-row-${e.ext}`}>
@@ -3653,7 +3743,13 @@ export function ScanResultsPanel({ report }: Props) {
 
       {tab === 'category' && (
         <table className="text-sm w-full">
-          <thead><tr><th className="text-left py-1">类别</th><th className="text-right">数量</th><th className="text-right">大小</th></tr></thead>
+          <thead>
+            <tr>
+              <th className="text-left py-1">类别</th>
+              <th className="text-right">数量</th>
+              <th className="text-right">大小</th>
+            </tr>
+          </thead>
           <tbody>
             {report.by_category.map((c) => (
               <tr key={c.category} data-testid={`scan-cat-row-${c.category}`}>
@@ -3670,11 +3766,19 @@ export function ScanResultsPanel({ report }: Props) {
         <div className="flex flex-col gap-2 text-sm">
           <div className="flex gap-4 text-muted-foreground">
             <span>覆盖 {report.text_metrics.files_analyzed} 个文本文件</span>
-            <span>共 {report.text_metrics.lines} 行 · {report.text_metrics.words} 词 · {report.text_metrics.chars} 字符</span>
+            <span>
+              共 {report.text_metrics.lines} 行 · {report.text_metrics.words} 词 ·{' '}
+              {report.text_metrics.chars} 字符
+            </span>
           </div>
           <table className="text-sm w-full">
             <thead>
-              <tr><th className="text-left py-1">扩展名</th><th className="text-right">文件</th><th className="text-right">行数</th><th className="text-right">字数</th></tr>
+              <tr>
+                <th className="text-left py-1">扩展名</th>
+                <th className="text-right">文件</th>
+                <th className="text-right">行数</th>
+                <th className="text-right">字数</th>
+              </tr>
             </thead>
             <tbody>
               {report.text_metrics.by_extension.map((e) => (
@@ -3694,7 +3798,9 @@ export function ScanResultsPanel({ report }: Props) {
         <ul className="text-sm font-mono space-y-1">
           {report.largest_files.map((f) => (
             <li key={f.path} className="flex justify-between gap-4">
-              <span className="truncate" title={f.path}>{f.path}</span>
+              <span className="truncate" title={f.path}>
+                {f.path}
+              </span>
               <span>{humanBytes(f.bytes)}</span>
             </li>
           ))}
@@ -3708,7 +3814,9 @@ function Card({ label, value, testId }: { label: string; value: string; testId: 
   return (
     <div className="rounded-md border p-3">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-lg font-semibold" data-testid={testId}>{value}</div>
+      <div className="text-lg font-semibold" data-testid={testId}>
+        {value}
+      </div>
     </div>
   );
 }
@@ -3727,18 +3835,23 @@ export function SearchResultsPanel({ report }: Props) {
     <div className="flex flex-col gap-3 min-h-0" data-testid="search-results">
       <div className="text-sm text-muted-foreground" data-testid="search-summary">
         「{report.pattern}」共 {report.total_matches} 处匹配 / {report.files_with_matches} 个文件
-        {report.truncated ? '(已截断)' : ''}{report.cancelled ? '(已取消)' : ''}
+        {report.truncated ? '(已截断)' : ''}
+        {report.cancelled ? '(已取消)' : ''}
       </div>
       {report.results.map((file) => (
         <div key={file.path} className="rounded-md border p-3 text-sm">
           <div className="flex justify-between font-mono">
-            <span className="truncate" title={file.path}>{file.path}</span>
+            <span className="truncate" title={file.path}>
+              {file.path}
+            </span>
             <span className="shrink-0">{file.match_count} 处</span>
           </div>
           <ul className="mt-2 space-y-1">
             {file.matches.map((m) => (
               <li key={`${file.path}:${m.line_number}:${m.column}`} className="flex gap-3">
-                <span className="text-muted-foreground shrink-0">L{m.line_number}:C{m.column}</span>
+                <span className="text-muted-foreground shrink-0">
+                  L{m.line_number}:C{m.column}
+                </span>
                 <code className="truncate">{m.preview}</code>
               </li>
             ))}
@@ -3766,7 +3879,10 @@ export function FileInspectPanel({ report }: Props) {
     ...(report.is_text
       ? ([
           ['编码', report.encoding ?? '-'],
-          ['行数 / 词数 / 字符', `${report.lines ?? 0} / ${report.words ?? 0} / ${report.chars ?? 0}`],
+          [
+            '行数 / 词数 / 字符',
+            `${report.lines ?? 0} / ${report.words ?? 0} / ${report.chars ?? 0}`,
+          ],
         ] as Array<[string, string]>)
       : []),
     ['SHA-256', report.sha256],
@@ -3823,11 +3939,13 @@ git commit -m "feat(analyzer-ui): scan/search/inspect result panels"
 ### Task 15: 注册到 registry.ts 与 tool-catalog.ts
 
 **Files:**
+
 - Modify: `src/tools/registry.ts`(末尾追加注册)
 - Modify: `src/lib/tool-catalog.ts`(import 图标 + 目录条目)
 - Test: 既有 `src/tools/registry.integration.test.ts` / `registry.test.tsx` 自动覆盖
 
 **Interfaces:**
+
 - Consumes: Task 13 组件;catalog 的 `CatalogEntry` 结构
 - Produces: 侧栏/命令面板出现「文件夹分析器」;`folder_analyzer` 可从 UI 打开
 
@@ -3883,6 +4001,7 @@ git commit -m "feat(analyzer-ui): register folder analyzer in tool catalog"
 ### Task 16: 文档 + 全量验证
 
 **Files:**
+
 - Modify: `CHANGELOG.md`(Unreleased → Added)
 - Modify: `prd/07-tool-catalog.md`(P2 工具表追加一行)
 
@@ -3935,9 +4054,3 @@ git commit -m "docs: record folder analyzer feature in changelog and tool catalo
 - **Windows symlink**:创建 symlink 需开发者模式,跳过逻辑靠代码审查覆盖,不做自动化断言。
 - **GBK 兜底**:非 UTF-8 非 GBK 文件会落入 unknown(lossy),字数统计仍可用但可能有替换符。
 - **超大目录**:200k 条目上限保护;node_modules 级目录建议配合隐藏开关默认行为(排除 `.git` 等点开头目录)使用。
-
-
-
-
-
-

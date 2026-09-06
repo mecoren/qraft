@@ -23,8 +23,8 @@ design:
       weight: 400
   colorSystem:
     primary:
-      - "#3B82F6"
-      - "#60A5FA"
+      - '#3B82F6'
+      - '#60A5FA'
     background:
       - var(--popover-layer)
       - var(--background)

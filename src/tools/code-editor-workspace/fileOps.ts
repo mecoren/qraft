@@ -94,16 +94,23 @@ export type PendingOpenItem =
       path: string;
       /** 拖放落点(拖放入口附带;命中 Monaco 编辑框时前端豁免 PDF 分流) */
       dropPosition?: DropPosition;
+    }
+  | {
+      /** Office 文档:切换到 Office 工具打开(fs_read_office 读取);拖放入口附带落点 */
+      kind: 'office';
+      path: string;
+      /** 拖放落点(拖放入口附带;命中 Monaco 编辑框时前端豁免 Office 分流) */
+      dropPosition?: DropPosition;
     };
 
 /** 拖放/打开失败的载荷(Rust `OpenFileUnsupported` 事件的 serde 形态) */
 export interface OpenFileUnsupportedPayload {
-  kind: 'unsupported' | 'too-large' | 'error' | 'pdf';
-  /** kind=unsupported / too-large / pdf 时为文件完整路径 */
+  kind: 'unsupported' | 'too-large' | 'error' | 'pdf' | 'office';
+  /** kind=unsupported / too-large / pdf / office 时为文件完整路径 */
   path?: string;
   /** kind=error 时为错误消息 */
   message?: string;
-  /** kind=pdf 拖放入口的落点坐标(前端据此豁免「拖入 Monaco 编辑框」的 PDF 分流) */
+  /** kind=pdf / office 拖放入口的落点坐标(前端据此豁免「拖入 Monaco 编辑框」的分流) */
   dropPosition?: DropPosition;
 }
 

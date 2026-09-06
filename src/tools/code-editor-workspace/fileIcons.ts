@@ -68,6 +68,7 @@ import pdfIcon from 'material-icon-theme/icons/pdf.svg?url';
 import phpIcon from 'material-icon-theme/icons/php.svg?url';
 import pnpmIcon from 'material-icon-theme/icons/pnpm.svg?url';
 import powershellIcon from 'material-icon-theme/icons/powershell.svg?url';
+import powerpointIcon from 'material-icon-theme/icons/powerpoint.svg?url';
 import prettierIcon from 'material-icon-theme/icons/prettier.svg?url';
 import protoIcon from 'material-icon-theme/icons/proto.svg?url';
 import pythonIcon from 'material-icon-theme/icons/python.svg?url';
@@ -150,6 +151,7 @@ export const FILE_ICON_SRCS = {
   php: phpIcon,
   pnpm: pnpmIcon,
   powershell: powershellIcon,
+  powerpoint: powerpointIcon,
   prettier: prettierIcon,
   proto: protoIcon,
   python: pythonIcon,
@@ -351,8 +353,13 @@ const FILE_EXT_ICONS: Readonly<Record<string, FileIconName>> = {
   '.pdf': 'pdf',
   '.doc': 'word',
   '.docx': 'word',
+  '.docm': 'word',
   '.xls': 'table',
   '.xlsx': 'table',
+  '.xlsm': 'table',
+  '.ppt': 'powerpoint',
+  '.pptx': 'powerpoint',
+  '.pptm': 'powerpoint',
   '.ttf': 'font',
   '.otf': 'font',
   '.woff': 'font',

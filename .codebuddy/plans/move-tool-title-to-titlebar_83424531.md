@@ -23,19 +23,19 @@ design:
       weight: 400
   colorSystem:
     primary:
-      - "#4C8DFF"
-      - "#3D7BFF"
+      - '#4C8DFF'
+      - '#3D7BFF'
     background:
-      - "#1E1F24"
-      - "#23252B"
-      - "#2A2C33"
+      - '#1E1F24'
+      - '#23252B'
+      - '#2A2C33'
     text:
-      - "#F4F5F7"
-      - "#9BA0A8"
+      - '#F4F5F7'
+      - '#9BA0A8'
     functional:
-      - "#4ADE80"
-      - "#FBBF24"
-      - "#F87171"
+      - '#4ADE80'
+      - '#FBBF24'
+      - '#F87171'
 todos:
   - id: update-tests
     content: 按 TDD 先更新 ToolPanel.test.tsx(移除 h1 断言、keepalive 改用 input 数量断言)并新增 Titlebar.test.tsx(工具态/欢迎态/Tooltip 描述)

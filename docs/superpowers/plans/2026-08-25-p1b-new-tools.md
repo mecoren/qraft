@@ -24,6 +24,7 @@
 ### Task 1: 文本统计(text_statistics)
 
 **Files:**
+
 - Create: `src/tools/TextStatistics.tsx`
 - Modify: registry.ts / tool-catalog.ts / search-anchors.ts
 - Test: `src/tools/TextStatistics.test.tsx`
@@ -141,7 +142,10 @@ export function TextStatistics({ toolId }: ToolProps): JSX.Element {
             <div className="flex-1 overflow-auto p-3">
               <dl className="grid gap-2">
                 {ROWS.map((r) => (
-                  <div key={r.key} className="flex items-center justify-between rounded border px-3 py-1.5">
+                  <div
+                    key={r.key}
+                    className="flex items-center justify-between rounded border px-3 py-1.5"
+                  >
                     <dt className="text-xs text-muted-foreground">{r.label}</dt>
                     <dd className="font-mono text-sm" data-testid={`stat-${r.key}`}>
                       {stats[r.key]}
@@ -204,6 +208,7 @@ git commit -m "feat(tools): 新增文本统计工具(字符/词数/行数/字节
 ### Task 2: ULID 生成器(ulid_generator)
 
 **Files:**
+
 - Create: `src/tools/UlidGenerator.tsx`;Modify: 三处注册;Test: `src/tools/UlidGenerator.test.tsx`
 - 额外:`tool-catalog.ts` 中 uuid_generator 条目的 keywords 移除 `'ulid'`(搜索归新工具)
 
@@ -391,8 +396,9 @@ describe('BasicAuthGenerator', () => {
     render(<BasicAuthGenerator toolId="basic_auth_generator" metadata={null as never} />);
     fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'user' } });
     fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'pass' } });
-    expect(screen.getByTestId('auth-output').value ?? screen.getByTestId('auth-output').textContent)
-      .toContain('dXNlcjpwYXNz');
+    expect(
+      screen.getByTestId('auth-output').value ?? screen.getByTestId('auth-output').textContent,
+    ).toContain('dXNlcjpwYXNz');
   });
 });
 ```
@@ -427,10 +433,21 @@ export function BasicAuthGenerator({ toolId }: ToolProps): JSX.Element {
     <div className="flex h-full min-h-0 flex-col gap-3" data-testid="basic-auth-generator">
       <ConfigSection title="" searchAnchor="basic_auth_generator:config">
         <ConfigRow icon={KeyRound} label="用户名">
-          <Input aria-label="用户名" value={user} onChange={(e) => setUser(e.target.value)} autoComplete="off" />
+          <Input
+            aria-label="用户名"
+            value={user}
+            onChange={(e) => setUser(e.target.value)}
+            autoComplete="off"
+          />
         </ConfigRow>
         <ConfigRow icon={KeyRound} label="密码" hint="仅在本机内存中计算,不落盘不上传">
-          <Input aria-label="密码" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" />
+          <Input
+            aria-label="密码"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="off"
+          />
         </ConfigRow>
       </ConfigSection>
       <CodeEditor
@@ -515,8 +532,14 @@ import { Input } from '@/components/ui/input';
 import type { ToolProps } from './registry';
 
 export interface SubnetInfo {
-  network: string; netmask: string; wildcard: string; broadcast: string;
-  firstHost: string; lastHost: string; totalAddrs: number; usableHosts: number;
+  network: string;
+  netmask: string;
+  wildcard: string;
+  broadcast: string;
+  firstHost: string;
+  lastHost: string;
+  totalAddrs: number;
+  usableHosts: number;
 }
 
 export function parseIpv4(s: string): number | null {
@@ -566,7 +589,11 @@ export function Ipv4SubnetCalculator({ toolId }: ToolProps): JSX.Element {
   const info = useMemo(() => parseCidr(raw), [raw]);
   const rows: Array<{ k: string; v: string; tid?: string }> = info
     ? [
-        { k: '网络地址', v: `${info.network}/${raw.includes('/') ? raw.split('/')[1]! : '32'}`, tid: 'subnet-network' },
+        {
+          k: '网络地址',
+          v: `${info.network}/${raw.includes('/') ? raw.split('/')[1]! : '32'}`,
+          tid: 'subnet-network',
+        },
         { k: '子网掩码', v: info.netmask },
         { k: '反掩码', v: info.wildcard },
         { k: '广播地址', v: info.broadcast },
@@ -580,17 +607,30 @@ export function Ipv4SubnetCalculator({ toolId }: ToolProps): JSX.Element {
     <div className="flex h-full flex-col gap-3" data-testid="ipv4-subnet-calculator">
       <ConfigSection title="" searchAnchor="ipv4_subnet_calculator:config">
         <ConfigRow icon={Network} label="CIDR" hint="如 192.168.1.10/24,省略前缀按 /32">
-          <Input aria-label="CIDR" value={raw} onChange={(e) => setRaw(e.target.value)} placeholder="0.0.0.0/0" />
+          <Input
+            aria-label="CIDR"
+            value={raw}
+            onChange={(e) => setRaw(e.target.value)}
+            placeholder="0.0.0.0/0"
+          />
         </ConfigRow>
       </ConfigSection>
-      <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-card p-3" data-testid="output">
+      <div
+        className="min-h-0 flex-1 overflow-auto rounded-lg border bg-card p-3"
+        data-testid="output"
+      >
         {!info && raw.trim() !== '' && (
-          <p role="alert" className="text-sm text-destructive">无法解析的 CIDR 表达式</p>
+          <p role="alert" className="text-sm text-destructive">
+            无法解析的 CIDR 表达式
+          </p>
         )}
         {info && (
           <dl className="grid gap-2">
             {rows.map((r) => (
-              <div key={r.k} className="flex items-center justify-between rounded border px-3 py-1.5">
+              <div
+                key={r.k}
+                className="flex items-center justify-between rounded border px-3 py-1.5"
+              >
                 <dt className="text-xs text-muted-foreground">{r.k}</dt>
                 <dd className="flex items-center gap-2 font-mono text-sm" data-testid={r.tid}>
                   {r.v}
@@ -685,7 +725,8 @@ import type { ToolProps } from './registry';
 type Direction = 'json_to_csv' | 'csv_to_json';
 
 function csvField(v: unknown): string {
-  const s = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+  const s =
+    v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
@@ -704,14 +745,23 @@ export function csvRows(text: string, delimiter = ','): string[][] {
   let row: string[] = [];
   let field = '';
   let inQuotes = false;
-  const push = () => { row.push(field); field = ''; };
-  const endRow = () => { push(); rows.push(row); row = []; };
+  const push = () => {
+    row.push(field);
+    field = '';
+  };
+  const endRow = () => {
+    push();
+    rows.push(row);
+    row = [];
+  };
   for (let i = 0; i < text.length; i++) {
     const ch = text[i]!;
     if (inQuotes) {
       if (ch === '"') {
-        if (text[i + 1] === '"') { field += '"'; i++; }
-        else inQuotes = false;
+        if (text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else inQuotes = false;
       } else field += ch;
     } else if (ch === '"') {
       inQuotes = true;
@@ -782,15 +832,36 @@ export function JsonCsvConverter({ toolId }: ToolProps): JSX.Element {
       </ConfigSection>
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         <ResizablePanel defaultSize={50} minSize={20}>
-          <CodeEditor title={direction === 'json_to_csv' ? 'JSON 数组输入' : 'CSV 输入'} value={text}
-            onChange={setText} showClear language="plaintext" data-testid="input"
-            searchAnchor="json_csv_converter:input" />
+          <CodeEditor
+            title={direction === 'json_to_csv' ? 'JSON 数组输入' : 'CSV 输入'}
+            value={text}
+            onChange={setText}
+            showClear
+            language="plaintext"
+            data-testid="input"
+            searchAnchor="json_csv_converter:input"
+          />
         </ResizablePanel>
         <ResizableHandle />
         <ResizablePanel defaultSize={50} minSize={20}>
-          <CodeEditor title="输出" language={direction === 'csv_to_json' ? 'json' : 'plaintext'}
-            readOnly value={output} data-testid="output" searchAnchor="json_csv_converter:output"
-            actions={<>{output && <><CopyAction text={output} testId="copy-output" /><SendToMenuFallback /></>}</>} />
+          <CodeEditor
+            title="输出"
+            language={direction === 'csv_to_json' ? 'json' : 'plaintext'}
+            readOnly
+            value={output}
+            data-testid="output"
+            searchAnchor="json_csv_converter:output"
+            actions={
+              <>
+                {output && (
+                  <>
+                    <CopyAction text={output} testId="copy-output" />
+                    <SendToMenuFallback />
+                  </>
+                )}
+              </>
+            }
+          />
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
@@ -799,7 +870,9 @@ export function JsonCsvConverter({ toolId }: ToolProps): JSX.Element {
 
 // SendToMenu 为可选增强:若 P1-a 已合入,替换为 <SendToMenu text={output} currentToolId={toolId} />;
 // 否则删掉该引用与 actions 中的片段,保持本任务不依赖 P1-a。
-function SendToMenuFallback(): null { return null; }
+function SendToMenuFallback(): null {
+  return null;
+}
 ```
 
 实施注意:①若 P1-a(Task 1-6)已合入,直接 import 真 SendToMenu 并删除 fallback;②`HeaderAction` 若未使用则移出 imports(lint no-unused)。

@@ -78,6 +78,14 @@ pub enum OpenFileUnsupported {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         drop_position: Option<DropPosition>,
     },
+    /// Office 文档(docx / xlsx / pptx 及 WPS 旧格式 doc / xls / ppt):
+    /// 切换到 Office 工具打开(前端经 `fs_read_office` 读取;旧二进制格式
+    /// 由前端展示转换指引)。落点坐标语义同 Pdf。
+    Office {
+        path: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        drop_position: Option<DropPosition>,
+    },
     /// 其他错误(路径非法/读取失败等)
     Error { message: String },
 }
@@ -97,6 +105,12 @@ pub enum PendingOpenItem {
     TooLarge { path: String },
     /// PDF 文档:前端切换到 PDF 工具(`fs_read_pdf` 读取);拖放入口附带落点
     Pdf {
+        path: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        drop_position: Option<DropPosition>,
+    },
+    /// Office 文档:前端切换到 Office 工具(`fs_read_office` 读取);拖放入口附带落点
+    Office {
         path: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         drop_position: Option<DropPosition>,
@@ -134,6 +148,14 @@ impl PendingOpenFiles {
     /// 追加一个 PDF 文档(前端走 PDF 工具打开;拖放入口附带落点坐标)
     pub fn push_pdf(&self, path: &str, drop_position: Option<DropPosition>) {
         self.push_item(PendingOpenItem::Pdf {
+            path: path.to_string(),
+            drop_position,
+        });
+    }
+
+    /// 追加一个 Office 文档(前端走 Office 工具打开;拖放入口附带落点坐标)
+    pub fn push_office(&self, path: &str, drop_position: Option<DropPosition>) {
+        self.push_item(PendingOpenItem::Office {
             path: path.to_string(),
             drop_position,
         });
@@ -232,6 +254,26 @@ pub fn is_pdf_path(path: &str) -> bool {
         .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf"))
 }
 
+/// 判断路径是否指向 Office 文档(扩展名判定,大小写不敏感)
+///
+/// 覆盖两类来源:
+/// - Microsoft OOXML:`docx` / `xlsx` / `pptx`(`docm` / `xlsm` / `pptm`
+///   宏文档同源,同为 OOXML ZIP 容器,前端渲染库可直接解析)
+/// - WPS / 旧二进制格式:`doc` / `xls` / `ppt` —— WPS 与 MS Office 的旧
+///   格式互为兼容(二进制),前端渲染库不支持,由 Office 工具展示转换
+///   指引;仍分流进 Office 工具以统一入口。
+///
+/// 判定口径与前端 Office 工具(`isOfficePath`)保持一致,除扩展名外不嗅探魔数。
+#[must_use]
+pub fn is_office_path(path: &str) -> bool {
+    const OFFICE_EXTS: &[&str] = &[
+        "docx", "docm", "xlsx", "xlsm", "pptx", "pptm", "doc", "xls", "ppt",
+    ];
+    Path::new(path)
+        .extension()
+        .is_some_and(|ext| OFFICE_EXTS.iter().any(|e| ext.eq_ignore_ascii_case(e)))
+}
+
 /// 通过文件关联/命令行/拖放打开单个文件;若为二进制或目录,不打开并推送
 /// `app:open-file-unsupported` 事件(载荷含路径与原因),供前端提示
 /// 并提供「仍要打开」(参考 VS Code Open Anyway)。
@@ -298,6 +340,24 @@ pub fn open_dropped_file(
         emit_unsupported(
             app,
             &OpenFileUnsupported::Pdf {
+                path: full_path,
+                drop_position,
+            },
+        );
+        return Ok(());
+    }
+
+    // Office 文档(docx/xlsx/pptx + WPS 旧格式 doc/xls/ppt):授权路径后
+    // 交由前端 Office 工具打开(渲染 + 表格编辑;旧二进制格式展示转换指引)。
+    // 不走二进制启发式与文本解码;大小上限由 fs_read_office 强制
+    // (与 PDF 同为 100MB)。落点坐标透传给前端:命中 Monaco 编辑框时
+    // 前端豁免分流,回退编辑器的二进制提示路径(与 .md / .pdf 同口径)。
+    if is_office_path(&full_path) {
+        authorized.authorize(&full_path);
+        pending.push_office(&full_path, drop_position);
+        emit_unsupported(
+            app,
+            &OpenFileUnsupported::Office {
                 path: full_path,
                 drop_position,
             },
@@ -527,6 +587,55 @@ mod tests {
     }
 
     #[test]
+    fn is_office_path_matches_supported_extensions() {
+        // OOXML 三件套 + 宏文档变体
+        for ext in ["docx", "docm", "xlsx", "xlsm", "pptx", "pptm"] {
+            assert!(is_office_path(&format!("/doc/report.{ext}")), "{ext}");
+        }
+        // WPS / MS 旧二进制格式
+        for ext in ["doc", "xls", "ppt"] {
+            assert!(is_office_path(&format!(r"C:\docs\report.{ext}")), "{ext}");
+        }
+        // 大小写不敏感
+        assert!(is_office_path("/doc/Report.DOCX"));
+        assert!(is_office_path("/doc/预算表.XLS"));
+        // 非白名单扩展名与无扩展名
+        assert!(!is_office_path("/doc/report.docx~"));
+        assert!(!is_office_path("/doc/report.pdf"));
+        assert!(!is_office_path("/doc/report.txt"));
+        assert!(!is_office_path("/doc/report"));
+        assert!(!is_office_path(""));
+    }
+
+    #[test]
+    fn pending_open_files_push_office_item() {
+        let pending = PendingOpenFiles::new();
+        // 非拖放入口(文件关联/命令行):无落点
+        pending.push_office("/doc/a.docx", None);
+        // 拖放入口:附带落点坐标
+        pending.push_office("/doc/b.xlsx", Some(DropPosition { x: 12.0, y: 34.5 }));
+        let drained = pending.drain_all();
+        let PendingOpenItem::Office {
+            path,
+            drop_position,
+        } = &drained[0]
+        else {
+            panic!("item must be Office");
+        };
+        assert_eq!(path, "/doc/a.docx");
+        assert_eq!(*drop_position, None);
+        let PendingOpenItem::Office {
+            path,
+            drop_position,
+        } = &drained[1]
+        else {
+            panic!("item must be Office");
+        };
+        assert_eq!(path, "/doc/b.xlsx");
+        assert_eq!(drop_position.map(|d| (d.x, d.y)), Some((12.0, 34.5)));
+    }
+
+    #[test]
     fn pending_open_files_push_pdf_item() {
         let pending = PendingOpenFiles::new();
         // 非拖放入口(文件关联/命令行):无落点
@@ -534,12 +643,20 @@ mod tests {
         // 拖放入口:附带落点坐标
         pending.push_pdf("/forms/other.pdf", Some(DropPosition { x: 12.0, y: 34.5 }));
         let drained = pending.drain_all();
-        let PendingOpenItem::Pdf { path, drop_position } = &drained[0] else {
+        let PendingOpenItem::Pdf {
+            path,
+            drop_position,
+        } = &drained[0]
+        else {
             panic!("item must be Pdf");
         };
         assert_eq!(path, "/forms/tax.pdf");
         assert_eq!(*drop_position, None);
-        let PendingOpenItem::Pdf { path, drop_position } = &drained[1] else {
+        let PendingOpenItem::Pdf {
+            path,
+            drop_position,
+        } = &drained[1]
+        else {
             panic!("item must be Pdf");
         };
         assert_eq!(path, "/forms/other.pdf");

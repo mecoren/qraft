@@ -28,6 +28,7 @@ import {
   EyeOff,
   FileArchive,
   FileCode2,
+  FileSpreadsheet,
   FileText,
   Fingerprint,
   FlaskConical,
@@ -464,6 +465,32 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     ],
     popoutSize: { width: 1100, height: 760 },
   },
+  {
+    id: 'office_editor',
+    name: 'Office 工具',
+    description:
+      '打开/拖入 Word / Excel / PowerPoint 文档自动进入:docx 分页渲染、xlsx 表格查看与编辑(导出新文件)、pptx 简易预览;doc/xls/ppt 旧格式(WPS 通用)展示转换指引',
+    category: 'editor',
+    icon: FileSpreadsheet,
+    keywords: [
+      'office',
+      'word',
+      'excel',
+      'powerpoint',
+      'ppt',
+      'docx',
+      'xlsx',
+      'pptx',
+      'wps',
+      'doc',
+      'xls',
+      '文档',
+      '表格',
+      '幻灯片',
+      '编辑',
+    ],
+    popoutSize: { width: 1100, height: 720 },
+  },
 
   // —— 转换器 ——
   {
@@ -658,6 +685,11 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
     name: 'PDF Editor',
     description:
       'Opens automatically for PDF files: multi-tab reading, AcroForm form filling, text/note/highlight/strike overlay editing, with overwrite save and save-as',
+  },
+  office_editor: {
+    name: 'Office Viewer',
+    description:
+      'Opens automatically for Word / Excel / PowerPoint files: paginated docx rendering, xlsx grid viewing & editing (export to a new file), light pptx preview; legacy doc/xls/ppt (WPS-compatible) shows a conversion guide',
   },
   cron_parser: {
     name: 'Cron Parser',

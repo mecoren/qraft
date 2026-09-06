@@ -77,3 +77,36 @@ fn authorizes_existing_dropped_paths_and_skips_missing() {
     assert!(authorized.is_path_allowed(&file.to_string_lossy()));
     assert!(!authorized.is_path_allowed("Z:/__no_such__/ghost.txt"));
 }
+
+#[test]
+fn office_path_routing_matches_supported_extensions() {
+    use qraft_lib::shell::file_open::{PendingOpenFiles, is_office_path, is_pdf_path};
+
+    // OOXML 三件套 + 宏文档变体 + WPS 旧二进制格式(大小写不敏感)
+    for ext in [
+        "docx", "docm", "xlsx", "xlsm", "pptx", "pptm", "doc", "xls", "ppt",
+    ] {
+        assert!(is_office_path(&format!("/doc/report.{ext}")), "{ext}");
+    }
+    assert!(is_office_path(r"C:\docs\预算表.XLS"));
+    // 与 PDF / 文本边界不误判
+    assert!(!is_office_path("/doc/report.pdf"));
+    assert!(is_pdf_path("/doc/report.pdf"));
+    assert!(!is_office_path("/doc/report.txt"));
+    assert!(!is_office_path("/doc/report"));
+    assert!(!is_office_path("/doc/report.docx~"));
+
+    // pending 队列:Office 项入队形态(拖放入口附带落点)
+    let pending = PendingOpenFiles::new();
+    pending.push_office("/doc/a.docx", None);
+    let drained = pending.drain_all();
+    let qraft_lib::shell::file_open::PendingOpenItem::Office {
+        path,
+        drop_position,
+    } = &drained[0]
+    else {
+        unreachable!("item must be Office");
+    };
+    assert_eq!(path, "/doc/a.docx");
+    assert!(drop_position.is_none());
+}

@@ -23,10 +23,12 @@
 ### Task 1: useShortcut 增加 e.repeat 守卫
 
 **Files:**
+
 - Modify: `src/hooks/useShortcut.ts:117-123`(onKey 回调)
 - Create: `src/hooks/useShortcut.test.tsx`
 
 **Interfaces:**
+
 - Consumes: 现有 `useShortcut(key, handler, deps)`
 - Produces: 行为不变,仅忽略 `KeyboardEvent.repeat === true` 的事件
 
@@ -92,16 +94,16 @@ Expected: 「长按自动重复」两条 FAIL(handler 被调用),第一条 PASS
 `src/hooks/useShortcut.ts` 的 `onKey` 开头加守卫:
 
 ```ts
-    const onKey = (e: KeyboardEvent) => {
-      // 长按产生的自动重复事件全部忽略:现有绑定均为离散动作(开关面板/执行/复制),
-      // 连发只会造成误触。若未来出现需要长按连发的绑定,应单独豁免。
-      if (e.repeat) return;
-      if (matchesShortcut(e, parsed)) {
-        e.preventDefault();
-        e.stopPropagation();
-        handler();
-      }
-    };
+const onKey = (e: KeyboardEvent) => {
+  // 长按产生的自动重复事件全部忽略:现有绑定均为离散动作(开关面板/执行/复制),
+  // 连发只会造成误触。若未来出现需要长按连发的绑定,应单独豁免。
+  if (e.repeat) return;
+  if (matchesShortcut(e, parsed)) {
+    e.preventDefault();
+    e.stopPropagation();
+    handler();
+  }
+};
 ```
 
 并在文件头部用法注释下补一行:`* 所有绑定默认忽略 e.repeat(长按连发)。`
@@ -123,6 +125,7 @@ git commit -m "fix(shortcut): 忽略长按自动重复事件(e.repeat),防止快
 ### Task 2: prefers-reduced-motion 全局适配
 
 **Files:**
+
 - Modify: `src/styles/globals.css`(文件末尾追加)
 - Modify: `src/styles/globals.test.ts`(追加守护用例)
 
@@ -133,10 +136,10 @@ git commit -m "fix(shortcut): 忽略长按自动重复事件(e.repeat),防止快
 `src/styles/globals.test.ts` describe 块内追加:
 
 ```ts
-  it('尊重系统减少动态效果偏好(prefers-reduced-motion)', () => {
-    const css = readFileSync(resolve(__dirname, 'globals.css'), 'utf-8');
-    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
-  });
+it('尊重系统减少动态效果偏好(prefers-reduced-motion)', () => {
+  const css = readFileSync(resolve(__dirname, 'globals.css'), 'utf-8');
+  expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+});
 ```
 
 - [ ] **Step 2: 运行确认失败**
@@ -181,6 +184,7 @@ git commit -m "feat(a11y): 支持 prefers-reduced-motion 减弱动态效果"
 ### Task 3: 删除 SideNav 死代码(U6)
 
 **Files:**
+
 - Delete: `src/components/SideNav.tsx`、`src/components/SideNav.test.tsx`
 - Modify: `src/lib/tool-icon.tsx:10`(注释)、`src/App.test.tsx:71`(描述)、`src/integration.smoke.test.tsx`(describe 标题)
 
@@ -198,7 +202,7 @@ git rm src/components/SideNav.tsx src/components/SideNav.test.tsx
 ```
 
 - `src/lib/tool-icon.tsx:10` 注释改为:` * - 该模块供 Sidebar / ToolPanel 复用,避免重复解析逻辑`
-- `src/App.test.tsx:71` 改为:``it('renders sidebar with tool groups after mount', async () => {``
+- `src/App.test.tsx:71` 改为:`it('renders sidebar with tool groups after mount', async () => {`
 - `src/integration.smoke.test.tsx` describe 改为:`describe('smoke: 侧栏显示工具分组', () => {`
 
 - [ ] **Step 3: 全量回归**
@@ -218,10 +222,12 @@ git commit -m "refactor(ui): 删除零引用的旧版 SideNav 组件(U6 死代�
 ### Task 4: 工具动作注册表 lib/tool-actions.ts
 
 **Files:**
+
 - Create: `src/lib/tool-actions.ts`
 - Test: `src/lib/tool-actions.test.ts`
 
 **Interfaces:**
+
 - Produces(Task 5/6/7-9 消费):
   - `interface ToolShortcutActions { execute?: () => void; clearInput?: () => void; copyOutput?: () => void }`
   - `setToolActions(toolId: string, actions: ToolShortcutActions | null): void`(null = 注销)
@@ -403,10 +409,12 @@ git commit -m "feat(shortcut): 新增工具动作注册表(execute/clear/copy �
 ### Task 5: useToolShortcutActions hook
 
 **Files:**
+
 - Create: `src/hooks/useToolShortcutActions.ts`
 - Test: `src/hooks/useToolShortcutActions.test.tsx`
 
 **Interfaces:**
+
 - Consumes: Task 4 的 `setToolActions` / `resetToolActions` / `executeToolAction` / `ToolShortcutActions`
 - Produces(Task 7-9 消费): `useToolShortcutActions(toolId: string, actions: ToolShortcutActions): void`
 
@@ -458,6 +466,7 @@ describe('useToolShortcutActions', () => {
 注意:卸载后第二次 `executeToolAction()` 会调 sonner toast —— 本文件需像 HashCalculator.test 一样 mock sonner:
 
 文件顶部补:
+
 ```tsx
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
@@ -519,10 +528,12 @@ git commit -m "feat(shortcut): useToolShortcutActions 打通工具与全局注�
 ### Task 6: App.tsx 全局接线 + 设置页移除 pending 标记
 
 **Files:**
+
 - Modify: `src/App.tsx:145-157`
 - Modify: `src/components/SettingsPanel.tsx:65-67`
 
 **Interfaces:**
+
 - Consumes: Task 4 的 `executeToolAction` / `clearInputAction` / `copyOutputAction`
 
 - [ ] **Step 1: App.tsx 接线**
@@ -536,15 +547,15 @@ import { clearInputAction, copyOutputAction, executeToolAction } from '@/lib/too
 将 145-147 行注释与快捷键区替换为:
 
 ```ts
-  // —— 全局快捷键(导航类) ——
-  // 工具操作类(execute/clear/copy)经 lib/tool-actions 注册表触达当前激活工具,
-  // 由各工具经 useToolShortcutActions 注册(search 除外,仍待与 Monaco 冲突方案)。
-  // 切换字符命名风格:作用于当前激活的编辑器实例(编辑器工具打开时生效)。
-  useShortcut('cycle_naming_case', () => cycleNamingCaseShortcutHandler(), []);
-  useShortcut('toggle_case', () => toggleCaseShortcutHandler(), []);
-  useShortcut('execute_tool', () => executeToolAction(), []);
-  useShortcut('clear_input', () => clearInputAction(), []);
-  useShortcut('copy_output', () => copyOutputAction(), []);
+// —— 全局快捷键(导航类) ——
+// 工具操作类(execute/clear/copy)经 lib/tool-actions 注册表触达当前激活工具,
+// 由各工具经 useToolShortcutActions 注册(search 除外,仍待与 Monaco 冲突方案)。
+// 切换字符命名风格:作用于当前激活的编辑器实例(编辑器工具打开时生效)。
+useShortcut('cycle_naming_case', () => cycleNamingCaseShortcutHandler(), []);
+useShortcut('toggle_case', () => toggleCaseShortcutHandler(), []);
+useShortcut('execute_tool', () => executeToolAction(), []);
+useShortcut('clear_input', () => clearInputAction(), []);
+useShortcut('copy_output', () => copyOutputAction(), []);
 ```
 
 (后续 open_command_palette 等行保持不变)
@@ -588,10 +599,12 @@ git commit -m "feat(shortcut): 全局接线 Ctrl+Enter/Ctrl+L/Ctrl+Shift+C 并�
 ### Task 7: JsonFormatter 接入(参考实现)
 
 **Files:**
+
 - Modify: `src/tools/JsonFormatter.tsx`(imports + runFormat 定义之后 ~398 行)
 - Test: Create `src/tools/json-formatter-shortcuts.test.tsx`
 
 **Interfaces:**
+
 - Consumes: Task 5 `useToolShortcutActions(toolId, actions)`;组件内已有 `runFormat(auto?: boolean)`、`text`(store 当前文档内容)、`output`、`setDocContent`、`activeDocId`
 
 - [ ] **Step 1: 写失败测试**
@@ -682,13 +695,13 @@ import { copyTextWithFeedback } from '@/lib/toast-alert';
 `runFormat` useCallback 结束(:398)之后插入:
 
 ```ts
-  // 全局快捷键契约:Ctrl+Enter 执行 / Ctrl+L 清空当前文档 / Ctrl+Shift+C 复制输出。
-  // 输入为空时不注册 execute(避免空跑);输出非空才注册复制,保证降级提示准确。
-  useToolShortcutActions(toolId, {
-    execute: text.trim() ? () => void runFormat(false) : undefined,
-    clearInput: () => setDocContent(activeDocId, ''),
-    copyOutput: output ? () => void copyTextWithFeedback(output) : undefined,
-  });
+// 全局快捷键契约:Ctrl+Enter 执行 / Ctrl+L 清空当前文档 / Ctrl+Shift+C 复制输出。
+// 输入为空时不注册 execute(避免空跑);输出非空才注册复制,保证降级提示准确。
+useToolShortcutActions(toolId, {
+  execute: text.trim() ? () => void runFormat(false) : undefined,
+  clearInput: () => setDocContent(activeDocId, ''),
+  copyOutput: output ? () => void copyTextWithFeedback(output) : undefined,
+});
 ```
 
 - [ ] **Step 4: 验证**
@@ -708,10 +721,12 @@ git commit -m "feat(shortcut): JSON 格式化器接入全局快捷键(参考实�
 ### Task 8: Base64Codec 接入
 
 **Files:**
+
 - Modify: `src/tools/Base64Codec.tsx`(imports + 自动执行 effects 之前 ~482 行)
 - Test: Create `src/tools/base64-codec-shortcuts.test.tsx`
 
 **Interfaces:**
+
 - Consumes: 组件内已有 `isTextMode` / `isFileDecode` / `runTextExecute(auto?)` / `runBinaryExecute(auto?)` / `setText` / `resetWorkspace` / `output`
 
 - [ ] **Step 1: 写失败测试**
@@ -787,20 +802,20 @@ import { copyTextWithFeedback } from '@/lib/toast-alert';
 `runBinaryExecute` 定义结束后、自动执行 effects 开始前(~482 行)插入:
 
 ```ts
-  // 全局快捷键契约:text 模式执行编码/解码,file 解码执行二进制解析,
-  // file 编码模式(需要文件选择器交互)不注册 execute。清空输入同时复位输出与预览。
-  useToolShortcutActions(toolId, {
-    execute: isTextMode
-      ? () => void runTextExecute(false)
-      : isFileDecode
-        ? () => void runBinaryExecute(false)
-        : undefined,
-    clearInput: () => {
-      setText('');
-      resetWorkspace();
-    },
-    copyOutput: output ? () => void copyTextWithFeedback(output) : undefined,
-  });
+// 全局快捷键契约:text 模式执行编码/解码,file 解码执行二进制解析,
+// file 编码模式(需要文件选择器交互)不注册 execute。清空输入同时复位输出与预览。
+useToolShortcutActions(toolId, {
+  execute: isTextMode
+    ? () => void runTextExecute(false)
+    : isFileDecode
+      ? () => void runBinaryExecute(false)
+      : undefined,
+  clearInput: () => {
+    setText('');
+    resetWorkspace();
+  },
+  copyOutput: output ? () => void copyTextWithFeedback(output) : undefined,
+});
 ```
 
 - [ ] **Step 4: 验证**
@@ -820,6 +835,7 @@ git commit -m "feat(shortcut): Base64 转换器接入全局快捷键"
 ### Task 9: HashCalculator 接入
 
 **Files:**
+
 - Modify: `src/tools/HashCalculator.tsx`(handleCompute 定义之后)+ `src/tools/HashCalculator.test.tsx`(追加 3 用例)
 
 - [ ] **Step 1: 写失败测试**
@@ -827,60 +843,60 @@ git commit -m "feat(shortcut): Base64 转换器接入全局快捷键"
 `HashCalculator.test.tsx` describe 尾部追加:
 
 ```tsx
-  it('Ctrl+Enter 快捷键触发计算', async () => {
-    const { invokeCommand } = await import('@/lib/ipc');
-    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      text: '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824',
-      meta: { input_bytes: 5, output_bytes: 64, duration_ms: 0 },
-    });
-    render(<HashCalculator toolId="hash_calculator" metadata={null as never} />);
-    const editor = screen.getByTestId('input').querySelector('textarea')!;
-    fireEvent.change(editor, { target: { value: 'hello' } });
-    fireEvent.keyDown(window, { key: 'Enter', ctrlKey: true });
-    await waitFor(() => {
-      expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
-        toolId: 'hash_calculator',
-        input: { text: 'hello', params: { algorithm: 'sha256' } },
-      });
+it('Ctrl+Enter 快捷键触发计算', async () => {
+  const { invokeCommand } = await import('@/lib/ipc');
+  (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+    text: '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824',
+    meta: { input_bytes: 5, output_bytes: 64, duration_ms: 0 },
+  });
+  render(<HashCalculator toolId="hash_calculator" metadata={null as never} />);
+  const editor = screen.getByTestId('input').querySelector('textarea')!;
+  fireEvent.change(editor, { target: { value: 'hello' } });
+  fireEvent.keyDown(window, { key: 'Enter', ctrlKey: true });
+  await waitFor(() => {
+    expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
+      toolId: 'hash_calculator',
+      input: { text: 'hello', params: { algorithm: 'sha256' } },
     });
   });
+});
 
-  it('Ctrl+L 清空输入与输出', async () => {
-    const { invokeCommand } = await import('@/lib/ipc');
-    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      text: '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824',
-      meta: { input_bytes: 5, output_bytes: 64, duration_ms: 0 },
-    });
-    render(<HashCalculator toolId="hash_calculator" metadata={null as never} />);
-    const editor = screen.getByTestId('input').querySelector('textarea')!;
-    fireEvent.change(editor, { target: { value: 'hello' } });
-    fireEvent.click(screen.getByRole('button', { name: /计算/ }));
-    await screen.findByTestId('copy-hash');
-    fireEvent.keyDown(window, { key: 'L', ctrlKey: true });
-    await waitFor(() => {
-      expect(editor.value).toBe('');
-      expect(screen.queryByTestId('copy-hash')).not.toBeInTheDocument();
-    });
+it('Ctrl+L 清空输入与输出', async () => {
+  const { invokeCommand } = await import('@/lib/ipc');
+  (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+    text: '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824',
+    meta: { input_bytes: 5, output_bytes: 64, duration_ms: 0 },
   });
+  render(<HashCalculator toolId="hash_calculator" metadata={null as never} />);
+  const editor = screen.getByTestId('input').querySelector('textarea')!;
+  fireEvent.change(editor, { target: { value: 'hello' } });
+  fireEvent.click(screen.getByRole('button', { name: /计算/ }));
+  await screen.findByTestId('copy-hash');
+  fireEvent.keyDown(window, { key: 'L', ctrlKey: true });
+  await waitFor(() => {
+    expect(editor.value).toBe('');
+    expect(screen.queryByTestId('copy-hash')).not.toBeInTheDocument();
+  });
+});
 
-  it('Ctrl+Shift+C 复制哈希输出', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
-    const { invokeCommand } = await import('@/lib/ipc');
-    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      text: '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824',
-      meta: { input_bytes: 5, output_bytes: 64, duration_ms: 0 },
-    });
-    render(<HashCalculator toolId="hash_calculator" metadata={null as never} />);
-    const editor = screen.getByTestId('input').querySelector('textarea')!;
-    fireEvent.change(editor, { target: { value: 'hello' } });
-    fireEvent.click(screen.getByRole('button', { name: /计算/ }));
-    await screen.findByTestId('copy-hash');
-    fireEvent.keyDown(window, { key: 'C', ctrlKey: true, shiftKey: true });
-    await waitFor(() => {
-      expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/^[0-9a-f]{64}$/));
-    });
+it('Ctrl+Shift+C 复制哈希输出', async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  const { invokeCommand } = await import('@/lib/ipc');
+  (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+    text: '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824',
+    meta: { input_bytes: 5, output_bytes: 64, duration_ms: 0 },
   });
+  render(<HashCalculator toolId="hash_calculator" metadata={null as never} />);
+  const editor = screen.getByTestId('input').querySelector('textarea')!;
+  fireEvent.change(editor, { target: { value: 'hello' } });
+  fireEvent.click(screen.getByRole('button', { name: /计算/ }));
+  await screen.findByTestId('copy-hash');
+  fireEvent.keyDown(window, { key: 'C', ctrlKey: true, shiftKey: true });
+  await waitFor(() => {
+    expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/^[0-9a-f]{64}$/));
+  });
+});
 ```
 
 - [ ] **Step 2: 运行确认失败**
@@ -900,16 +916,16 @@ import { copyTextWithFeedback } from '@/lib/toast-alert';
 `handleCompute` 函数定义之后插入:
 
 ```ts
-  // 全局快捷键契约:与主按钮同一套 loading/空输入防护;清空同时复位输出与错误
-  useToolShortcutActions(toolId, {
-    execute: loading || !text ? undefined : () => void handleCompute(),
-    clearInput: () => {
-      setText('');
-      setOutput(null);
-      setError(null);
-    },
-    copyOutput: output?.text ? () => void copyTextWithFeedback(output.text) : undefined,
-  });
+// 全局快捷键契约:与主按钮同一套 loading/空输入防护;清空同时复位输出与错误
+useToolShortcutActions(toolId, {
+  execute: loading || !text ? undefined : () => void handleCompute(),
+  clearInput: () => {
+    setText('');
+    setOutput(null);
+    setError(null);
+  },
+  copyOutput: output?.text ? () => void copyTextWithFeedback(output.text) : undefined,
+});
 ```
 
 - [ ] **Step 4: 验证**
@@ -929,6 +945,7 @@ git commit -m "feat(shortcut): 哈希计算器接入全局快捷键"
 ### Task 10: Rust criterion 基准(json_formatter)
 
 **Files:**
+
 - Modify: `src-tauri/Cargo.toml`([dev-dependencies] 与 [[bench]])
 - Create: `src-tauri/benches/json_formatter.rs`
 - Create: `docs/performance-baseline.md`
@@ -1059,16 +1076,16 @@ Run(workdir `src-tauri`): `cargo bench --bench json_formatter`
 
 ## Rust 工具执行(criterion)
 
-| 日期 | 场景 | mean | 机器 |
-|---|---|---|---|
+| 日期       | 场景              | mean   | 机器         |
+| ---------- | ----------------- | ------ | ------------ |
 | 2026-08-25 | json_format_small | <填入> | <CPU/RAM/OS> |
-| 2026-08-25 | json_format_1mb | <填入> | 同上 |
+| 2026-08-25 | json_format_1mb   | <填入> | 同上         |
 
 ## 应用级(冷启动/内存)
 
-| 日期 | 平台 | 冷启动(到主窗口) | 主进程峰值 WorkingSet | WebView2 子进程合计 | 脚本 |
-|---|---|---|---|---|---|
-| <填入> | Windows | <填入> ms | <填入> MB | <填入> MB | scripts/perf-baseline.ps1 |
+| 日期   | 平台    | 冷启动(到主窗口) | 主进程峰值 WorkingSet | WebView2 子进程合计 | 脚本                      |
+| ------ | ------- | ---------------- | --------------------- | ------------------- | ------------------------- |
+| <填入> | Windows | <填入> ms        | <填入> MB             | <填入> MB           | scripts/perf-baseline.ps1 |
 
 目标对照(prd/01-project-overview.md):冷启动<500ms · 小输入<50ms · 10MB JSON<500ms · 空闲内存<150MB · 安装包<30MB
 ```
@@ -1090,6 +1107,7 @@ git commit -m "perf(bench): 建立 json_formatter criterion 基准并记录首�
 ### Task 11: Windows 性能测量脚本 + 发布清单挂钩
 
 **Files:**
+
 - Create: `scripts/perf-baseline.ps1`
 - Modify: `docs/release-checklist.md`(性能验证小节)
 

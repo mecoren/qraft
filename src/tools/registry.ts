@@ -142,6 +142,9 @@ registerTool('text_editor', () =>
 registerTool('pdf_editor', () =>
   import('./pdf/PdfEditor').then((m) => ({ default: m.PdfEditorTool })),
 );
+registerTool('office_editor', () =>
+  import('./office/OfficeEditor').then((m) => ({ default: m.OfficeEditorTool })),
+);
 registerTool('folder_analyzer', () =>
   import('./FolderAnalyzer').then((m) => ({ default: m.FolderAnalyzer })),
 );

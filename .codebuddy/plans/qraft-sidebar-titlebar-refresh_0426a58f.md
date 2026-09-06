@@ -23,18 +23,18 @@ design:
       weight: 400
   colorSystem:
     primary:
-      - "#3B82F6"
-      - "#60A5FA"
+      - '#3B82F6'
+      - '#60A5FA'
     background:
-      - "#1E1E2E"
-      - "#F5F5F7"
+      - '#1E1E2E'
+      - '#F5F5F7'
     text:
-      - "#E4E4E7"
-      - "#A1A1AA"
+      - '#E4E4E7'
+      - '#A1A1AA'
     functional:
-      - "#E81123"
-      - "#22C55E"
-      - "#F59E0B"
+      - '#E81123'
+      - '#22C55E'
+      - '#F59E0B'
 todos:
   - id: sidebar-width-highlight
     content: 调整 Sidebar.tsx 宽度（展开 224px/折叠 56px）并微调活动项渐变指示条与 hover/背景透明度，保持 testId 与功能结构不变

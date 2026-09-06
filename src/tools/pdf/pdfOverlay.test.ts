@@ -56,9 +56,7 @@ describe('applyOverlays', () => {
     const doc = await PDFDocument.create();
     doc.addPage([612, 792]);
     const base64 = uint8ToB64(await doc.save());
-    const bad: OverlayItem[] = [
-      { id: 'ov-x', kind: 'text', page: 99, x: 0, y: 0, text: 'x' },
-    ];
+    const bad: OverlayItem[] = [{ id: 'ov-x', kind: 'text', page: 99, x: 0, y: 0, text: 'x' }];
     const { errors } = await applyOverlays(base64, bad, 1);
     expect(errors).toHaveLength(1);
   });

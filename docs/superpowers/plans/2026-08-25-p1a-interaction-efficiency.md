@@ -21,11 +21,13 @@
 ### Task 1: 空闲预取重型工具模块
 
 **Files:**
+
 - Create: `src/lib/idle-prefetch.ts`
 - Modify: `src/main.tsx`(挂载后调用)
 - Test: `src/lib/idle-prefetch.test.ts`
 
 **Interfaces:**
+
 - Produces: `scheduleIdlePrefetch(): void`(幂等,重复调用只生效一次)
 
 - [ ] **Step 1: 写失败测试**
@@ -157,10 +159,12 @@ git commit -m "perf(prefetch): 空闲期预取 Markdown 工具重型 chunk,消�
 ### Task 2: handoff 信令 store
 
 **Files:**
+
 - Create: `src/store/handoffStore.ts`
 - Test: `src/store/handoffStore.test.ts`
 
 **Interfaces:**
+
 - Produces(Task 3/4 消费):
   - `requestHandoff(toolId: string, text: string): void`
   - `consumeHandoff(toolId: string): string | null`(命中则返回文本并清除;否则 null)
@@ -265,11 +269,13 @@ git commit -m "feat(handoff): 新增跨工具传值信令 store"
 ### Task 3: useToolHandoff hook + SendToMenu 组件
 
 **Files:**
+
 - Create: `src/hooks/useToolHandoff.ts`
 - Create: `src/components/send-to-menu.tsx`
 - Test: `src/hooks/useToolHandoff.test.tsx`、`src/components/send-to-menu.test.tsx`
 
 **Interfaces:**
+
 - Consumes: Task 2 全部导出;`useToolStateStore.currentToolId`;`useEditorWorkspaceStore.openDroppedText(title, content)`
 - Produces:
   - `useToolHandoff(toolId: string, apply: (text: string) => void): void`(工具激活且有待收文本时调 apply 并消费)
@@ -506,10 +512,12 @@ git commit -m "feat(send-to): 跨工具传值 hook 与输出区发送菜单组�
 ### Task 4: 三个工具接入发送与接收
 
 **Files:**
+
 - Modify: `src/tools/JsonFormatter.tsx`、`src/tools/Base64Codec.tsx`、`src/tools/HashCalculator.tsx`(各自输出区 actions 与接收 hook)
 - Test: 各自 shortcuts 测试文件追加 1 个「发送」冒烟用例(可选),或新建最小用例
 
 **Interfaces:**
+
 - Consumes: Task 3 的 `useToolHandoff` / `SendToMenu`;各工具已有的输出 state(`output`)与输入 setter(`setDocContent`/`setText`)
 
 - [ ] **Step 1: JsonFormatter**
@@ -524,10 +532,10 @@ import { useToolHandoff } from '@/hooks/useToolHandoff';
 快捷键注册块(`useToolShortcutActions(...)`)之后加:
 
 ```ts
-  // 「发送到…」接收端:成为激活工具时注入当前文档
-  useToolHandoff(toolId, (incoming) => {
-    if (activeDocId) setDocContent(activeDocId, incoming);
-  });
+// 「发送到…」接收端:成为激活工具时注入当前文档
+useToolHandoff(toolId, (incoming) => {
+  if (activeDocId) setDocContent(activeDocId, incoming);
+});
 ```
 
 两处输出工具栏(文本视图 :911 区与树视图 :885 区)的 `<CopyAction text={output} testId="output-copy" />` 旁各加:
@@ -541,14 +549,16 @@ import { useToolHandoff } from '@/hooks/useToolHandoff';
 同上加 imports;`useToolShortcutActions` 块之后加:
 
 ```ts
-  // 「发送到…」接收端
-  useToolHandoff(toolId, (incoming) => setText(incoming));
+// 「发送到…」接收端
+useToolHandoff(toolId, (incoming) => setText(incoming));
 ```
 
 输出区(:686 区)`<CopyAction text={output} testId="output-copy" />` 旁加:
 
 ```tsx
-{output ? <SendToMenu text={output} currentToolId={toolId} testId="output-send" /> : null}
+{
+  output ? <SendToMenu text={output} currentToolId={toolId} testId="output-send" /> : null;
+}
 ```
 
 - [ ] **Step 3: HashCalculator**
@@ -556,8 +566,8 @@ import { useToolHandoff } from '@/hooks/useToolHandoff';
 同上加 imports;`useToolShortcutActions` 块之后加:
 
 ```ts
-  // 「发送到…」接收端
-  useToolHandoff(toolId, (incoming) => setText(incoming));
+// 「发送到…」接收端
+useToolHandoff(toolId, (incoming) => setText(incoming));
 ```
 
 输出区 `actions` 片段内 `<CopyAction text={output.text} testId="copy-hash" />` 改为条件包裹:
@@ -590,14 +600,19 @@ git commit -m "feat(send-to): JSON/Base64/哈希 三工具接入输出发送与�
 ### Task 5: Smart Detection 探测纯函数
 
 **Files:**
+
 - Create: `src/lib/clipboard-detect.ts`
 - Test: `src/lib/clipboard-detect.test.ts`
 
 **Interfaces:**
+
 - Produces(Task 6 消费):
   ```ts
-  export interface DetectionResult { toolId: string; reason: string }
-  export function detectClipboardTools(raw: string): DetectionResult[]
+  export interface DetectionResult {
+    toolId: string;
+    reason: string;
+  }
+  export function detectClipboardTools(raw: string): DetectionResult[];
   ```
 - 约定:最多返回 3 条,按置信度排序;空串/>64KB 返回 [];**永不抛错**(JSON.parse 包 try)
 
@@ -624,9 +639,7 @@ describe('detectClipboardTools', () => {
   });
 
   it('识别 JWT 三段结构', () => {
-    const jwt =
-      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.' +
-      '2bX9ZQ'.repeat(6);
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.' + '2bX9ZQ'.repeat(6);
     expect(idsOf(jwt)).toContain('jwt_parser');
   });
 
@@ -735,6 +748,7 @@ git commit -m "feat(smart-detect): 剪贴板类型探测纯函数(JSON/JWT/Base6
 ### Task 6: 开关(uiStore)+ App 聚焦探测 + 命令面板推荐组
 
 **Files:**
+
 - Modify: `src/store/uiStore.ts`(state 字段 + partialize)、`src/App.tsx`(探测 effect)、`src/components/CommandPalette.tsx`(推荐 Group)、`src/components/SettingsPanel.tsx`(开关行)
 - Test: `src/store/uiStore.smart-detect.test.ts`、`src/components/command-palette.detect.test.tsx`
 
@@ -784,24 +798,24 @@ partialize(L111)返回对象加一行 `smartDetectionEnabled: s.smartDetectionEn
 App.tsx 在全局快捷键区之前插入:
 
 ```ts
-  // —— Smart Detection(opt-in):窗口聚焦时本地探测剪贴板,结果进命令面板 ——
-  const smartDetectionEnabled = useUiStore((s) => s.smartDetectionEnabled);
-  useEffect(() => {
-    if (!smartDetectionEnabled || !('__TAURI_INTERNALS__' in window)) return;
-    let cancelled = false;
-    const detect = () => {
-      void readClipboardText().then((raw) => {
-        if (cancelled) return;
-        useUiStore.getState().setDetectedTools(detectClipboardTools(raw ?? ''));
-      });
-    };
-    detect();
-    window.addEventListener('focus', detect);
-    return () => {
-      cancelled = true;
-      window.removeEventListener('focus', detect);
-    };
-  }, [smartDetectionEnabled]);
+// —— Smart Detection(opt-in):窗口聚焦时本地探测剪贴板,结果进命令面板 ——
+const smartDetectionEnabled = useUiStore((s) => s.smartDetectionEnabled);
+useEffect(() => {
+  if (!smartDetectionEnabled || !('__TAURI_INTERNALS__' in window)) return;
+  let cancelled = false;
+  const detect = () => {
+    void readClipboardText().then((raw) => {
+      if (cancelled) return;
+      useUiStore.getState().setDetectedTools(detectClipboardTools(raw ?? ''));
+    });
+  };
+  detect();
+  window.addEventListener('focus', detect);
+  return () => {
+    cancelled = true;
+    window.removeEventListener('focus', detect);
+  };
+}, [smartDetectionEnabled]);
 ```
 
 imports 加:
@@ -818,28 +832,30 @@ jsdom 测试环境无 `__TAURI_INTERNALS__` 会短路 —— 这是刻意保守:
 `CommandPalette.tsx` L53(`CommandEmpty` 之后、「工具」Group 之前)插入:
 
 ```tsx
-{detected.length > 0 && (
-  <CommandGroup heading="检测到剪贴板内容">
-    {detected.map((d) => {
-      const entry = TOOL_CATALOG.find((c) => c.id === d.toolId);
-      if (!entry) return null;
-      return (
-        <CommandItem
-          key={d.toolId}
-          value={`detect-${d.toolId}-${d.reason}`}
-          onSelect={() => {
-            openTool(d.toolId);
-            onOpenChange(false);
-          }}
-        >
-          <entry.icon aria-hidden className="size-4" />
-          <span>{entry.name}</span>
-          <span className="ml-auto text-xs text-muted-foreground">{d.reason}</span>
-        </CommandItem>
-      );
-    })}
-  </CommandGroup>
-)}
+{
+  detected.length > 0 && (
+    <CommandGroup heading="检测到剪贴板内容">
+      {detected.map((d) => {
+        const entry = TOOL_CATALOG.find((c) => c.id === d.toolId);
+        if (!entry) return null;
+        return (
+          <CommandItem
+            key={d.toolId}
+            value={`detect-${d.toolId}-${d.reason}`}
+            onSelect={() => {
+              openTool(d.toolId);
+              onOpenChange(false);
+            }}
+          >
+            <entry.icon aria-hidden className="size-4" />
+            <span>{entry.name}</span>
+            <span className="ml-auto text-xs text-muted-foreground">{d.reason}</span>
+          </CommandItem>
+        );
+      })}
+    </CommandGroup>
+  );
+}
 ```
 
 组件顶部加:

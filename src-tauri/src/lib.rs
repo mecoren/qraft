@@ -71,7 +71,8 @@ pub fn run() -> anyhow::Result<()> {
     use crate::commands::font::list_system_fonts;
     use crate::commands::fs::{
         AuthorizedPaths, fs_authorize_dropped_paths, fs_open_dialog, fs_open_folder_dialog,
-        fs_open_pdf_dialog, fs_read_dir, fs_read_file, fs_read_pdf, fs_read_text_file_encoded,
+        fs_open_office_dialog, fs_open_pdf_dialog, fs_read_dir, fs_read_file, fs_read_office,
+        fs_read_pdf, fs_read_pdf_chunk, fs_read_pdf_info, fs_read_text_file_encoded,
         fs_reveal_in_explorer, fs_save_bytes, fs_save_bytes_to_path, fs_save_text_file_encoded,
         fs_write_file, fs_write_file_encoded,
     };
@@ -257,7 +258,11 @@ pub fn run() -> anyhow::Result<()> {
             fs_read_text_file_encoded,
             fs_write_file_encoded,
             fs_read_pdf,
+            fs_read_pdf_info,
+            fs_read_pdf_chunk,
             fs_open_pdf_dialog,
+            fs_read_office,
+            fs_open_office_dialog,
             fs_save_bytes_to_path,
             fs_large_file_info,
             fs_read_file_lines,
