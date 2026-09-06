@@ -32,7 +32,6 @@ import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import {
   Select,
@@ -181,7 +180,9 @@ function FileDropzone({
         }}
       />
       {/* 拖放区作为合并卡片内的满高面板:自身不再画圆角边框(由外层卡片提供框体) */}
-      <ScrollArea
+      {/* 拖放区作为合并卡片内的满高面板:普通 overflow-auto 容器(理由同 BinaryPreview,
+          避免 Radix ScrollArea table 包装层打断高度链导致提示无法垂直居中) */}
+      <div
         data-testid="b64-dropzone"
         onDragOver={(e) => {
           e.preventDefault();
@@ -189,7 +190,7 @@ function FileDropzone({
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        className={`min-h-0 flex-1 transition-colors ${dragOver ? 'bg-primary/5' : ''}`}
+        className={`min-h-0 flex-1 overflow-auto transition-colors ${dragOver ? 'bg-primary/5' : ''}`}
       >
         <div className="flex h-full min-h-full items-center justify-center p-4">
           {fileInfo ? (
@@ -206,7 +207,7 @@ function FileDropzone({
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
@@ -315,7 +316,11 @@ function BinaryPreview({
           <Save aria-hidden className="size-3.5" /> {t('tools.base64_codec.save_as')}
         </HeaderAction>
       </div>
-      <ScrollArea className="min-h-0 flex-1">
+      {/* Radix ScrollArea 的 Viewport 会给内容包一层 display:table 的 div(高度不定),
+          打断 h-full / max-h-full 的百分比高度链:图片/视频按原始尺寸渲染被裁、
+          PDF iframe 塌缩、提示无法垂直居中。改用普通 overflow-auto 容器
+          (同 QrcodeTool 生成页签的预览模式)。 */}
+      <div className="min-h-0 flex-1 overflow-auto">
         <div className="flex h-full min-h-[200px] items-center justify-center p-3">
           {error ? (
             <p role="alert" data-testid="b64-error" className="text-xs text-destructive">
@@ -327,7 +332,7 @@ function BinaryPreview({
             <PreviewBody modeId={mode.id} url={objectUrl} result={result} />
           )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

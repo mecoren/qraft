@@ -258,6 +258,31 @@ describe('Base64Codec 统一转换工具', () => {
     });
   });
 
+  it('binary preview must not nest inside a radix scroll-area viewport wrapper', async () => {
+    // Radix ScrollArea 的 Viewport 会给内容包一层 display:table 的 div(高度不定),
+    // 会打断 h-full / max-h-full 的百分比高度链:图片/视频按原始尺寸渲染被裁、
+    // PDF iframe 高度塌缩、提示与下载卡片无法垂直居中(截图反馈的「解码的没显示全」)。
+    // 契约:预览主体必须放在普通 overflow 容器内(同 QrcodeTool 生成页签模式)。
+    const { invokeCommand } = await import('@/lib/ipc');
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: '',
+      extra: { base64: 'iVBORw0KGgo=', mime: 'image/png', bytes: 8 },
+      meta: null,
+      alerts: [],
+    });
+
+    renderTool();
+    clickTab(/解码/i);
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(await screen.findByRole('option', { name: '图片' }));
+    fireEvent.change(inputEditor(), { target: { value: 'iVBORw0KGgo=' } });
+
+    await screen.findByTestId('b64-preview');
+    const preview = screen.getByTestId('b64-preview')!;
+    const viewport = preview.closest('[data-radix-scroll-area-viewport]');
+    expect(viewport).toBeNull();
+  });
+
   it('calls fs_save_bytes when clicking save in binary preview', async () => {
     const { invokeCommand } = await import('@/lib/ipc');
     (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
