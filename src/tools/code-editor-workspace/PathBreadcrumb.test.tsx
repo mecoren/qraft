@@ -67,4 +67,25 @@ describe('PathBreadcrumb', () => {
     const separators = container.querySelectorAll('li[role="presentation"]');
     expect(separators.length).toBe(2); // home<->user, user<->foo.md
   });
+
+  it('单行渲染:列表不换行(flex-nowrap),各段可收缩省略(窄屏不溢出工具栏)', () => {
+    const { container } = render(
+      <PathBreadcrumb path={'D:\\DevTools\\project\\qraft\\docs\\foo.md'} data-testid="bc" />,
+    );
+    // BreadcrumbList 默认 flex-wrap 会在固定高度工具栏内换行溢出,
+    // 必须覆盖为 flex-nowrap 保证单行
+    const list = container.querySelector('ol');
+    expect(list).not.toBeNull();
+    expect(list).toHaveClass('flex-nowrap');
+    expect(list?.className).not.toContain('flex-wrap');
+    // 段落 li 与内容 span 均可收缩(min-w-0),内容超宽时以省略号截断而非换行
+    for (const li of container.querySelectorAll('ol > li:not([role="presentation"])')) {
+      expect(li).toHaveClass('min-w-0');
+    }
+    expect(screen.getByText('foo.md')).toHaveClass('truncate');
+    // 分隔符不参与收缩,保持箭头形状
+    for (const sep of container.querySelectorAll('li[role="presentation"]')) {
+      expect(sep).toHaveClass('shrink-0');
+    }
+  });
 });

@@ -16,6 +16,9 @@
  * - 段间分隔符用默认 ChevronRight,与 VSCode 资源管理器面包屑视觉接近
  * - 不做点击跳转(本应用无文件系统路由器);末段保持不可点击
  *   与面包屑的「当前项」语义一致
+ * - 单行渲染(flex-nowrap 覆盖 BreadcrumbList 默认 flex-wrap):宿主工具栏
+ *   高度固定 26px,换行内容会溢出遮盖 Tab 栏;窄屏下由各段 min-w-0 +
+ *   truncate 收缩省略,保证始终单行
  */
 import { Fragment, type JSX } from 'react';
 import {
@@ -53,7 +56,10 @@ export function PathBreadcrumb({
       {/* 工具栏 breadcrumb 使用 text-xs(font-size 与编辑器 Tab 栏、CodeEditor
        * 工具栏标题保持一致),与 CodeEditor 的 title span(text-xs font-medium)字号字重
        * 一致,保证编辑器内所有标题类文字视觉一致 */}
-      <BreadcrumbList className="text-xs">
+      {/* flex-nowrap 覆盖 BreadcrumbList 默认的 flex-wrap:工具栏高度固定 26px,
+       * 换行会溢出工具栏画到上方 Tab 栏(小屏长路径必现);改单行后超宽由
+       * 各段 min-w-0 + truncate 收缩省略 */}
+      <BreadcrumbList className="text-xs flex-nowrap">
         {segments.map((segment, index) => {
           const isLast = index === segments.length - 1;
           return (
@@ -61,22 +67,22 @@ export function PathBreadcrumb({
             // shadcn 标准结构;不可再用 <BreadcrumbItem> 包 Separator
             // (会形成 <li> 嵌套 <li> 的 HTML 错误)
             <Fragment key={`${index}-${segment}`}>
-              <BreadcrumbItem>
+              <BreadcrumbItem className="min-w-0">
                 {isLast ? (
-                  <BreadcrumbPage title={segment} className="truncate font-medium text-foreground">
+                  <BreadcrumbPage title={segment} className="min-w-0 truncate font-medium text-foreground">
                     {segment}
                   </BreadcrumbPage>
                 ) : (
                   <span
                     title={segment}
-                    className="font-medium text-muted-foreground truncate transition-colors hover:text-foreground"
+                    className="min-w-0 truncate font-medium text-muted-foreground transition-colors hover:text-foreground"
                     data-testid={`${dataTestId}-segment-${index}`}
                   >
                     {segment}
                   </span>
                 )}
               </BreadcrumbItem>
-              {!isLast && <BreadcrumbSeparator />}
+              {!isLast && <BreadcrumbSeparator className="shrink-0" />}
             </Fragment>
           );
         })}
