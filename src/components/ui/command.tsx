@@ -224,11 +224,19 @@ const QuickPickDialog = ({
   ...props
 }: QuickPickDialogProps) => {
   const [selectedValue, setSelectedValue] = React.useState<string | undefined>();
+  /**
+   * 无选中哨兵(每次重新置空自增):cmdk 在 item 重挂载时,若内部 value 为空
+   * 会自动高亮首项并经 onValueChange 回传 —— 该变化非用户导航产生,须拒绝。
+   * 但 cmdk 内部 store 的 value 只有在受控 value **prop 变化**时才被同步
+   * (R !== void 0 才执行),恒定哨兵串不会触发重置;用自增哨兵让拒绝污染
+   * 的每次拒绝都产生新 prop,把内部 store 强制拉回无选中态。
+   */
+  const [noSelectionEpoch, setNoSelectionEpoch] = React.useState(0);
+  const noSelectionValue = `qraft-quick-pick-no-selection-${noSelectionEpoch}`;
   const hasNavigatedRef = React.useRef(false);
   const queryRef = React.useRef(value);
   const groupsKeyRef = React.useRef('');
   const preserveSelectionRef = React.useRef(preserveSelectionOnChange);
-  const noSelectionValue = 'qraft-quick-pick-no-selection';
   const hasItems = groups.some((g) => g.items.length > 0);
   const handleFirstNavigation = (event: React.KeyboardEvent<HTMLDivElement>): void => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
@@ -288,7 +296,15 @@ const QuickPickDialog = ({
           shouldFilter={shouldFilter}
           value={selectedValue ?? noSelectionValue}
           onValueChange={(nextValue) => {
-            if (hasNavigatedRef.current) setSelectedValue(nextValue);
+            if (hasNavigatedRef.current) {
+              setSelectedValue(nextValue);
+              return;
+            }
+            // 非用户导航的 value 变化 = cmdk 在 item 重挂载时自动选中首项的
+            // 内部污染:拒绝采纳,并自增哨兵把 cmdk 内部 store 拉回无选中态
+            // (见 noSelectionValue 的 JSDoc)
+            setSelectedValue(undefined);
+            setNoSelectionEpoch((e) => e + 1);
           }}
           onKeyDown={handleFirstNavigation}
           className="flex h-full w-full shrink flex-col overflow-hidden [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-11"

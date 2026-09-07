@@ -42,12 +42,14 @@ describe('PopoutApp 弹窗根组件', () => {
     // 标题栏展示工具名(目录中文名)
     expect(screen.getByTestId('popout-titlebar')).toBeInTheDocument();
     expect(screen.getByTestId('popout-tool-name')).toHaveTextContent(/Base64/i);
-    // 懒加载工具组件最终挂载(Suspense 结束)
+    // 懒加载工具组件最终挂载(Suspense 结束)。超时放宽到与全局 testTimeout
+    // 对齐:base64_codec chunk 较大,全量并发下 jsdom worker 争抢 CPU,默认
+    // 3s 偶发不够(单测稳定,全量偶发超时)
     await waitFor(
       () => {
         expect(screen.queryByText('加载工具中…')).not.toBeInTheDocument();
       },
-      { timeout: 3000 },
+      { timeout: 10_000 },
     );
   });
 });

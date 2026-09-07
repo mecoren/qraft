@@ -152,8 +152,13 @@ describe('SearchDialog', () => {
     await waitFor(() => {
       expect(screen.queryByText('Base64 转换器')).not.toBeInTheDocument();
     });
-    // 过滤结果稳定后仍不应自动高亮第一项
-    expect(document.querySelector('[aria-selected="true"]')).toBeNull();
+    // 过滤结果稳定后仍不应自动高亮第一项。waitFor 而非同步断言:清高亮
+    // 由 QuickPickDialog 的 useEffect(commit 后)驱动,全量并发下 effect
+    // 调度与断言间存在时序窗口,同步断言会抢在清理前误判(单测稳定,全量
+    // 并发偶发——最终态语义不变:始终无高亮)
+    await waitFor(() => {
+      expect(document.querySelector('[aria-selected="true"]')).toBeNull();
+    });
     // 焦点始终在搜索框
     expect(document.activeElement).toBe(input);
     // 按下 ↓ 后第一项才被高亮
