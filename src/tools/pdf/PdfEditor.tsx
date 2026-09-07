@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
   FileText,
+  FolderOpen,
   Highlighter,
   MessageSquare,
   Minus,
@@ -127,8 +128,6 @@ function PdfWorkspace({
   const rendererRef = useRef<PdfPageRenderer | null>(null);
   /** 渲染器 effect 的异步挂接完成后的清理函数(异步路径内无法直接返回 cleanup) */
   const rendererCleanupRef = useRef<(() => void) | null>(null);
-  /** 当前渲染宽度(px;renderVisible 重算用) */
-  const renderWidthRef = useRef(0);
 
   const docId = doc.id;
   const docBase64 = doc.base64;
@@ -207,7 +206,6 @@ function PdfWorkspace({
         .filter((s): s is HTMLElement => s !== null);
       if (slots.length === 0) return;
       const renderer = new PdfPageRenderer(pdf, container, slots, slots[0].clientWidth, aspects);
-      renderWidthRef.current = slots[0].clientWidth;
       rendererRef.current = renderer;
       void renderer.renderVisible();
 
@@ -261,8 +259,11 @@ function PdfWorkspace({
       const pageNumber = Number(slot.getAttribute('data-testid')?.split('-').pop() ?? 0);
       if (!pageNumber) return;
       const rect = slot.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      // 归一化:坐标存「相对 slot 尺寸的比例」,缩放/resize 后渲染端按
+      // 当前 slot 尺寸反算,对象恒定钉在页内相对位置(缩放错位修复的核心)
+      if (rect.width === 0 || rect.height === 0) return;
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = (e.clientY - rect.top) / rect.height;
       if (mode === 'text' || mode === 'note') {
         if (!pendingText.trim()) {
           toast.warning(t('tools.pdf_editor.text_prompt'));
@@ -277,8 +278,10 @@ function PdfWorkspace({
         x,
         y,
         text: mode === 'text' || mode === 'note' ? pendingText : '',
-        ...(mode === 'text' || mode === 'note' ? { fontSize: 14 } : {}),
-        ...(mode === 'highlight' || mode === 'strike' ? { width: 120, height: 20 } : {}),
+        ...(mode === 'text' || mode === 'note' ? { fontSize: 14 / rect.width } : {}),
+        ...(mode === 'highlight' || mode === 'strike'
+          ? { width: 120 / rect.width, height: 20 / rect.height }
+          : {}),
       };
       setOverlays((list) => [...list, item]);
       setSelectedOverlayId(id);
@@ -322,19 +325,13 @@ function PdfWorkspace({
             toast.warning(t('tools.pdf_editor.partial_form_save', { errors: r.errors.length }));
           }
         }
-        if (overlays.length > 0 && rendererRef.current) {
-          // CSS→pt 换算需要页宽比例:从 pdf 第一页视口算
-          const page = await pdf?.getPage(1);
-          if (page) {
-            const viewport = page.getViewport({ scale: 1 });
-            const scale = viewport.width / renderWidthRef.current;
-            const r = await applyOverlays(base64, overlays, scale);
-            base64 = r.base64;
-            if (r.errors.length > 0) {
-              toast.warning(
-                t('tools.pdf_editor.partial_overlay_save', { errors: r.errors.length }),
-              );
-            }
+        if (overlays.length > 0) {
+          // 归一化坐标直接乘各页 pt 尺寸写回,不再依赖渲染宽度
+          // (旧实现的 scale 基于挂接时刻的渲染宽,缩放后过期导致写回错位)
+          const r = await applyOverlays(base64, overlays);
+          base64 = r.base64;
+          if (r.errors.length > 0) {
+            toast.warning(t('tools.pdf_editor.partial_overlay_save', { errors: r.errors.length }));
           }
         }
         const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
@@ -360,7 +357,7 @@ function PdfWorkspace({
         setSaving(false);
       }
     },
-    [commitSaved, doc.base64, doc.path, docId, fields, overlays, pdf, saving, t, values],
+    [commitSaved, doc.base64, doc.path, docId, fields, overlays, saving, t, values],
   );
 
   // 挂载即注册保存回调(卸载注销):根组件的关闭确认「保存并关闭」经此
@@ -516,8 +513,10 @@ function PdfWorkspace({
                       style={{
                         width: `calc((100% - 4rem) * ${zoom})`,
                         maxWidth: '100%',
-                        // 占位高度由渲染器按页尺寸索引预置(首渲染前即准确);
+                        // container-type:cqw 基准(OverlayChip 字号随 slot 宽等比);
+                        // 占位高度由渲染器按页尺寸索引预置(首渲染前即准确),
                         // 渲染未挂接前(min-height)显示为白页占位
+                        containerType: 'inline-size',
                         minHeight: 100,
                       }}
                       data-testid={`pdf-page-slot-${n}`}
@@ -706,7 +705,12 @@ function FormFieldRow({
   );
 }
 
-/** 叠加对象的可视化标记:绝对定位于所属页 slot 内(坐标即点击时的页内 CSS 像素) */
+/**
+ * 叠加对象的可视化标记:以百分比定位于所属页 slot 内(坐标即放置时的页内
+ * 归一化比例),缩放/resize 后 slot 尺寸变化,百分比定位自动跟随——对象
+ * 恒定钉在页内相对位置。宽度/字号用与放置时刻相同的比例基数(slot 宽)
+ * 换算,保持视觉等比。
+ */
 function OverlayChip({
   item,
   selected,
@@ -720,15 +724,16 @@ function OverlayChip({
 }): JSX.Element {
   const { t } = useTranslation();
   const isBox = item.kind === 'highlight' || item.kind === 'strike';
+  // 宽度/字号随 slot 宽等比;纵向尺寸随 slot 高等比(height 存的即页高比例)
   const width = isBox
-    ? (item.width ?? 120)
+    ? `${(item.width ?? 0.2) * 100}%`
     : item.text
-      ? `${Math.max(24, item.text.length * 8)}px`
+      ? `${item.text.length + 2}em`
       : '24px';
   const height = isBox
-    ? `${item.height ?? 20}px`
+    ? `${(item.height ?? 0.03) * 100}%`
     : item.text
-      ? `${(item.fontSize ?? 14) + 4}px`
+      ? `${((item.fontSize ?? 0.02) + 0.004) * 100}%`
       : '24px';
   const color = item.color ?? DEFAULT_OVERLAY_COLORS[item.kind];
   return (
@@ -738,8 +743,8 @@ function OverlayChip({
         selected ? 'border-ring z-20' : 'border-transparent z-10'
       }`}
       style={{
-        left: item.x,
-        top: item.y,
+        left: `${item.x * 100}%`,
+        top: `${item.y * 100}%`,
         width,
         height,
         background:
@@ -772,7 +777,12 @@ function OverlayChip({
       {item.kind === 'text' || item.kind === 'note' ? (
         <span
           className="pointer-events-none block truncate px-1 text-xs"
-          style={{ color, fontSize: `${item.fontSize ?? 14}px`, lineHeight: height }}
+          style={{
+            color,
+            // 字号随 slot 宽等比:cqw 单位取容器宽(percentage 无法表达字号)
+            fontSize: `calc(${(item.fontSize ?? 0.02) * 100}cqw)`,
+            lineHeight: 'inherit',
+          }}
         >
           {item.text}
         </span>
@@ -791,7 +801,8 @@ function EmptyState({ onOpen }: { onOpen: () => void }): JSX.Element {
         <p className="text-sm font-medium">{t('tools.pdf_editor.empty_title')}</p>
         <p className="max-w-md text-xs text-muted-foreground">{t('tools.pdf_editor.empty_desc')}</p>
       </div>
-      <Button size="sm" onClick={onOpen} data-testid="pdf-open-first">
+      <Button size="sm" variant="outline" onClick={onOpen} data-testid="pdf-open-first">
+        <FolderOpen aria-hidden />
         {t('tools.pdf_editor.open')}
       </Button>
     </div>
@@ -1075,7 +1086,7 @@ export function PdfEditorTool({ metadata }: ToolProps): JSX.Element {
             })}
           </div>
         </ScrollArea>
-        {/* 「+」打开按钮固定在滚动区外右端(对齐 VSCode):Tab 溢出滚动时始终可见可点 */}
+        {/* 「打开」按钮固定在滚动区外右端(对齐 VSCode):Tab 溢出滚动时始终可见可点 */}
         <button
           type="button"
           data-testid="pdf-open-more"
@@ -1085,7 +1096,7 @@ export function PdfEditorTool({ metadata }: ToolProps): JSX.Element {
           disabled={opening}
           className="flex size-7 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
         >
-          <Plus aria-hidden className="size-3.5" />
+          <FolderOpen aria-hidden className="size-3.5" />
         </button>
       </div>
 
