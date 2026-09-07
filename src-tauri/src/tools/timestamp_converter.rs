@@ -436,17 +436,23 @@ mod tests {
         let tool = TimestampConverter::new();
         let ctx = mock_context();
         // 微秒:1690272000_000000
-        let out_us = tool
+        let micros_output = tool
             .execute(make_input("1690272000000000"), &ctx)
             .await
             .unwrap();
-        assert_eq!(out_us.extra.unwrap()["unix_seconds"], 1_690_272_000i64);
+        assert_eq!(
+            micros_output.extra.unwrap()["unix_seconds"],
+            1_690_272_000i64
+        );
         // 纳秒:1690272000_000000123(纳秒精度截断到毫秒)
-        let out_ns = tool
+        let nanos_output = tool
             .execute(make_input("1690272000000000123"), &ctx)
             .await
             .unwrap();
-        assert_eq!(out_ns.extra.unwrap()["unix_seconds"], 1_690_272_000i64);
+        assert_eq!(
+            nanos_output.extra.unwrap()["unix_seconds"],
+            1_690_272_000i64
+        );
     }
 
     #[tokio::test]
