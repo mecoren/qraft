@@ -5,6 +5,60 @@ All notable changes to Qraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.6] - 2026-09-07
+
+### Added
+
+- PDF 编辑器(新工具):多 Tab 阅读、AcroForm 表单填写与导出(扁平化)、文本标注叠加编辑(矩形/高亮/自由画笔/文字),系统打开 .pdf 文件分流至该工具;标注坐标归一化为页内比例,缩放后不错位
+- Office 文档编辑器(新工具):Excel(.xlsx)多 Sheet 查看、单元格定位与截断列完整展示;Word(.docx)段落文本编辑并导出 docx;文件关联新增 pdf/docx/xlsx 等扩展
+- 文本编辑器 10GB+ 大文件只读查看:Rust 侧行索引扫描 + 锚点式行窗口按需读取,前端虚拟滚动平滑浏览;文本探测对齐 VSCode(修复 .dat/UTF-16 等文件无法打开);三入口二进制兜底「仍要打开」与大文件保护
+- NSIS 安装版自动更新:更新器区分安装类别,系统安装版不再被误导跳转手动下载
+- JSON 格式化器多格式输入:支持 YAML / TOML / JSON5 / Properties / URL 参数输入嗅探并转为 JSON 处理,移除独立 JSON↔YAML 工具
+- 六个纯前端工具对标成熟方案全面升级:Cron 解析器(五字段描述 + 下次执行时间)、IPv4 子网计算器、JSON 数组表格、JSON↔CSV 转换器、数字进制转换器、IP 解析器
+- 证书解码器结构化重构:分区卡片、状态徽章、自签名检测、ASN.1 全文展示
+- GZip 工具新增文件模式:拖入文件压缩/解压并下载 .gz 产物
+- HTML 编解码三级编码模式与自实现实体解码器;Basic Auth 双向化(解码 + 生成);JWT 解析纯前端实时化(对标 jwt.io);SQL 格式化方言扩至 12 种并支持 minify 与 Tab 缩进;XML 序列化保留声明/DOCTYPE/CDATA;XML XSD 校验接入 xmllint-wasm(真实 libxml2);图片转换器缩放/背景合成/质量滑杆;PNG 压缩器并排对比视图
+- 时间戳/颜色转换器实时化并增强 Rust 后端解析(支持更多输入格式)
+
+### Changed
+
+- 证书解码 / GZip / HTML / JWT 四工具改为左右分栏布局;正则测试工具三栏标题栏统一至 26px 项目基准;二维码模式切换改为配置行分段控件
+- 输入框统一改用界面字体,仅编辑器保留代码字体
+- Office / PDF 编辑器打开入口统一 FolderOpen 图标,Tab 栏改悬浮细滚动条
+- 历史弹窗焦点控制优化;分隔条高亮恢复为仅自身悬停点亮
+
+### Fixed
+
+- 修复 Base64 工具 Radix ScrollArea 打断高度链导致的预览异常;文件区/预览区标题栏固定 26px 与工具栏恒等高
+- 修复窄屏下文本编辑器路径面包屑换行溢出工具栏、遮盖 Tab 栏的问题
+- 修复 IPC 嵌套 Tool 错误载荷未归一化,导致前端丢失真实错误消息的问题
+- 修复 cmdk 结果集重挂载后自动高亮首项的污染(自增哨兵强制重置内部 value)
+- 修复 Excel 切表内容错乱与列截断
+- 适配 react-resizable-panels v4,修复纵向面板组白屏
+
+## [0.2.5] - 2026-09-03
+
+### Added
+
+- 正则测试工具重构增强:新增 Rust 后端(regex_lab)一次调用返回匹配/解释/替换/分组/耗时全量数据;界面改为主区三栏布局(编辑器 | 模式工作区 | 解释 + 快速参考),新增逐 token 解释树、可搜索并点击插入的快速参考、匹配条目与编辑器选区联动,支持正则单元测试(用例集一键运行)与代码生成
+- 文本比较与 Markdown 预览多 Tab 化:对齐 JSON 格式化器多文档 Tab 栏,支持文档增删/固定与持久化、激活 Tab 自动滚入视野、悬浮横向滚动条、关闭确认小 Popover 与键盘导航
+- JSON 格式化器整合 JSONPath 查询:新增 文本/树/JSONPath 三视图,删除独立 JSONPath 测试工具;并新增转义/去除转义功能
+- 文本处理工具合并文本统计:编辑器底栏新增去空白字符指标与一键复制统计汇总,删除独立文本统计工具
+- 二维码工具新增解码与导出:可粘贴/打开二维码图片解析内容并复制,支持 PNG / SVG 下载
+- 全局及编辑器内链接可点击处理
+- 输入控件视觉增强:输入框/多行/下拉/字体选择器统一提升边框对比度与背景层级
+
+### Changed
+
+- 命令面板与编辑器语言选择器统一重构为 QuickPick 组件,统一弹层交互
+- 标题栏布局调整:品牌居左、工具名居中;窗口控制图标重绘为 Windows 11 风格
+- 侧边栏固定的文本编辑器支持在新窗口打开;多工具标题栏高度与输入控件样式统一
+
+### Fixed
+
+- 修复编辑器切换文件时 Monaco "Unbound disposable" 上下文渲染错误
+- 修复全局搜索文本模式的专属无障碍描述;保留 codicon 图标资源防止构建误删
+
 ## [0.2.2] - 2026-08-29
 
 ### Added
@@ -111,6 +165,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tauri Updater 签名验证(ed25519)
 - MVP 阶段:Windows/macOS 使用占位签名(ad-hoc),正式发布需 EV 证书与 Apple Developer ID
 
+[0.2.6]: https://github.com/qraft/qraft/compare/v0.2.5...v0.2.6
+[0.2.5]: https://github.com/qraft/qraft/compare/v0.2.2...v0.2.5
 [0.2.2]: https://github.com/qraft/qraft/compare/v0.2.0...v0.2.2
 [0.2.0]: https://github.com/qraft/qraft/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/qraft/qraft/compare/v0.1.2...v0.1.5

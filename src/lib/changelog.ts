@@ -14,6 +14,7 @@
  * v0.2.0 内容基于 git log(v0.1.5 标签之后至 2026-08-28)提炼,
  * v0.2.2 内容基于 git log(v0.2.0 标签之后至 2026-08-29)提炼,
  * v0.2.5 内容基于 git log 与工作区改动(v0.2.2 标签之后至 2026-09-03)提炼,
+ * v0.2.6 内容基于 git log(v0.2.5 标签之后至 2026-09-07)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -42,6 +43,72 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.2.6',
+    date: '2026-09-07',
+    summary: {
+      zh: '新增 PDF 编辑器与 Office 文档编辑器,文本编辑器 10GB+ 大文件查看,NSIS 安装版自动更新,十余个工具对标成熟方案升级',
+      en: 'New PDF editor and Office document editor, 10GB+ large-file viewing in the text editor, NSIS auto-update, and a dozen tools upgraded to match mature apps',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: '新增 PDF 编辑器:多 Tab 阅读、AcroForm 表单填写与导出(扁平化)、文本标注叠加编辑(矩形/高亮/自由画笔/文字);系统打开 .pdf 文件自动分流至该工具;标注坐标按页内比例归一化,缩放后不错位',
+          en: 'New PDF editor: multi-tab reading, AcroForm form filling with flattened export, and annotation overlays (rectangle/highlight/freehand/text); system .pdf opens route to the tool; annotation coordinates are normalized per-page so they stay aligned after zooming',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '新增 Office 文档编辑器:Excel(.xlsx)多 Sheet 查看与单元格定位、列内容完整展示,Word(.docx)段落文本编辑并导出;文件关联新增 pdf/docx/xlsx 等扩展',
+          en: 'New Office document editor: Excel (.xlsx) multi-sheet viewing with cell locating and full-width columns, Word (.docx) paragraph text editing with export; file associations add pdf/docx/xlsx and more',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '文本编辑器支持 10GB+ 大文件只读查看:后端行索引扫描 + 锚点式行窗口按需读取,前端虚拟滚动;文本探测对齐 VSCode 修复 .dat/UTF-16 等文件无法打开;二进制文件提供「仍要打开」兜底',
+          en: 'The text editor views 10GB+ files read-only: backend line-index scanning with anchored line-window reads plus virtual scrolling on the frontend; text detection aligned with VSCode fixes .dat/UTF-16 files; binary files get an "open anyway" fallback',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: 'NSIS 安装版支持应用内自动更新:更新器区分安装类别,系统安装版不再被误导跳转手动下载',
+          en: 'In-app auto-update for NSIS installs: the updater distinguishes install types so system installs are no longer misdirected to manual downloads',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: 'JSON 格式化器支持多格式输入:自动嗅探 YAML / TOML / JSON5 / Properties / URL 参数并转 JSON 处理,移除独立 JSON↔YAML 工具',
+          en: 'The JSON formatter accepts multiple input formats: auto-detects YAML / TOML / JSON5 / Properties / URL query strings and converts them to JSON; the standalone JSON↔YAML tool was removed',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '十余个工具对标成熟方案升级:证书解码器结构化重构(分区卡片/自签名检测/ASN.1 全文)、GZip 文件模式、HTML 三级编码、Basic Auth 双向化、JWT 实时解析、SQL 十二种方言、XML 保留声明与 XSD 真实校验(xmllint-wasm)、图片转换缩放合成、PNG 并排对比,以及 Cron/IP 子网/JSON 表格/进制转换等六个纯前端工具全面增强',
+          en: 'A dozen tools upgraded to match mature apps: certificate decoder restructured (section cards, self-signed detection, ASN.1 dump), GZip file mode, HTML three-level encoding, bidirectional Basic Auth, live JWT parsing, 12 SQL dialects, XML declaration preservation and real XSD validation (xmllint-wasm), image-converter scaling/compositing, PNG side-by-side compare, plus full upgrades to six pure-frontend tools (Cron, IP subnet, JSON table, base converter and more)',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '布局与视觉统一:证书/GZip/HTML/JWT 改左右分栏,工具标题栏统一 26px 基准,二维码模式改配置行分段切换,输入框统一界面字体(编辑器保留代码字体)',
+          en: 'Layout and visual unification: certificate/GZip/HTML/JWT moved to split panes, tool title bars unified at the 26px baseline, QR mode switched to a config-row segmented control, inputs use the UI font (editors keep the code font)',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复 Base64 工具 ScrollArea 打断高度链的预览异常;窄屏下编辑器路径面包屑溢出;IPC 嵌套错误载荷丢失真实消息;cmdk 结果集重挂载自动高亮首项的污染;Excel 切表内容错乱;纵向面板组白屏(适配 react-resizable-panels v4)',
+          en: 'Fixed Base64 preview broken by ScrollArea interrupting the height chain; editor path-breadcrumb overflow on narrow screens; IPC nested error payloads swallowing real messages; cmdk auto-highlighting the first item on remount; Excel sheet-switch garbled content; vertical panel-group white screens (react-resizable-panels v4)',
+        },
+      },
+    ],
+  },
   {
     version: '0.2.5',
     date: '2026-09-03',
