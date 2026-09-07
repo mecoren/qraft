@@ -17,11 +17,12 @@
  * import() 引入,只在打开本工具时随独立 chunk 加载(启动零开销);
  * 文件字节经 fs_read_office 走授权路径 IPC(base64)。
  */
-import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { FileSpreadsheet, FileText, Presentation, Plus, X } from 'lucide-react';
+import { FileSpreadsheet, FileText, FolderOpen, Presentation, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { fileNameFromPath } from '@/tools/code-editor-workspace/languageMap';
 import { formatBytes } from '@/lib/file-utils';
@@ -30,6 +31,7 @@ import { base64ToBytes, bytesToBase64 } from '@/lib/file-utils';
 import { useOfficeDocsStore, type OfficeDoc, type OfficeKind } from './officeDocsStore';
 import { openOfficeDialog, readOfficeFile } from './officeOps';
 import { renderDocx } from './docxRender';
+import { applyEditedTexts } from './docxEdit';
 import { exportRowsToXlsx, parseWorkbook, type SheetModel, type WorkbookModel } from './xlsxModel';
 import { parsePptx, type PptxModel } from './pptxModel';
 import type { ToolProps } from '../registry';
@@ -47,15 +49,18 @@ const XLSX_EDIT_MAX_ROWS = 2_000;
 const XLSX_EDIT_MAX_COLS = 100;
 
 // ============================================================
-// Word 视图(docx-preview 渲染,只读)
+// Word 视图(docx-preview 渲染 + 段落文本编辑 + 导出)
 // ============================================================
 
-/** Word 文档渲染视图:容器 + 懒加载渲染;失败展示错误态 */
+/** Word 文档渲染视图:分页纸张上直接编辑段落文本;导出重写 document.xml */
 function WordView({ doc }: { doc: OfficeDoc }): JSX.Element {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [rendered, setRendered] = useState(false);
+  /** 渲染时的原始段落文本(导出时与现文本对比,仅重写变更过的段落) */
+  const originalTextsRef = useRef<string[]>([]);
+  const [exporting, setExporting] = useState(false);
 
   // doc.base64 变化经外层 key={activeDoc.id} 重挂载;首次挂载即渲染。
   // setState 只发生在异步回调内(渲染完成/失败),不在 effect 体内同步调用
@@ -71,6 +76,15 @@ function WordView({ doc }: { doc: OfficeDoc }): JSX.Element {
           return;
         }
         cleanup = done;
+        // 记录原始段落文本 + 开启编辑:渲染后的 section 即编辑画布,
+        // 用户直接在分页纸张上改字(样式由 docx-preview 注入,保留原排版)
+        const section = container.querySelector('section');
+        const paragraphs = Array.from(container.querySelectorAll('section p'));
+        originalTextsRef.current = paragraphs.map((p) => p.textContent ?? '');
+        if (section && !(section as HTMLElement).isContentEditable) {
+          (section as HTMLElement).contentEditable = 'true';
+          section.spellcheck = false;
+        }
         setRendered(true);
       })
       .catch((e: unknown) => {
@@ -81,6 +95,33 @@ function WordView({ doc }: { doc: OfficeDoc }): JSX.Element {
       cleanup?.();
     };
   }, [doc.base64]);
+
+  /** 导出:DOM 段落文本与原始文本对比,变更过的段落重写进 document.xml */
+  const onExport = useCallback(async () => {
+    const container = containerRef.current;
+    if (!container || exporting) return;
+    setExporting(true);
+    try {
+      const current = Array.from(container.querySelectorAll('section p'));
+      const originals = originalTextsRef.current;
+      // 按渲染段落序对位:未变更传 null(原样保留 run 级样式),变更的整段
+      // 重写为单 run(字体样式继承原首 run,见 docxEdit)
+      const texts = current.map((p, i) =>
+        (p.textContent ?? '') === (originals[i] ?? null) ? null : (p.textContent ?? ''),
+      );
+      const bytes = await applyEditedTexts(base64ToBytes(doc.base64), texts);
+      const saved = await invokeSaveBytes(
+        `${fileNameFromPath(doc.path)}.docx`,
+        bytes,
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      );
+      if (saved) toast.success(t('tools.office_editor.export_saved'));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExporting(false);
+    }
+  }, [doc.base64, doc.path, exporting, t]);
 
   if (error) {
     return (
@@ -94,14 +135,31 @@ function WordView({ doc }: { doc: OfficeDoc }): JSX.Element {
   }
   return (
     <div
-      className="h-full min-h-0"
+      className="flex h-full min-h-0 flex-col"
       data-testid="office-word-view"
       data-search-anchor="office_editor:word"
     >
+      {/* 工具栏:编辑提示 + 导出(与 ExcelView 工具栏同规格) */}
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
+        <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          {t('tools.office_editor.word_edit_hint')}
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          className="h-7 px-2.5 text-xs"
+          disabled={!rendered || exporting}
+          onClick={() => void onExport()}
+          data-testid="office-docx-export"
+        >
+          {t('tools.office_editor.export_docx')}
+        </Button>
+      </div>
       {!rendered && (
         <p className="p-6 text-xs text-muted-foreground">{t('tools.office_editor.loading')}</p>
       )}
-      {/* docx-preview 注入 .office-docx-wrapper(分页纸张);仅做宽度约束 */}
+      {/* docx-preview 注入 .office-docx-wrapper(分页纸张);仅做宽度约束。
+          contenteditable 已在渲染完成后开在 section 上,导出时直接读 DOM */}
       <div ref={containerRef} className="office-docx-host h-full min-h-0 overflow-auto p-4" />
     </div>
   );
@@ -123,15 +181,26 @@ function ExcelView({ doc }: { doc: OfficeDoc }): JSX.Element {
     }
   });
   const [activeSheet, setActiveSheet] = useState(0);
-  /** 编辑态:行文本矩阵(与 model.rows 同构);null = 尚未编辑(只读展示) */
+  /** 编辑态:行文本矩阵(与所属 sheet.rows 同构);null = 尚未编辑(只读展示) */
   const [editRows, setEditRows] = useState<string[][] | null>(null);
   const [exporting, setExporting] = useState(false);
 
   const sheet: SheetModel | null = model?.sheets[activeSheet] ?? null;
   const rows = editRows ?? sheet?.rows.map((r) => r.map((c) => c.text)) ?? null;
+  /** 全表最大列数:渲染列遍历的基数(用首行会在「表头短于数据行」时截列) */
+  const colCount = useMemo(
+    () => Math.max(0, ...(rows?.map((r) => r.length) ?? [0])),
+    [rows],
+  );
   const tooLarge =
     (sheet?.rows.length ?? 0) > XLSX_EDIT_MAX_ROWS ||
-    (sheet?.rows[0]?.length ?? 0) > XLSX_EDIT_MAX_COLS;
+    colCount > XLSX_EDIT_MAX_COLS;
+
+  /** 切换工作表:编辑态随表丢弃(切走即弃,与 Tab 关闭即丢同语义) */
+  const switchSheet = useCallback((index: number) => {
+    setActiveSheet(index);
+    setEditRows(null);
+  }, []);
 
   /** 编辑落格:仅小表开放;首格落格时把只读矩阵克隆为可编辑态(允许全表改) */
   const setCell = (r: number, c: number, value: string): void => {
@@ -155,7 +224,11 @@ function ExcelView({ doc }: { doc: OfficeDoc }): JSX.Element {
     setExporting(true);
     try {
       const bytes = exportRowsToXlsx(rows, sheet.name);
-      const saved = await invokeSaveBytes(`${fileNameFromPath(doc.path)}.xlsx`, bytes);
+      const saved = await invokeSaveBytes(
+        `${fileNameFromPath(doc.path)}.xlsx`,
+        bytes,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
       if (saved) toast.success(t('tools.office_editor.export_saved'));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -191,7 +264,8 @@ function ExcelView({ doc }: { doc: OfficeDoc }): JSX.Element {
             <button
               key={s.name}
               type="button"
-              onClick={() => setActiveSheet(i)}
+              aria-pressed={i === activeSheet}
+              onClick={() => switchSheet(i)}
               className={cn(
                 'shrink-0 rounded-md px-2.5 py-1 text-xs transition-colors',
                 i === activeSheet
@@ -217,16 +291,19 @@ function ExcelView({ doc }: { doc: OfficeDoc }): JSX.Element {
 
       {/* 表格区:首行首列吸附;可编辑时单元格为 input。
           key 用「行-列」坐标:电子表格单元格的身份即坐标,增删行列时
-          React 能正确复用 DOM,不受数组下标变动影响 */}
+          React 能正确复用 DOM,不受数组下标变动影响。
+          列遍历用全表最大列数(colCount):行矩阵长度不一时(表头短于
+          数据行等)不再截列或错位;列宽按内容自适应(whitespace-nowrap
+          自然撑开),超长单元格截断省略 */}
       <div className="min-h-0 flex-1 overflow-auto">
         <table className="w-max border-collapse text-xs" data-testid="office-xlsx-table">
           <thead>
             <tr>
               <th className="sticky left-0 top-0 z-20 w-10 border border-border bg-background-layer px-1 py-1 text-right font-normal text-muted-foreground" />
-              {rows[0]?.map((_, c) => (
+              {Array.from({ length: colCount }, (_, c) => (
                 <th
                   key={`col-${c}`}
-                  className="sticky top-0 z-10 min-w-24 border border-border bg-background-layer px-2 py-1 text-left font-normal text-muted-foreground"
+                  className="sticky top-0 z-10 border border-border bg-background-layer px-2 py-1 text-left font-normal text-muted-foreground"
                 >
                   {columnLabel(c)}
                 </th>
@@ -239,7 +316,7 @@ function ExcelView({ doc }: { doc: OfficeDoc }): JSX.Element {
                 <th className="sticky left-0 z-10 w-10 border border-border bg-background-layer px-1 py-1 text-right font-normal text-muted-foreground">
                   {r + 1}
                 </th>
-                {rows[0]?.map((_, c) => {
+                {Array.from({ length: colCount }, (_, c) => {
                   const value = row[c] ?? '';
                   const cellKey = `cell-${r}-${c}`;
                   if (tooLarge) {
@@ -259,7 +336,10 @@ function ExcelView({ doc }: { doc: OfficeDoc }): JSX.Element {
                         value={value}
                         aria-label={`${columnLabel(c)}${r + 1}`}
                         onChange={(e) => setCell(r, c, e.target.value)}
-                        className="w-full min-w-24 max-w-64 bg-transparent px-2 py-1 outline-none focus:bg-accent/40 focus:ring-1 focus:ring-inset focus:ring-ring"
+                        className="w-full max-w-64 bg-transparent px-2 py-1 whitespace-nowrap outline-none focus:bg-accent/40 focus:ring-1 focus:ring-inset focus:ring-ring"
+                        // 内容自适应宽度:按字符数估宽(等宽字体近似),窄内容
+                        // 不拉伸(旧 min-w-24 把 1 列表拉满视口),长内容截断在 max-w
+                        style={{ minWidth: `calc(${Math.min(Math.max(value.length + 2, 4), 24)}ch + 1rem)` }}
                       />
                     </td>
                   );
@@ -273,7 +353,7 @@ function ExcelView({ doc }: { doc: OfficeDoc }): JSX.Element {
       {/* 底部状态:行列数 / 编辑提示 */}
       <div className="flex h-7 shrink-0 items-center gap-3 border-t border-border px-3 text-[10px] text-muted-foreground">
         <span>
-          {t('tools.office_editor.sheet_stats', { rows: rows.length, cols: rows[0]?.length ?? 0 })}
+          {t('tools.office_editor.sheet_stats', { rows: rows.length, cols: colCount })}
         </span>
         {tooLarge && <span>{t('tools.office_editor.readonly_large')}</span>}
         {editRows && !tooLarge && <span>{t('tools.office_editor.edited_hint')}</span>}
@@ -435,13 +515,17 @@ function LegacyView({ doc }: { doc: OfficeDoc }): JSX.Element {
   );
 }
 
-/** 弹「另存为」写 xlsx 字节;返回是否成功(取消/失败 false) */
-async function invokeSaveBytes(fileName: string, bytes: Uint8Array): Promise<boolean> {
+/** 弹「另存为」写字节;返回是否成功(取消/失败 false)。mime 用于保存对话框过滤器 */
+async function invokeSaveBytes(
+  fileName: string,
+  bytes: Uint8Array,
+  mime: string,
+): Promise<boolean> {
   const { invokeCommand } = await import('@/lib/ipc');
   const saved = await invokeCommand<string | null>('fs_save_bytes', {
     fileName,
     base64: bytesToBase64(bytes),
-    mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    mime,
   });
   return saved !== null;
 }
@@ -462,7 +546,8 @@ function EmptyState({ onOpen }: { onOpen: () => void }): JSX.Element {
           {t('tools.office_editor.empty_desc')}
         </p>
       </div>
-      <Button size="sm" onClick={onOpen} data-testid="office-open-first">
+      <Button size="sm" variant="outline" onClick={onOpen} data-testid="office-open-first">
+        <FolderOpen aria-hidden />
         {t('tools.office_editor.open')}
       </Button>
     </div>
@@ -534,10 +619,19 @@ export function OfficeEditorTool({ metadata }: ToolProps): JSX.Element {
         data-testid="office-doc-tabs"
         data-search-anchor="office_editor:tabs"
       >
-        <div className="min-w-0 flex-1 overflow-x-auto">
+        {/* 悬浮横向滚动条(对齐 PdfEditor / EditorTabsBar):细滑块(h-1.5)平时
+            完全隐藏,悬浮 Tab 栏时才半透明浮现;绝对定位悬浮于内容之上,
+            不占布局、不遮挡 Tab 文字 */}
+        <ScrollArea
+          orientation="horizontal"
+          type="hover"
+          scrollbarClassName="h-1.5 p-0"
+          className="h-full min-w-0 flex-1"
+        >
           <div
             role="tablist"
             aria-label={t('tools.office_editor.tabs_aria')}
+            // min-w-max:让 Tab 行超出视口宽度,触发 Viewport 横向滚动
             className="flex h-full min-w-max items-stretch"
           >
             {docs.map((d) => {
@@ -588,8 +682,8 @@ export function OfficeEditorTool({ metadata }: ToolProps): JSX.Element {
               );
             })}
           </div>
-        </div>
-        {/* 「+」打开按钮固定在滚动区外右端 */}
+        </ScrollArea>
+        {/* 「打开」按钮固定在滚动区外右端 */}
         <button
           type="button"
           data-testid="office-open-more"
@@ -599,7 +693,7 @@ export function OfficeEditorTool({ metadata }: ToolProps): JSX.Element {
           disabled={opening}
           className="flex size-7 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
         >
-          <Plus aria-hidden className="size-3.5" />
+          <FolderOpen aria-hidden className="size-3.5" />
         </button>
       </div>
 
