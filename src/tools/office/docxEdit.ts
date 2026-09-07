@@ -85,10 +85,7 @@ export function rewriteParagraphs(
 }
 
 /** 单段替换:保留 <w:pPr>,首个 run 的 <w:rPr> 续用,runs 收敛为单个文本 run */
-function replaceRuns(
-  paragraphXml: string,
-  text: string,
-): { ok: boolean; xml: string } {
+function replaceRuns(paragraphXml: string, text: string): { ok: boolean; xml: string } {
   const openTagEnd = paragraphXml.indexOf('>') + 1;
   const openTag = paragraphXml.slice(0, openTagEnd); // <w:p> 或带属性的 <w:p …>
   // 段落属性:整体保留(<w:pPr>…</w:pPr> 与自闭合两种形态)

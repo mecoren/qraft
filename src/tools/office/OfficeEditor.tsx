@@ -188,13 +188,8 @@ function ExcelView({ doc }: { doc: OfficeDoc }): JSX.Element {
   const sheet: SheetModel | null = model?.sheets[activeSheet] ?? null;
   const rows = editRows ?? sheet?.rows.map((r) => r.map((c) => c.text)) ?? null;
   /** 全表最大列数:渲染列遍历的基数(用首行会在「表头短于数据行」时截列) */
-  const colCount = useMemo(
-    () => Math.max(0, ...(rows?.map((r) => r.length) ?? [0])),
-    [rows],
-  );
-  const tooLarge =
-    (sheet?.rows.length ?? 0) > XLSX_EDIT_MAX_ROWS ||
-    colCount > XLSX_EDIT_MAX_COLS;
+  const colCount = useMemo(() => Math.max(0, ...(rows?.map((r) => r.length) ?? [0])), [rows]);
+  const tooLarge = (sheet?.rows.length ?? 0) > XLSX_EDIT_MAX_ROWS || colCount > XLSX_EDIT_MAX_COLS;
 
   /** 切换工作表:编辑态随表丢弃(切走即弃,与 Tab 关闭即丢同语义) */
   const switchSheet = useCallback((index: number) => {
@@ -339,7 +334,9 @@ function ExcelView({ doc }: { doc: OfficeDoc }): JSX.Element {
                         className="w-full max-w-64 bg-transparent px-2 py-1 whitespace-nowrap outline-none focus:bg-accent/40 focus:ring-1 focus:ring-inset focus:ring-ring"
                         // 内容自适应宽度:按字符数估宽(等宽字体近似),窄内容
                         // 不拉伸(旧 min-w-24 把 1 列表拉满视口),长内容截断在 max-w
-                        style={{ minWidth: `calc(${Math.min(Math.max(value.length + 2, 4), 24)}ch + 1rem)` }}
+                        style={{
+                          minWidth: `calc(${Math.min(Math.max(value.length + 2, 4), 24)}ch + 1rem)`,
+                        }}
                       />
                     </td>
                   );
@@ -352,9 +349,7 @@ function ExcelView({ doc }: { doc: OfficeDoc }): JSX.Element {
 
       {/* 底部状态:行列数 / 编辑提示 */}
       <div className="flex h-7 shrink-0 items-center gap-3 border-t border-border px-3 text-[10px] text-muted-foreground">
-        <span>
-          {t('tools.office_editor.sheet_stats', { rows: rows.length, cols: colCount })}
-        </span>
+        <span>{t('tools.office_editor.sheet_stats', { rows: rows.length, cols: colCount })}</span>
         {tooLarge && <span>{t('tools.office_editor.readonly_large')}</span>}
         {editRows && !tooLarge && <span>{t('tools.office_editor.edited_hint')}</span>}
       </div>

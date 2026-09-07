@@ -74,10 +74,7 @@ describe('rewriteParagraphs', () => {
 describe('applyEditedTexts', () => {
   it('重打包后的 zip 可解析,document.xml 为替换后内容', async () => {
     const bytes = await zipWithDocument(
-      docXml([
-        '<w:p><w:r><w:t>hello</w:t></w:r></w:p>',
-        '<w:p><w:r><w:t>world</w:t></w:r></w:p>',
-      ]),
+      docXml(['<w:p><w:r><w:t>hello</w:t></w:r></w:p>', '<w:p><w:r><w:t>world</w:t></w:r></w:p>']),
     );
     const out = await applyEditedTexts(bytes, ['HELLO', null]);
     const zip = await JSZip.loadAsync(out);
@@ -88,9 +85,7 @@ describe('applyEditedTexts', () => {
   });
 
   it('零替换时返回原字节(不重打包)', async () => {
-    const bytes = await zipWithDocument(
-      docXml(['<w:p><w:r><w:t>same</w:t></w:r></w:p>']),
-    );
+    const bytes = await zipWithDocument(docXml(['<w:p><w:r><w:t>same</w:t></w:r></w:p>']));
     const out = await applyEditedTexts(bytes, [null]);
     expect(out).toBe(bytes);
   });
