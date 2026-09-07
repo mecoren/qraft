@@ -27,7 +27,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatError } from '@/lib/format-error';
-import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
@@ -117,7 +116,7 @@ function HeaderAction({
       data-testid={testId}
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+      className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
     >
       {children}
     </button>
@@ -153,19 +152,21 @@ function FileDropzone({
       className="flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 border-r"
       data-search-anchor="base64_codec:file"
     >
-      {/* 工具栏与 CodeEditor 工具栏同规格(px-2 py-0.5 + text-xs),对齐合并卡片内两条分隔线 */}
-      <div className="flex shrink-0 items-center justify-between border-b border-input px-2 py-0.5">
-        <h2 className="pl-1 text-xs font-medium text-foreground">
+      {/* 工具栏与 CodeEditor 工具栏同规格(固定 26px 高),与对面编辑器标题栏恒等高 */}
+      <div className="flex h-[26px] min-w-0 shrink-0 items-center justify-between gap-x-2 border-b border-input px-2">
+        <h2 className="min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground">
           {t('tools.base64_codec.file_section_title')}
         </h2>
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
+          type="button"
           data-testid="b64-open"
+          title={t('tools.base64_codec.choose_file')}
+          aria-label={t('tools.base64_codec.choose_file')}
           onClick={() => fileRef.current?.click()}
+          className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <FolderOpen aria-hidden className="size-3.5" /> {t('tools.base64_codec.choose_file')}
-        </Button>
+        </button>
       </div>
       <input
         ref={fileRef}
@@ -308,8 +309,9 @@ function BinaryPreview({
   return (
     // 合并卡片内右面板:只保留朝向中缝的左边框,外框由外层卡片提供(参考 JsonFormatter 输出侧)
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 border-l bg-card">
-      <div className="flex items-center justify-between border-b border-input px-2 py-0.5">
-        <span className="pl-1 text-xs font-medium text-foreground">
+      {/* 标题栏与 CodeEditor 工具栏同规格(固定 26px 高),与左侧编辑器标题栏恒等高 */}
+      <div className="flex h-[26px] min-w-0 shrink-0 items-center justify-between gap-x-2 border-b border-input px-2">
+        <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground">
           {t('tools.base64_codec.preview_title')}
         </span>
         <HeaderAction testId="b64-save" onClick={onSave} disabled={!result}>
