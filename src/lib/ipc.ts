@@ -120,7 +120,7 @@ export function normalizeIpcError(e: unknown): ErrorInfo {
         rawMessage ??
         extractDetailMessage(detail) ??
         (resolvedCode
-          ? formatStructuredDetail(resolvedCode, detail) ?? resolvedCode
+          ? (formatStructuredDetail(resolvedCode, detail) ?? resolvedCode)
           : INTERNAL_ERROR.message),
       ...(detail !== undefined ? { details: detail } : {}),
     };

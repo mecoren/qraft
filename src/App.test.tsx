@@ -471,9 +471,7 @@ describe('App', () => {
     expect(usePdfDocsStore.getState().docs).toHaveLength(0);
     // 回退编辑器对二进制文件的既有提示路径:toast + 「仍要打开」动作
     const openAnyway = await screen.findByRole('button', { name: '仍要打开' });
-    expect(
-      screen.getByText(/无法在编辑器中打开「合同\.pdf」/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/无法在编辑器中打开「合同\.pdf」/)).toBeInTheDocument();
     openAnyway.click();
   });
 });

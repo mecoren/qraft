@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
-import {
-  applyFormValues,
-  extractFormFields,
-  hasChangedValues,
-  initialValues,
-} from './pdfForm';
+import { applyFormValues, extractFormFields, hasChangedValues, initialValues } from './pdfForm';
 
 /** 构造一份带表单的 PDF(文本 + 复选 + 下拉),返回 base64 */
 async function makeFormPdf(): Promise<string> {

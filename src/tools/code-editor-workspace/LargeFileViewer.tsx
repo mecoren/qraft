@@ -157,10 +157,7 @@ export function LargeFileViewer({
   const lastUnit = Math.min(Math.max(unitCount - 1, 0), firstUnit + visibleUnits);
   // 可视区覆盖的物理行范围(窗口请求仍按 LINES_PER_WINDOW 网格对齐物理行)
   const firstVisible = firstRowOfUnit(firstUnit);
-  const lastVisible = Math.min(
-    info?.lineCount ?? 1,
-    firstRowOfUnit(lastUnit) + rowsPerUnit - 1,
-  );
+  const lastVisible = Math.min(info?.lineCount ?? 1, firstRowOfUnit(lastUnit) + rowsPerUnit - 1);
 
   // 可视区请求的窗口起点集合:窗口对齐到 LINES_PER_WINDOW 网格,
   // 同一窗口内的行只发一次请求
