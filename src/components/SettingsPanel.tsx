@@ -86,6 +86,15 @@ const SHORTCUT_KEYS: Array<{
   { key: 'global_search', labelKey: 'settings.sc_global_search' },
   { key: 'cycle_naming_case', labelKey: 'settings.sc_cycle_naming_case' },
   { key: 'toggle_case', labelKey: 'settings.sc_toggle_case' },
+  { key: 'new_file', labelKey: 'settings.sc_new_file' },
+  { key: 'open_file', labelKey: 'settings.sc_open_file' },
+  { key: 'save_all', labelKey: 'settings.sc_save_all' },
+  { key: 'close_editor', labelKey: 'settings.sc_close_editor' },
+  { key: 'close_all_editors', labelKey: 'settings.sc_close_all_editors' },
+  { key: 'toggle_editor_sidebar', labelKey: 'settings.sc_toggle_editor_sidebar' },
+  { key: 'next_tab', labelKey: 'settings.sc_next_tab' },
+  { key: 'previous_tab', labelKey: 'settings.sc_previous_tab' },
+  { key: 'reopen_closed_tab', labelKey: 'settings.sc_reopen_closed_tab' },
 ];
 
 const generalSchema = z.object({
@@ -915,6 +924,15 @@ export function ShortcutSection(): JSX.Element {
         global_search: 'Ctrl+Shift+F',
         cycle_naming_case: 'Ctrl+Shift+U',
         toggle_case: 'Ctrl+Shift+L',
+        new_file: 'Ctrl+N',
+        open_file: 'Ctrl+O',
+        save_all: 'Ctrl+Shift+S',
+        close_editor: 'Ctrl+W',
+        close_all_editors: 'Ctrl+Shift+W',
+        toggle_editor_sidebar: 'Ctrl+B',
+        next_tab: 'Ctrl+Tab',
+        previous_tab: 'Ctrl+Shift+Tab',
+        reopen_closed_tab: 'Ctrl+Shift+T',
       },
     },
   });

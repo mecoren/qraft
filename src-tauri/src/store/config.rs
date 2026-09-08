@@ -114,6 +114,24 @@ pub struct ShortcutBinding {
     pub cycle_naming_case: String,
     #[serde(default)]
     pub toggle_case: String,
+    #[serde(default)]
+    pub new_file: String,
+    #[serde(default)]
+    pub open_file: String,
+    #[serde(default)]
+    pub save_all: String,
+    #[serde(default)]
+    pub close_editor: String,
+    #[serde(default)]
+    pub close_all_editors: String,
+    #[serde(default)]
+    pub toggle_editor_sidebar: String,
+    #[serde(default)]
+    pub next_tab: String,
+    #[serde(default)]
+    pub previous_tab: String,
+    #[serde(default)]
+    pub reopen_closed_tab: String,
 }
 
 impl Default for ShortcutBinding {
@@ -132,6 +150,15 @@ impl Default for ShortcutBinding {
             save_file: "Ctrl+S".into(),
             cycle_naming_case: "Ctrl+Shift+U".into(),
             toggle_case: "Ctrl+Shift+L".into(),
+            new_file: "Ctrl+N".into(),
+            open_file: "Ctrl+O".into(),
+            save_all: "Ctrl+Shift+S".into(),
+            close_editor: "Ctrl+W".into(),
+            close_all_editors: "Ctrl+Shift+W".into(),
+            toggle_editor_sidebar: "Ctrl+B".into(),
+            next_tab: "Ctrl+Tab".into(),
+            previous_tab: "Ctrl+Shift+Tab".into(),
+            reopen_closed_tab: "Ctrl+Shift+T".into(),
         }
     }
 }

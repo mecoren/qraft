@@ -37,6 +37,8 @@ import { registerTabEditor, clearTabEditors } from '@/lib/editor-search-registry
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
 import { useShortcut } from '@/hooks/useShortcut';
+import { useConfigStore } from '@/store/configStore';
+import { DEFAULT_SHORTCUTS, type ShortcutKey } from '@/types/config';
 import { listen, safeInvoke, CommandError } from '@/lib/ipc';
 import { writeClipboardText } from '@/lib/clipboard';
 import type { ToolProps } from '@/tools/registry';
@@ -782,6 +784,54 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   }, []);
 
   /**
+   * 恢复最近关闭的 Tab(Ctrl+Shift+T):栈空时静默 no-op;
+   * 恢复成功后退出对比视图(与打开/切换文件的行为一致)。
+   */
+  const reopenClosedTab = useCallback(() => {
+    if (useEditorWorkspaceStore.getState().reopenClosedTab()) {
+      setActiveCompareId(null);
+    }
+  }, []);
+
+  /**
+   * 循环切换激活 Tab(Ctrl+Tab / Ctrl+Shift+Tab):跨 Tab 循环导航。
+   */
+  const cycleActiveTab = useCallback((direction: 'next' | 'previous') => {
+    useEditorWorkspaceStore.getState().cycleActiveTab(direction);
+  }, []);
+
+  /**
+   * 文本编辑器工作区快捷键全套(菜单 File/View 项的键盘入口):
+   * 全部经 useShortcut 读取用户可自定义的绑定,菜单标签经 shortcutLabel
+   * 同源渲染,保证「标签显示的 = 实际生效的」。卸载(切换工具)自动
+   * 解除监听,不影响其它工具。
+   */
+  useShortcut('new_file', handleNewTab, [handleNewTab]);
+  useShortcut('open_file', () => void handleOpen(), [handleOpen]);
+  useShortcut('save_all', () => void handleSaveAll(), [handleSaveAll]);
+  useShortcut('close_editor', handleCloseCurrent, [handleCloseCurrent]);
+  useShortcut('close_all_editors', () => requestCloseAll('tabs'), [requestCloseAll]);
+  useShortcut('toggle_editor_sidebar', handleToggleSidebar, [handleToggleSidebar]);
+  useShortcut('next_tab', () => cycleActiveTab('next'), []);
+  useShortcut('previous_tab', () => cycleActiveTab('previous'), []);
+  useShortcut('reopen_closed_tab', reopenClosedTab, [reopenClosedTab]);
+  // Alt+1..9 直达第 N 个 Tab:固定映射不进 ShortcutBinding(九个键位
+  // 挤占设置页且录制繁琐,VSCode/浏览器同样固定);超出 Tab 数夹到末尾
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.repeat || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const n = Number(e.key);
+      if (!Number.isInteger(n) || n < 1 || n > 9) return;
+      const { tabs } = useEditorWorkspaceStore.getState().workspace;
+      if (tabs.length === 0) return;
+      e.preventDefault();
+      useEditorWorkspaceStore.getState().selectTabIndex(Math.min(n, tabs.length) - 1);
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, []);
+
+  /**
    * 注册 Titlebar 菜单栏 —— 工具挂载即注册,卸载自动清空。
    *
    * 菜单结构:
@@ -800,8 +850,14 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
    *
    * testId 沿用旧工具栏命名,保证现有测试无需修改。
    */
-  const menus = useMemo<ToolMenu[]>(
-    () => [
+  const menus = useMemo<ToolMenu[]>(() => {
+    /** 菜单快捷键标签:与快捷键绑定同源(用户自定义后菜单即时跟随);
+     *  空串(禁用)不显示标签,避免出现「显示但不生效」的欺骗性提示 */
+    const shortcutLabel = (key: ShortcutKey): string | undefined => {
+      const combo = useConfigStore.getState().config?.shortcuts[key] ?? DEFAULT_SHORTCUTS[key];
+      return combo || undefined;
+    };
+    return [
       {
         id: 'file',
         label: t('tools.text_editor.menu_file'),
@@ -811,7 +867,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               {
                 id: 'new',
                 label: t('tools.text_editor.menu_new'),
-                shortcut: 'Ctrl+N',
+                shortcut: shortcutLabel('new_file'),
                 icon: FilePlus2,
                 onSelect: handleNewTab,
                 testId: 'toolbar-new',
@@ -819,7 +875,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               {
                 id: 'open',
                 label: t('tools.text_editor.menu_open'),
-                shortcut: 'Ctrl+O',
+                shortcut: shortcutLabel('open_file'),
                 icon: FolderOpen,
                 onSelect: () => void handleOpen(),
                 testId: 'toolbar-open',
@@ -838,7 +894,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               {
                 id: 'save',
                 label: t('tools.text_editor.save'),
-                shortcut: 'Ctrl+S',
+                shortcut: shortcutLabel('save_file'),
                 onSelect: handleSave,
                 // 大文件 Tab 恒只读,保存不可用
                 disabled: !activeTab || activeTab.largeFile,
@@ -847,7 +903,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               {
                 id: 'save-all',
                 label: t('tools.text_editor.save_all'),
-                shortcut: 'Ctrl+Shift+S',
+                shortcut: shortcutLabel('save_all'),
                 onSelect: () => void handleSaveAll(),
                 disabled: workspace.tabs.every((t) => t.content === t.savedContent),
               },
@@ -858,14 +914,14 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               {
                 id: 'close',
                 label: t('tools.text_editor.close'),
-                shortcut: 'Ctrl+W',
+                shortcut: shortcutLabel('close_editor'),
                 onSelect: handleCloseCurrent,
                 disabled: !activeTab,
               },
               {
                 id: 'close-all',
                 label: t('tools.text_editor.close_all'),
-                shortcut: 'Ctrl+Shift+W',
+                shortcut: shortcutLabel('close_all_editors'),
                 // 显式传 'tabs':菜单 onSelect 会带首个参数,不能让它误当 source
                 onSelect: () => requestCloseAll('tabs'),
                 disabled: workspace.tabs.length === 0,
@@ -886,7 +942,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                 label: workspace.leftSidebarVisible
                   ? t('tools.text_editor.menu_hide_sidebar')
                   : t('tools.text_editor.menu_show_sidebar'),
-                shortcut: 'Ctrl+B',
+                shortcut: shortcutLabel('toggle_editor_sidebar'),
                 onSelect: handleToggleSidebar,
                 testId: 'toolbar-toggle-sidebar',
               },
@@ -894,22 +950,21 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
           },
         ],
       },
-    ],
-    [
-      activeTab,
-      workspace.leftSidebarVisible,
-      workspace.tabs,
-      handleCloseCurrent,
-      handleNewTab,
-      handleOpen,
-      handleOpenFolder,
-      handleSave,
-      handleSaveAll,
-      handleToggleSidebar,
-      requestCloseAll,
-      t,
-    ],
-  );
+    ];
+  }, [
+    activeTab,
+    workspace.leftSidebarVisible,
+    workspace.tabs,
+    handleCloseCurrent,
+    handleNewTab,
+    handleOpen,
+    handleOpenFolder,
+    handleSave,
+    handleSaveAll,
+    handleToggleSidebar,
+    requestCloseAll,
+    t,
+  ]);
   useToolMenus(toolId, menus);
 
   /**

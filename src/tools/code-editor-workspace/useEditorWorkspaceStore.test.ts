@@ -16,6 +16,7 @@ function resetStore(): void {
     ready: false,
     userTouched: false,
     error: null,
+    recentlyClosed: [],
   });
 }
 
@@ -347,6 +348,145 @@ describe('useEditorWorkspaceStore.newBlankTab', () => {
 
     const tabs = useEditorWorkspaceStore.getState().workspace.tabs;
     expect(tabs.map((t) => t.title)).toEqual(['untitled-1', 'untitled-3', 'untitled-4']);
+  });
+});
+
+describe('useEditorWorkspaceStore tab 导航与恢复', () => {
+  function openThree(): void {
+    const s = useEditorWorkspaceStore.getState();
+    s.newBlankTab(); // untitled-1
+    s.newBlankTab(); // untitled-2
+    s.newBlankTab(); // untitled-3(激活)
+  }
+
+  it('cycleActiveTab 向后循环激活下一个 Tab,回到首个再循环', () => {
+    openThree();
+    const s = useEditorWorkspaceStore.getState();
+    const [a, b, c] = s.workspace.tabs;
+
+    s.cycleActiveTab('next');
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(a.id);
+    s.cycleActiveTab('next');
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(b.id);
+    // 末尾再向后 → 回到首个(VSCode Ctrl+Tab 循环)
+    s.cycleActiveTab('next');
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(c.id);
+    s.cycleActiveTab('next');
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(a.id);
+  });
+
+  it('cycleActiveTab 向前循环激活上一个 Tab(首个再向前回到末尾)', () => {
+    openThree();
+    const s = useEditorWorkspaceStore.getState();
+    const [a, b, c] = s.workspace.tabs;
+
+    s.cycleActiveTab('previous');
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(b.id);
+    s.cycleActiveTab('previous');
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(a.id);
+    // 首个再向前 → 回到末尾(循环)
+    s.cycleActiveTab('previous');
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(c.id);
+  });
+
+  it('cycleActiveTab 在 0/1 个 Tab 时是安全 no-op', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.cycleActiveTab('next');
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBeNull();
+
+    s.newBlankTab();
+    const only = useEditorWorkspaceStore.getState().workspace.activeTabId;
+    s.cycleActiveTab('next');
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(only);
+  });
+
+  it('selectTabIndex 激活第 N 个 Tab(0-based,越界 no-op)', () => {
+    openThree();
+    const s = useEditorWorkspaceStore.getState();
+    const [a, b] = s.workspace.tabs;
+
+    s.selectTabIndex(0);
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(a.id);
+    s.selectTabIndex(1);
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(b.id);
+    s.selectTabIndex(99);
+    // 越界:激活态不变
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(b.id);
+  });
+
+  it('closeTab 把被关闭的 Tab 压入最近关闭栈;reopenClosedTab 末位恢复并保留内容', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.newBlankTab();
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+    s.setTabContent(id, 'draft text');
+
+    s.closeTab(id);
+    expect(useEditorWorkspaceStore.getState().workspace.tabs).toHaveLength(0);
+    expect(useEditorWorkspaceStore.getState().recentlyClosed).toHaveLength(1);
+
+    const restored = useEditorWorkspaceStore.getState().reopenClosedTab();
+    expect(restored).toBe(true);
+    const state = useEditorWorkspaceStore.getState();
+    expect(state.workspace.tabs).toHaveLength(1);
+    expect(state.workspace.activeTabId).toBe(state.workspace.tabs[0].id);
+    // 未保存草稿随快照恢复(误关找回的核心价值)
+    expect(state.workspace.tabs[0].content).toBe('draft text');
+    // 恢复后弹出栈,重复调用不再复活
+    expect(state.recentlyClosed).toHaveLength(0);
+  });
+
+  it('reopenClosedTab 栈空时返回 false 并不改动工作区', () => {
+    expect(useEditorWorkspaceStore.getState().reopenClosedTab()).toBe(false);
+    expect(useEditorWorkspaceStore.getState().workspace.tabs).toHaveLength(0);
+  });
+
+  it('closeAllTabs 清空全部时同样记录最近关闭栈(可整体撤销)', () => {
+    openThree();
+    useEditorWorkspaceStore.getState().closeAllTabs();
+    expect(useEditorWorkspaceStore.getState().workspace.tabs).toHaveLength(0);
+    expect(useEditorWorkspaceStore.getState().recentlyClosed).toHaveLength(3);
+
+    useEditorWorkspaceStore.getState().reopenClosedTab();
+    useEditorWorkspaceStore.getState().reopenClosedTab();
+    const state = useEditorWorkspaceStore.getState();
+    expect(state.workspace.tabs).toHaveLength(2);
+  });
+
+  it('reopenClosedTab 时同路径文件已重新打开:仅激活现有 Tab,不重复入列', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.openLocalFile('/a.txt', 'A');
+    s.closeTab(useEditorWorkspaceStore.getState().workspace.activeTabId as string);
+
+    // 用户在恢复前重新打开了同路径文件(内容更新)
+    s.openLocalFile('/a.txt', 'A2');
+    const reopenedId = useEditorWorkspaceStore.getState().workspace.activeTabId;
+
+    const ok = useEditorWorkspaceStore.getState().reopenClosedTab();
+    expect(ok).toBe(true);
+    const state = useEditorWorkspaceStore.getState();
+    expect(state.workspace.tabs).toHaveLength(1);
+    expect(state.workspace.activeTabId).toBe(reopenedId);
+    expect(state.recentlyClosed).toHaveLength(0);
+  });
+
+  it('同一路径重复打开不会把在开 Tab 挤出最近关闭栈去重(关闭才入栈)', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.openLocalFile('/a.txt', 'A');
+    // 同路径再开 = 仅激活,不入栈
+    s.openLocalFile('/a.txt', 'A');
+    expect(useEditorWorkspaceStore.getState().recentlyClosed).toHaveLength(0);
+
+    s.closeTab(useEditorWorkspaceStore.getState().workspace.activeTabId as string);
+    expect(useEditorWorkspaceStore.getState().recentlyClosed).toHaveLength(1);
+  });
+
+  it('最近关闭栈容量上限:超出时丢弃最旧条目', () => {
+    const s = useEditorWorkspaceStore.getState();
+    for (let i = 0; i < 15; i++) {
+      s.newBlankTab();
+      s.closeTab(useEditorWorkspaceStore.getState().workspace.activeTabId as string);
+    }
+    expect(useEditorWorkspaceStore.getState().recentlyClosed.length).toBe(10);
   });
 });
 

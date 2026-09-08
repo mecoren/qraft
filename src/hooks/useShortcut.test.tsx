@@ -63,4 +63,64 @@ describe('useShortcut', () => {
     expect(onFire).toHaveBeenCalledTimes(1);
     expect(lastEvent?.defaultPrevented).toBe(false);
   });
+
+  it('Ctrl+Tab / Ctrl+Shift+Tab(Tab 循环切换)可解析并匹配', () => {
+    const onFire = vi.fn();
+    useConfigStore.setState({
+      config: {
+        ...DEFAULT_USER_CONFIG,
+        shortcuts: {
+          ...DEFAULT_USER_CONFIG.shortcuts,
+          execute_tool: 'Ctrl+Tab',
+        },
+      },
+    });
+    render(<Harness onFire={onFire} />);
+
+    fireKey({ key: 'Tab', ctrlKey: true });
+    expect(onFire).toHaveBeenCalledTimes(1);
+
+    // 不带 Ctrl 的裸 Tab 不匹配(交给编辑器焦点移动)
+    fireKey({ key: 'Tab' });
+    expect(onFire).toHaveBeenCalledTimes(1);
+
+    // Ctrl+Shift+Tab 与 Ctrl+Tab 是不同组合
+    fireKey({ key: 'Tab', ctrlKey: true, shiftKey: true });
+    expect(onFire).toHaveBeenCalledTimes(1);
+  });
+
+  it('Ctrl+Shift+T(恢复关闭 Tab)可解析并匹配', () => {
+    const onFire = vi.fn();
+    useConfigStore.setState({
+      config: {
+        ...DEFAULT_USER_CONFIG,
+        shortcuts: {
+          ...DEFAULT_USER_CONFIG.shortcuts,
+          execute_tool: 'Ctrl+Shift+T',
+        },
+      },
+    });
+    render(<Harness onFire={onFire} />);
+    fireKey({ key: 'T', ctrlKey: true, shiftKey: true });
+    expect(onFire).toHaveBeenCalledTimes(1);
+    // 大小写不敏感:小写 t 同样命中
+    fireKey({ key: 't', ctrlKey: true, shiftKey: true });
+    expect(onFire).toHaveBeenCalledTimes(2);
+  });
+
+  it('空字符串绑定表示禁用,不注册监听(不触发)', () => {
+    const onFire = vi.fn();
+    useConfigStore.setState({
+      config: {
+        ...DEFAULT_USER_CONFIG,
+        shortcuts: {
+          ...DEFAULT_USER_CONFIG.shortcuts,
+          execute_tool: '',
+        },
+      },
+    });
+    render(<Harness onFire={onFire} />);
+    fireKey({ key: 'Enter', ctrlKey: true });
+    expect(onFire).not.toHaveBeenCalled();
+  });
 });

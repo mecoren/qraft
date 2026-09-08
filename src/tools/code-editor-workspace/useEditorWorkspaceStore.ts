@@ -191,6 +191,39 @@ function mergeAutoOpenedTabs(restored: Workspace, current: Workspace): Workspace
   };
 }
 
+/** 最近关闭栈容量上限(浏览器/VSCode 同款量级,防止快照无界膨胀) */
+const RECENTLY_CLOSED_MAX = 10;
+
+/** 最近关闭栈条目:Tab 完整快照 + 独立 id(重开沿用快照内 tab id,栈自身定位/React key 用独立 id) */
+export interface ClosedTabEntry {
+  /** 栈条目自身稳定 id */
+  id: string;
+  /** 关闭瞬间的 Tab 快照(含未保存草稿) */
+  tab: EditorTab;
+}
+
+/** 最近关闭栈的入栈实现:超出容量上限时丢弃最旧条目 */
+function pushRecentlyClosed(stack: readonly ClosedTabEntry[], tab: EditorTab): ClosedTabEntry[] {
+  const next = [...stack, { id: createId(), tab }];
+  return next.length > RECENTLY_CLOSED_MAX ? next.slice(next.length - RECENTLY_CLOSED_MAX) : next;
+}
+
+/**
+ * 把快照恢复进工作区(供 reopenClosedTab / closeAllTabs 批量重开复用):
+ * - 同路径(untitled 则同标题)Tab 仍在工作区 → 仅激活现有 Tab(VSCode 语义,
+ *   在开内容胜出,不重复入列)
+ * - 无冲突 → 追加快照(沿用原 id 保证 React key 稳定)
+ */
+function restoreClosedTab(workspace: Workspace, tab: EditorTab): Workspace {
+  const existing = workspace.tabs.find(
+    (t) =>
+      (tab.path !== null && t.path === tab.path) ||
+      (tab.path === null && t.path === null && t.title === tab.title),
+  );
+  if (existing) return { ...workspace, activeTabId: existing.id };
+  return { ...workspace, tabs: [...workspace.tabs, tab], activeTabId: tab.id };
+}
+
 interface WorkspaceState {
   workspace: Workspace;
   /** 是否已完成 hydrate(从 Rust config 还原);false 时禁止持久化 */
@@ -199,6 +232,12 @@ interface WorkspaceState {
   userTouched: boolean;
   /** 最近一次持久化错误(仅用于诊断,不影响使用) */
   error: string | null;
+  /**
+   * 最近关闭的 Tab 栈(新近在后;Ctrl+Shift+T 从栈顶恢复)。
+   * 纯会话内状态,不随工作区持久化;条目为关闭瞬间的完整快照,
+   * 误关的未保存草稿也能原样找回。
+   */
+  recentlyClosed: ClosedTabEntry[];
 
   /** 从 Rust config 还原工作区;已还原时再次调用为 no-op */
   hydrate: (force?: boolean) => Promise<void>;
@@ -257,6 +296,23 @@ interface WorkspaceState {
   closeAllTabs: () => void;
   /** 切换激活 Tab */
   switchTab: (id: string) => void;
+  /**
+   * 循环切换激活 Tab(Ctrl+Tab / Ctrl+Shift+Tab):
+   * next = 激活项右移(末尾回到首个),previous = 左移(首个回到末尾)。
+   * 0/1 个 Tab 时为安全 no-op。
+   */
+  cycleActiveTab: (direction: 'next' | 'previous') => void;
+  /**
+   * 激活第 N 个 Tab(0-based;Alt+1..9 直达)。
+   * 越界(≥ Tab 数)为 no-op,激活态不变。
+   */
+  selectTabIndex: (index: number) => void;
+  /**
+   * 恢复最近关闭的 Tab(Ctrl+Shift+T):弹栈顶快照重新入列并激活。
+   * 同路径(untitled 同标题)Tab 仍打开时仅激活现有 Tab,不重复入列。
+   * 栈空返回 false。
+   */
+  reopenClosedTab: () => boolean;
   /** 打开根文件夹:加入左栏「文件夹」树并默认展开根;重复打开同一根仅确保展开 */
   openFolder: (rootPath: string) => void;
   /** 关闭根文件夹:移除该根并清理其子树的展开状态(不影响其中已打开的 Tab) */
@@ -297,6 +353,7 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
   ready: false,
   userTouched: false,
   error: null,
+  recentlyClosed: [],
 
   hydrate: async (force = false) => {
     // 已还原则不重复读取,防止多次挂载时竞态覆盖用户正在编辑的内容;
@@ -469,13 +526,19 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const { workspace } = get();
     const index = workspace.tabs.findIndex((t) => t.id === id);
     if (index < 0) return;
+    const closing = workspace.tabs[index];
+    // 快照入最近关闭栈(Ctrl+Shift+T 找回;大文件 Tab 只读不含内容,跳过)
+    const recentlyClosed =
+      closing.largeFile || closing.pinned
+        ? get().recentlyClosed
+        : pushRecentlyClosed(get().recentlyClosed, closing);
     const tabs = workspace.tabs.filter((t) => t.id !== id);
     let activeTabId = workspace.activeTabId;
     if (activeTabId === id) {
       // 激活的是被关闭的 Tab:优先右邻,没有则左邻,全部关闭则 null
       activeTabId = tabs[Math.min(index, tabs.length - 1)]?.id ?? null;
     }
-    set({ workspace: { ...workspace, tabs, activeTabId }, userTouched: true });
+    set({ workspace: { ...workspace, tabs, activeTabId }, recentlyClosed, userTouched: true });
   },
 
   switchTab: (id) => {
@@ -600,11 +663,54 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   closeAllTabs: () => {
     const { workspace } = get();
+    const closing = workspace.tabs.filter((t) => !t.pinned && !t.largeFile);
+    // 被关闭的每个 Tab 依序入最近关闭栈;重开时按关闭前的相对顺序逐一找回
+    const recentlyClosed = closing.reduce(
+      (stack, tab) => pushRecentlyClosed(stack, tab),
+      get().recentlyClosed,
+    );
     const tabs = workspace.tabs.filter((t) => t.pinned);
     set({
       workspace: { ...workspace, tabs, activeTabId: tabs[0]?.id ?? null },
+      recentlyClosed,
       userTouched: true,
     });
+  },
+
+  cycleActiveTab: (direction) => {
+    const { workspace } = get();
+    const { tabs, activeTabId } = workspace;
+    if (tabs.length === 0) return;
+    const current = tabs.findIndex((t) => t.id === activeTabId);
+    if (tabs.length === 1 || current < 0) {
+      // 单 Tab 或激活态悬空:激活首个即可
+      set({ workspace: { ...workspace, activeTabId: tabs[0].id } });
+      return;
+    }
+    const delta = direction === 'next' ? 1 : -1;
+    const next = (current + delta + tabs.length) % tabs.length;
+    set({ workspace: { ...workspace, activeTabId: tabs[next].id } });
+  },
+
+  selectTabIndex: (index) => {
+    const { workspace } = get();
+    const tab = workspace.tabs[index];
+    if (!tab) return;
+    set({ workspace: { ...workspace, activeTabId: tab.id } });
+  },
+
+  reopenClosedTab: () => {
+    const { workspace, recentlyClosed } = get();
+    const last = recentlyClosed[recentlyClosed.length - 1];
+    if (!last) return false;
+    // 冲突时激活现有 Tab(restoreClosedTab 内判),否则快照重新入列
+    const nextWorkspace = restoreClosedTab(workspace, last.tab);
+    set({
+      workspace: nextWorkspace,
+      recentlyClosed: recentlyClosed.slice(0, -1),
+      userTouched: true,
+    });
+    return true;
   },
 
   setTabContent: (id, content) => {

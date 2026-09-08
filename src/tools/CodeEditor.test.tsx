@@ -143,6 +143,8 @@ import {
   saveWithDialog,
 } from './code-editor-workspace/fileOps';
 import { DEFAULT_WORKSPACE } from './code-editor-workspace/schema';
+import { useConfigStore } from '@/store/configStore';
+import { DEFAULT_USER_CONFIG } from '@/types/config';
 
 const safeInvokeMock = safeInvoke as unknown as Mock;
 
@@ -150,11 +152,13 @@ beforeEach(() => {
   safeInvokeMock.mockReset();
   // config_get 返回空工作区
   safeInvokeMock.mockResolvedValue({ ok: true, value: null });
+  useConfigStore.setState({ config: { ...DEFAULT_USER_CONFIG } });
   useEditorWorkspaceStore.setState({
     workspace: { ...DEFAULT_WORKSPACE },
     ready: false,
     userTouched: false,
     error: null,
+    recentlyClosed: [],
   });
   // Markdown 视图模式回到默认(与工具页共享的 store,避免用例间串扰)
   useMarkdownPreviewStore.setState({ viewMode: 'split' });
@@ -981,5 +985,177 @@ describe('CodeEditorTool workspace', () => {
       const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
       expect(tab?.content).toBe('a\r\nb');
     });
+  });
+});
+
+describe('CodeEditorTool 全局快捷键', () => {
+  /** 直派全局 keydown(与 useShortcut 的捕获监听对接) */
+  function fireShortcut(init: KeyboardEventInit): void {
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { cancelable: true, ...init }));
+    });
+  }
+
+  /** 等待 store 中出现第 n 个 untitled Tab */
+  async function waitForTabCount(n: number): Promise<void> {
+    await waitFor(() => {
+      expect(useEditorWorkspaceStore.getState().workspace.tabs).toHaveLength(n);
+    });
+  }
+
+  it('Ctrl+N 新建空白 Tab(与菜单「新建」同一动作)', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+
+    fireShortcut({ key: 'N', ctrlKey: true });
+    await waitForTabCount(1);
+    expect(screen.getByTestId('editor-tabs-tab-untitled-1')).toBeInTheDocument();
+  });
+
+  it('Ctrl+O 触发打开文件对话框(与菜单「打开」同一动作)', async () => {
+    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce(null);
+    renderTool();
+    await screen.findByTestId('editor-empty');
+
+    fireShortcut({ key: 'O', ctrlKey: true });
+    await waitFor(() => expect(openTextFileDialog).toHaveBeenCalled());
+  });
+
+  it('Ctrl+W 关闭干净 Tab;dirty Tab 弹保存确认;Ctrl+Shift+T 恢复误关 Tab(含未保存草稿)', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await clickToolbarItem('toolbar-new');
+    await screen.findByTestId('editor-textarea');
+    const tabId = useEditorWorkspaceStore.getState().workspace.tabs[0]?.id as string;
+    act(() => useEditorWorkspaceStore.getState().setTabContent(tabId, 'draft'));
+
+    // dirty Tab:Ctrl+W 走未保存确认流程,不直接丢弃(草稿保护)
+    fireShortcut({ key: 'W', ctrlKey: true });
+    await waitFor(() => expect(screen.getByTestId('unsaved-dialog')).toBeInTheDocument());
+    // 选择「不保存」关闭
+    fireEvent.click(screen.getByTestId('unsaved-dialog-discard'));
+    await waitForTabCount(0);
+    expect(screen.getByTestId('editor-empty')).toBeInTheDocument();
+
+    // 恢复:草稿内容原样找回(误关保护)
+    fireShortcut({ key: 'T', ctrlKey: true, shiftKey: true });
+    await waitForTabCount(1);
+    const state = useEditorWorkspaceStore.getState();
+    expect(state.workspace.tabs[0]?.content).toBe('draft');
+    expect(screen.getByTestId('editor-textarea')).toHaveValue('draft');
+
+    // 干净 Tab(恢复后按保存语义,先改回已保存态):Ctrl+W 直接关闭,无确认
+    act(() => {
+      const s = useEditorWorkspaceStore.getState();
+      const id = s.workspace.tabs[0]?.id as string;
+      s.markSaved(id, '/draft.txt');
+    });
+    fireShortcut({ key: 'W', ctrlKey: true });
+    await waitForTabCount(0);
+    expect(screen.getByTestId('editor-empty')).toBeInTheDocument();
+  });
+
+  it('Ctrl+Tab / Ctrl+Shift+Tab 循环切换激活 Tab', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await clickToolbarItem('toolbar-new');
+    await clickToolbarItem('toolbar-new');
+    await clickToolbarItem('toolbar-new');
+    await waitForTabCount(3);
+    const [t1, t2, t3] = useEditorWorkspaceStore.getState().workspace.tabs;
+
+    fireShortcut({ key: 'Tab', ctrlKey: true });
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(t1.id);
+    fireShortcut({ key: 'Tab', ctrlKey: true });
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(t2.id);
+    // 反向:回到 t1,再反向到末尾 t3(循环)
+    fireShortcut({ key: 'Tab', ctrlKey: true, shiftKey: true });
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(t1.id);
+    fireShortcut({ key: 'Tab', ctrlKey: true, shiftKey: true });
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(t3.id);
+  });
+
+  it('Alt+1..9 直达第 N 个 Tab;Alt+9 超界时激活最后一个 Tab', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    for (let i = 0; i < 3; i++) {
+      await clickToolbarItem('toolbar-new');
+    }
+    await waitForTabCount(3);
+    const [t1, , t3] = useEditorWorkspaceStore.getState().workspace.tabs;
+
+    fireShortcut({ key: '1', altKey: true });
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(t1.id);
+    // Alt+9 超出 Tab 数(3):夹到末尾(VSCode/浏览器行为)
+    fireShortcut({ key: '9', altKey: true });
+    expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(t3.id);
+  });
+
+  it('Ctrl+B 切换编辑器左栏显隐(而非应用主侧栏)', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    // hydrate 结束后 leftSidebarVisible 默认 true
+    await waitFor(() =>
+      expect(useEditorWorkspaceStore.getState().workspace.leftSidebarVisible).toBe(true),
+    );
+
+    fireShortcut({ key: 'B', ctrlKey: true });
+    await waitFor(() =>
+      expect(useEditorWorkspaceStore.getState().workspace.leftSidebarVisible).toBe(false),
+    );
+    fireShortcut({ key: 'B', ctrlKey: true });
+    await waitFor(() =>
+      expect(useEditorWorkspaceStore.getState().workspace.leftSidebarVisible).toBe(true),
+    );
+  });
+
+  it('快捷键仅在文本编辑器工具挂载时生效(卸载后不再拦截)', async () => {
+    const { unmount } = render(<CodeEditorTool toolId="text_editor" metadata={null as never} />);
+    await screen.findByTestId('editor-empty');
+
+    fireShortcut({ key: 'N', ctrlKey: true });
+    await waitForTabCount(1);
+
+    unmount();
+    fireShortcut({ key: 'N', ctrlKey: true });
+    // 卸载后无监听:Tab 数不变
+    expect(useEditorWorkspaceStore.getState().workspace.tabs).toHaveLength(1);
+  });
+});
+
+describe('CodeEditorTool 菜单快捷键标签', () => {
+  it('菜单项快捷键标签与设置中的自定义绑定保持一致(非硬编码)', async () => {
+    // 自定义「新建」为 Ctrl+Alt+N:菜单标签必须同步显示新绑定
+    useConfigStore.setState({
+      config: {
+        ...DEFAULT_USER_CONFIG,
+        shortcuts: { ...DEFAULT_USER_CONFIG.shortcuts, new_file: 'Ctrl+Alt+N' },
+      },
+    });
+    renderTool();
+    await screen.findByTestId('editor-empty');
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('tool-menubar-trigger-file'));
+    const item = await screen.findByTestId('toolbar-new');
+    expect(item).toHaveTextContent('Ctrl+Alt+N');
+    expect(item).not.toHaveTextContent('Ctrl+N');
+  });
+
+  it('快捷键被禁用(空串)时菜单项不显示快捷键标签', async () => {
+    useConfigStore.setState({
+      config: {
+        ...DEFAULT_USER_CONFIG,
+        shortcuts: { ...DEFAULT_USER_CONFIG.shortcuts, new_file: '' },
+      },
+    });
+    renderTool();
+    await screen.findByTestId('editor-empty');
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('tool-menubar-trigger-file'));
+    const item = await screen.findByTestId('toolbar-new');
+    expect(item).not.toHaveTextContent('Ctrl+N');
+    expect(item).not.toHaveTextContent('Ctrl+Alt+N');
   });
 });

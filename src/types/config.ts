@@ -43,12 +43,33 @@ export interface ShortcutBinding {
   cycle_naming_case: string;
   /** 文本编辑器：切换选中文本大小写(大写 <-> 小写) */
   toggle_case: string;
+  /** 文本编辑器：新建空白 Tab */
+  new_file: string;
+  /** 文本编辑器：打开文件对话框 */
+  open_file: string;
+  /** 文本编辑器：全部保存 */
+  save_all: string;
+  /** 文本编辑器：关闭当前 Tab */
+  close_editor: string;
+  /** 文本编辑器：全部关闭(保留固定 Tab) */
+  close_all_editors: string;
+  /** 文本编辑器：切换「打开的编辑器」左栏显隐 */
+  toggle_editor_sidebar: string;
+  /** 文本编辑器：切换到下一个 Tab(循环) */
+  next_tab: string;
+  /** 文本编辑器：切换到上一个 Tab(循环) */
+  previous_tab: string;
+  /** 文本编辑器：恢复最近关闭的 Tab */
+  reopen_closed_tab: string;
 }
 
 export interface ToolPref {
   layout?: 'split' | 'stack' | 'full-input' | 'full-output';
   values?: Record<string, unknown>;
 }
+
+/** ShortcutBinding 的键名集合(useShortcut / 菜单标签同源取绑定用) */
+export type ShortcutKey = keyof ShortcutBinding;
 
 export interface Favorite {
   toolId: string;
@@ -82,6 +103,18 @@ export const DEFAULT_SHORTCUTS: ShortcutBinding = {
   global_search: 'Ctrl+Shift+F',
   cycle_naming_case: 'Ctrl+Shift+U',
   toggle_case: 'Ctrl+Shift+L',
+  new_file: 'Ctrl+N',
+  open_file: 'Ctrl+O',
+  save_all: 'Ctrl+Shift+S',
+  close_editor: 'Ctrl+W',
+  close_all_editors: 'Ctrl+Shift+W',
+  toggle_editor_sidebar: 'Ctrl+B',
+  // Alt+1..9 直达 Tab 为固定映射:Alt+数字在 ShortcutInput 录制与
+  // parseShortcut 中需逐键声明,九个键位挤占设置页收益有限,
+  // 沿用 VSCode/浏览器默认不做用户配置项
+  next_tab: 'Ctrl+Tab',
+  previous_tab: 'Ctrl+Shift+Tab',
+  reopen_closed_tab: 'Ctrl+Shift+T',
 };
 
 export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
