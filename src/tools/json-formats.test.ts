@@ -14,7 +14,7 @@ import {
 } from './json-formats';
 
 describe('DATA_FORMAT_ITEMS', () => {
-  it('exposes xml/yaml/toml/json5/properties/urlparams in order', () => {
+  it('exposes xml/yaml/toml/json5/properties/urlparams/csv in order', () => {
     expect(DATA_FORMAT_ITEMS.map((d) => d.id)).toEqual([
       'xml',
       'yaml',
@@ -22,6 +22,7 @@ describe('DATA_FORMAT_ITEMS', () => {
       'json5',
       'properties',
       'urlparams',
+      'csv',
     ]);
   });
 });

@@ -15,7 +15,7 @@
 import { stringify as yamlStringify } from 'yaml';
 import { t } from '@/i18n';
 
-export type DataFormatId = 'xml' | 'yaml' | 'toml' | 'json5' | 'properties' | 'urlparams';
+export type DataFormatId = 'xml' | 'yaml' | 'toml' | 'json5' | 'properties' | 'urlparams' | 'csv';
 
 /** 转换为菜单「数据格式」分组项(label 存 i18n 键,组件层翻译) */
 export const DATA_FORMAT_ITEMS: ReadonlyArray<{
@@ -29,6 +29,7 @@ export const DATA_FORMAT_ITEMS: ReadonlyArray<{
   { id: 'json5', label: 'JSON5' },
   { id: 'properties', label: 'Properties' },
   { id: 'urlparams', labelKey: 'tools.json_formatter.format_urlparams', label: 'URL 参数' },
+  { id: 'csv', label: 'CSV' },
 ];
 
 // ============================================================
