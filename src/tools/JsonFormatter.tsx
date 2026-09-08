@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type ComponentPropsWithoutRef,
+  type JSX,
   type KeyboardEvent,
 } from 'react';
 import type { editor } from 'monaco-editor';
@@ -64,6 +65,7 @@ import {
   RemoveFormatting,
   Save,
   Trash2,
+  TriangleAlert,
   Wand2,
   Wrench,
   X,
@@ -74,11 +76,16 @@ import {
   parseSmart,
   sniffInputFormat,
   sortJsonKeysBy,
+  reverseObjectKeys,
+  FRONTEND_FORMAT_LIMIT,
   type InputFormatId,
   type JsonKeySortMode,
 } from './json-utils';
 import { locateJsonError, type JsonErrorLocation } from './json-diagnostics';
 import { repairJson } from './json-repair';
+import { collectJsonStats, type JsonStats } from './json-stats';
+import { findJsonPrecisionIssues, type PrecisionIssue } from './json-precision';
+import { jsonToCsv } from './json-csv-utils';
 import { ENTITY_LANGUAGE_ITEMS, generateEntityCode, type EntityLanguage } from './json-entity';
 import {
   DATA_FORMAT_ITEMS,
@@ -144,7 +151,7 @@ const ENTITY_OUTPUT_LANGUAGE: Record<EntityLanguage, EditorLanguage> = {
   csharp: 'csharp',
 };
 
-/** 数据格式转换后的高亮语言(Monaco 无 TOML/JSON5/Properties 专属 id,就近映射) */
+/** 数据格式转换后的高亮语言(Monaco 无 TOML/JSON5/Properties/CSV 专属 id,就近映射) */
 const DATA_OUTPUT_LANGUAGE: Record<DataFormatId, EditorLanguage> = {
   xml: 'xml',
   yaml: 'yaml',
@@ -152,6 +159,7 @@ const DATA_OUTPUT_LANGUAGE: Record<DataFormatId, EditorLanguage> = {
   json5: 'javascript',
   properties: 'ini',
   urlparams: 'plaintext',
+  csv: 'plaintext',
 };
 
 /** 输入格式 → 编辑器高亮语言(JSON 之外的六种输入自动转 JSON,就近映射同上) */
@@ -312,6 +320,55 @@ function OutputViewToggle({
   );
 }
 
+/**
+ * 统计 + meta 徽标(文本/树形输出视图共用):
+ * 常显一行摘要(对象 N · 数组 N · 键 N · 深度 N | 字节与耗时),
+ * 悬浮展开顶层键列表;统计是市面 JSON 工具的普遍空白,信息量大成本极低。
+ */
+function StatsMetaBadge({
+  stats,
+  meta,
+}: {
+  stats: JsonStats | null;
+  meta: OutputMeta | null;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  if (!stats && !meta) return null;
+  const statsLine =
+    stats && (stats.objects > 0 || stats.arrays > 0 || stats.leaves > 0 || stats.keys > 0)
+      ? t('tools.json_formatter.stats_line', {
+          objects: stats.objects,
+          arrays: stats.arrays,
+          keys: stats.keys,
+          depth: stats.maxDepth,
+        })
+      : null;
+  const metaLine = meta
+    ? t('tools.json_formatter.bytes_meta', {
+        input: meta.input_bytes,
+        output: meta.output_bytes,
+        ms: meta.duration_ms,
+      })
+    : null;
+  const detail =
+    stats && stats.topLevelKeys.length > 0
+      ? t('tools.json_formatter.stats_top_keys', {
+          keys: stats.topLevelKeys.join(', '),
+        })
+      : null;
+  return (
+    <span
+      data-testid="stats-badge"
+      title={detail ?? undefined}
+      className="whitespace-nowrap text-xs text-muted-foreground"
+    >
+      {statsLine}
+      {statsLine && metaLine ? ' · ' : ''}
+      {metaLine}
+    </span>
+  );
+}
+
 export function JsonFormatter({ toolId }: ToolProps) {
   const { t } = useTranslation();
   // —— 多 Tab 工作区(store 为模块级单例,状态跨挂载保留)——
@@ -395,6 +452,14 @@ export function JsonFormatter({ toolId }: ToolProps) {
   const [jsonError, setJsonError] = useState<JsonErrorLocation | null>(null);
   /** 「修复 JSON」上一次动作的报告(fixed=false 或 actions 为空时为 null) */
   const [repairReport, setRepairReport] = useState<string | null>(null);
+  /** 最近一次成功解析的文档结构统计(对象/数组/键/深度),解析失败时为 null */
+  const [stats, setStats] = useState<JsonStats | null>(null);
+  /**
+   * 大数字精度警示:格式化输出对源文本的大数字扫描结果(非空时输出区
+   * 顶部显示警示条)。仅作如实告知,不阻断任何操作 —— JSON.parse/serde_json
+   * 的 f64 解析会静默丢精度,用户应知道格式化输出与原值可能有差。
+   */
+  const [precisionIssues, setPrecisionIssues] = useState<PrecisionIssue[] | null>(null);
   /** JSONPath 视图:查询表达式(作用于左侧输入文档,非格式化输出) */
   const [jsonPathExpr, setJsonPathExpr] = useState('$.');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -442,11 +507,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
   /** 组件根 DOM:错误定位在无 Monaco 实例的环境下(shim)经根查输入 textarea */
   const rootRef = useRef<HTMLDivElement>(null);
 
-  /**
-   * 前端格式化阈值:低于该字节数直接在前端用 JSON.stringify 格式化(秒级响应,省 IPC 往返);
-   * 超过阈值才走后端 Rust(保留其对超大输入的资源隔离与 10MB 拦截)。
-   */
-  const FRONTEND_FORMAT_LIMIT = 200 * 1024; // 200KB  // 启动时从 Rust config 还原文档与历史(hydrate 内部幂等)
+  // 启动时从 Rust config 还原文档与历史(hydrate 内部幂等)
   useEffect(() => {
     void useJsonFormatterStore.getState().hydrate();
   }, []);
@@ -497,6 +558,8 @@ export function JsonFormatter({ toolId }: ToolProps) {
     setRenderedDocId(activeDocId);
     setOutput('');
     setMeta(null);
+    setStats(null);
+    setPrecisionIssues(null);
     setViewMode('text');
   }
 
@@ -530,11 +593,27 @@ export function JsonFormatter({ toolId }: ToolProps) {
     setHistoryOpen(false);
   }
 
-  /** 前端快速格式化:解析(含 XML 自动转 JSON)后按缩进美化输出 */
-  function formatOnFrontend(textToFormat: string): string {
-    const value = parseSmart(textToFormat);
-    return JSON.stringify(value, null, indent);
-  }
+  /**
+   * 前端路径的 meta 回填:与 Rust 侧 OutputMeta 同构(耗时 ms / UTF-8 字节数),
+   * 消除「前端路径无任何 meta」与后端路径的展示差异;耗时口径为
+   * performance.now 差值,与后端 Instant::now 差值一致(均为执行耗时,不含 IPC)。
+   */
+  const utf8BytesOf = useCallback((s: string): number => {
+    try {
+      return new TextEncoder().encode(s).length;
+    } catch {
+      // jsdom 等环境缺 TextEncoder 时退回字符数(展示口径略偏,不致命)
+      return s.length;
+    }
+  }, []);
+  const frontendMetaOf = useCallback(
+    (inputText: string, outputText: string, startMs: number): OutputMeta => ({
+      duration_ms: Math.max(0, Math.round(performance.now() - startMs)),
+      input_bytes: utf8BytesOf(inputText),
+      output_bytes: utf8BytesOf(outputText),
+    }),
+    [utf8BytesOf],
+  );
 
   /**
    * 解析失败的 JSON 错误定位;修复报告仅在用户再次输入时清空
@@ -653,10 +732,16 @@ export function JsonFormatter({ toolId }: ToolProps) {
       if (!text.trim()) return;
       if (!auto) setLoading(true);
       try {
-        // 中小数据直接在前端格式化,避免无谓的 IPC 往返
+        // 中小数据直接在前端格式化,避免无谓的 IPC 往返;
+        // meta(耗时/字节)与结构统计在前端同构计算,与后端路径展示对齐
         if (text.length <= FRONTEND_FORMAT_LIMIT) {
-          setOutput(formatOnFrontend(text));
-          setMeta(null);
+          const startMs = performance.now();
+          const value = parseSmart(text);
+          const formatted = JSON.stringify(value, null, indent);
+          setOutput(formatted);
+          setMeta(frontendMetaOf(text, formatted, startMs));
+          setStats(collectJsonStats(value));
+          setPrecisionIssues(findJsonPrecisionIssues(text));
           setOutputLanguage('json');
         } else {
           const result = await invokeCommand<ToolOutput>('tool_execute', {
@@ -665,6 +750,9 @@ export function JsonFormatter({ toolId }: ToolProps) {
           });
           setOutput(result.text ?? '');
           setMeta(result.meta ?? null);
+          // 后端路径的结构统计:输出已是合法 JSON(后端校验过),解析一次统计
+          setStats(collectJsonStats(parseSmart(result.text ?? '')));
+          setPrecisionIssues(findJsonPrecisionIssues(text));
           setOutputLanguage('json');
         }
         recordHistory(text);
@@ -673,6 +761,8 @@ export function JsonFormatter({ toolId }: ToolProps) {
         // 报错直接写入右侧输出框
         setOutput(formatError(e, t('tools.json_formatter.format_failed')));
         setMeta(null);
+        setStats(null);
+        setPrecisionIssues(null);
         setOutputLanguage('plaintext');
         rememberJsonError();
       } finally {
@@ -680,7 +770,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
       }
     },
     // formatOnFrontend 为组件内纯函数,仅依赖 indent(已含于依赖数组)
-    [toolId, text, indent, recordHistory, t, forgetJsonError, rememberJsonError],
+    [toolId, text, indent, recordHistory, t, forgetJsonError, rememberJsonError, frontendMetaOf],
   );
 
   // 全局快捷键契约:Ctrl+Enter 执行 / Ctrl+L 清空当前文档 / Ctrl+Shift+C 复制输出。
@@ -709,6 +799,8 @@ export function JsonFormatter({ toolId }: ToolProps) {
         // 空输入:在异步回调内清空,避免在 effect 同步体内 setState 触发的级联渲染
         setOutput('');
         setMeta(null);
+        setStats(null);
+        setPrecisionIssues(null);
         forgetJsonError();
       } else {
         void runFormat(true);
@@ -723,8 +815,32 @@ export function JsonFormatter({ toolId }: ToolProps) {
    * 纯前端快速操作:压缩 / 生成实体类(支持 XML 输入自动转 JSON)。
    * 排序由 handleSort 单独处理(模式更多)。
    */
-  function handleQuickAction(action: QuickAction) {
+  /**
+   * 纯前端快速操作:压缩 / 生成实体类(支持 XML 输入自动转 JSON)。
+   * 排序由 handleSort 单独处理(模式更多)。
+   * 压缩对超大输入(>FRONTEND_FORMAT_LIMIT)分流到后端 minify:超大文档
+   * 的字符串拼接同样会阻塞主线程,后端序列化更快且带资源隔离。
+   */
+  async function handleQuickAction(action: QuickAction) {
     if (!text.trim()) return;
+    if (action === 'minify' && isJsonLike && text.length > FRONTEND_FORMAT_LIMIT) {
+      try {
+        const result = await invokeCommand<ToolOutput>('tool_execute', {
+          toolId,
+          input: { text, params: { minify: true } },
+        });
+        setOutput(result.text ?? '');
+        setMeta(result.meta ?? null);
+        setOutputLanguage('json');
+        recordHistory(text);
+      } catch (e) {
+        setOutput(formatError(e, t('tools.json_formatter.parse_failed')));
+        setOutputLanguage('plaintext');
+        setMeta(null);
+        rememberJsonError();
+      }
+      return;
+    }
     try {
       const value = parseSmart(text);
       switch (action) {
@@ -775,9 +891,37 @@ export function JsonFormatter({ toolId }: ToolProps) {
     }
   }
 
-  /** 按指定模式对全部对象的键递归排序(数组顺序保持不变) */
-  function handleSort(mode: JsonKeySortMode, descending: boolean) {
+  /**
+   * 按指定模式对全部对象的键递归排序(数组顺序保持不变)。
+   * 超大输入的字典序升/降序分流到后端 sort_keys(Rust 侧能力对齐);
+   * 其余五种特殊模式(natural/hex/length/reverse/random)后端无对应实现,
+   * 保持前端执行 —— 排序比较器本身是 O(n log n) 轻计算,不构成阻塞热点。
+   */
+  async function handleSort(mode: JsonKeySortMode, descending: boolean) {
     if (!text.trim()) return;
+    const backendCapable = mode === 'alpha';
+    if (backendCapable && isJsonLike && text.length > FRONTEND_FORMAT_LIMIT) {
+      try {
+        const result = await invokeCommand<ToolOutput>('tool_execute', {
+          toolId,
+          input: { text, params: { sort_keys: !descending } },
+        });
+        // 后端仅支持升序;降序由前端把后端的升序输出反转一次键序
+        const sorted = descending
+          ? JSON.stringify(reverseObjectKeys(JSON.parse(result.text ?? 'null') as unknown))
+          : (result.text ?? '');
+        setOutput(sorted);
+        setMeta(result.meta ?? null);
+        setOutputLanguage('json');
+        recordHistory(text);
+      } catch (e) {
+        setOutput(formatError(e, t('tools.json_formatter.sort_failed')));
+        setOutputLanguage('plaintext');
+        setMeta(null);
+        rememberJsonError();
+      }
+      return;
+    }
     try {
       const value = parseSmart(text);
       setOutput(JSON.stringify(sortJsonKeysBy(value, { mode, descending }), null, indent));
@@ -788,6 +932,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
       setOutput(formatError(e, t('tools.json_formatter.sort_failed')));
       setOutputLanguage('plaintext');
       setMeta(null);
+      rememberJsonError();
     }
   }
 
@@ -808,13 +953,31 @@ export function JsonFormatter({ toolId }: ToolProps) {
   }
 
   /**
-   * 转换为指定数据格式(XML / YAML / TOML / JSON5 / Properties / URL 参数)。
+   * 转换为指定数据格式(XML / YAML / TOML / JSON5 / Properties / URL 参数 / CSV)。
    * 输入支持 XML 自动转 JSON(parseSmart),即「XML → YAML」等链式转换天然可用。
+   * CSV 的域约束与其余格式不同:要求根为对象数组,其余格式根任意;不满足时
+   * 如实输出说明(与实体类生成的「根不是对象」先例一致),不静默输出错误结构。
    */
   function handleConvertFormat(format: DataFormatId) {
     if (!text.trim()) return;
     try {
       const value = parseSmart(text);
+      if (format === 'csv') {
+        if (
+          !Array.isArray(value) ||
+          value.some((row) => typeof row !== 'object' || row === null || Array.isArray(row))
+        ) {
+          setOutput(t('tools.json_formatter.csv_root_not_object_array'));
+          setOutputLanguage('plaintext');
+          setMeta(null);
+          return;
+        }
+        setOutput(jsonToCsv(value as Array<Record<string, unknown>>));
+        setOutputLanguage('plaintext');
+        setMeta(null);
+        recordHistory(text);
+        return;
+      }
       let converted: string;
       switch (format) {
         case 'xml':
@@ -1576,132 +1739,152 @@ export function JsonFormatter({ toolId }: ToolProps) {
         <ResizableHandle withHandle />
 
         <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
-          {viewMode === 'tree' ? (
-            <div className="flex h-full flex-col overflow-hidden rounded-none border-0 border-l border-input bg-background-layer">
-              {/* 与 CodeEditor 工具栏(文本模式)严格同高同色:py-0.5 + border-input,
-                  保证切换 文本/树形 时两条工具栏分隔线完全对齐 */}
-              <div className="flex items-center gap-2 border-b border-input px-2 py-0.5">
-                <span className="flex-1 text-xs font-medium text-muted-foreground">
-                  {t('tools.json_formatter.output_title')}
-                </span>
-                {meta && (
-                  <span className="text-xs text-muted-foreground">
-                    {t('tools.json_formatter.bytes_meta', {
-                      input: meta.input_bytes,
-                      output: meta.output_bytes,
-                      ms: meta.duration_ms,
-                    })}
-                  </span>
-                )}
-                {/* 与输入侧工具栏自然同高(控件均为 py-1 text-xs ≈ 24px 行高) */}
-                <span className="flex items-center">
-                  <OutputViewToggle mode={viewMode} onChange={setViewMode} />
-                  <CopyAction text={output} testId="output-copy-tree" />
-                  <SendToMenu text={output} currentToolId={toolId} testId="output-send-tree" />
-                </span>
-              </div>
-              {!output.trim() ? (
-                <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
-                  {t('tools.json_formatter.empty_output')}
-                </div>
-              ) : treeParsing ? (
-                <div
-                  className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground"
-                  role="status"
-                >
-                  {t('tools.json_formatter.building_tree')}
-                </div>
-              ) : treeValue.ok ? (
-                <JsonTreeView
-                  value={treeValue.value}
-                  className="flex-1 bg-background-layer"
-                  data-testid="output-tree"
-                />
-              ) : (
-                <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
-                  {t('tools.json_formatter.invalid_tree_output')}
-                </div>
-              )}
-            </div>
-          ) : viewMode === 'jsonpath' ? (
-            <div className="flex h-full flex-col overflow-hidden rounded-none border-0 border-l border-input bg-background-layer">
-              {/* 工具栏:与文本/树形视图严格同高同色,切换视图时分隔线完全对齐 */}
-              <div className="flex items-center gap-2 border-b border-input px-2 py-0.5">
-                <span className="flex-1 text-xs font-medium text-muted-foreground">
-                  {t('tools.json_formatter.jsonpath_title')}
-                </span>
-                <span className="flex items-center">
-                  <OutputViewToggle mode={viewMode} onChange={setViewMode} />
-                  <CopyAction text={jsonPathResult} testId="jsonpath-copy" />
-                  <SendToMenu text={jsonPathResult} currentToolId={toolId} testId="jsonpath-send" />
-                </span>
-              </div>
-              {/* 表达式输入区:仿侧边栏搜索框(相对定位 + 图标左锚定 + 内嵌标准 Input) */}
+          <div className="flex h-full min-h-0 flex-col">
+            {/* 大数字精度警示:格式化成功后若源文本含会丢精度的数字,如实告知;
+                不阻断操作(用户可能不在意),点击 X 关闭直到下次格式化 */}
+            {precisionIssues && precisionIssues.length > 0 && (
               <div
-                aria-label={t('tools.json_formatter.jsonpath_expression_title')}
-                data-search-anchor="json_formatter:jsonpath-expression"
-                className="border-b border-border px-2 py-1.5"
+                data-testid="precision-warning"
+                className="flex shrink-0 items-center gap-1.5 border-b border-border bg-amber-500/10 px-2 py-1 text-xs text-amber-700 dark:text-amber-400"
               >
-                <div className="relative">
-                  <Parentheses
-                    aria-hidden
-                    className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-                  />
-                  <Input
-                    type="text"
-                    value={jsonPathExpr}
-                    onChange={(e) => setJsonPathExpr(e.target.value)}
-                    placeholder="$.store.book[*].author"
-                    aria-label={t('tools.json_formatter.jsonpath_expression_title')}
-                    data-testid="jsonpath-expr"
-                    className="h-8 pl-8 pr-2 text-sm"
-                  />
-                </div>
+                <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
+                <span
+                  className="min-w-0 flex-1 truncate"
+                  title={precisionIssues
+                    .slice(0, 20)
+                    .map((p) => `L${p.line}:C${p.column} ${p.raw}`)
+                    .join('\n')}
+                >
+                  {t('tools.json_formatter.precision_warning', {
+                    count: precisionIssues.length,
+                    sample: precisionIssues[0].raw,
+                  })}
+                </span>
+                <button
+                  type="button"
+                  aria-label={t('tools.json_formatter.precision_close_aria')}
+                  onClick={() => setPrecisionIssues(null)}
+                  className="flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <X aria-hidden className="size-3" />
+                </button>
               </div>
-              <div className="min-h-0 flex-1">
-                <CodeEditor
-                  readOnly
-                  title={t('tools.json_formatter.jsonpath_result_title')}
-                  language="json"
-                  value={jsonPathResult}
-                  data-testid="jsonpath-result"
-                  className="h-full rounded-none border-0"
-                  searchAnchor="json_formatter:jsonpath-result"
-                />
-              </div>
-            </div>
-          ) : (
-            <CodeEditor
-              readOnly
-              title={t('tools.json_formatter.output_title')}
-              language={outputLanguage}
-              value={output}
-              // 对称:只保留左侧边框(朝向中间分隔缝),理由同输入侧
-              className="h-full rounded-none border-0 border-l"
-              data-testid="output"
-              searchAnchor="json_formatter:output"
-              actions={
-                <>
-                  {meta && (
-                    <span className="text-xs text-muted-foreground">
-                      {t('tools.json_formatter.bytes_meta', {
-                        input: meta.input_bytes,
-                        output: meta.output_bytes,
-                        ms: meta.duration_ms,
-                      })}
-                    </span>
-                  )}
-                  {/* 与输入侧工具栏自然同高:缩进下拉框移除后,两侧控件均为
-                      py-1 text-xs(≈24px 行高),无需再强制 h-7 对齐 */}
+            )}
+            {viewMode === 'tree' ? (
+              <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-none border-0 border-l border-input bg-background-layer">
+                {/* 与 CodeEditor 工具栏(文本模式)严格同高同色:py-0.5 + border-input,
+                  保证切换 文本/树形 时两条工具栏分隔线完全对齐 */}
+                <div className="flex items-center gap-2 border-b border-input px-2 py-0.5">
+                  <span className="flex-1 text-xs font-medium text-muted-foreground">
+                    {t('tools.json_formatter.output_title')}
+                  </span>
+                  <StatsMetaBadge stats={stats} meta={meta} />
+                  {/* 与输入侧工具栏自然同高(控件均为 py-1 text-xs ≈ 24px 行高) */}
                   <span className="flex items-center">
                     <OutputViewToggle mode={viewMode} onChange={setViewMode} />
-                    <CopyAction text={output} testId="output-copy" />
-                    <SendToMenu text={output} currentToolId={toolId} testId="output-send" />
+                    <CopyAction text={output} testId="output-copy-tree" />
+                    <SendToMenu text={output} currentToolId={toolId} testId="output-send-tree" />
                   </span>
-                </>
-              }
-            />
-          )}
+                </div>
+                {!output.trim() ? (
+                  <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+                    {t('tools.json_formatter.empty_output')}
+                  </div>
+                ) : treeParsing ? (
+                  <div
+                    className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground"
+                    role="status"
+                  >
+                    {t('tools.json_formatter.building_tree')}
+                  </div>
+                ) : treeValue.ok ? (
+                  <JsonTreeView
+                    value={treeValue.value}
+                    className="flex-1 bg-background-layer"
+                    data-testid="output-tree"
+                  />
+                ) : (
+                  <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+                    {t('tools.json_formatter.invalid_tree_output')}
+                  </div>
+                )}
+              </div>
+            ) : viewMode === 'jsonpath' ? (
+              <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-none border-0 border-l border-input bg-background-layer">
+                {/* 工具栏:与文本/树形视图严格同高同色,切换视图时分隔线完全对齐 */}
+                <div className="flex items-center gap-2 border-b border-input px-2 py-0.5">
+                  <span className="flex-1 text-xs font-medium text-muted-foreground">
+                    {t('tools.json_formatter.jsonpath_title')}
+                  </span>
+                  <span className="flex items-center">
+                    <OutputViewToggle mode={viewMode} onChange={setViewMode} />
+                    <CopyAction text={jsonPathResult} testId="jsonpath-copy" />
+                    <SendToMenu
+                      text={jsonPathResult}
+                      currentToolId={toolId}
+                      testId="jsonpath-send"
+                    />
+                  </span>
+                </div>
+                {/* 表达式输入区:仿侧边栏搜索框(相对定位 + 图标左锚定 + 内嵌标准 Input) */}
+                <div
+                  aria-label={t('tools.json_formatter.jsonpath_expression_title')}
+                  data-search-anchor="json_formatter:jsonpath-expression"
+                  className="border-b border-border px-2 py-1.5"
+                >
+                  <div className="relative">
+                    <Parentheses
+                      aria-hidden
+                      className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <Input
+                      type="text"
+                      value={jsonPathExpr}
+                      onChange={(e) => setJsonPathExpr(e.target.value)}
+                      placeholder="$.store.book[*].author"
+                      aria-label={t('tools.json_formatter.jsonpath_expression_title')}
+                      data-testid="jsonpath-expr"
+                      className="h-8 pl-8 pr-2 text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1">
+                  <CodeEditor
+                    readOnly
+                    title={t('tools.json_formatter.jsonpath_result_title')}
+                    language="json"
+                    value={jsonPathResult}
+                    data-testid="jsonpath-result"
+                    className="h-full rounded-none border-0"
+                    searchAnchor="json_formatter:jsonpath-result"
+                  />
+                </div>
+              </div>
+            ) : (
+              <CodeEditor
+                readOnly
+                title={t('tools.json_formatter.output_title')}
+                language={outputLanguage}
+                value={output}
+                // 对称:只保留左侧边框(朝向中间分隔缝),理由同输入侧
+                className="h-full rounded-none border-0 border-l"
+                data-testid="output"
+                searchAnchor="json_formatter:output"
+                actions={
+                  <>
+                    <StatsMetaBadge stats={stats} meta={meta} />
+                    {/* 与输入侧工具栏自然同高:缩进下拉框移除后,两侧控件均为
+                      py-1 text-xs(≈24px 行高),无需再强制 h-7 对齐 */}
+                    <span className="flex items-center">
+                      <OutputViewToggle mode={viewMode} onChange={setViewMode} />
+                      <CopyAction text={output} testId="output-copy" />
+                      <SendToMenu text={output} currentToolId={toolId} testId="output-send" />
+                    </span>
+                  </>
+                }
+              />
+            )}
+          </div>
         </ResizablePanel>
       </ResizablePanelGroup>
 

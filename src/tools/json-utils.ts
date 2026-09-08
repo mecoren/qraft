@@ -247,6 +247,24 @@ export function generateTsInterface(value: unknown, rootName = 'Root'): string {
 export type InputFormatId = 'json' | 'xml' | 'yaml' | 'toml' | 'json5' | 'properties' | 'urlparams';
 
 /**
+ * 前后端格式化分流阈值(按 JS 字符长度计,约 200KB):
+ * 不超过该长度的输入在前端用 JSON.stringify 格式化(秒级响应,省 IPC 往返),
+ * 超过则走后端 Rust(保留其对超大输入的资源隔离与 10MB 拦截)。
+ * 定义在此处供 JsonFormatter 的各操作路径(格式化 / 排序 / 快速操作)共享;
+ * 注意后端 Rust 侧另有 10MB 硬上限(json_formatter.rs MAX_INPUT_BYTES)。
+ */
+export const FRONTEND_FORMAT_LIMIT = 200 * 1024;
+
+/**
+ * 递归反转各对象的原键序(数组顺序不变)。
+ * 与 sortJsonKeysBy 的 reverse 模式同义,独立导出供 JsonFormatter 的
+ * 后端排序降序路径复用(后端 sort_keys 仅升序,降序 = 升序结果反转键序)。
+ */
+export function reverseObjectKeys(value: unknown): unknown {
+  return sortJsonKeysBy(value, { mode: 'reverse' });
+}
+
+/**
  * 嗅探输入文本的数据格式(轻量启发,仅看结构特征,不做完整解析)。
  * 判定规则保守:特征不明确时返回 null(按 JSON 处理),宁可解析失败报错
  * 也不把破损 JSON 误判成别的格式静默吞掉。

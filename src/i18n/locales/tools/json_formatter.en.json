@@ -98,6 +98,10 @@
   "tools.json_formatter.urlparams_hint": "URL params detected; they will be converted to JSON automatically",
   "tools.json_formatter.output_title": "Output",
   "tools.json_formatter.bytes_meta": "{{input}} → {{output}} bytes · {{ms}}ms",
+  "tools.json_formatter.stats_line": "{{objects}} objects · {{arrays}} arrays · {{keys}} keys · depth {{depth}}",
+  "tools.json_formatter.stats_top_keys": "Top-level keys: {{keys}}",
+  "tools.json_formatter.precision_warning": "{{count}} large number(s) may lose precision (e.g. {{sample}}); output is parsed as double and may differ from the source",
+  "tools.json_formatter.precision_close_aria": "Close precision warning",
   "tools.json_formatter.empty_output": "No output yet",
   "tools.json_formatter.building_tree": "Building tree view…",
   "tools.json_formatter.invalid_tree_output": "Current output is not valid JSON / XML; cannot build a tree view",
@@ -117,5 +121,6 @@
   "tools.json_formatter.entity_lang_csharp": "C# class",
   "tools.json_formatter.entity_root_not_object_slash": "// Root is not a JSON object; cannot generate {{lang}}\n// Inferred root type: {{base}}",
   "tools.json_formatter.entity_root_not_object_hash": "# Root is not a JSON object; cannot generate {{lang}}\n# Inferred root type: {{base}}",
-  "tools.json_formatter.entity_lang_unsupported": "Unsupported language: {{value}}"
+  "tools.json_formatter.entity_lang_unsupported": "Unsupported language: {{value}}",
+  "tools.json_formatter.csv_root_not_object_array": "Root is not an array of objects; cannot generate CSV. CSV requires tabular data like [{\"column\": \"value\"}, …]. To export a single object, wrap it in an array first."
 }

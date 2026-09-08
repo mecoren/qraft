@@ -98,6 +98,10 @@
   "tools.json_formatter.urlparams_hint": "已识别 URL 参数,将自动转换为 JSON",
   "tools.json_formatter.output_title": "输出",
   "tools.json_formatter.bytes_meta": "{{input}} → {{output}} 字节 · {{ms}}ms",
+  "tools.json_formatter.stats_line": "对象 {{objects}} · 数组 {{arrays}} · 键 {{keys}} · 深度 {{depth}}",
+  "tools.json_formatter.stats_top_keys": "顶层键:{{keys}}",
+  "tools.json_formatter.precision_warning": "检测到 {{count}} 处可能丢精度的大数字(如 {{sample}}),输出按双精度解析可能与原值不符",
+  "tools.json_formatter.precision_close_aria": "关闭精度警示",
   "tools.json_formatter.empty_output": "暂无输出内容",
   "tools.json_formatter.building_tree": "正在构建树视图…",
   "tools.json_formatter.invalid_tree_output": "当前输出不是有效的 JSON / XML,无法生成树结构",
@@ -117,5 +121,6 @@
   "tools.json_formatter.entity_lang_csharp": "C# 类",
   "tools.json_formatter.entity_root_not_object_slash": "// 根节点不是 JSON 对象,无法生成 {{lang}}\n// 推断的根类型:{{base}}",
   "tools.json_formatter.entity_root_not_object_hash": "# 根节点不是 JSON 对象,无法生成 {{lang}}\n# 推断的根类型:{{base}}",
-  "tools.json_formatter.entity_lang_unsupported": "不支持的语言: {{value}}"
+  "tools.json_formatter.entity_lang_unsupported": "不支持的语言: {{value}}",
+  "tools.json_formatter.csv_root_not_object_array": "根节点不是对象数组,无法生成 CSV。CSV 需要形如 [{\"列\": \"值\"}, …] 的表格数据;如需导出单对象,请先包一层数组。"
 }

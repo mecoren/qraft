@@ -49,6 +49,8 @@ impl Tool for JsonFormatter {
         // 修正计划 bug:param 返回 Result,需要 turbofish 显式指定 T
         let indent: u32 = input.param::<u32>("indent").unwrap_or(2);
         let sort_keys: bool = input.param::<bool>("sort_keys").unwrap_or(false);
+        // minify:紧凑单行输出(indent 参数被忽略),供超大输入的前端快速操作复用后端
+        let minify: bool = input.param::<bool>("minify").unwrap_or(false);
 
         // 解析 + 序列化是纯 CPU 密集工作,10MB 级输入会占用 tokio worker 数百 ms;
         // 移交 spawn_blocking 执行避免阻塞异步运行时。校验通过后 text 必为 Some,
@@ -56,7 +58,7 @@ impl Tool for JsonFormatter {
         let text_owned = input.text.take().unwrap_or_default();
         let start = Instant::now();
         let mut output = tokio::task::spawn_blocking(move || {
-            format_core(&text_owned, indent, sort_keys, input_bytes)
+            format_core(&text_owned, indent, sort_keys, minify, input_bytes)
         })
         .await
         .map_err(|e| ToolError::Internal(format!("format worker failed: {e}")))??;
@@ -72,23 +74,33 @@ impl Tool for JsonFormatter {
 
 /// 同步格式化核心:纯 CPU 工作(解析 / 键排序 / 序列化),调用方须经 `spawn_blocking` 执行。
 /// `meta.duration_ms` 恒为 0,由异步包装方按真实耗时回填;`output_bytes` 在此如实统计。
+/// `minify = true` 时用紧凑序列化(无换行缩进),`indent` 参数被忽略。
 fn format_core(
     text: &str,
     indent: u32,
     sort_keys: bool,
+    minify: bool,
     input_bytes: usize,
 ) -> Result<ToolOutput, ToolError> {
     let value: serde_json::Value =
         serde_json::from_str(text).map_err(|e| ToolError::ParseFailed(e.to_string()))?;
     let final_value = if sort_keys { sort_value(value) } else { value };
 
-    let indent_str = " ".repeat(indent as usize);
-    let formatter = serde_json::ser::PrettyFormatter::with_indent(indent_str.as_bytes());
-    let mut buf = Vec::new();
-    let mut ser = serde_json::Serializer::with_formatter(&mut buf, formatter);
-    serde::Serialize::serialize(&final_value, &mut ser)
-        .map_err(|e| ToolError::Internal(e.to_string()))?;
-    let out_text = String::from_utf8(buf).map_err(|e| ToolError::Internal(e.to_string()))?;
+    let out_text = if minify {
+        let mut buf = Vec::new();
+        let mut ser = serde_json::Serializer::new(&mut buf);
+        serde::Serialize::serialize(&final_value, &mut ser)
+            .map_err(|e| ToolError::Internal(e.to_string()))?;
+        String::from_utf8(buf).map_err(|e| ToolError::Internal(e.to_string()))?
+    } else {
+        let indent_str = " ".repeat(indent as usize);
+        let formatter = serde_json::ser::PrettyFormatter::with_indent(indent_str.as_bytes());
+        let mut buf = Vec::new();
+        let mut ser = serde_json::Serializer::with_formatter(&mut buf, formatter);
+        serde::Serialize::serialize(&final_value, &mut ser)
+            .map_err(|e| ToolError::Internal(e.to_string()))?;
+        String::from_utf8(buf).map_err(|e| ToolError::Internal(e.to_string()))?
+    };
     let output_bytes = out_text.len();
 
     Ok(ToolOutput {
@@ -226,11 +238,14 @@ async fn format_internal(mut input: ToolInput) -> Result<ToolOutput, ToolError> 
     let input_bytes = text.len();
     let indent: u32 = input.param::<u32>("indent").unwrap_or(2);
     let sort_keys: bool = input.param::<bool>("sort_keys").unwrap_or(false);
+    let minify: bool = input.param::<bool>("minify").unwrap_or(false);
     let text_owned = input.text.take().unwrap_or_default();
 
-    tokio::task::spawn_blocking(move || format_core(&text_owned, indent, sort_keys, input_bytes))
-        .await
-        .map_err(|e| ToolError::Internal(format!("format worker failed: {e}")))?
+    tokio::task::spawn_blocking(move || {
+        format_core(&text_owned, indent, sort_keys, minify, input_bytes)
+    })
+    .await
+    .map_err(|e| ToolError::Internal(format!("format worker failed: {e}")))?
 }
 
 #[cfg(test)]
@@ -315,6 +330,20 @@ mod tests {
         let output = tool.execute(input, &ctx).await.unwrap();
 
         assert_eq!(output.text, "[]");
+    }
+
+    #[tokio::test]
+    async fn test_format_minify_param_produces_compact_output() {
+        let tool = JsonFormatter::new();
+        let ctx = mock_context();
+        let mut params = HashMap::new();
+        params.insert("minify".to_string(), json!(true));
+        let input = make_input_with_params("{\n  \"a\": 1,\n  \"b\": 2\n}", params);
+
+        let output = tool.execute(input, &ctx).await.unwrap();
+
+        // minify:单行紧凑,无换行无缩进(indent 参数被忽略)
+        assert_eq!(output.text, r#"{"a":1,"b":2}"#);
     }
 
     #[tokio::test]

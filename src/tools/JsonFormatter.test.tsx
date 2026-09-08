@@ -97,6 +97,57 @@ describe('JsonFormatter', () => {
     expect(invokeCommand).not.toHaveBeenCalled();
   });
 
+  it('shows the stats badge with object/array/key/depth counts after formatting', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), {
+      target: { value: '{"a":1,"b":{"c":[2,3]}}' },
+    });
+
+    const badge = await screen.findByTestId('stats-badge');
+    // 统计:对象 2(root+b)· 数组 1 · 键 3(a,b,c)· 深度 4
+    expect(badge.textContent).toContain('对象 2');
+    expect(badge.textContent).toContain('数组 1');
+    expect(badge.textContent).toContain('键 3');
+    expect(badge.textContent).toContain('深度 4');
+    // 前端路径的 meta 也已回填(不再恒为空)
+    expect(badge.textContent).toContain('字节');
+  });
+
+  it('warns about large numbers that lose precision during parsing', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), {
+      target: { value: '{"id": 9123372036854000123}' },
+    });
+
+    // 格式化成功,同时出现精度警示条
+    await waitFor(() => {
+      expect(getOutputValue()).toContain('912337203685400000');
+    });
+    const warning = await screen.findByTestId('precision-warning');
+    expect(warning.textContent).toContain('9123372036854000123');
+    expect(warning.textContent).toContain('丢精度');
+
+    // 安全数字文档不出警示
+    fireEvent.change(getInputEditor(), { target: { value: '{"a": 1}' } });
+    await waitFor(() => {
+      expect(getOutputValue()).toBe('{\n  "a": 1\n}');
+    });
+    expect(screen.queryByTestId('precision-warning')).not.toBeInTheDocument();
+  });
+
+  it('clears the stats badge when the input becomes empty or invalid', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: '{"a":1}' } });
+    await screen.findByTestId('stats-badge');
+
+    // 非法输入:统计与 meta 一并清除
+    fireEvent.change(getInputEditor(), { target: { value: '{invalid}' } });
+    await waitFor(() => {
+      expect(getOutputValue()).toMatch(/格式化失败/);
+    });
+    expect(screen.queryByTestId('stats-badge')).not.toBeInTheDocument();
+  });
+
   it('escape writes the input as a JSON string literal to the output', () => {
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
     const raw = '{"a":"x\ny"}';
@@ -325,6 +376,45 @@ describe('JsonFormatter', () => {
 
     await waitFor(() => {
       expect(getOutputValue()).toBe('{"a":1,"b":2}');
+    });
+  });
+
+  it('routes oversized minify and alpha sort through the Rust backend', async () => {
+    const user = userEvent.setup();
+    const { invokeCommand } = await import('@/lib/ipc');
+    const largeJson = `{"b":${'1'.repeat(200 * 1024)},"a":2}`;
+    // minify 的后端返回与 sort 的后端返回按调用次序依次生效
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        text: largeJson,
+        meta: { input_bytes: largeJson.length, output_bytes: largeJson.length, duration_ms: 1 },
+      })
+      .mockResolvedValueOnce({
+        text: largeJson,
+        meta: { input_bytes: largeJson.length, output_bytes: largeJson.length, duration_ms: 1 },
+      });
+
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: largeJson } });
+
+    // 压缩:>200KB 走后端 minify 参数
+    fireEvent.click(screen.getByTestId('btn-minify'));
+    await waitFor(() => {
+      expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
+        toolId: 'json_formatter',
+        input: { text: largeJson, params: { minify: true } },
+      });
+    });
+
+    // 字典序升序:>200KB 走后端 sort_keys(Radix 触发器用键盘激活最可靠,同既有排序用例)
+    screen.getByTestId('btn-sort').focus();
+    await user.keyboard('{Enter}');
+    fireEvent.click(await screen.findByTestId('sort-alpha-asc'));
+    await waitFor(() => {
+      expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
+        toolId: 'json_formatter',
+        input: { text: largeJson, params: { sort_keys: true } },
+      });
     });
   });
 
