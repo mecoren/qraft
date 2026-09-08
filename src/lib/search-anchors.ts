@@ -379,6 +379,92 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
     },
     { key: 'output', title: T_GENERATED, keywords: ['ulid', '标识符'] },
   ],
+  nanoid_generator: [
+    {
+      key: 'config',
+      title: T_GENERATE_OPTIONS,
+      description: { zh: '数量 / 长度 / 字母表', en: 'Count / size / alphabet' },
+      keywords: ['数量', '长度', '字母表', 'nanoid'],
+    },
+    {
+      key: 'input',
+      title: { zh: '生成参数', en: 'Generation parameters' },
+      description: {
+        zh: '长度 / 字母表 / 数量摘要与生成入口',
+        en: 'Size / alphabet / count summary and generate action',
+      },
+      keywords: ['nanoid', '参数', '生成'],
+    },
+    { key: 'output', title: T_GENERATED, keywords: ['nanoid', '标识符'] },
+  ],
+  hmac_generator: [
+    {
+      key: 'config',
+      title: T_CONFIG,
+      description: {
+        zh: '密钥 / 算法 / 输出编码',
+        en: 'Secret / algorithm / output encoding',
+      },
+      keywords: ['hmac', '密钥', '算法', '编码'],
+    },
+    {
+      key: 'input',
+      title: T_INPUT,
+      description: { zh: '待签名消息输入', en: 'Message input to sign' },
+      keywords: ['hmac', '消息', '输入'],
+    },
+    { key: 'output', title: T_RESULT, keywords: ['hmac', '摘要', '签名'] },
+  ],
+  otp_generator: [
+    {
+      key: 'config',
+      title: T_CONFIG,
+      description: { zh: '模式 / 密钥 / 口令参数', en: 'Mode / secret / OTP parameters' },
+      keywords: ['otp', 'totp', 'hotp', '密钥'],
+    },
+    {
+      key: 'input',
+      title: { zh: '口令参数', en: 'OTP parameters' },
+      description: {
+        zh: '模式 / 计数器 / 位数 / 时间窗摘要',
+        en: 'Mode / counter / digits / time window summary',
+      },
+      keywords: ['otp', '参数', '时间窗'],
+    },
+    {
+      key: 'verify',
+      title: { zh: '校验口令', en: 'Verify a code' },
+      description: {
+        zh: '输入口令与当前生成值比对',
+        en: 'Compare an entered code against the generated one',
+      },
+      keywords: ['otp', '校验', '比对'],
+    },
+    { key: 'output', title: T_RESULT, keywords: ['otp', '口令', '校验'] },
+  ],
+  aes_crypto: [
+    {
+      key: 'config',
+      title: T_CONFIG,
+      description: {
+        zh: '方向 / 密钥来源 / 密钥与口令',
+        en: 'Direction / key source / key and passphrase',
+      },
+      keywords: ['aes', '加密', '解密', '口令', '密钥'],
+    },
+    {
+      key: 'input',
+      title: T_INPUT,
+      description: { zh: '加密明文或解密密文输入', en: 'Plaintext or ciphertext input' },
+      keywords: ['aes', '明文', '密文', '输入'],
+    },
+    {
+      key: 'output',
+      title: T_OUTPUT,
+      description: { zh: '加解密结果', en: 'Encryption / decryption result' },
+      keywords: ['aes', '密文', '明文'],
+    },
+  ],
   color_blindness_simulator: [
     {
       key: 'source',

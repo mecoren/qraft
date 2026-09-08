@@ -349,6 +349,38 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     icon: Fingerprint,
     keywords: ['ulid', 'sortable id', '标识符', '有序 id'],
   },
+  {
+    id: 'nanoid_generator',
+    name: 'NanoID 生成器',
+    description: '生成 URL 安全的 NanoID 标识符,可自定义字母表与长度',
+    category: 'generator',
+    icon: Fingerprint,
+    keywords: ['nanoid', '标识符', '随机 id'],
+  },
+  {
+    id: 'hmac_generator',
+    name: 'HMAC 生成器',
+    description: '以 Secret Key 计算 HMAC 摘要(SHA-1/224/256/384/512)',
+    category: 'generator',
+    icon: Hash,
+    keywords: ['hmac', 'signature', '签名', '摘要'],
+  },
+  {
+    id: 'otp_generator',
+    name: 'OTP 动态口令工具',
+    description: '由 Base32 密钥生成 TOTP / HOTP 动态口令并校验',
+    category: 'generator',
+    icon: KeyRound,
+    keywords: ['otp', 'totp', 'hotp', '2fa', '动态口令', '两步验证'],
+  },
+  {
+    id: 'aes_crypto',
+    name: 'AES 加解密',
+    description: 'AES-256-GCM 文本加解密,支持口令派生(PBKDF2)或原始密钥',
+    category: 'encoder',
+    icon: KeyRound,
+    keywords: ['aes', 'gcm', 'encrypt', 'decrypt', '加密', '解密', '对称加密'],
+  },
 
   // —— 图像处理 ——
   {
@@ -649,6 +681,23 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
   ulid_generator: {
     name: 'ULID Generator',
     description: 'Generate time-sortable 26-character ULID identifiers',
+  },
+  nanoid_generator: {
+    name: 'NanoID Generator',
+    description: 'Generate URL-safe NanoID identifiers with a custom alphabet and size',
+  },
+  hmac_generator: {
+    name: 'HMAC Generator',
+    description: 'Compute an HMAC digest with a secret key (SHA-1 / 224 / 256 / 384 / 512)',
+  },
+  otp_generator: {
+    name: 'OTP Tool',
+    description: 'Generate and verify TOTP / HOTP one-time passwords from a Base32 secret',
+  },
+  aes_crypto: {
+    name: 'AES Encrypt / Decrypt',
+    description:
+      'Encrypt and decrypt text with AES-256-GCM, using a passphrase (PBKDF2) or a raw key',
   },
   color_blindness_simulator: {
     name: 'Color Blindness Simulator',

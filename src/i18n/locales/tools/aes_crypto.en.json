@@ -1,0 +1,22 @@
+{
+  "tools.aes_crypto.label_direction": "Direction",
+  "tools.aes_crypto.hint_direction": "Encrypt plaintext, or decrypt a previously generated ciphertext",
+  "tools.aes_crypto.mode_encrypt": "Encrypt",
+  "tools.aes_crypto.mode_decrypt": "Decrypt",
+  "tools.aes_crypto.label_key_source": "Key source",
+  "tools.aes_crypto.hint_key_source": "Derive from a passphrase via PBKDF2 (salt travels with the ciphertext), or use a raw 256-bit key",
+  "tools.aes_crypto.key_source_passphrase": "Passphrase (PBKDF2)",
+  "tools.aes_crypto.key_source_raw": "Raw key",
+  "tools.aes_crypto.passphrase": "Passphrase",
+  "tools.aes_crypto.passphrase_hint": "PBKDF2-SHA256, 100,000 iterations; computed locally only, never stored or uploaded",
+  "tools.aes_crypto.raw_key": "Raw key",
+  "tools.aes_crypto.raw_key_hint": "256-bit: 64 hex chars or 44 base64 chars",
+  "tools.aes_crypto.plaintext": "Plaintext",
+  "tools.aes_crypto.ciphertext_input": "Ciphertext (Base64 envelope)",
+  "tools.aes_crypto.ciphertext_output": "Ciphertext (Base64 envelope)",
+  "tools.aes_crypto.plaintext_output": "Decrypted result",
+  "tools.aes_crypto.error_key_mismatch": "Decryption failed: passphrase or key does not match the ciphertext",
+  "tools.aes_crypto.error_generic": "Operation failed: {{message}}",
+  "tools.aes_crypto.plaintext_placeholder": "Enter plaintext to encrypt…",
+  "tools.aes_crypto.ciphertext_placeholder": "Paste the Base64 ciphertext envelope…"
+}

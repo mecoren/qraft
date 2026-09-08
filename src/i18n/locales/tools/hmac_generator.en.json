@@ -1,0 +1,10 @@
+{
+  "tools.hmac_generator.secret": "Secret key",
+  "tools.hmac_generator.privacy_hint": "Computed locally in memory only; never stored or uploaded",
+  "tools.hmac_generator.algorithm": "Algorithm",
+  "tools.hmac_generator.encoding": "Output encoding",
+  "tools.hmac_generator.message": "Message",
+  "tools.hmac_generator.output_title": "HMAC digest",
+  "tools.hmac_generator.error_compute": "Computation failed: {{message}}",
+  "tools.hmac_generator.message_placeholder": "Enter the message to sign…"
+}

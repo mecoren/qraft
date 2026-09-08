@@ -1,0 +1,20 @@
+{
+  "tools.otp_generator.secret": "Base32 secret",
+  "tools.otp_generator.secret_hint": "RFC 4648 Base32; lowercase, spaces and hyphens tolerated. Computed locally only; never stored or uploaded",
+  "tools.otp_generator.mode": "OTP mode",
+  "tools.otp_generator.mode_hint": "TOTP uses a 30s time window; HOTP uses a counter",
+  "tools.otp_generator.mode_totp": "TOTP (time-based)",
+  "tools.otp_generator.mode_hotp": "HOTP (counter-based)",
+  "tools.otp_generator.counter": "Counter",
+  "tools.otp_generator.digits": "Digits",
+  "tools.otp_generator.verify": "Verify a code",
+  "tools.otp_generator.verify_hint": "Compare an entered code against the generated one (constant-time comparison)",
+  "tools.otp_generator.code_input": "Code to verify",
+  "tools.otp_generator.verify_pass": "Code matches",
+  "tools.otp_generator.verify_fail": "Code does not match",
+  "tools.otp_generator.output_title": "Current code",
+  "tools.otp_generator.error_secret": "Invalid secret: {{message}}",
+  "tools.otp_generator.params_title": "OTP parameters",
+  "tools.otp_generator.window_title": "Time window",
+  "tools.otp_generator.remaining": "refreshes in {{seconds}}s"
+}

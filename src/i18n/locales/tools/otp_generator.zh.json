@@ -1,0 +1,20 @@
+{
+  "tools.otp_generator.secret": "Base32 密钥",
+  "tools.otp_generator.secret_hint": "RFC 4648 Base32,容忍小写、空格与连字符;仅在本机计算,不落盘不上传",
+  "tools.otp_generator.mode": "口令模式",
+  "tools.otp_generator.mode_hint": "TOTP 基于时间窗(30s),HOTP 基于计数器",
+  "tools.otp_generator.mode_totp": "TOTP(时间)",
+  "tools.otp_generator.mode_hotp": "HOTP(计数器)",
+  "tools.otp_generator.counter": "计数器",
+  "tools.otp_generator.digits": "口令位数",
+  "tools.otp_generator.verify": "校验口令",
+  "tools.otp_generator.verify_hint": "输入口令与当前生成值比对(常数时间比较)",
+  "tools.otp_generator.code_input": "待校验口令",
+  "tools.otp_generator.verify_pass": "口令匹配",
+  "tools.otp_generator.verify_fail": "口令不匹配",
+  "tools.otp_generator.output_title": "当前口令",
+  "tools.otp_generator.error_secret": "密钥无效: {{message}}",
+  "tools.otp_generator.params_title": "口令参数",
+  "tools.otp_generator.window_title": "时间窗",
+  "tools.otp_generator.remaining": "{{seconds}} 秒后刷新"
+}

@@ -1,0 +1,22 @@
+{
+  "tools.aes_crypto.label_direction": "转换方向",
+  "tools.aes_crypto.hint_direction": "加密明文,或解密此前生成的密文",
+  "tools.aes_crypto.mode_encrypt": "加密",
+  "tools.aes_crypto.mode_decrypt": "解密",
+  "tools.aes_crypto.label_key_source": "密钥来源",
+  "tools.aes_crypto.hint_key_source": "口令经 PBKDF2 派生(盐随密文携带);或直接使用 256-bit 原始密钥",
+  "tools.aes_crypto.key_source_passphrase": "口令派生",
+  "tools.aes_crypto.key_source_raw": "原始密钥",
+  "tools.aes_crypto.passphrase": "口令",
+  "tools.aes_crypto.passphrase_hint": "PBKDF2-SHA256 100,000 迭代;仅在本机计算,不落盘不上传",
+  "tools.aes_crypto.raw_key": "原始密钥",
+  "tools.aes_crypto.raw_key_hint": "256-bit:64 位十六进制或 44 位 base64 字符",
+  "tools.aes_crypto.plaintext": "明文",
+  "tools.aes_crypto.ciphertext_input": "密文(Base64 信封)",
+  "tools.aes_crypto.ciphertext_output": "密文(Base64 信封)",
+  "tools.aes_crypto.plaintext_output": "解密结果",
+  "tools.aes_crypto.error_key_mismatch": "解密失败:口令或密钥与密文不匹配",
+  "tools.aes_crypto.error_generic": "操作失败: {{message}}",
+  "tools.aes_crypto.plaintext_placeholder": "输入待加密的明文…",
+  "tools.aes_crypto.ciphertext_placeholder": "粘贴 Base64 密文信封…"
+}

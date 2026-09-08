@@ -1,0 +1,10 @@
+{
+  "tools.hmac_generator.secret": "密钥",
+  "tools.hmac_generator.privacy_hint": "仅在本机内存中计算,不落盘不上传",
+  "tools.hmac_generator.algorithm": "算法",
+  "tools.hmac_generator.encoding": "输出编码",
+  "tools.hmac_generator.message": "消息",
+  "tools.hmac_generator.output_title": "HMAC 摘要",
+  "tools.hmac_generator.error_compute": "计算失败: {{message}}",
+  "tools.hmac_generator.message_placeholder": "输入待签名的消息…"
+}

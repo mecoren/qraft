@@ -1,0 +1,14 @@
+{
+  "tools.nanoid_generator.count": "生成数量",
+  "tools.nanoid_generator.count_hint": "一次批量生成,上限 500",
+  "tools.nanoid_generator.count_aria": "生成数量",
+  "tools.nanoid_generator.size": "长度",
+  "tools.nanoid_generator.size_hint": "NanoID 字符数,默认 21(约 121 bit 熵,与 UUID v4 抗碰撞等价)",
+  "tools.nanoid_generator.size_aria": "NanoID 长度",
+  "tools.nanoid_generator.alphabet": "字母表",
+  "tools.nanoid_generator.alphabet_hint": "2~255 个互不重复的字符,默认 URL 安全字母表",
+  "tools.nanoid_generator.alphabet_invalid": "字母表需为 2~255 个互不重复的字符",
+  "tools.nanoid_generator.alphabet_aria": "字母表",
+  "tools.nanoid_generator.generate": "生成",
+  "tools.nanoid_generator.params_title": "生成参数"
+}

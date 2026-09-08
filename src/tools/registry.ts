@@ -127,6 +127,16 @@ registerTool('duplicate_detector', () =>
 registerTool('ulid_generator', () =>
   import('./UlidGenerator').then((m) => ({ default: m.UlidGenerator })),
 );
+registerTool('nanoid_generator', () =>
+  import('./NanoidGenerator').then((m) => ({ default: m.NanoidGenerator })),
+);
+registerTool('hmac_generator', () =>
+  import('./HmacGenerator').then((m) => ({ default: m.HmacGenerator })),
+);
+registerTool('otp_generator', () =>
+  import('./OtpGenerator').then((m) => ({ default: m.OtpGenerator })),
+);
+registerTool('aes_crypto', () => import('./AesCrypto').then((m) => ({ default: m.AesCrypto })));
 registerTool('basic_auth_generator', () =>
   import('./BasicAuthGenerator').then((m) => ({ default: m.BasicAuthGenerator })),
 );

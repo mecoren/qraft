@@ -1,0 +1,14 @@
+{
+  "tools.nanoid_generator.count": "Count",
+  "tools.nanoid_generator.count_hint": "Batch generation, up to 500 at once",
+  "tools.nanoid_generator.count_aria": "Count to generate",
+  "tools.nanoid_generator.size": "Size",
+  "tools.nanoid_generator.size_hint": "Number of characters, default 21 (~121 bits of entropy, collision-resistant like UUID v4)",
+  "tools.nanoid_generator.size_aria": "NanoID size",
+  "tools.nanoid_generator.alphabet": "Alphabet",
+  "tools.nanoid_generator.alphabet_hint": "2 to 255 unique characters; defaults to the URL-safe alphabet",
+  "tools.nanoid_generator.alphabet_invalid": "Alphabet must be 2 to 255 unique characters",
+  "tools.nanoid_generator.alphabet_aria": "Alphabet",
+  "tools.nanoid_generator.generate": "Generate",
+  "tools.nanoid_generator.params_title": "Generation parameters"
+}
