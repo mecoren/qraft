@@ -16,10 +16,13 @@ import {
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
+  Copy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { copyTextWithFeedback } from '@/lib/toast-alert';
+import { inferContent, type InferredKind } from './json-infer';
 
 /** 展开全部时最多收集的容器路径数(防止超大文档一次性全展开卡死 UI) */
 const MAX_EXPAND_PATHS = 5000;
@@ -94,6 +97,66 @@ function LeafValue({ value }: { value: unknown }): JSX.Element {
   }
 }
 
+/** 行内复制路径按钮:悬浮淡入,点击复制 JSONPath(与 JSONPath 视图的表达式语言一致) */
+function CopyPathButton({ path }: { path: string }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      data-testid="copy-path"
+      aria-label={t('chrome.json_tree.copy_path_aria', { path })}
+      title={t('chrome.json_tree.copy_path_title')}
+      onClick={(e) => {
+        e.stopPropagation();
+        void copyTextWithFeedback(path);
+      }}
+      className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-accent-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:opacity-100"
+    >
+      <Copy aria-hidden className="size-3" />
+    </button>
+  );
+}
+
+/**
+ * 内容推断 chip:URL / 颜色 / 日期的行尾预览。
+ * 颜色类渲染行内色块(背景即推断色);URL/日期仅文字标签。
+ * chip 可点击复制原值,与树视图其他交互一致。
+ */
+function InferredChip({ value }: { value: string }): JSX.Element | null {
+  const { t } = useTranslation();
+  const inferred = inferContent(value);
+  if (!inferred) return null;
+
+  const labelKey: Record<InferredKind, string> = {
+    url: 'chrome.json_tree.inferred_url',
+    color: 'chrome.json_tree.inferred_color',
+    date: 'chrome.json_tree.inferred_date',
+  };
+
+  return (
+    <button
+      type="button"
+      data-inferred={inferred.kind}
+      aria-label={t(labelKey[inferred.kind])}
+      title={t(labelKey[inferred.kind])}
+      onClick={(e) => {
+        e.stopPropagation();
+        void copyTextWithFeedback(value);
+      }}
+      className="flex shrink-0 items-center gap-1 rounded border border-border/60 bg-muted/50 px-1 py-0 text-[10px] leading-4 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+    >
+      {inferred.kind === 'color' && (
+        <span
+          aria-hidden
+          className="inline-block size-2.5 rounded-sm border border-border/80"
+          style={{ backgroundColor: inferred.cssColor ?? 'transparent' }}
+        />
+      )}
+      {t(labelKey[inferred.kind])}
+    </button>
+  );
+}
+
 function JsonNode({
   label,
   value,
@@ -108,21 +171,25 @@ function JsonNode({
 
   if (!isContainer) {
     return (
-      <div className="flex items-baseline gap-1.5 py-px pl-6 leading-5">
-        {label !== null && (
-          <>
-            <span
-              className={cn(
-                'shrink-0 text-sm text-foreground',
-                isArrayItem && 'text-muted-foreground',
-              )}
-            >
-              {isArrayItem ? `[${label}]` : label}
-            </span>
-            <span className="shrink-0 text-muted-foreground">:</span>
-          </>
-        )}
-        <LeafValue value={value} />
+      <div className="group flex items-baseline gap-1.5 rounded px-1 py-px leading-5 hover:bg-accent/50">
+        <div className="flex min-w-0 flex-1 items-baseline gap-1.5 py-px pl-6">
+          {label !== null && (
+            <>
+              <span
+                className={cn(
+                  'shrink-0 text-sm text-foreground',
+                  isArrayItem && 'text-muted-foreground',
+                )}
+              >
+                {isArrayItem ? `[${label}]` : label}
+              </span>
+              <span className="shrink-0 text-muted-foreground">:</span>
+            </>
+          )}
+          <LeafValue value={value} />
+        </div>
+        {typeof value === 'string' && <InferredChip value={value} />}
+        <CopyPathButton path={path} />
       </div>
     );
   }
@@ -138,40 +205,45 @@ function JsonNode({
   const Icon = Array.isArray(value) ? Brackets : Braces;
 
   return (
-    <div>
-      <button
-        type="button"
-        data-path={path}
-        aria-expanded={isOpen}
-        onClick={() => entries.length > 0 && onToggle(path)}
-        className="flex w-full items-baseline gap-1.5 rounded px-1 py-px text-left leading-5 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      >
-        {entries.length > 0 ? (
-          isOpen ? (
-            <ChevronDown
-              aria-hidden
-              className="size-3.5 shrink-0 self-center text-muted-foreground"
-            />
+    <div className="group">
+      <div className="flex items-center">
+        <button
+          type="button"
+          data-path={path}
+          aria-expanded={isOpen}
+          onClick={() => entries.length > 0 && onToggle(path)}
+          className="flex min-w-0 flex-1 items-baseline gap-1.5 rounded px-1 py-px text-left leading-5 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          {entries.length > 0 ? (
+            isOpen ? (
+              <ChevronDown
+                aria-hidden
+                className="size-3.5 shrink-0 self-center text-muted-foreground"
+              />
+            ) : (
+              <ChevronRight
+                aria-hidden
+                className="size-3.5 shrink-0 self-center text-muted-foreground"
+              />
+            )
           ) : (
-            <ChevronRight
-              aria-hidden
-              className="size-3.5 shrink-0 self-center text-muted-foreground"
-            />
-          )
-        ) : (
-          <span className="inline-block size-3.5 shrink-0 self-center" aria-hidden />
-        )}
-        <Icon aria-hidden className="size-3.5 shrink-0 self-center text-muted-foreground" />
-        {label !== null && (
-          <span className={cn('text-sm font-medium text-foreground', isArrayItem && 'font-normal')}>
-            {isArrayItem ? `[${label}]` : label}
+            <span className="inline-block size-3.5 shrink-0 self-center" aria-hidden />
+          )}
+          <Icon aria-hidden className="size-3.5 shrink-0 self-center text-muted-foreground" />
+          {label !== null && (
+            <span
+              className={cn('text-sm font-medium text-foreground', isArrayItem && 'font-normal')}
+            >
+              {isArrayItem ? `[${label}]` : label}
+            </span>
+          )}
+          <span className="rounded bg-muted px-1 text-[10px] uppercase text-muted-foreground">
+            {Array.isArray(value) ? '[array]' : '[object]'}
           </span>
-        )}
-        <span className="rounded bg-muted px-1 text-[10px] uppercase text-muted-foreground">
-          {Array.isArray(value) ? '[array]' : '[object]'}
-        </span>
-        <span className="text-xs text-muted-foreground">{countLabel}</span>
-      </button>
+          <span className="text-xs text-muted-foreground">{countLabel}</span>
+        </button>
+        <CopyPathButton path={path} />
+      </div>
       {isOpen && (
         <div className="ml-[13px] border-l border-border/60 pl-2">
           {visibleEntries.map(([k, v]) => (

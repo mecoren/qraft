@@ -114,7 +114,12 @@
       "collapse_all": "Collapse all",
       "primitive": "Primitive value",
       "container_nodes": "{{count}} container nodes",
-      "aria": "JSON tree view"
+      "aria": "JSON tree view",
+      "copy_path_aria": "Copy JSONPath: {{path}}",
+      "copy_path_title": "Copy JSONPath",
+      "inferred_url": "URL",
+      "inferred_color": "Color",
+      "inferred_date": "Date"
     },
     "fold_summary": {
       "object": "{ {{count}} keys }",

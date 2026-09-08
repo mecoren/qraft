@@ -114,7 +114,12 @@
       "collapse_all": "收起全部",
       "primitive": "原始值",
       "container_nodes": "{{count}} 个容器节点",
-      "aria": "JSON 树结构视图"
+      "aria": "JSON 树结构视图",
+      "copy_path_aria": "复制 JSONPath:{{path}}",
+      "copy_path_title": "复制 JSONPath",
+      "inferred_url": "URL",
+      "inferred_color": "颜色",
+      "inferred_date": "日期"
     },
     "fold_summary": {
       "object": "{ {{count}} 个键 }",
