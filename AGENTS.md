@@ -147,10 +147,20 @@ cargo test
 - 优先用 `components/ui/` 的 shadcn 风格原语;className 合并统一用 `cn()`(`@/lib/utils`);图标用 lucide-react。
 - HTML 内容渲染前必须经 DOMPurify sanitize。
 
+**工具主区左右分栏标准**(全仓库统一布局契约,新工具一律遵守)
+
+- 凡工具主区为「输入 → 输出」或「参数 → 结果」形态(转换器 / 编解码器 / 生成器类),主区用 `ResizablePanelGroup orientation="horizontal"` 左右分栏,参照 GzipCodec(双编辑器)与 QrcodeTool(编辑器 + 非编辑器面板)两档基准,不是上下堆叠或固定 grid 对半。
+- 配置项(密钥 / 算法 / 方向开关等)不进分栏,统一收进顶部 `ConfigSection / ConfigRow`;会撑高标题栏的控件(如默认 h-9 的 SelectTrigger)禁止内嵌面板标题栏,压到 h-6 或上移配置区。
+- 分栏结构:`<ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">`(尺寸用**字符串**百分比,数字会被 react-resizable-panels v4 当作像素);左面板朝分隔缝一侧 `border-r`,右面板 `border-l`;`CodeEditor` 用 `className="h-full rounded-none border-0 border-r"`(或 `border-l`)贴缝。
+- 非编辑器面板(预览 / 参数摘要 / 大字号结果等)做成与 CodeEditor 同构的「编辑框」:标题栏 `flex h-[26px] min-w-0 items-center justify-between gap-x-2 border-b border-input px-2`,标题 `pl-1 text-xs font-medium text-foreground` + truncate;动作区只放纯文字/图标按钮(图标 size-3.5 + text-xs),不用 Button 组件;底部状态栏可按需用 `border-t border-input px-2 py-0.5 text-xs tabular-nums text-muted-foreground`。
+- 满高预览区不要嵌 Radix ScrollArea(其 viewport 的 table 包裹会打断高度链),用普通 `div.min-h-0 flex-1 overflow-auto` + flex 居中。
+- 模式/方向切换照 Base64Codec 的 ConfigRow 分段控件,忌通栏 Tab 条与自创标题栏样式。
+
 **测试**
 
 - Vitest + jsdom + @testing-library/react;测试与源文件共置(`*.test.tsx`)。
 - 写测试前先读 `src/test/setup.ts`:Tauri API 已 mock、Monaco 以 textarea shim、虚拟列表依赖(ResizeObserver、非零 clientHeight)已铺。
+- Monaco shim 渲染为容器内**受控 textarea 且不带 testid**:对可编辑 CodeEditor 输入用 `screen.getByTestId('<容器testid>').querySelector('textarea')` 再 `fireEvent.change`;真实浏览器验证时 Monaco 内容读 `monaco.editor.getModels()`,`querySelector('textarea')` 拿到的 inputarea 恒空。
 - 改 IPC / 命令契约时,前端跑 `pnpm typecheck` + `pnpm test`,Rust 跑 `cargo test`。
 
 ## 通用代码规范
