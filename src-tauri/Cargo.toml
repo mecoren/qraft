@@ -26,7 +26,9 @@ tauri-plugin-single-instance = "2"
 # —— 以下为 Core 层新增依赖(Tauri 已有依赖保持不变)——
 tokio = { version = "1.40", features = ["rt", "rt-multi-thread", "macros", "time", "fs", "sync"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+# preserve_order:Map 用 IndexMap 保插入序,与前端 JSON.stringify 行为一致;
+# 不开则默认 BTreeMap,后端格式化会静默重排用户键序(与前端输出不一致)
+serde_json = { version = "1.0", features = ["preserve_order"] }
 thiserror = "1.0"
 anyhow = "1.0"
 inventory = "0.3"

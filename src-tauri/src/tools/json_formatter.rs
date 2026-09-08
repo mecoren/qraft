@@ -318,6 +318,19 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_format_preserves_original_key_order_without_sort() {
+        let tool = JsonFormatter::new();
+        let ctx = mock_context();
+        // 未开启 sort_keys 时必须保持文档原始键序(与前端 JSON.stringify 行为一致),
+        // 不得因 serde_json 默认 BTreeMap 而静默重排用户数据
+        let input = make_input(r#"{"z":1,"a":2,"m":3}"#);
+
+        let output = tool.execute(input, &ctx).await.unwrap();
+
+        assert_eq!(output.text, "{\n  \"z\": 1,\n  \"a\": 2,\n  \"m\": 3\n}");
+    }
+
+    #[tokio::test]
     async fn test_format_with_sort_keys_true() {
         let tool = JsonFormatter::new();
         let ctx = mock_context();
