@@ -245,6 +245,77 @@ describe('JsonFormatter', () => {
     });
   });
 
+  it('shows an error location chip with line/column and jumps to it on click', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    // 第 2 行键 a 后缺逗号:错误定位应指向第 3 行的 "b"
+    fireEvent.change(getInputEditor(), {
+      target: { value: '{\n  "a": 1\n  "b": 2\n}' },
+    });
+    fireEvent.click(screen.getByTestId('btn-format'));
+
+    const chip = await screen.findByTestId('error-location');
+    // chip 文案含行列与错误类别(缺逗号)
+    expect(chip.textContent).toContain('第 3 行');
+    expect(chip.textContent).toContain('第 3 列');
+    expect(chip.textContent).toContain('缺少逗号');
+
+    // 点击 chip 触发编辑器跳转(编辑器实例记录跳转目标行列)
+    fireEvent.click(chip);
+    const inputEditor = screen
+      .getByTestId('input')
+      .querySelector('textarea')! as HTMLTextAreaElement & {
+      __lastGoto?: { line: number; column: number };
+    };
+    expect(inputEditor.__lastGoto).toEqual({ line: 3, column: 3 });
+  });
+
+  it('does not show the error location chip for valid or non-JSON inputs', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: '{"a":1}' } });
+    fireEvent.click(screen.getByTestId('btn-format'));
+    await waitFor(() => {
+      expect(getOutputValue()).toBe('{\n  "a": 1\n}');
+    });
+    expect(screen.queryByTestId('error-location')).not.toBeInTheDocument();
+  });
+
+  it('repairs the input via the explicit repair button and auto-formats the result', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    // 多处问题:裸键 + 单引号 + 尾逗号
+    fireEvent.change(getInputEditor(), {
+      target: { value: "{ name: 'qraft', tags: ['a', 'b',], }" },
+    });
+    fireEvent.click(screen.getByTestId('btn-repair'));
+
+    // 修复后的文本写回输入编辑器
+    await waitFor(() => {
+      expect(getInputEditor().value).toContain('"name"');
+      expect(getInputEditor().value).toContain('"qraft"');
+    });
+    // 修复后自动格式化生效:输出是合法美化 JSON
+    await waitFor(() => {
+      expect(getOutputValue()).toBe(
+        '{\n  "name": "qraft",\n  "tags": [\n    "a",\n    "b"\n  ]\n}',
+      );
+    });
+    // 修复动作如实记录在输出框顶部的修复报告
+    expect(screen.getByTestId('repair-report')).toBeInTheDocument();
+  });
+
+  it('reports unrepairable input honestly without changing the document', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    // 字符串被裸换行截断:无确定修法,修复器拒绝猜测
+    const raw = '{"a": "line1\nline2"}';
+    fireEvent.change(getInputEditor(), { target: { value: raw } });
+    fireEvent.click(screen.getByTestId('btn-repair'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('repair-report')).toBeInTheDocument();
+    });
+    expect(getInputEditor().value).toBe(raw);
+    expect(screen.getByTestId('repair-report').textContent).toContain('未能修复');
+  });
+
   it('minifies JSON on the frontend without IPC', async () => {
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
     fireEvent.change(getInputEditor(), {

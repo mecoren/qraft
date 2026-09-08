@@ -9,6 +9,7 @@ import {
   type ComponentPropsWithoutRef,
   type KeyboardEvent,
 } from 'react';
+import type { editor } from 'monaco-editor';
 import { formatDistanceToNow } from 'date-fns';
 import { formatError } from '@/lib/format-error';
 import { useTranslation } from 'react-i18next';
@@ -54,6 +55,7 @@ import {
   FileText,
   History,
   ListTree,
+  LocateFixed,
   Minimize2,
   Parentheses,
   Pin,
@@ -63,6 +65,7 @@ import {
   Save,
   Trash2,
   Wand2,
+  Wrench,
   X,
 } from 'lucide-react';
 import type { ToolProps } from './registry';
@@ -74,6 +77,8 @@ import {
   type InputFormatId,
   type JsonKeySortMode,
 } from './json-utils';
+import { locateJsonError, type JsonErrorLocation } from './json-diagnostics';
+import { repairJson } from './json-repair';
 import { ENTITY_LANGUAGE_ITEMS, generateEntityCode, type EntityLanguage } from './json-entity';
 import {
   DATA_FORMAT_ITEMS,
@@ -382,6 +387,14 @@ export function JsonFormatter({ toolId }: ToolProps) {
   const [meta, setMeta] = useState<OutputMeta | null>(null);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<OutputViewMode>('text');
+  /**
+   * 最近一次解析失败的结构化定位(JSON 输入专属;其他格式嗅探在 parseSmart
+   * 成功消费,不会落到错误态)。由各错误 catch 统一经 rememberJsonError/
+   * forgetJsonError 维护:JSON 时记定位,非 JSON(或成功)时清空。
+   */
+  const [jsonError, setJsonError] = useState<JsonErrorLocation | null>(null);
+  /** 「修复 JSON」上一次动作的报告(fixed=false 或 actions 为空时为 null) */
+  const [repairReport, setRepairReport] = useState<string | null>(null);
   /** JSONPath 视图:查询表达式(作用于左侧输入文档,非格式化输出) */
   const [jsonPathExpr, setJsonPathExpr] = useState('$.');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -395,6 +408,19 @@ export function JsonFormatter({ toolId }: ToolProps) {
   const [historyRemoveId, setHistoryRemoveId] = useState<string | null>(null);
 
   /**
+   * 用户输入(非程序性写回):同步清掉错误定位与修复报告 —— 输入一变,
+   * 旧错误的行列与旧修复说明即失效;程序性写回(修复结果)不经此路径。
+   */
+  const handleInputChange = useCallback(
+    (value: string) => {
+      setJsonError(null);
+      setRepairReport(null);
+      setText(value);
+    },
+    [setText],
+  );
+
+  /**
    * 嗅探输入格式:驱动输入编辑器高亮语言与「已识别 XX」提示。
    * parseSmart 内部同样嗅探,此处单独 useMemo 只为展示层服务。
    */
@@ -405,6 +431,16 @@ export function JsonFormatter({ toolId }: ToolProps) {
   }, [inputFormat]);
   const formatHintKey = inputFormat && inputFormat !== 'json' ? INPUT_HINT_KEY[inputFormat] : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * 输入 Monaco 编辑器实例与 monaco 命名空间:错误定位 chip 点击时
+   * setModelMarkers 画波浪线并跳转;由 CodeEditor onMount 注入。
+   * jsdom shim 渲染为 textarea,onMount 不触发,各调用处已判空。
+   */
+  const inputEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
+  /** 组件根 DOM:错误定位在无 Monaco 实例的环境下(shim)经根查输入 textarea */
+  const rootRef = useRef<HTMLDivElement>(null);
 
   /**
    * 前端格式化阈值:低于该字节数直接在前端用 JSON.stringify 格式化(秒级响应,省 IPC 往返);
@@ -501,6 +537,108 @@ export function JsonFormatter({ toolId }: ToolProps) {
   }
 
   /**
+   * 解析失败的 JSON 错误定位;修复报告仅在用户再次输入时清空
+   * (handleInputChange),不被随后的自动格式化成功路径误擦。
+   * 注意:sniffInputFormat 对纯 JSON 返回 null(而非 'json'),判定与
+   * inputLanguage 同款写法(null 或 'json' 都算 JSON 输入)。
+   */
+  const isJsonLike = !inputFormat || inputFormat === 'json';
+  const rememberJsonError = useCallback(() => {
+    setJsonError(isJsonLike ? locateJsonError(text) : null);
+  }, [isJsonLike, text]);
+  const forgetJsonError = useCallback(() => {
+    setJsonError(null);
+  }, []);
+
+  /**
+   * 点击错误定位 chip:画 Monaco 波浪线并跳转到出错行列。
+   * text 模式错误在输入原文;JSON5/YAML 等其他输入形态无结构化定位,
+   * 不渲染 chip,自然到不了这里。
+   */
+  /**
+   * 点击错误定位 chip:画 Monaco 波浪线并跳转到出错行列。
+   * text 模式错误在输入原文;JSON5/YAML 等其他输入形态无结构化定位,
+   * 不渲染 chip,自然到不了这里。
+   * jsdom 下 Monaco 是 textarea shim(editor 实例不可用):把跳转目标
+   * 记到 shim 的 DOM 属性上,真实浏览器走 Monaco API,两条路径互不干扰。
+   */
+  const gotoErrorLocation = useCallback(
+    (loc: JsonErrorLocation) => {
+      const ed = inputEditorRef.current;
+      const monaco = monacoRef.current;
+      if (!ed || !monaco) {
+        // 测试环境 shim:从组件根查 input 容器内的 textarea,记录跳转意图
+        const root = rootRef.current;
+        const shim = root?.querySelector('[data-testid="input"] textarea') as
+          (HTMLTextAreaElement & { __lastGoto?: { line: number; column: number } }) | null;
+        if (shim) shim.__lastGoto = { line: loc.line, column: loc.column };
+        return;
+      }
+
+      const model = ed.getModel();
+      if (!model) return;
+      // 波浪线覆盖出错 token 所在行(精确 token 边界需解析树,行级已足够指位)
+      const lineEnd = model.getLineMaxColumn(loc.line);
+      const startCol = Math.min(loc.column, lineEnd);
+      monaco.editor.setModelMarkers(model, 'json-formatter', [
+        {
+          message: t(`tools.json_formatter.diag_${loc.kind}`, { detail: loc.detail }),
+          severity: monaco.MarkerSeverity.Error,
+          startLineNumber: loc.line,
+          startColumn: startCol,
+          endLineNumber: loc.line,
+          endColumn: Math.max(startCol + 1, lineEnd + 1),
+        },
+      ]);
+      ed.setPosition({ lineNumber: loc.line, column: startCol });
+      ed.revealLineInCenter(loc.line);
+      ed.focus();
+    },
+    [t],
+  );
+
+  /** 点击编辑器任意处即清除错误波浪线(定位信息留在 chip 可再次跳转) */
+  useEffect(() => {
+    const ed = inputEditorRef.current;
+    const monaco = monacoRef.current;
+    if (!ed || !monaco) return;
+    const model = ed.getModel();
+    if (!model) return;
+    const disposable = ed.onMouseDown(() => {
+      monaco.editor.setModelMarkers(model, 'json-formatter', []);
+    });
+    return () => disposable.dispose();
+  }, []);
+
+  /**
+   * 显式「修复 JSON」(绝不自动触发):repairJson 只做语法确定的变换,
+   * 原意不明的输入如实报告未能修复 —— 用户可能正需要靠错误位置人工查错。
+   * 修复成功后把结果写回输入文档,既有 400ms 防抖自动格式化随即接管。
+   */
+  const handleRepair = useCallback(() => {
+    if (!text.trim()) return;
+    if (!isJsonLike) {
+      // 非 JSON 输入由 parseSmart 消费,没有「修复 JSON」的语义
+      setRepairReport(t('tools.json_formatter.repair_not_json'));
+      return;
+    }
+    const result = repairJson(text);
+    if (result.fixed) {
+      if (result.text !== text && activeDoc) setDocContent(activeDoc.id, result.text);
+      setRepairReport(
+        result.actions.length > 0
+          ? t('tools.json_formatter.repair_applied', {
+              count: result.actions.reduce((n, a) => n + a.count, 0),
+            })
+          : null,
+      );
+      if (result.actions.length === 0 && result.text === text) forgetJsonError();
+    } else {
+      setRepairReport(t('tools.json_formatter.repair_failed'));
+    }
+  }, [text, isJsonLike, activeDoc, setDocContent, t, forgetJsonError]);
+
+  /**
    * 执行格式化(主按钮与自动防抖共用)。
    * 中小数据走前端纯函数,超过阈值走后端 Rust 格式化(auto=true 时不显示加载态)。
    * 成功即记录历史(含自动防抖路径):仅解析成功才走到这里,天然过滤非法输入;
@@ -530,17 +668,19 @@ export function JsonFormatter({ toolId }: ToolProps) {
           setOutputLanguage('json');
         }
         recordHistory(text);
+        forgetJsonError();
       } catch (e) {
         // 报错直接写入右侧输出框
         setOutput(formatError(e, t('tools.json_formatter.format_failed')));
         setMeta(null);
         setOutputLanguage('plaintext');
+        rememberJsonError();
       } finally {
         if (!auto) setLoading(false);
       }
     },
     // formatOnFrontend 为组件内纯函数,仅依赖 indent(已含于依赖数组)
-    [toolId, text, indent, recordHistory, t],
+    [toolId, text, indent, recordHistory, t, forgetJsonError, rememberJsonError],
   );
 
   // 全局快捷键契约:Ctrl+Enter 执行 / Ctrl+L 清空当前文档 / Ctrl+Shift+C 复制输出。
@@ -569,6 +709,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
         // 空输入:在异步回调内清空,避免在 effect 同步体内 setState 触发的级联渲染
         setOutput('');
         setMeta(null);
+        forgetJsonError();
       } else {
         void runFormat(true);
       }
@@ -602,6 +743,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
       setOutput(formatError(e, t('tools.json_formatter.parse_failed')));
       setOutputLanguage('plaintext');
       setMeta(null);
+      rememberJsonError();
     }
   }
 
@@ -635,7 +777,6 @@ export function JsonFormatter({ toolId }: ToolProps) {
 
   /** 按指定模式对全部对象的键递归排序(数组顺序保持不变) */
   function handleSort(mode: JsonKeySortMode, descending: boolean) {
-    if (!text.trim()) return;
     if (!text.trim()) return;
     try {
       const value = parseSmart(text);
@@ -706,9 +847,10 @@ export function JsonFormatter({ toolId }: ToolProps) {
       setMeta(null);
       recordHistory(text);
     } catch (e) {
-      setOutput(formatError(e, t('tools.json_formatter.convert_failed', { format })));
+      setOutput(formatError(e, t('tools.json_formatter.convert_format_failed', { format })));
       setOutputLanguage('plaintext');
       setMeta(null);
+      rememberJsonError();
     }
   }
 
@@ -821,6 +963,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
     // 外层圆角卡片(与文本编辑器 EditorWorkbench 右侧主页面卡片同款):
     // rounded-lg + border + shadow,overflow-hidden 让 Tab 栏顶角与卡片圆角对齐
     <div
+      ref={rootRef}
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="json-formatter"
     >
@@ -1016,357 +1159,418 @@ export function JsonFormatter({ toolId }: ToolProps) {
 
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
-          <CodeEditor
-            title={t('tools.json_formatter.input_title')}
-            language={inputLanguage}
-            value={text}
-            onChange={setText}
-            // 只保留右侧边框(朝向中间分隔缝),去掉外三边:外层卡片已提供
-            // rounded-lg 框体,编辑器自带 rounded-md 边框会在卡片左右两边
-            // 叠出双线/双圆角;去掉后边缘单线、四角圆角干净
-            className="h-full rounded-none border-0 border-r"
-            data-testid="input"
-            searchAnchor="json_formatter:input"
-            contextMenuSections={jsonMenuSections}
-            // 输入侧支持打开本地文件(readFileAsText 读取后整体替换当前文档内容)
-            showOpenFile
-            actions={
-              <>
-                <ActionButton
-                  testId="btn-format"
-                  onClick={() => void runFormat()}
-                  disabled={disabled}
-                >
-                  <Wand2 aria-hidden className="size-3.5" />
-                  {loading
-                    ? t('tools.json_formatter.formatting')
-                    : t('tools.json_formatter.format')}
-                </ActionButton>
-                <ActionButton
-                  testId="btn-minify"
-                  onClick={() => handleQuickAction('minify')}
-                  disabled={disabled}
-                >
-                  <Minimize2 aria-hidden className="size-3.5" />
-                  {t('tools.json_formatter.minify')}
-                </ActionButton>
-                {/* —— 转义 / 去除转义:互为反操作,写入输出框、输入不变 —— */}
-                <ActionButton testId="btn-escape" onClick={handleEscape} disabled={disabled}>
-                  <Quote aria-hidden className="size-3.5" />
-                  {t('tools.json_formatter.escape')}
-                </ActionButton>
-                <ActionButton testId="btn-unescape" onClick={handleUnescape} disabled={disabled}>
-                  <RemoveFormatting aria-hidden className="size-3.5" />
-                  {t('tools.json_formatter.unescape')}
-                </ActionButton>
-                {/* —— 多模式键排序(仿 Json Assistant:基础/自然/特殊三组) —— */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      data-testid="btn-sort"
-                      disabled={disabled}
-                      className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-                    >
-                      <ArrowUpDown aria-hidden className="size-3.5" />
-                      {t('tools.json_formatter.sort')}
-                      <ChevronDown aria-hidden className="size-3 opacity-60" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="max-h-[420px] w-52 overflow-y-auto">
-                    {SORT_MENU_GROUPS.map((group, gi) => (
-                      <div key={group.labelKey} data-testid={gi === 0 ? 'sort-menu' : undefined}>
-                        {gi > 0 && <DropdownMenuSeparator />}
-                        <DropdownMenuLabel className="text-xs text-muted-foreground">
-                          {t(group.labelKey)}
-                        </DropdownMenuLabel>
-                        {group.items.map((item) => (
-                          <DropdownMenuItem
-                            key={item.labelKey}
-                            data-testid={`sort-${item.mode}-${item.descending ? 'desc' : 'asc'}`}
-                            disabled={disabled}
-                            onSelect={() => handleSort(item.mode, item.descending)}
-                          >
-                            {item.mode === 'reverse' || item.mode === 'random' ? (
-                              <ArrowDownAZ aria-hidden className="mr-2 size-3.5 opacity-50" />
-                            ) : null}
-                            {t(item.labelKey)}
-                          </DropdownMenuItem>
-                        ))}
-                      </div>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                {/* —— 转换为:多语言实体类 + 数据格式(XML/YAML/TOML/JSON5/Properties/URL 参数) —— */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      data-testid="btn-convert"
-                      disabled={disabled}
-                      className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-                    >
-                      <FileCode2 aria-hidden className="size-3.5" />
-                      {t('tools.json_formatter.convert_to')}
-                      <ChevronDown aria-hidden className="size-3 opacity-60" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="max-h-[460px] overflow-y-auto">
-                    <DropdownMenuLabel className="text-xs text-muted-foreground">
-                      {t('tools.json_formatter.entity_class')}
-                    </DropdownMenuLabel>
-                    {ENTITY_LANGUAGE_ITEMS.map((item) => (
-                      <DropdownMenuItem
-                        key={item.id}
-                        data-testid={`convert-${item.id}`}
-                        disabled={disabled}
-                        onSelect={() => handleConvert(item.id)}
-                      >
-                        {item.labelKey ? t(item.labelKey) : item.label}
-                      </DropdownMenuItem>
-                    ))}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-xs text-muted-foreground">
-                      {t('tools.json_formatter.data_format')}
-                    </DropdownMenuLabel>
-                    {DATA_FORMAT_ITEMS.map((item) => (
-                      <DropdownMenuItem
-                        key={item.id}
-                        data-testid={`convert-${item.id}`}
-                        disabled={disabled}
-                        onSelect={() => handleConvertFormat(item.id)}
-                      >
-                        {item.labelKey ? t(item.labelKey) : item.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                {/* —— 工具本地历史(完整内容,可还原;全局历史仅存预览不可复用) —— */}
-                <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
-                  <PopoverTrigger asChild>
-                    {/* 原生 button:Radix Slot 需要向子元素转发 ref(定位锚定) */}
-                    <button
-                      type="button"
-                      data-testid="btn-history"
-                      className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <History aria-hidden className="size-3.5" />
-                      {t('tools.json_formatter.history')}
-                      {history.length > 0 && (
-                        <span className="rounded bg-muted px-1 text-[10px]">
-                          {Math.min(history.length, MAX_HISTORY_ITEMS)}
-                        </span>
-                      )}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    align="end"
-                    className="w-96 p-0"
-                    data-testid="history-popover"
-                    // 打开时阻止 FocusScope 默认聚焦首个 tabbable(「保存当前」按钮):
-                    // Radix Tooltip 对 focus 走即时打开路径(不施加 hover 延迟),
-                    // 焦点自动落上会出现「刚打开历史就弹出保存当前悬浮提示」的观感;
-                    // 焦点留在「历史」触发按钮,提示仅在真正悬浮按钮时出现
-                    onOpenAutoFocus={(event) => event.preventDefault()}
+          <div className="flex h-full min-h-0 flex-col">
+            <CodeEditor
+              title={t('tools.json_formatter.input_title')}
+              language={inputLanguage}
+              value={text}
+              onChange={handleInputChange}
+              // 错误定位:接入 Monaco 实例与 monaco 命名空间,供 setModelMarkers
+              // 波浪线 + 跳转;jsdom shim 下 onMount 不触发,调用处已判空
+              onMount={(editorInstance, monaco) => {
+                inputEditorRef.current = editorInstance;
+                monacoRef.current = monaco as typeof import('monaco-editor');
+              }}
+              // 只保留右侧边框(朝向中间分隔缝),去掉外三边:外层卡片已提供
+              // rounded-lg 框体,编辑器自带 rounded-md 边框会在卡片左右两边
+              // 叠出双线/双圆角;去掉后边缘单线、四角圆角干净
+              className="h-full rounded-none border-0 border-r"
+              data-testid="input"
+              searchAnchor="json_formatter:input"
+              contextMenuSections={jsonMenuSections}
+              // 输入侧支持打开本地文件(readFileAsText 读取后整体替换当前文档内容)
+              showOpenFile
+              actions={
+                <>
+                  <ActionButton
+                    testId="btn-format"
+                    onClick={() => void runFormat()}
+                    disabled={disabled}
                   >
-                    <div className="flex items-center gap-1 border-b border-border px-3 py-2">
-                      <span className="flex-1 text-xs font-semibold">
-                        {t('tools.json_formatter.history_title')}
+                    <Wand2 aria-hidden className="size-3.5" />
+                    {loading
+                      ? t('tools.json_formatter.formatting')
+                      : t('tools.json_formatter.format')}
+                  </ActionButton>
+                  {/* —— 显式修复:绝不自动触发,交由用户判断(可能需要靠错误位置人工查错) —— */}
+                  <ActionButton
+                    testId="btn-repair"
+                    onClick={handleRepair}
+                    disabled={disabled}
+                    title={t('tools.json_formatter.repair_title')}
+                  >
+                    <Wrench aria-hidden className="size-3.5" />
+                    {t('tools.json_formatter.repair')}
+                  </ActionButton>
+                  {/* —— JSON 语法错误定位:点击画波浪线并跳转出错行列 —— */}
+                  {jsonError && (
+                    <button
+                      type="button"
+                      data-testid="error-location"
+                      onClick={() => gotoErrorLocation(jsonError)}
+                      title={t('tools.json_formatter.error_goto_title')}
+                      className="flex h-[26px] items-center gap-1 rounded border border-destructive/50 bg-destructive/10 px-1.5 text-xs text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <LocateFixed aria-hidden className="size-3.5" />
+                      {t('tools.json_formatter.error_at', {
+                        line: jsonError.line,
+                        column: jsonError.column,
+                      })}
+                      <span className="opacity-80">
+                        {t(`tools.json_formatter.diag_${jsonError.kind}`, {
+                          detail: jsonError.detail,
+                        })}
                       </span>
-                      <TooltipProvider delayDuration={300}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <ActionButton
-                              testId="history-save-current"
-                              onClick={() => {
-                                if (text.trim()) recordHistory(text);
-                              }}
-                            >
-                              <Save aria-hidden className="size-3.5" />
-                              {t('tools.json_formatter.save_current')}
-                            </ActionButton>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom">
-                            {t('tools.json_formatter.history_save_tip')}
-                          </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            {/* 确认框用 Popover 锚定在按钮旁(参考 shadcn Popover),
-                                不用居中 modal:轻量防误触不打断浏览 */}
-                            <Popover open={clearHistoryOpen} onOpenChange={setClearHistoryOpen}>
-                              <PopoverTrigger asChild>
-                                <ActionButton
-                                  testId="history-clear"
-                                  disabled={history.length === 0}
-                                >
-                                  <Trash2 aria-hidden className="size-3.5" />
-                                  {t('tools.json_formatter.clear')}
-                                </ActionButton>
-                              </PopoverTrigger>
-                              <PopoverContent
-                                align="end"
-                                side="bottom"
-                                className="w-56 p-3"
-                                data-testid="history-clear-confirm"
-                              >
-                                <p className="text-xs font-semibold">
-                                  {t('tools.json_formatter.history_clear_confirm_title')}
-                                </p>
-                                <p className="mt-1 text-[10px] text-muted-foreground">
-                                  {t('tools.json_formatter.history_clear_confirm_desc', {
-                                    count: history.length,
-                                  })}
-                                </p>
-                                <div className="mt-2.5 flex justify-end gap-1">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 px-2.5 text-xs"
-                                    onClick={() => setClearHistoryOpen(false)}
-                                    data-testid="history-clear-confirm-cancel"
-                                  >
-                                    {t('tools.json_formatter.cancel')}
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    className="h-7 px-2.5 text-xs"
-                                    onClick={() => {
-                                      useJsonFormatterStore.getState().clearHistory();
-                                      setClearHistoryOpen(false);
-                                    }}
-                                    data-testid="history-clear-confirm-ok"
-                                  >
-                                    {t('tools.json_formatter.clear')}
-                                  </Button>
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom">
-                            {t('tools.json_formatter.history_clear_tip')}
-                          </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              data-testid="history-close"
-                              aria-label={t('tools.json_formatter.history_close_aria')}
-                              onClick={() => setHistoryOpen(false)}
-                              className="flex items-center rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            >
-                              <X aria-hidden className="size-3.5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom">
-                            {t('tools.json_formatter.history_close_tip')}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    {history.length === 0 ? (
-                      <div
-                        className="flex h-24 items-center justify-center text-xs text-muted-foreground"
-                        data-testid="history-empty"
+                    </button>
+                  )}
+                  <ActionButton
+                    testId="btn-minify"
+                    onClick={() => handleQuickAction('minify')}
+                    disabled={disabled}
+                  >
+                    <Minimize2 aria-hidden className="size-3.5" />
+                    {t('tools.json_formatter.minify')}
+                  </ActionButton>
+                  {/* —— 转义 / 去除转义:互为反操作,写入输出框、输入不变 —— */}
+                  <ActionButton testId="btn-escape" onClick={handleEscape} disabled={disabled}>
+                    <Quote aria-hidden className="size-3.5" />
+                    {t('tools.json_formatter.escape')}
+                  </ActionButton>
+                  <ActionButton testId="btn-unescape" onClick={handleUnescape} disabled={disabled}>
+                    <RemoveFormatting aria-hidden className="size-3.5" />
+                    {t('tools.json_formatter.unescape')}
+                  </ActionButton>
+                  {/* —— 多模式键排序(仿 Json Assistant:基础/自然/特殊三组) —— */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        data-testid="btn-sort"
+                        disabled={disabled}
+                        className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
                       >
-                        {t('tools.json_formatter.history_empty')}
-                      </div>
-                    ) : (
-                      <ul className="max-h-72 overflow-y-auto py-1" data-testid="history-list">
-                        {history.map((item) => (
-                          <li key={item.id} className="group relative">
-                            <button
-                              type="button"
-                              data-testid="history-item"
-                              title={item.title}
-                              onClick={() => handleRestoreHistory(item)}
-                              className="flex w-full flex-col gap-0.5 px-3 py-1.5 pr-8 text-left transition-colors hover:bg-accent"
+                        <ArrowUpDown aria-hidden className="size-3.5" />
+                        {t('tools.json_formatter.sort')}
+                        <ChevronDown aria-hidden className="size-3 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="start"
+                      className="max-h-[420px] w-52 overflow-y-auto"
+                    >
+                      {SORT_MENU_GROUPS.map((group, gi) => (
+                        <div key={group.labelKey} data-testid={gi === 0 ? 'sort-menu' : undefined}>
+                          {gi > 0 && <DropdownMenuSeparator />}
+                          <DropdownMenuLabel className="text-xs text-muted-foreground">
+                            {t(group.labelKey)}
+                          </DropdownMenuLabel>
+                          {group.items.map((item) => (
+                            <DropdownMenuItem
+                              key={item.labelKey}
+                              data-testid={`sort-${item.mode}-${item.descending ? 'desc' : 'asc'}`}
+                              disabled={disabled}
+                              onSelect={() => handleSort(item.mode, item.descending)}
                             >
-                              <span className="truncate font-mono text-xs text-foreground">
-                                {item.title}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground">
-                                {item.timestamp > 0
-                                  ? formatDistanceToNow(new Date(item.timestamp), {
-                                      addSuffix: true,
-                                    })
-                                  : ''}
-                                {' · '}
-                                {t('tools.json_formatter.chars_unit', {
-                                  count: item.content.length,
-                                })}
-                              </span>
-                            </button>
-                            {/* 单条删除确认:同样锚定在 X 旁的 Popover;
-                                受控 open 按 item.id 单开,避免多条确认框同屏 */}
-                            <Popover
-                              open={historyRemoveId === item.id}
-                              onOpenChange={(o) => setHistoryRemoveId(o ? item.id : null)}
-                            >
-                              <PopoverTrigger asChild>
-                                <button
-                                  type="button"
-                                  aria-label={t('tools.json_formatter.delete_history_item_aria')}
-                                  data-testid="history-item-remove"
-                                  onClick={() => setHistoryRemoveId(item.id)}
-                                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-background hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
-                                >
-                                  <X aria-hidden className="size-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent
-                                align="end"
-                                side="bottom"
-                                className="w-56 p-3"
-                                data-testid="history-remove-confirm"
+                              {item.mode === 'reverse' || item.mode === 'random' ? (
+                                <ArrowDownAZ aria-hidden className="mr-2 size-3.5 opacity-50" />
+                              ) : null}
+                              {t(item.labelKey)}
+                            </DropdownMenuItem>
+                          ))}
+                        </div>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  {/* —— 转换为:多语言实体类 + 数据格式(XML/YAML/TOML/JSON5/Properties/URL 参数) —— */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        data-testid="btn-convert"
+                        disabled={disabled}
+                        className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                      >
+                        <FileCode2 aria-hidden className="size-3.5" />
+                        {t('tools.json_formatter.convert_to')}
+                        <ChevronDown aria-hidden className="size-3 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="max-h-[460px] overflow-y-auto">
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">
+                        {t('tools.json_formatter.entity_class')}
+                      </DropdownMenuLabel>
+                      {ENTITY_LANGUAGE_ITEMS.map((item) => (
+                        <DropdownMenuItem
+                          key={item.id}
+                          data-testid={`convert-${item.id}`}
+                          disabled={disabled}
+                          onSelect={() => handleConvert(item.id)}
+                        >
+                          {item.labelKey ? t(item.labelKey) : item.label}
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">
+                        {t('tools.json_formatter.data_format')}
+                      </DropdownMenuLabel>
+                      {DATA_FORMAT_ITEMS.map((item) => (
+                        <DropdownMenuItem
+                          key={item.id}
+                          data-testid={`convert-${item.id}`}
+                          disabled={disabled}
+                          onSelect={() => handleConvertFormat(item.id)}
+                        >
+                          {item.labelKey ? t(item.labelKey) : item.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  {/* —— 工具本地历史(完整内容,可还原;全局历史仅存预览不可复用) —— */}
+                  <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
+                    <PopoverTrigger asChild>
+                      {/* 原生 button:Radix Slot 需要向子元素转发 ref(定位锚定) */}
+                      <button
+                        type="button"
+                        data-testid="btn-history"
+                        className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <History aria-hidden className="size-3.5" />
+                        {t('tools.json_formatter.history')}
+                        {history.length > 0 && (
+                          <span className="rounded bg-muted px-1 text-[10px]">
+                            {Math.min(history.length, MAX_HISTORY_ITEMS)}
+                          </span>
+                        )}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="end"
+                      className="w-96 p-0"
+                      data-testid="history-popover"
+                      // 打开时阻止 FocusScope 默认聚焦首个 tabbable(「保存当前」按钮):
+                      // Radix Tooltip 对 focus 走即时打开路径(不施加 hover 延迟),
+                      // 焦点自动落上会出现「刚打开历史就弹出保存当前悬浮提示」的观感;
+                      // 焦点留在「历史」触发按钮,提示仅在真正悬浮按钮时出现
+                      onOpenAutoFocus={(event) => event.preventDefault()}
+                    >
+                      <div className="flex items-center gap-1 border-b border-border px-3 py-2">
+                        <span className="flex-1 text-xs font-semibold">
+                          {t('tools.json_formatter.history_title')}
+                        </span>
+                        <TooltipProvider delayDuration={300}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <ActionButton
+                                testId="history-save-current"
+                                onClick={() => {
+                                  if (text.trim()) recordHistory(text);
+                                }}
                               >
-                                <p className="text-xs font-semibold">
-                                  {t('tools.json_formatter.history_remove_confirm_title')}
-                                </p>
-                                <p className="mt-1 text-[10px] text-muted-foreground">
-                                  {t('tools.json_formatter.history_remove_confirm_desc')}
-                                </p>
-                                <div className="mt-2.5 flex justify-end gap-1">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 px-2.5 text-xs"
-                                    onClick={() => setHistoryRemoveId(null)}
-                                    data-testid="history-remove-confirm-cancel"
+                                <Save aria-hidden className="size-3.5" />
+                                {t('tools.json_formatter.save_current')}
+                              </ActionButton>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              {t('tools.json_formatter.history_save_tip')}
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              {/* 确认框用 Popover 锚定在按钮旁(参考 shadcn Popover),
+                                不用居中 modal:轻量防误触不打断浏览 */}
+                              <Popover open={clearHistoryOpen} onOpenChange={setClearHistoryOpen}>
+                                <PopoverTrigger asChild>
+                                  <ActionButton
+                                    testId="history-clear"
+                                    disabled={history.length === 0}
                                   >
-                                    {t('tools.json_formatter.cancel')}
-                                  </Button>
-                                  <Button
+                                    <Trash2 aria-hidden className="size-3.5" />
+                                    {t('tools.json_formatter.clear')}
+                                  </ActionButton>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  align="end"
+                                  side="bottom"
+                                  className="w-56 p-3"
+                                  data-testid="history-clear-confirm"
+                                >
+                                  <p className="text-xs font-semibold">
+                                    {t('tools.json_formatter.history_clear_confirm_title')}
+                                  </p>
+                                  <p className="mt-1 text-[10px] text-muted-foreground">
+                                    {t('tools.json_formatter.history_clear_confirm_desc', {
+                                      count: history.length,
+                                    })}
+                                  </p>
+                                  <div className="mt-2.5 flex justify-end gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 px-2.5 text-xs"
+                                      onClick={() => setClearHistoryOpen(false)}
+                                      data-testid="history-clear-confirm-cancel"
+                                    >
+                                      {t('tools.json_formatter.cancel')}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      className="h-7 px-2.5 text-xs"
+                                      onClick={() => {
+                                        useJsonFormatterStore.getState().clearHistory();
+                                        setClearHistoryOpen(false);
+                                      }}
+                                      data-testid="history-clear-confirm-ok"
+                                    >
+                                      {t('tools.json_formatter.clear')}
+                                    </Button>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              {t('tools.json_formatter.history_clear_tip')}
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                data-testid="history-close"
+                                aria-label={t('tools.json_formatter.history_close_aria')}
+                                onClick={() => setHistoryOpen(false)}
+                                className="flex items-center rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              >
+                                <X aria-hidden className="size-3.5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              {t('tools.json_formatter.history_close_tip')}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      {history.length === 0 ? (
+                        <div
+                          className="flex h-24 items-center justify-center text-xs text-muted-foreground"
+                          data-testid="history-empty"
+                        >
+                          {t('tools.json_formatter.history_empty')}
+                        </div>
+                      ) : (
+                        <ul className="max-h-72 overflow-y-auto py-1" data-testid="history-list">
+                          {history.map((item) => (
+                            <li key={item.id} className="group relative">
+                              <button
+                                type="button"
+                                data-testid="history-item"
+                                title={item.title}
+                                onClick={() => handleRestoreHistory(item)}
+                                className="flex w-full flex-col gap-0.5 px-3 py-1.5 pr-8 text-left transition-colors hover:bg-accent"
+                              >
+                                <span className="truncate font-mono text-xs text-foreground">
+                                  {item.title}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  {item.timestamp > 0
+                                    ? formatDistanceToNow(new Date(item.timestamp), {
+                                        addSuffix: true,
+                                      })
+                                    : ''}
+                                  {' · '}
+                                  {t('tools.json_formatter.chars_unit', {
+                                    count: item.content.length,
+                                  })}
+                                </span>
+                              </button>
+                              {/* 单条删除确认:同样锚定在 X 旁的 Popover;
+                                受控 open 按 item.id 单开,避免多条确认框同屏 */}
+                              <Popover
+                                open={historyRemoveId === item.id}
+                                onOpenChange={(o) => setHistoryRemoveId(o ? item.id : null)}
+                              >
+                                <PopoverTrigger asChild>
+                                  <button
                                     type="button"
-                                    size="sm"
-                                    className="h-7 px-2.5 text-xs"
-                                    onClick={() => {
-                                      useJsonFormatterStore.getState().removeHistory(item.id);
-                                      setHistoryRemoveId(null);
-                                    }}
-                                    data-testid="history-remove-confirm-ok"
+                                    aria-label={t('tools.json_formatter.delete_history_item_aria')}
+                                    data-testid="history-item-remove"
+                                    onClick={() => setHistoryRemoveId(item.id)}
+                                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-background hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
                                   >
-                                    {t('tools.json_formatter.delete')}
-                                  </Button>
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </PopoverContent>
-                </Popover>
-                {formatHintKey && (
-                  <span className="text-xs text-muted-foreground">{t(formatHintKey)}</span>
-                )}
-              </>
-            }
-          />
+                                    <X aria-hidden className="size-3" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  align="end"
+                                  side="bottom"
+                                  className="w-56 p-3"
+                                  data-testid="history-remove-confirm"
+                                >
+                                  <p className="text-xs font-semibold">
+                                    {t('tools.json_formatter.history_remove_confirm_title')}
+                                  </p>
+                                  <p className="mt-1 text-[10px] text-muted-foreground">
+                                    {t('tools.json_formatter.history_remove_confirm_desc')}
+                                  </p>
+                                  <div className="mt-2.5 flex justify-end gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 px-2.5 text-xs"
+                                      onClick={() => setHistoryRemoveId(null)}
+                                      data-testid="history-remove-confirm-cancel"
+                                    >
+                                      {t('tools.json_formatter.cancel')}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      className="h-7 px-2.5 text-xs"
+                                      onClick={() => {
+                                        useJsonFormatterStore.getState().removeHistory(item.id);
+                                        setHistoryRemoveId(null);
+                                      }}
+                                      data-testid="history-remove-confirm-ok"
+                                    >
+                                      {t('tools.json_formatter.delete')}
+                                    </Button>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                  {formatHintKey && (
+                    <span className="text-xs text-muted-foreground">{t(formatHintKey)}</span>
+                  )}
+                </>
+              }
+            />
+            {/* 修复报告条:仅显式「修复」动作后出现,如实说明修了什么/修不动;
+                下一条输入变化即消失(rememberJsonError/forgetJsonError 统一清理) */}
+            {repairReport && (
+              <div
+                data-testid="repair-report"
+                className="flex shrink-0 items-center gap-1.5 border-t border-border bg-muted/40 px-2 py-1 text-xs text-muted-foreground"
+              >
+                <Wrench aria-hidden className="size-3.5 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{repairReport}</span>
+                <button
+                  type="button"
+                  aria-label={t('tools.json_formatter.repair_report_close_aria')}
+                  onClick={() => setRepairReport(null)}
+                  className="flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <X aria-hidden className="size-3" />
+                </button>
+              </div>
+            )}
+          </div>
         </ResizablePanel>
 
         <ResizableHandle withHandle />
