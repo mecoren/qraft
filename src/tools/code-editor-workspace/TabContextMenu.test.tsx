@@ -226,4 +226,33 @@ describe('TabContextMenu', () => {
       changeLocale('zh-CN');
     }
   });
+
+  it('提供 onHistory 时显示「历史版本」,有路径可点击分发', async () => {
+    const onHistory = vi.fn();
+    setup({ onHistory });
+    const user = await openMenu();
+
+    const item = screen.getByTestId('ctx-history');
+    expect(item).toHaveTextContent('历史版本');
+    expect(item).not.toHaveAttribute('aria-disabled', 'true');
+    await user.click(item);
+    expect(onHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('path 为 null 时「历史版本」禁用', async () => {
+    setup({
+      onHistory: vi.fn(),
+      tab: { ...baseTab, path: null },
+    });
+    await openMenu();
+
+    expect(screen.getByTestId('ctx-history')).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('未提供 onHistory 时不显示「历史版本」项', async () => {
+    setup();
+    await openMenu();
+
+    expect(screen.queryByTestId('ctx-history')).not.toBeInTheDocument();
+  });
 });

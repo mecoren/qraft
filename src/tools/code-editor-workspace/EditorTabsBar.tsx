@@ -59,6 +59,8 @@ export interface EditorTabsBarProps {
   onRevealInExplorer?: (id: string) => void;
   /** 复制路径到剪贴板 */
   onCopyPath?: (id: string) => void;
+  /** 历史版本(本地保存前快照;打开「历史版本」对话框) */
+  onHistory?: (id: string) => void;
   /** 未保存/固定 Tab 关闭确认(null = 无确认框);锚定在对应 Tab 下方的小 Popover */
   unsavedConfirm?: {
     tabId: string;
@@ -93,6 +95,7 @@ export function EditorTabsBar({
   onSave,
   onRevealInExplorer,
   onCopyPath,
+  onHistory,
   unsavedConfirm = null,
   onUnsavedSave,
   onUnsavedDiscard,
@@ -362,6 +365,7 @@ export function EditorTabsBar({
                     onCloseAll={() => onCloseAll?.()}
                     onTogglePin={() => onTogglePin?.(tab.id)}
                     onSave={() => onSave?.(tab.id)}
+                    onHistory={onHistory ? () => onHistory(tab.id) : undefined}
                     onRevealInExplorer={() => onRevealInExplorer?.(tab.id)}
                     onCopyPath={() => onCopyPath?.(tab.id)}
                   >

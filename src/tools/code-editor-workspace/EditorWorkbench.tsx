@@ -60,9 +60,12 @@ import { LanguageIcon } from './languageIcons';
 import {
   OPEN_REASON_BINARY,
   OPEN_REASON_TOO_LARGE,
+  clearFileHistory,
   forceOpenFile,
+  listFileHistory,
   openTextFileDialog,
   openFolderDialog,
+  readFileHistorySnapshot,
   readTextFileEncoded,
   revealInExplorer,
   saveToPathEncoded,
@@ -72,6 +75,8 @@ import {
   type OpenFileFailure,
 } from './fileOps';
 import { fileMtimeMs } from './fileOps';
+import type { FileSnapshotMeta } from './fileOps';
+import { FileHistoryDialog } from './FileHistoryDialog';
 import { formatBytes } from '@/lib/file-utils';
 import { useToolMenus } from '@/store/toolMenubarStore';
 import type { ToolMenu } from '@/types/tool-menu';
@@ -135,6 +140,15 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const [activeCompareId, setActiveCompareId] = useState<string | null>(null);
   /** 语言模式选择对话框(右下角语言徽章触发) */
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
+  /**
+   * 「历史版本」对话框:目标 Tab id(打开即非 null,条件渲染挂载;
+   * 关闭即卸载,下次打开重新拉取快照列表)。
+   */
+  const [historyTabId, setHistoryTabId] = useState<string | null>(null);
+  /** 历史快照元数据(打开对话框时拉取;null = 加载中) */
+  const [historySnapshots, setHistorySnapshots] = useState<FileSnapshotMeta[] | null>(null);
+  /** 当前选中的历史版本 id(缺省自动选最新) */
+  const [historySelectedId, setHistorySelectedId] = useState<string | null>(null);
 
   // —— Markdown 视图模式(编辑/分屏/预览;仅 md 文档生效,与工具页共享偏好)——
   const mdViewMode = useMarkdownPreviewStore((s) => s.viewMode);
@@ -781,6 +795,134 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   }, [modifiedConflict, t]);
 
   /**
+   * 打开「历史版本」对话框(Tab 右键菜单触发)。
+   * 拉取该文件全部本地快照(保存前快照,新 → 旧);加载失败以空列表
+   * 呈现(空态文案),不阻塞对话框打开。
+   */
+  const handleOpenHistory = useCallback(
+    (tabId: string) => {
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === tabId);
+      const path = tab?.path;
+      if (!path) return;
+      setHistoryTabId(tabId);
+      setHistorySnapshots(null);
+      setHistorySelectedId(null);
+      void (async () => {
+        try {
+          const snapshots = await listFileHistory(path);
+          setHistorySnapshots(snapshots);
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : t('tools.text_editor.history_load_error'));
+          setHistorySnapshots([]);
+        }
+      })();
+    },
+    [t],
+  );
+
+  /** 关闭历史对话框(遮罩 / Esc / 取消):清空选中与列表,下次打开重拉 */
+  const handleHistoryCancel = useCallback(() => {
+    setHistoryTabId(null);
+    setHistorySnapshots(null);
+    setHistorySelectedId(null);
+  }, []);
+
+  /**
+   * 「对比当前」:读取选中快照内容 → 打开为历史快照 Tab(无 path,不被
+   * 当作本地文件)→ 组成「当前编辑(左) vs 历史版本(右)」对比并激活。
+   * 与外部修改冲突的「对比」(handleConflictCompare)同款动线。
+   */
+  const handleHistoryCompare = useCallback(
+    (snapshotId: string) => {
+      const id = historyTabId;
+      if (!id) return;
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id);
+      if (!tab?.path) return;
+      const { path, title } = tab;
+      void (async () => {
+        try {
+          const content = await readFileHistorySnapshot(path, snapshotId);
+          const time = new Date(Number(snapshotId)).toLocaleTimeString();
+          // 快照 Tab:无路径,标题标注版本时间(与磁盘快照 Tab 命名同款)
+          useEditorWorkspaceStore
+            .getState()
+            .openDroppedText(
+              t('tools.text_editor.history_snapshot_title', { name: title, time }),
+              content,
+            );
+          const tabsNow = useEditorWorkspaceStore.getState().workspace.tabs;
+          const snapshotTabId = tabsNow[tabsNow.length - 1]?.id;
+          if (snapshotTabId) {
+            const pair: ComparePair = {
+              id: createCompareId(),
+              leftTabId: id,
+              rightTabId: snapshotTabId,
+            };
+            setCompares((prev) => {
+              const next = [...prev, pair];
+              setActiveCompareId(pair.id);
+              return next;
+            });
+          }
+          handleHistoryCancel();
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : t('tools.text_editor.history_load_error'));
+        }
+      })();
+    },
+    [historyTabId, t, handleHistoryCancel],
+  );
+
+  /**
+   * 「恢复内容」:把历史内容读进一个新 Tab(不动原文件;
+   * 用户确认后再自行保存,避免一键覆盖磁盘)。
+   */
+  const handleHistoryRestore = useCallback(
+    (snapshotId: string) => {
+      const id = historyTabId;
+      if (!id) return;
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id);
+      if (!tab?.path) return;
+      const { path, title } = tab;
+      void (async () => {
+        try {
+          const content = await readFileHistorySnapshot(path, snapshotId);
+          const time = new Date(Number(snapshotId)).toLocaleTimeString();
+          useEditorWorkspaceStore
+            .getState()
+            .openDroppedText(
+              t('tools.text_editor.history_snapshot_title', { name: title, time }),
+              content,
+            );
+          handleHistoryCancel();
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : t('tools.text_editor.history_load_error'));
+        }
+      })();
+    },
+    [historyTabId, t, handleHistoryCancel],
+  );
+
+  /** 「清空历史」:删除该文件全部快照(确认后执行,列表回到空态) */
+  const handleHistoryClear = useCallback(() => {
+    const id = historyTabId;
+    if (!id) return;
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id);
+    const path = tab?.path;
+    if (!path) return;
+    void (async () => {
+      try {
+        await clearFileHistory(path);
+        setHistorySnapshots([]);
+        setHistorySelectedId(null);
+        toast.success(t('tools.text_editor.history_cleared'));
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : t('tools.text_editor.history_load_error'));
+      }
+    })();
+  }, [historyTabId, t]);
+
+  /**
    * 左栏选中处理(单击 / Ctrl+点击)。
    *
    * 「选中集合」= selectedTabIds ∪ {activeTabId}(去重),表示当前参与对比的候选文件。
@@ -1319,6 +1461,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               onTogglePin={handleTogglePin}
               onRename={handleRenameRequest}
               onSave={(id) => void saveTabById(id)}
+              onHistory={handleOpenHistory}
               onRevealInExplorer={handleRevealInExplorer}
               onCopyPath={handleCopyPath}
               // 文件列表拖拽排序:与 Tab 栏共用同一 store 动作,实现双向同步
@@ -1364,6 +1507,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                 useEditorWorkspaceStore.getState().reorderTabs(dragId, beforeTabId)
               }
               onSave={(id) => void saveTabById(id)}
+              onHistory={handleOpenHistory}
               onRevealInExplorer={handleRevealInExplorer}
               onCopyPath={handleCopyPath}
               // 未保存/固定 Tab 关闭确认:锚定在目标 Tab 下方的小 Popover
@@ -1489,6 +1633,26 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
             onReload={handleConflictReload}
             onCancel={() => setModifiedConflict(null)}
             data-testid="file-modified-dialog"
+          />
+        )}
+
+        {/* 历史版本对话框(Tab 右键「历史版本」):列表 + 对比/恢复/清空 */}
+        {historyTabId && (
+          <FileHistoryDialog
+            open
+            fileName={
+              useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === historyTabId)
+                ?.title ?? ''
+            }
+            snapshots={historySnapshots ?? []}
+            loading={historySnapshots === null}
+            selectedId={historySelectedId}
+            onSelect={setHistorySelectedId}
+            onCompare={handleHistoryCompare}
+            onRestore={handleHistoryRestore}
+            onClear={handleHistoryClear}
+            onCancel={handleHistoryCancel}
+            data-testid="file-history-dialog"
           />
         )}
 

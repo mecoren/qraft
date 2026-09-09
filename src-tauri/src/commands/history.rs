@@ -94,6 +94,7 @@ mod tests {
     use crate::core::registry::ToolRegistry;
     use crate::shell::state::AppState;
     use crate::store::config::{ConfigStore, UserConfig};
+    use crate::store::file_history::FileHistoryStore;
     use crate::store::history::HistoryStore;
     use async_trait::async_trait;
     use parking_lot::Mutex as ParkingMutex;
@@ -157,6 +158,7 @@ mod tests {
             executor,
             Arc::new(MockConfigStore) as Arc<dyn ConfigStore>,
             Arc::new(history) as Arc<dyn HistoryStore>,
+            FileHistoryStore::new(std::env::temp_dir().join("qraft-test-file-history")),
         )
     }
 

@@ -15,6 +15,7 @@ use crate::core::context::{HistoryEntry, HistorySink};
 use crate::core::error::ToolError;
 use crate::core::executor::ToolExecutor;
 use crate::store::config::ConfigStore;
+use crate::store::file_history::FileHistoryStore;
 use crate::store::history::HistoryStore;
 
 /// 流式任务注册表
@@ -121,6 +122,8 @@ pub struct AppState {
     pub executor: Arc<ToolExecutor>,
     pub config_store: Arc<dyn ConfigStore>,
     pub history_store: Arc<dyn HistoryStore>,
+    /// 文件本地历史(编辑器保存前快照);Clone 类型,按值持有
+    pub file_history: FileHistoryStore,
     pub streaming_tasks: Arc<StreamingTaskRegistry>,
     /// 运行时注入的 AppHandle,初始为 None,setup hook 中调用 `set_app_handle`
     app_handle: OnceLock<tauri::AppHandle>,
@@ -131,11 +134,13 @@ impl AppState {
         executor: Arc<ToolExecutor>,
         config_store: Arc<dyn ConfigStore>,
         history_store: Arc<dyn HistoryStore>,
+        file_history: FileHistoryStore,
     ) -> Self {
         Self {
             executor,
             config_store,
             history_store,
+            file_history,
             streaming_tasks: Arc::new(StreamingTaskRegistry::new()),
             app_handle: OnceLock::new(),
         }
@@ -239,7 +244,12 @@ mod tests {
         let executor = Arc::new(ToolExecutor::new(registry));
         let config_store: Arc<dyn ConfigStore> = Arc::new(MockConfigStore::new());
         let history_store: Arc<dyn HistoryStore> = Arc::new(MockHistoryStore::new());
-        AppState::new(executor, config_store, history_store)
+        AppState::new(
+            executor,
+            config_store,
+            history_store,
+            FileHistoryStore::new(std::env::temp_dir().join("qraft-test-file-history")),
+        )
     }
 
     #[test]

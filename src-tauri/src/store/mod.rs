@@ -2,6 +2,7 @@ use directories::ProjectDirs;
 use std::path::PathBuf;
 
 pub mod config;
+pub mod file_history;
 pub mod history;
 
 /// 获取 Qraft 项目目录(配置基目录)

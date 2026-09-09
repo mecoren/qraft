@@ -15,7 +15,7 @@
  * - `saveWithDialog`:弹「另存为」对话框(`fs_save_bytes`),保存后路径同样被授权。
  * - `encodeTextToBase64`:文本 → UTF-8 base64(`fs_save_bytes` 的输入格式)。
  */
-import { bytesToBase64 } from '@/lib/file-utils';
+import { bytesToBase64, base64ToBytes } from '@/lib/file-utils';
 import { invokeCommand, safeInvoke } from '@/lib/ipc';
 import { DEFAULT_ENCODING_ID } from '@/lib/text-encodings';
 import type { LargeFileMeta } from './schema';
@@ -382,4 +382,39 @@ export async function saveWithDialogEncoded(
 /** 文本 → UTF-8 base64(兼容中文/emoji) */
 export function encodeTextToBase64(text: string): string {
   return bytesToBase64(new TextEncoder().encode(text));
+}
+
+// ============ 文件本地历史(编辑器「历史版本」)============
+
+/** 单条历史快照元数据(`fs_file_history_list` 返回项) */
+export interface FileSnapshotMeta {
+  /** 快照 id(读取用;保存时刻的 epoch 毫秒) */
+  id: string;
+  /** 保存发生时刻(epoch 毫秒;被快照旧内容的「死亡时间」) */
+  savedAtMs: number;
+  /** 被快照旧内容的字节数 */
+  originalBytes: number;
+}
+
+/** 列出指定文件的本地历史快照(新 → 旧);无历史返回 [] */
+export async function listFileHistory(path: string): Promise<FileSnapshotMeta[]> {
+  return invokeCommand<FileSnapshotMeta[]>('fs_file_history_list', { path });
+}
+
+/**
+ * 读取历史快照字节并按 UTF-8 解码为文本(base64 往返,兼容任意字节)。
+ * 快照是磁盘旧内容的字节级拷贝,编辑器场景按 UTF-8 解读
+ * (非 UTF-8 编码文件的历史对比在恢复后按内容提示)。
+ */
+export async function readFileHistorySnapshot(path: string, snapshotId: string): Promise<string> {
+  const b64 = await invokeCommand<string>('fs_file_history_get', {
+    path,
+    snapshotId,
+  });
+  return new TextDecoder().decode(base64ToBytes(b64));
+}
+
+/** 清空指定文件的全部本地历史;失败抛 CommandError */
+export async function clearFileHistory(path: string): Promise<void> {
+  await invokeCommand<null>('fs_file_history_clear', { path });
 }

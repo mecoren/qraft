@@ -20,6 +20,8 @@ use tauri_plugin_dialog::DialogExt;
 use crate::shell::AppError;
 use crate::shell::fs_reveal::fs_reveal_in_explorer_inner;
 use crate::shell::response::CommandResponse;
+use crate::shell::state::AppState;
+use crate::store::file_history::{FileHistoryStore, FileSnapshotMeta};
 
 /// `bytes_look_like_text_kind` 的探测结果
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -127,6 +129,8 @@ pub async fn fs_read_file_inner(
 
 /// 向指定路径写入文件内容(必须在 `authorized` 集合中)
 ///
+/// `history` 提供时先对磁盘上的旧内容做本地历史快照(失败不阻塞保存)。
+///
 /// # Errors
 ///
 /// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
@@ -135,12 +139,37 @@ pub async fn fs_write_file_inner(
     path: &str,
     content: &str,
     authorized: &AuthorizedPaths,
+    history: Option<&FileHistoryStore>,
 ) -> Result<CommandResponse<()>, AppError> {
     validate_path(path, authorized)?;
+    snapshot_if_any(history, path);
     tokio::fs::write(path, content)
         .await
         .map_err(AppError::from)?;
     Ok(CommandResponse::ok(()))
+}
+
+/// 覆盖保存前对磁盘旧内容做本地历史快照(同步、尽力而为)。
+///
+/// 快照属增强能力:失败仅记日志,不阻塞保存主链路——语义上
+/// 等价于「这一版没有被记录」,保存本身必须优先成功。
+fn snapshot_if_any(history: Option<&FileHistoryStore>, path: &str) {
+    let Some(store) = history else {
+        return;
+    };
+    let now_ms = now_epoch_ms();
+    if let Err(e) = store.snapshot_before_write(path, now_ms) {
+        tracing::warn!("file history snapshot failed for {path}: {e}");
+    }
+}
+
+/// 当前 epoch 毫秒(快照 id / 元数据用;单调性无需保证,同毫秒覆盖同版本)。
+/// u128 → u64 截断:约 5.8 亿年才溢出,属有意为之。
+#[allow(clippy::cast_possible_truncation)]
+fn now_epoch_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as u64)
 }
 
 /// 将字节写入指定路径
@@ -382,6 +411,7 @@ pub async fn fs_write_file_encoded_inner(
     encoding_id: &str,
     expected_mtime: Option<u64>,
     authorized: &AuthorizedPaths,
+    history: Option<&FileHistoryStore>,
 ) -> Result<CommandResponse<()>, AppError> {
     validate_path(path, authorized)?;
     if let Some(expected) = expected_mtime {
@@ -390,6 +420,7 @@ pub async fn fs_write_file_encoded_inner(
             return Err(AppError::FileModified { mtime_ms: current });
         }
     }
+    snapshot_if_any(history, path);
     let bytes = encode_text(content, encoding_id)?;
     tokio::fs::write(path, bytes)
         .await
@@ -447,8 +478,9 @@ pub async fn fs_write_file(
     path: String,
     content: String,
     authorized: tauri::State<'_, AuthorizedPaths>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<CommandResponse<()>, AppError> {
-    fs_write_file_inner(&path, &content, &authorized).await
+    fs_write_file_inner(&path, &content, &authorized, Some(&state.file_history)).await
 }
 
 /// 弹出保存对话框并写入二进制字节(前端「另存为」使用)
@@ -856,8 +888,80 @@ pub async fn fs_write_file_encoded(
     encoding: String,
     expected_mtime: Option<u64>,
     authorized: tauri::State<'_, AuthorizedPaths>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<CommandResponse<()>, AppError> {
-    fs_write_file_encoded_inner(&path, &content, &encoding, expected_mtime, &authorized).await
+    fs_write_file_encoded_inner(
+        &path,
+        &content,
+        &encoding,
+        expected_mtime,
+        &authorized,
+        Some(&state.file_history),
+    )
+    .await
+}
+
+// ============ 文件本地历史(编辑器「历史版本」)============
+
+/// 列出指定文件的本地历史快照(新 → 旧)
+///
+/// 路径必须在授权集合中(与读取同一信任级:历史内容源于磁盘旧版)。
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+#[tauri::command]
+pub async fn fs_file_history_list(
+    path: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+    state: tauri::State<'_, AppState>,
+) -> Result<CommandResponse<Vec<FileSnapshotMeta>>, AppError> {
+    validate_path(&path, &authorized)?;
+    Ok(CommandResponse::ok(
+        state.file_history.list_snapshots(&path),
+    ))
+}
+
+/// 读取指定历史快照的原始字节(base64;非 UTF-8 文件同样可还原)
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 快照 id 非法 / 不存在或读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+#[tauri::command]
+pub async fn fs_file_history_get(
+    path: String,
+    snapshot_id: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+    state: tauri::State<'_, AppState>,
+) -> Result<CommandResponse<String>, AppError> {
+    validate_path(&path, &authorized)?;
+    let bytes = state
+        .file_history
+        .read_snapshot(&path, &snapshot_id)
+        .map_err(AppError::from)?;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+    Ok(CommandResponse::ok(b64))
+}
+
+/// 清空指定文件的全部本地历史快照
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 桶目录删除失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+#[tauri::command]
+pub async fn fs_file_history_clear(
+    path: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+    state: tauri::State<'_, AppState>,
+) -> Result<CommandResponse<()>, AppError> {
+    validate_path(&path, &authorized)?;
+    state
+        .file_history
+        .clear_snapshots(&path)
+        .map_err(AppError::from)?;
+    Ok(CommandResponse::ok(()))
 }
 
 /// 读取文件的 mtime(epoch 毫秒,必须在授权范围内)
@@ -1269,7 +1373,7 @@ mod tests {
     #[tokio::test]
     async fn test_fs_write_file_unauthorized_path() {
         let paths = AuthorizedPaths::new();
-        let result = fs_write_file_inner("/tmp/forbidden.txt", "content", &paths).await;
+        let result = fs_write_file_inner("/tmp/forbidden.txt", "content", &paths, None).await;
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code(), "ERR_PERMISSION_DENIED");
     }
@@ -1283,19 +1387,35 @@ mod tests {
         let paths = AuthorizedPaths::new();
         paths.authorize(path_str);
 
-        // 写入
-        let write_resp = fs_write_file_inner(path_str, "hello qraft", &paths)
+        // 写入(带本地历史:保存后应产生一份旧内容快照)
+        let history_root = dir.join("qraft_test_file_history");
+        let _ = std::fs::remove_dir_all(&history_root);
+        let history = FileHistoryStore::new(history_root.clone());
+        let write_resp = fs_write_file_inner(path_str, "hello qraft", &paths, Some(&history))
             .await
             .unwrap();
         assert!(write_resp.success);
 
+        // 再写一版:第一次写入的旧内容进入本地历史
+        let write2 = fs_write_file_inner(path_str, "hello qraft v2", &paths, Some(&history))
+            .await
+            .unwrap();
+        assert!(write2.success);
+        let versions = history.list_snapshots(path_str);
+        assert_eq!(versions.len(), 1);
+        let snapshot = history
+            .read_snapshot(path_str, &versions[0].id)
+            .expect("read snapshot");
+        assert_eq!(String::from_utf8(snapshot).unwrap(), "hello qraft");
+
         // 读取
         let read_resp = fs_read_file_inner(path_str, &paths).await.unwrap();
         assert!(read_resp.success);
-        assert_eq!(read_resp.data.unwrap(), "hello qraft");
+        assert_eq!(read_resp.data.unwrap(), "hello qraft v2");
 
         // 清理
         let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_dir_all(&history_root);
     }
 
     #[tokio::test]

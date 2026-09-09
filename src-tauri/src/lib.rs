@@ -70,11 +70,12 @@ pub fn run() -> anyhow::Result<()> {
     use crate::commands::config::{config_get, config_get_all, config_reset, config_set};
     use crate::commands::font::list_system_fonts;
     use crate::commands::fs::{
-        AuthorizedPaths, fs_authorize_dropped_paths, fs_file_mtime, fs_open_dialog,
-        fs_open_folder_dialog, fs_open_office_dialog, fs_open_pdf_dialog, fs_read_dir,
-        fs_read_file, fs_read_office, fs_read_pdf, fs_read_pdf_chunk, fs_read_pdf_info,
-        fs_read_text_file_encoded, fs_reveal_in_explorer, fs_save_bytes, fs_save_bytes_to_path,
-        fs_save_text_file_encoded, fs_write_file, fs_write_file_encoded,
+        AuthorizedPaths, fs_authorize_dropped_paths, fs_file_history_clear, fs_file_history_get,
+        fs_file_history_list, fs_file_mtime, fs_open_dialog, fs_open_folder_dialog,
+        fs_open_office_dialog, fs_open_pdf_dialog, fs_read_dir, fs_read_file, fs_read_office,
+        fs_read_pdf, fs_read_pdf_chunk, fs_read_pdf_info, fs_read_text_file_encoded,
+        fs_reveal_in_explorer, fs_save_bytes, fs_save_bytes_to_path, fs_save_text_file_encoded,
+        fs_write_file, fs_write_file_encoded,
     };
     use crate::commands::fs_large_file::{
         fs_large_file_info, fs_large_file_search, fs_read_file_lines,
@@ -83,6 +84,7 @@ pub fn run() -> anyhow::Result<()> {
     use crate::commands::image::png_compress;
     // IP 归属地查询(零网络原则的登记例外,见 net/mod.rs 与 PRD 13-security.md §3.1)
     use crate::commands::ip_lookup::ip_lookup;
+    use crate::commands::md_assets::{md_read_image_asset, md_save_image_asset};
     use crate::commands::regex_lab::{regex_codegen, regex_debug, regex_live, regex_tests};
     use crate::commands::tool::{
         tool_cancel, tool_execute, tool_execute_stream, tool_list, tool_metadata,
@@ -93,6 +95,7 @@ pub fn run() -> anyhow::Result<()> {
     };
     use crate::shell::state::AppState;
     use crate::store::config::{ConfigStore, JsonConfigStore};
+    use crate::store::file_history::FileHistoryStore;
     use crate::store::history::{HistoryStore, JsonlHistoryStore};
     // RunEvent 全平台均需(WindowEvent 拖放处理);其 Opened 变体仅在 macOS 上
     // 存在,对应分支已用 #[cfg(target_os = "macos")] 门控,非 macOS 不编译。
@@ -151,7 +154,12 @@ pub fn run() -> anyhow::Result<()> {
             let history_store: Arc<dyn HistoryStore> =
                 Arc::new(JsonlHistoryStore::new(history_path, config_store.clone()));
 
-            let state = AppState::new(executor, config_store, history_store);
+            let state = AppState::new(
+                executor,
+                config_store,
+                history_store,
+                FileHistoryStore::new(data_dir.join("file-history")),
+            );
             state
                 .set_app_handle(app.handle().clone())
                 .map_err(|_| anyhow::anyhow!("app_handle already set"))?;
@@ -259,6 +267,9 @@ pub fn run() -> anyhow::Result<()> {
             fs_read_dir,
             fs_read_text_file_encoded,
             fs_write_file_encoded,
+            fs_file_history_list,
+            fs_file_history_get,
+            fs_file_history_clear,
             fs_file_mtime,
             fs_read_pdf,
             fs_read_pdf_info,
@@ -273,6 +284,8 @@ pub fn run() -> anyhow::Result<()> {
             fs_reveal_in_explorer,
             png_compress,
             ip_lookup,
+            md_save_image_asset,
+            md_read_image_asset,
             regex_live,
             regex_tests,
             regex_codegen,

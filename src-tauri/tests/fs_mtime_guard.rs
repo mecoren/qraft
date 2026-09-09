@@ -18,6 +18,7 @@ use std::time::SystemTime;
 
 use qraft_lib::commands::fs::{AuthorizedPaths, fs_write_file_encoded_inner};
 use qraft_lib::core::error::AppError;
+use qraft_lib::store::file_history::FileHistoryStore;
 
 /// 读取文件 mtime(epoch 毫秒);与 `file_mtime_ms` 内部函数同源,
 /// 测试侧经 metadata 直接取值,避免测试依赖被测物实现
@@ -52,10 +53,16 @@ async fn rejects_overwrite_when_file_modified_externally() {
     let opened_mtime = mtime_ms(path_str).await;
     std::fs::write(&path, "externally modified").unwrap();
 
-    let err =
-        fs_write_file_encoded_inner(path_str, "mine", "utf-8", Some(opened_mtime), &authorized)
-            .await
-            .unwrap_err();
+    let err = fs_write_file_encoded_inner(
+        path_str,
+        "mine",
+        "utf-8",
+        Some(opened_mtime),
+        &authorized,
+        None,
+    )
+    .await
+    .unwrap_err();
     assert_eq!(err.code(), "ERR_FILE_MODIFIED");
     match &err {
         AppError::FileModified { mtime_ms: current } => {
@@ -86,10 +93,16 @@ async fn writes_when_mtime_matches() {
     authorized.authorize(path_str);
 
     let opened_mtime = mtime_ms(path_str).await;
-    let resp =
-        fs_write_file_encoded_inner(path_str, "mine", "utf-8", Some(opened_mtime), &authorized)
-            .await
-            .unwrap();
+    let resp = fs_write_file_encoded_inner(
+        path_str,
+        "mine",
+        "utf-8",
+        Some(opened_mtime),
+        &authorized,
+        None,
+    )
+    .await
+    .unwrap();
     assert!(resp.success);
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "mine");
 
@@ -106,7 +119,7 @@ async fn writes_without_expected_mtime_by_default() {
     authorized.authorize(path_str);
     std::fs::write(&path, "externally modified").unwrap();
 
-    let resp = fs_write_file_encoded_inner(path_str, "mine", "utf-8", None, &authorized)
+    let resp = fs_write_file_encoded_inner(path_str, "mine", "utf-8", None, &authorized, None)
         .await
         .unwrap();
     assert!(resp.success);
@@ -127,10 +140,16 @@ async fn errors_when_file_deleted_since_open() {
     let opened_mtime = mtime_ms(path_str).await;
     std::fs::remove_file(&path).unwrap();
 
-    let err =
-        fs_write_file_encoded_inner(path_str, "mine", "utf-8", Some(opened_mtime), &authorized)
-            .await
-            .unwrap_err();
+    let err = fs_write_file_encoded_inner(
+        path_str,
+        "mine",
+        "utf-8",
+        Some(opened_mtime),
+        &authorized,
+        None,
+    )
+    .await
+    .unwrap_err();
     // 文件不存在:io::NotFound → ERR_FILE_IO(不误报为 mtime 冲突)
     assert_eq!(err.code(), "ERR_FILE_IO");
 
@@ -149,11 +168,56 @@ async fn same_mtime_writes_treated_as_unmodified() {
     authorized.authorize(path_str);
 
     let opened_mtime = mtime_ms(path_str).await;
-    let resp =
-        fs_write_file_encoded_inner(path_str, "mine", "utf-8", Some(opened_mtime), &authorized)
-            .await
-            .unwrap();
+    let resp = fs_write_file_encoded_inner(
+        path_str,
+        "mine",
+        "utf-8",
+        Some(opened_mtime),
+        &authorized,
+        None,
+    )
+    .await
+    .unwrap();
     assert!(resp.success);
 
     let _ = std::fs::remove_file(&path);
+}
+
+/// 带本地历史的保存:覆盖写前对磁盘旧内容做快照,历史可找回上一版
+#[tokio::test]
+async fn snapshots_previous_content_before_encoded_write() {
+    let path = temp_file("qraft_it_history_snap.txt", "old content");
+    let path_str = path.to_str().unwrap();
+
+    let authorized = AuthorizedPaths::new();
+    authorized.authorize(path_str);
+
+    // 历史根目录独立于真实 app 数据目录(测试结束清理)
+    let history_root = std::env::temp_dir().join("qraft_it_file_history");
+    let _ = std::fs::remove_dir_all(&history_root);
+    let history = FileHistoryStore::new(history_root.clone());
+
+    let opened_mtime = mtime_ms(path_str).await;
+    let resp = fs_write_file_encoded_inner(
+        path_str,
+        "new content",
+        "utf-8",
+        Some(opened_mtime),
+        &authorized,
+        Some(&history),
+    )
+    .await
+    .unwrap();
+    assert!(resp.success);
+    // 磁盘已是新内容
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "new content");
+
+    // 本地历史记录了旧内容
+    let versions = history.list_snapshots(path_str);
+    assert_eq!(versions.len(), 1);
+    let bytes = history.read_snapshot(path_str, &versions[0].id).unwrap();
+    assert_eq!(String::from_utf8(bytes).unwrap(), "old content");
+
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_dir_all(&history_root);
 }

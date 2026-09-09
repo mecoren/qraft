@@ -12,6 +12,7 @@
  * - 在文件资源管理器中显示(path 为 null 时禁用)
  * - 复制路径 / 复制相对路径(项目无工作区根目录概念,始终禁用)
  * - 保存(显示真实绑定的 Ctrl+S 快捷键;其余项无真实快捷键不显示伪快捷键)
+ * - 历史版本(path 为 null 时禁用;有 path 才有保存前快照)
  *
  * 未实现能力(「重新打开编辑器的方式」「拆分/移动到新窗口」等)一律不显示,
  * 避免出现点了无响应的死菜单。
@@ -43,6 +44,8 @@ export interface TabContextMenuProps {
   onSave: () => void;
   onRevealInExplorer: () => void;
   onCopyPath: () => void;
+  /** 历史版本(本地保存前快照);缺省则不显示该菜单项 */
+  onHistory?: () => void;
   /** 比较所选内容(左栏多选 ≥2 个文件时提供);缺省则不显示该菜单项 */
   onCompareSelected?: () => void;
   /** 当前多选文件数(≥2 时启用「比较所选内容」) */
@@ -63,6 +66,7 @@ export function TabContextMenu({
   onSave,
   onRevealInExplorer,
   onCopyPath,
+  onHistory,
   onCompareSelected,
   selectedCount = 0,
   children,
@@ -135,6 +139,11 @@ export function TabContextMenu({
           {t('tools.text_editor.save')}
           <ContextMenuShortcut>Ctrl+S</ContextMenuShortcut>
         </ContextMenuItem>
+        {typeof onHistory === 'function' && (
+          <ContextMenuItem onSelect={onHistory} disabled={!hasPath} data-testid="ctx-history">
+            {t('tools.text_editor.history_menu')}
+          </ContextMenuItem>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   );

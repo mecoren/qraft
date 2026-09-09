@@ -94,6 +94,8 @@ export interface EditorLeftSidebarProps {
   onRename?: (id: string) => void;
   /** 右键菜单:保存指定 Tab */
   onSave?: (id: string) => void;
+  /** 右键菜单:历史版本(本地保存前快照) */
+  onHistory?: (id: string) => void;
   /** 右键菜单:在文件资源管理器中显示 */
   onRevealInExplorer?: (id: string) => void;
   /** 右键菜单:复制路径到剪贴板 */
@@ -156,6 +158,7 @@ export function EditorLeftSidebar({
   onTogglePin,
   onRename,
   onSave,
+  onHistory,
   onRevealInExplorer,
   onCopyPath,
   onReorder,
@@ -491,6 +494,7 @@ export function EditorLeftSidebar({
                       onCloseAll={() => onCloseAll?.()}
                       onTogglePin={() => onTogglePin?.(tab.id)}
                       onSave={() => onSave?.(tab.id)}
+                      onHistory={onHistory ? () => onHistory(tab.id) : undefined}
                       onRevealInExplorer={() => onRevealInExplorer?.(tab.id)}
                       onCopyPath={() => onCopyPath?.(tab.id)}
                     >

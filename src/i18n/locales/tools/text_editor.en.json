@@ -109,5 +109,19 @@
   "tools.text_editor.large_encoding_title": "File encoding",
   "tools.text_editor.large_lines_title": "Total lines",
   "tools.text_editor.large_lines": "{{lines}} lines",
-  "tools.text_editor.large_size_title": "File size"
+  "tools.text_editor.large_size_title": "File size",
+  "tools.text_editor.history_menu": "Local History",
+  "tools.text_editor.history_title": "Local History",
+  "tools.text_editor.history_desc": "Local save history of \"{{name}}\" (snapshots taken before each overwrite; keeps the last 20 per file)",
+  "tools.text_editor.history_list_aria": "History version list",
+  "tools.text_editor.history_loading": "Loading history…",
+  "tools.text_editor.history_empty": "No history yet (created automatically on overwrite saves)",
+  "tools.text_editor.history_version_size": "{{size}}",
+  "tools.text_editor.history_version_nth": "Version {{num}}",
+  "tools.text_editor.history_clear": "Clear history",
+  "tools.text_editor.history_restore": "Restore content",
+  "tools.text_editor.history_compare": "Compare with current",
+  "tools.text_editor.history_load_error": "Failed to read local history",
+  "tools.text_editor.history_snapshot_title": "{{name}} (history {{time}})",
+  "tools.text_editor.history_cleared": "Local history cleared for this file"
 }
