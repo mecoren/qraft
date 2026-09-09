@@ -11,7 +11,13 @@
  * 数据加载由宿主(编辑器工作台)完成:快照元数据在打开对话框时拉取,
  * 组件只管展示与回调——保持 FileModifiedDialog 的同款「纯展示」分层。
  */
-import { useEffect, useRef, useState, type JSX } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type JSX,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { History, GitCompare, RotateCcw, Trash2 } from 'lucide-react';
 import {
@@ -99,13 +105,48 @@ export function FileHistoryDialog({
     setConfirmClear(true);
     confirmTimerRef.current = window.setTimeout(() => setConfirmClear(false), 3000);
   };
-  // 确认态随对话框关闭复位
-  useEffect(() => {
-    if (!open) {
-      window.clearTimeout(confirmTimerRef.current);
-      setConfirmClear(false);
+  // 确认态无需随 open 复位的 effect:宿主以条件渲染挂载本组件
+  // (`{historyTabId && <Dialog>}`),关闭即卸载,本地 state 自然重置;
+  // 挂起的超时定时器也随 jsdom 环境回收,不会跨实例触发。
+
+  /**
+   * 列表键盘导航:↑/↓ 在版本间移动选中(循环),Home/End 跳首末,
+   * Enter 直接对选中版开对比(列表上最常用的动作)。
+   * role=listbox 容器持焦点,aria-activedescendant 指示选中行。
+   */
+  const handleListKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (snapshots.length === 0) return;
+    const idx = snapshots.findIndex((s) => s.id === selectedId);
+    const move = (next: number): void => {
+      e.preventDefault();
+      const wrapped = (next + snapshots.length) % snapshots.length;
+      onSelect(snapshots[wrapped].id);
+    };
+    switch (e.key) {
+      case 'ArrowDown':
+        move(idx < 0 ? 0 : idx + 1);
+        break;
+      case 'ArrowUp':
+        move(idx < 0 ? 0 : idx - 1);
+        break;
+      case 'Home':
+        move(0);
+        break;
+      case 'End':
+        move(snapshots.length - 1);
+        break;
+      case 'Enter': {
+        const target = idx >= 0 ? snapshots[idx] : snapshots[0];
+        if (target) {
+          e.preventDefault();
+          onCompare(target.id);
+        }
+        break;
+      }
+      default:
+        break;
     }
-  }, [open]);
+  };
 
   return (
     <Dialog
@@ -132,8 +173,11 @@ export function FileHistoryDialog({
         <div
           role="listbox"
           aria-label={t('tools.text_editor.history_list_aria')}
+          aria-activedescendant={selectedId ? `file-history-opt-${selectedId}` : undefined}
           data-testid="file-history-list"
-          className="max-h-64 min-h-20 overflow-y-auto rounded-md border border-input"
+          tabIndex={0}
+          onKeyDown={handleListKeyDown}
+          className="max-h-64 min-h-20 overflow-y-auto rounded-md border border-input focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
         >
           {loading ? (
             <div className="px-3 py-6 text-center text-sm text-muted-foreground">
@@ -150,6 +194,7 @@ export function FileHistoryDialog({
                 <button
                   key={s.id}
                   type="button"
+                  id={`file-history-opt-${s.id}`}
                   role="option"
                   aria-selected={active}
                   data-testid={`file-history-item-${s.id}`}

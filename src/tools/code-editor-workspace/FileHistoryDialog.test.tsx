@@ -114,6 +114,66 @@ describe('FileHistoryDialog', () => {
     expect(handlers.onClear).toHaveBeenCalledTimes(1);
   });
 
+  it('键盘导航:↑↓ 在版本间移动选中,Enter 对选中版开对比', async () => {
+    const user = userEvent.setup();
+    // 受控回路:onSelect 更新 selectedId 并 rerender(模拟宿主 setState)
+    let selectedId = '2000';
+    const initial = setup({ onSelect: (id) => (selectedId = id) });
+    const { onCompare } = initial.handlers;
+    const rerenderWith = (): void =>
+      initial.rerender(
+        <FileHistoryDialog
+          open
+          fileName="notes.txt"
+          snapshots={snapshots}
+          loading={false}
+          selectedId={selectedId}
+          {...initial.handlers}
+          onSelect={(id) => (selectedId = id)}
+        />,
+      );
+
+    const list = screen.getByTestId('file-history-list');
+    list.focus();
+    // ↓:从最新版(2000)移到旧版(1000)
+    await user.keyboard('{ArrowDown}');
+    expect(selectedId).toBe('1000');
+    rerenderWith();
+    // ↑:回到最新版
+    await user.keyboard('{ArrowUp}');
+    expect(selectedId).toBe('2000');
+    rerenderWith();
+    // Enter:对选中版开对比
+    await user.keyboard('{Enter}');
+    expect(onCompare).toHaveBeenCalledWith('2000');
+  });
+
+  it('键盘导航:Home/End 跳首末版本', async () => {
+    const user = userEvent.setup();
+    let selectedId = '2000';
+    const initial = setup({ onSelect: (id) => (selectedId = id) });
+    const rerenderWith = (): void =>
+      initial.rerender(
+        <FileHistoryDialog
+          open
+          fileName="notes.txt"
+          snapshots={snapshots}
+          loading={false}
+          selectedId={selectedId}
+          {...initial.handlers}
+          onSelect={(id) => (selectedId = id)}
+        />,
+      );
+
+    const list = screen.getByTestId('file-history-list');
+    list.focus();
+    await user.keyboard('{End}');
+    expect(selectedId).toBe('1000');
+    rerenderWith();
+    await user.keyboard('{Home}');
+    expect(selectedId).toBe('2000');
+  });
+
   it('「取消」分发 onCancel', async () => {
     const user = userEvent.setup();
     const { handlers } = setup();
