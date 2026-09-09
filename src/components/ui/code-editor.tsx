@@ -285,6 +285,14 @@ export interface CodeEditorProps {
    */
   contextMenuSections?: MonacoMenuSection[];
   /**
+   * model 池化键(典型:tabId)。提供时作为 @monaco-editor/react 的
+   * `path` 传入——库按该键缓存 Monaco model,key 变化仅 setModel 切换
+   * 而不重挂载编辑器实例,undo 栈与 viewState 随 model 跨切换存活;
+   * 关闭 Tab 时由宿主经 editorModelRegistry.disposeModel 释放。
+   * 缺省时不传 path(保持旧行为:单实例自有 model,卸载即 dispose)。
+   */
+  modelKey?: string;
+  /**
    * 关闭 Monaco 内置 JSON 校验(language=json 时生效,默认 false 保留校验)。
    *
    * 用于「校验口径与工具自身不一致」的场景:内置 json worker 按严格 JSON
@@ -354,6 +362,7 @@ export function CodeEditor({
   encodingReopenAvailable = false,
   onEolChange,
   contextMenuSections,
+  modelKey,
   disableJsonValidate = false,
   lineNumbers = true,
   overviewRulerLanes = 0,
@@ -705,8 +714,10 @@ export function CodeEditor({
         //   避免换行后与 Tab 栏错位重叠
         // - min-w-0:让子项的 truncate 在 flex 容器中真正生效(默认 min-width: auto 会让
         //   truncate 失效,文字会把容器撑爆溢出)
-        // - 右侧动作区两层结构:外层 min-w-0 + overflow-x-auto 收缩裁剪,
-        //   内层 shrink-0 自然宽排布 —— 窄窗口下放不下的按钮可横向滚动找回
+        // - shrink-0 在右侧动作区:保证"粘贴/打开/清除"按钮永远不被挤压消失。
+        //   曾试过「外层 overflow-x-auto 滚动兜底」:overflow-x: auto 会让
+        //   overflow-y 计算值也变 auto,WebView2 横竖滚动条常驻;且可收缩的
+        //   动作区会被标题(flex-1)挤到 0 宽 —— 已回退,勿再给标题栏引入滚动
         // - overflow-hidden 兜底:标题区是自定义 ReactNode(如路径面包屑)时,
         //   内部若有内容超出固定 26px 高度,裁剪在工具栏内,不外溢遮盖 Tab 栏/编辑区
         // 高度用固定 26px 而非 py-0.5 自适应:左右双栏编辑器若一侧纯文字、
@@ -716,50 +727,37 @@ export function CodeEditor({
           <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground">
             {header ?? title}
           </span>
-          <span
-            // 滚动裁剪层:overflow-x-auto 在窄窗口下裁掉放不下的按钮并允许
-            // 滚动找回(配置类工具的按钮排可达十余个)。min-w-0 必须有:
-            // flex 子项默认 min-width:auto 会让本层恒等于内容宽,溢出发生在
-            // 外层标题栏上(overflow-hidden 直接裁掉,滚不动)。
-            // max-w-full:本层自身不越过标题栏右缘。
-            className="flex h-full min-w-0 max-w-full items-center overflow-x-auto"
-          >
-            <span
-              // 排布行:nowrap 语义由 flex 默认提供;shrink-0 保证按钮按
-              // 自然宽排布不被压扁,溢出交给外层裁剪+滚动
-              className="flex h-full shrink-0 items-center [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-              {!readOnly && showPaste && (
-                <ToolbarButton
-                  label={t('chrome.code_editor.paste')}
-                  testId={dataTestId ? `${dataTestId}-paste` : undefined}
-                  onClick={() => void handlePaste()}
-                >
-                  <ClipboardPaste aria-hidden className="size-3.5" />
-                  {t('chrome.code_editor.paste')}
-                </ToolbarButton>
-              )}
-              {!readOnly && showOpenFile && (
-                <ToolbarButton
-                  label={t('chrome.code_editor.open_file')}
-                  testId={dataTestId ? `${dataTestId}-open` : undefined}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <FolderOpen aria-hidden className="size-3.5" />
-                </ToolbarButton>
-              )}
-              {!readOnly && showClear && (
-                <ToolbarButton
-                  label={t('chrome.code_editor.clear')}
-                  testId={dataTestId ? `${dataTestId}-clear` : undefined}
-                  onClick={() => onChange?.('')}
-                >
-                  <X aria-hidden className="size-3.5" />
-                  {t('chrome.code_editor.clear')}
-                </ToolbarButton>
-              )}
-              {actions}
-            </span>
+          <span className="flex h-full shrink-0 items-center">
+            {!readOnly && showPaste && (
+              <ToolbarButton
+                label={t('chrome.code_editor.paste')}
+                testId={dataTestId ? `${dataTestId}-paste` : undefined}
+                onClick={() => void handlePaste()}
+              >
+                <ClipboardPaste aria-hidden className="size-3.5" />
+                {t('chrome.code_editor.paste')}
+              </ToolbarButton>
+            )}
+            {!readOnly && showOpenFile && (
+              <ToolbarButton
+                label={t('chrome.code_editor.open_file')}
+                testId={dataTestId ? `${dataTestId}-open` : undefined}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <FolderOpen aria-hidden className="size-3.5" />
+              </ToolbarButton>
+            )}
+            {!readOnly && showClear && (
+              <ToolbarButton
+                label={t('chrome.code_editor.clear')}
+                testId={dataTestId ? `${dataTestId}-clear` : undefined}
+                onClick={() => onChange?.('')}
+              >
+                <X aria-hidden className="size-3.5" />
+                {t('chrome.code_editor.clear')}
+              </ToolbarButton>
+            )}
+            {actions}
           </span>
         </div>
       )}
@@ -770,6 +768,10 @@ export function CodeEditor({
           language={language}
           theme={themeName}
           value={value}
+          // model 池化:提供 modelKey 时按其缓存/复用 Monaco model(库内
+          // getModel ?? createModel),key 变化仅 setModel 切换——undo 栈与
+          // viewState 随 model 跨挂载存活;缺省不传保持旧行为
+          {...(modelKey !== undefined ? { path: modelKey } : {})}
           beforeMount={handleBeforeMount}
           onMount={handleMount}
           onChange={(v) => onChange?.(v ?? '')}

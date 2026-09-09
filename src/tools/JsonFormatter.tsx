@@ -1399,7 +1399,9 @@ export function JsonFormatter({ toolId }: ToolProps) {
                         `tools.json_formatter.diag_${jsonError.kind}`,
                         { detail: jsonError.detail },
                       )}`}
-                      className="flex h-[26px] min-w-0 max-w-44 items-center gap-1 rounded border border-destructive/50 bg-destructive/10 px-1 text-xs text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      // 与 ActionButton 同款样式(muted 前景 + hover 反色),
+                      // 仅文字用 destructive 强调色区分报错语义
+                      className="flex h-[26px] min-w-0 max-w-44 items-center gap-1 rounded px-1 text-xs text-destructive transition-colors hover:bg-accent hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <LocateFixed aria-hidden className="size-3.5 shrink-0" />
                       <span className="shrink-0 tabular-nums">
