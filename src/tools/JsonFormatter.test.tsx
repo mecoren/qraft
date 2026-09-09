@@ -350,6 +350,10 @@ describe('JsonFormatter', () => {
     });
     // 修复动作如实记录在输出框顶部的修复报告
     expect(screen.getByTestId('repair-report')).toBeInTheDocument();
+    // 修复成功后错误定位 chip 随之消失(输入已合法,残留的报错会误导用户)
+    await waitFor(() => {
+      expect(screen.queryByTestId('error-location')).not.toBeInTheDocument();
+    });
   });
 
   it('reports unrepairable input honestly without changing the document', async () => {

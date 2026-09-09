@@ -284,6 +284,16 @@ export interface CodeEditorProps {
    * 每组前有分隔线。典型用法:JSON 工具注入「格式化/排序」,工作台注入命名风格切换。
    */
   contextMenuSections?: MonacoMenuSection[];
+  /**
+   * 关闭 Monaco 内置 JSON 校验(language=json 时生效,默认 false 保留校验)。
+   *
+   * 用于「校验口径与工具自身不一致」的场景:内置 json worker 按严格 JSON
+   * 报错(单引号 / 尾逗号 / 注释都会画波浪线),而部分工具(如 JSON 格式化器)
+   * 的解析口径更宽(JSON5 兼容回退)——同一份输入工具认为合法、编辑器却
+   * 常驻报错,修复后波浪线仍不消失。此时关掉内置校验,由宿主自己的
+   * 错误定位系统(chip + setModelMarkers)接管报错展示。
+   */
+  disableJsonValidate?: boolean;
 }
 
 function ToolbarButton({
@@ -344,6 +354,7 @@ export function CodeEditor({
   encodingReopenAvailable = false,
   onEolChange,
   contextMenuSections,
+  disableJsonValidate = false,
   lineNumbers = true,
   overviewRulerLanes = 0,
 }: CodeEditorProps): ReactNode {
@@ -553,6 +564,32 @@ export function CodeEditor({
     // 此时仍要触发 onMount(调用方可能依赖 editor 实例做全局注册)。
     onMount?.(editor, monacoRef.current ?? (window as unknown as { monaco?: Monaco }).monaco);
   };
+
+  // 内置 JSON 校验开关(language=json + disableJsonValidate 时关闭)。
+  // jsonDefaults 是全局单例:本编辑器挂载期间关闭,卸载时恢复原值,
+  // 不影响其他 JSON 编辑器(如输出侧保留内置校验)。
+  // 场景:工具解析口径(JSON5 兼容回退)比内置 worker(严格 JSON)宽,
+  // 两者不一致会让「格式化成功但编辑器常驻报错」;此时由宿主错误定位系统接管。
+  useEffect(() => {
+    const monaco = monacoRef.current;
+    if (!monaco || !disableJsonValidate || language !== 'json') return;
+    const jsonDefaults = (
+      monaco.languages as unknown as {
+        json?: {
+          jsonDefaults: {
+            diagnosticsOptions: { validate?: boolean };
+            setDiagnosticsOptions(o: { validate: boolean }): void;
+          };
+        };
+      }
+    ).json?.jsonDefaults;
+    if (!jsonDefaults) return;
+    const prev = jsonDefaults.diagnosticsOptions.validate;
+    jsonDefaults.setDiagnosticsOptions({ validate: false });
+    return () => {
+      jsonDefaults.setDiagnosticsOptions({ validate: prev ?? true });
+    };
+  }, [disableJsonValidate, language, editorInstance]);
 
   // 主题名变化时,重新定义并切换 Monaco 主题(无需重挂载编辑器);
   // 使用 fixedTheme 时主题为常量,只需确保应用,不随 data-palette 重定义

@@ -503,6 +503,9 @@ export function JsonFormatter({ toolId }: ToolProps) {
    * jsdom shim 渲染为 textarea,onMount 不触发,各调用处已判空。
    */
   const inputEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  /** 输入编辑器实例的响应式镜像:ref 变化不触发渲染,onMount 后手动 setState 一次,
+   * 供下方波浪线清除 effect 感知「编辑器就绪」(jsdom shim 下恒 null 不触发) */
+  const [inputEditorReady, setInputEditorReady] = useState(0);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
   /** 组件根 DOM:错误定位在无 Monaco 实例的环境下(shim)经根查输入 textarea */
   const rootRef = useRef<HTMLDivElement>(null);
@@ -676,18 +679,32 @@ export function JsonFormatter({ toolId }: ToolProps) {
     [t],
   );
 
-  /** 点击编辑器任意处即清除错误波浪线(定位信息留在 chip 可再次跳转) */
+  /**
+   * 自家错误波浪线的清除边界:
+   * - jsonError 置空(输入变化/格式化或修复成功)时,chip 点击画的
+   *   json-formatter 波浪线随之一并清除——修复成功后输入已合法,
+   *   残留的旧错误波浪线会误导用户「还有错」。
+   * - 点击编辑器任意处也清除(定位信息留在 chip 上可再次跳转)。
+   * effect 依赖 jsonError 与编辑器实例:此前空依赖 + 首挂载时
+   * inputEditorRef 尚未注入(onMount 晚于 effect),监听从未注册成功,
+   * 修复后的波浪线因此常驻——实测踩过,勿回退成空依赖。
+   */
   useEffect(() => {
     const ed = inputEditorRef.current;
     const monaco = monacoRef.current;
     if (!ed || !monaco) return;
     const model = ed.getModel();
     if (!model) return;
+    if (!jsonError) {
+      monaco.editor.setModelMarkers(model, 'json-formatter', []);
+      return;
+    }
     const disposable = ed.onMouseDown(() => {
       monaco.editor.setModelMarkers(model, 'json-formatter', []);
     });
     return () => disposable.dispose();
-  }, []);
+    // inputEditorReady:挂载完成后重跑注册;jsdom shim 下不触发
+  }, [jsonError, inputEditorReady]);
 
   /**
    * 显式「修复 JSON」(绝不自动触发):repairJson 只做语法确定的变换,
@@ -1333,6 +1350,8 @@ export function JsonFormatter({ toolId }: ToolProps) {
               onMount={(editorInstance, monaco) => {
                 inputEditorRef.current = editorInstance;
                 monacoRef.current = monaco as typeof import('monaco-editor');
+                // 唤醒波浪线清除 effect:ref 赋值不触发渲染,这里手动递增
+                setInputEditorReady((n) => n + 1);
               }}
               // 只保留右侧边框(朝向中间分隔缝),去掉外三边:外层卡片已提供
               // rounded-lg 框体,编辑器自带 rounded-md 边框会在卡片左右两边
@@ -1341,6 +1360,10 @@ export function JsonFormatter({ toolId }: ToolProps) {
               data-testid="input"
               searchAnchor="json_formatter:input"
               contextMenuSections={jsonMenuSections}
+              // 输入解析口径(JSON5 兼容回退)比 Monaco 内置校验(严格 JSON)宽:
+              // 单引号/尾逗号等写法工具认为合法、内置 worker 却常驻波浪线,
+              // 修复后也不消失。关掉内置校验,由下方错误定位 chip 接管报错展示
+              disableJsonValidate
               // 输入侧支持打开本地文件(readFileAsText 读取后整体替换当前文档内容)
               showOpenFile
               actions={
