@@ -33,7 +33,6 @@
   "tools.json_formatter.convert_failed": "Conversion failed ({{language}}): ",
   "tools.json_formatter.convert_format_failed": "Conversion failed ({{format}}): ",
   "tools.json_formatter.unsupported_format": "Unsupported format: {{format}}",
-  "tools.json_formatter.error_at": "Line {{line}} · Col {{column}}",
   "tools.json_formatter.error_goto_title": "Jump to and highlight the error position",
   "tools.json_formatter.diag_unexpected-token": "Unexpected character",
   "tools.json_formatter.diag_missing-comma": "Missing comma",

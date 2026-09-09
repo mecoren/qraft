@@ -305,9 +305,8 @@ describe('JsonFormatter', () => {
     fireEvent.click(screen.getByTestId('btn-format'));
 
     const chip = await screen.findByTestId('error-location');
-    // chip 文案含行列与错误类别(缺逗号)
-    expect(chip.textContent).toContain('第 3 行');
-    expect(chip.textContent).toContain('第 3 列');
+    // chip 文案含紧凑行列(L3:C3)与错误类别(缺逗号);类别可截断,title 悬浮完整阅读
+    expect(chip.textContent).toContain('L3:C3');
     expect(chip.textContent).toContain('缺少逗号');
 
     // 点击 chip 触发编辑器跳转(编辑器实例记录跳转目标行列)

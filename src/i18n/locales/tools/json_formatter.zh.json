@@ -33,7 +33,6 @@
   "tools.json_formatter.convert_failed": "转换失败({{language}}): ",
   "tools.json_formatter.convert_format_failed": "转换失败({{format}}): ",
   "tools.json_formatter.unsupported_format": "不支持的格式: {{format}}",
-  "tools.json_formatter.error_at": "第 {{line}} 行 · 第 {{column}} 列",
   "tools.json_formatter.error_goto_title": "跳转到出错位置并高亮",
   "tools.json_formatter.diag_unexpected-token": "意外的字符",
   "tools.json_formatter.diag_missing-comma": "缺少逗号",

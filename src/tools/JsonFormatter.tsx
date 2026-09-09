@@ -253,7 +253,7 @@ const ActionButton = forwardRef<
       type="button"
       data-testid={testId}
       disabled={disabled}
-      className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+      className="flex h-[26px] items-center gap-1 rounded px-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
       {...rest}
     >
       {children}
@@ -1371,15 +1371,18 @@ export function JsonFormatter({ toolId }: ToolProps) {
                       type="button"
                       data-testid="error-location"
                       onClick={() => gotoErrorLocation(jsonError)}
-                      title={t('tools.json_formatter.error_goto_title')}
-                      className="flex h-[26px] items-center gap-1 rounded border border-destructive/50 bg-destructive/10 px-1.5 text-xs text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      // title 同时承担「跳转」提示与被截断类别文字的完整悬浮阅读
+                      title={`${t('tools.json_formatter.error_goto_title')} · ${t(
+                        `tools.json_formatter.diag_${jsonError.kind}`,
+                        { detail: jsonError.detail },
+                      )}`}
+                      className="flex h-[26px] min-w-0 max-w-44 items-center gap-1 rounded border border-destructive/50 bg-destructive/10 px-1 text-xs text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <LocateFixed aria-hidden className="size-3.5" />
-                      {t('tools.json_formatter.error_at', {
-                        line: jsonError.line,
-                        column: jsonError.column,
-                      })}
-                      <span className="opacity-80">
+                      <LocateFixed aria-hidden className="size-3.5 shrink-0" />
+                      <span className="shrink-0 tabular-nums">
+                        L{jsonError.line}:C{jsonError.column}
+                      </span>
+                      <span className="min-w-0 truncate opacity-80">
                         {t(`tools.json_formatter.diag_${jsonError.kind}`, {
                           detail: jsonError.detail,
                         })}
@@ -1410,7 +1413,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                         type="button"
                         data-testid="btn-sort"
                         disabled={disabled}
-                        className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                        className="flex h-[26px] items-center gap-1 rounded px-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
                       >
                         <ArrowUpDown aria-hidden className="size-3.5" />
                         {t('tools.json_formatter.sort')}
@@ -1451,7 +1454,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                         type="button"
                         data-testid="btn-convert"
                         disabled={disabled}
-                        className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                        className="flex h-[26px] items-center gap-1 rounded px-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
                       >
                         <FileCode2 aria-hidden className="size-3.5" />
                         {t('tools.json_formatter.convert_to')}
