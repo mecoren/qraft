@@ -19,6 +19,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import type { editor } from 'monaco-editor';
+import type { Monaco } from '@monaco-editor/react';
 import { Columns2, Eye, FilePlus2, Folder, FolderOpen, PenLine } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -34,6 +35,7 @@ import {
   toggleCaseShortcutHandler,
 } from './namingCaseCommand';
 import { registerTabEditor, clearTabEditors } from '@/lib/editor-search-registry';
+import { registerMonacoInstance, disposeModel } from './editorModelRegistry';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
 import { useShortcut } from '@/hooks/useShortcut';
@@ -153,6 +155,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
 
   /** workspace 变更防抖持久化的定时器句柄;同时给窗口关闭守卫复用 */
   const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 上一帧已知的 Tab id 集合:Tab 关闭时对消失项释放 Monaco model(池化清理) */
+  const knownTabIdsRef = useRef<string[]>([]);
 
   /**
    * 窗口关闭守卫:工作区内容已通过防抖 effect 实时写入 Rust config 缓存
@@ -263,12 +267,31 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   // 挂载时把编辑器实例注册到全局「激活编辑器」注册表,供 cycle_naming_case
   // 全局快捷键(useShortcut)使用;并按当前 tab 注册到 tabId→实例注册表,
   // 供全局搜索文本跳转定位高亮;卸载时同时注销。
-  const handleEditorMount = useCallback((editorInstance: editor.IStandaloneCodeEditor) => {
-    activeEditorRef.current = editorInstance;
-    registerActiveEditor(editorInstance);
-    const tabId = useEditorWorkspaceStore.getState().workspace.activeTabId;
-    if (tabId) registerTabEditor(tabId, editorInstance);
-  }, []);
+  const handleEditorMount = useCallback(
+    (editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) => {
+      activeEditorRef.current = editorInstance;
+      registerActiveEditor(editorInstance);
+      // model 池化配套:monaco 实例注入注册表,供 Tab 关闭时按 tabId 释放 model
+      registerMonacoInstance(monaco as unknown as typeof import('monaco-editor'));
+      const tabId = useEditorWorkspaceStore.getState().workspace.activeTabId;
+      if (tabId) registerTabEditor(tabId, editorInstance);
+    },
+    [],
+  );
+
+  /**
+   * Tab 关闭时释放对应 model(model 池化的清理侧):
+   * 监听 workspace.tabs,对消失的 tabId 调 disposeModel——undo 栈随 model
+   * 释放,防止已关闭 Tab 的 model 常驻内存。批量关闭(全部关闭/关闭其他)
+   * 同样经此 effect 逐个释放。
+   */
+  useEffect(() => {
+    const valid = new Set(useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.id));
+    for (const tabId of knownTabIdsRef.current) {
+      if (!valid.has(tabId)) disposeModel(tabId);
+    }
+    knownTabIdsRef.current = [...valid];
+  }, [workspace.tabs]);
 
   useEffect(() => {
     return () => {
@@ -1173,12 +1196,15 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   // 移除原顶部工具栏:打开/新建/保存/关闭等操作已迁入 Titlebar 菜单栏。
   // 空状态仍保留「打开文件 / 新建」快捷按钮(无 Tab 时无菜单可用,作为兜底入口)。
 
-  // 主编辑器(单一实例定义,普通/分屏/预览布局按需复用)
+  // 主编辑器(单一实例定义,普通/分屏/预览布局按需复用)。
+  // model 池化:不再用 key={tabId} 重挂载整个 CodeEditor——modelKey 传 tabId,
+  // @monaco-editor/react 按 path 缓存 Monaco model,切 Tab 仅 setModel:
+  // undo 栈与 viewState(滚动/选区)跨切换存活,切换也不再整编辑器重建
   const editorPane = activeTab ? (
     <CodeEditor
-      key={activeTab.id}
       data-testid="editor"
       searchAnchor="text_editor:editor"
+      modelKey={activeTab.id}
       // 本地文件:工具栏展示路径面包屑(分段,末段为当前页);
       // untitled 文件:仍展示文件名(untitled-1)纯文本
       {...(activeTab.path

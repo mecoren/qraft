@@ -1271,6 +1271,78 @@ describe('CodeEditorTool 保存冲突(外部修改保护)', () => {
   });
 });
 
+describe('CodeEditorTool model 池化(undo 栈跨 Tab 存活)', () => {
+  /** 打开两个本地文件 Tab 并返回其 id 与 textarea DOM 节点 */
+  async function openTwoTabs(): Promise<{
+    textarea: HTMLTextAreaElement;
+  }> {
+    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
+      file: { path: '/a.txt', content: 'content-a', encoding: 'utf-8' },
+    });
+    await clickToolbarItem('toolbar-open');
+    await waitFor(() => expect(screen.getByTestId('editor-textarea')).toHaveValue('content-a'));
+
+    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
+      file: { path: '/b.txt', content: 'content-b', encoding: 'utf-8' },
+    });
+    await clickToolbarItem('toolbar-open');
+    await waitFor(() => expect(screen.getByTestId('editor-textarea')).toHaveValue('content-b'));
+
+    return { textarea: screen.getByTestId('editor-textarea') as HTMLTextAreaElement };
+  }
+
+  it('切 Tab 时把各 Tab 的 id 作为 modelKey 传给编辑器(model 池化入口)', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await openTwoTabs();
+
+    // 当前激活 b.txt:CodeEditor 收到的 modelKey 必须是其 Tab id
+    const bId = useEditorWorkspaceStore.getState().workspace.activeTabId;
+    expect(bId).toBeTruthy();
+    expect(lastEditorProps.current?.modelKey).toBe(bId);
+
+    // 切回 a.txt:modelKey 跟随切换
+    fireEvent.click(screen.getByTestId('editor-tabs-tab-a.txt'));
+    await waitFor(() => expect(screen.getByTestId('editor-textarea')).toHaveValue('content-a'));
+    const aId = useEditorWorkspaceStore.getState().workspace.activeTabId;
+    expect(lastEditorProps.current?.modelKey).toBe(aId);
+    expect(aId).not.toBe(bId);
+  });
+
+  it('切 Tab 复用同一编辑器实例(DOM 不重挂载,Monaco undo 栈随 model 存活的前提)', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    const { textarea } = await openTwoTabs();
+
+    // 切回 a 再切到 b:textarea DOM 节点必须仍是同一引用
+    // (key={tabId} 重挂载方案下每次切换节点都会被替换)
+    fireEvent.click(screen.getByTestId('editor-tabs-tab-a.txt'));
+    await waitFor(() => expect(screen.getByTestId('editor-textarea')).toHaveValue('content-a'));
+    fireEvent.click(screen.getByTestId('editor-tabs-tab-b.txt'));
+    await waitFor(() => expect(screen.getByTestId('editor-textarea')).toHaveValue('content-b'));
+
+    expect(screen.getByTestId('editor-textarea')).toBe(textarea);
+  });
+
+  it('关闭 Tab 时释放其 model(undo 栈随 model dispose 清理)', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await openTwoTabs();
+    const { disposeModel } = await import('./code-editor-workspace/editorModelRegistry');
+    const disposeSpy = vi.spyOn(
+      await import('./code-editor-workspace/editorModelRegistry'),
+      'disposeModel',
+    );
+
+    // 关闭 b.txt → 其 Tab id 的 model 被释放
+    fireEvent.click(screen.getByTestId('editor-tabs-close-b.txt'));
+    await waitFor(() => expect(screen.queryByTestId('editor-tabs-tab-b.txt')).toBeNull());
+    expect(disposeSpy).toHaveBeenCalled();
+    disposeSpy.mockRestore();
+    void disposeModel;
+  });
+});
+
 describe('CodeEditorTool 菜单快捷键标签', () => {
   it('菜单项快捷键标签与设置中的自定义绑定保持一致(非硬编码)', async () => {
     // 自定义「新建」为 Ctrl+Alt+N:菜单标签必须同步显示新绑定
