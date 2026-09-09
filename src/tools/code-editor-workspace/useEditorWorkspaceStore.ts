@@ -129,6 +129,7 @@ function openFileIntoWorkspace(
   path: string,
   content: string,
   encoding?: string,
+  mtimeMs?: number,
 ): Workspace {
   const existing = workspace.tabs.find((t) => t.path === path);
   if (existing) return { ...workspace, activeTabId: existing.id };
@@ -143,6 +144,7 @@ function openFileIntoWorkspace(
     savedContent: content,
     pinned: false,
     ...(encoding ? { encoding } : {}),
+    ...(mtimeMs !== undefined ? { openedMtimeMs: mtimeMs } : {}),
   };
   return { ...workspace, tabs: [...workspace.tabs, tab], activeTabId: tab.id };
 }
@@ -242,7 +244,7 @@ interface WorkspaceState {
   /** 从 Rust config 还原工作区;已还原时再次调用为 no-op */
   hydrate: (force?: boolean) => Promise<void>;
   /** 打开本地文件:存在同路径 Tab 则激活,否则新建(encoding 为探测到的编码标识) */
-  openLocalFile: (path: string, content: string, encoding?: string) => void;
+  openLocalFile: (path: string, content: string, encoding?: string, mtimeMs?: number) => void;
   /**
    * 以大文件只读模式打开本地文件(超过编辑器整读上限):
    * 创建 `largeFile` Tab 并立即触发索引扫描;同路径 Tab 已存在则仅激活。
@@ -270,7 +272,12 @@ interface WorkspaceState {
    * 若按"用户主动操作"处理会让 hydrate 直接放弃持久化数据,上次打开的
    * Tab 列表随即被防抖 persist 永久覆盖。不置位后由 hydrate 走合并分支。
    */
-  openLocalFileFromSystem: (path: string, content: string, encoding?: string) => void;
+  openLocalFileFromSystem: (
+    path: string,
+    content: string,
+    encoding?: string,
+    mtimeMs?: number,
+  ) => void;
   /** 打开拖入/粘贴的文本内容:以无路径 Tab 打开(标题为文件名,保存时另存为) */
   openDroppedText: (title: string, content: string) => void;
   /** 新建 untitled Tab 并激活 */
@@ -328,6 +335,12 @@ interface WorkspaceState {
   /** 更新 Tab 文件编码(编码选择器调用;保存时按该编码写回) */
   setTabEncoding: (id: string, encoding: string) => void;
   /**
+   * 更新 Tab 的 mtime 基准(保存成功/重新加载后调用):epoch 毫秒。
+   * 下次保存经 expectedMtime 携带做乐观并发校验;传 undefined 清除基准
+   * (回退为不校验)。
+   */
+  setTabMtime: (id: string, mtimeMs: number | undefined) => void;
+  /**
    * 切换 Tab 的自动换行开关(右键菜单「自动换行」调用)。
    * 仅作用于该 Tab 对应的编辑器实例;缺省视为开启,切换后随工作区持久化。
    */
@@ -377,16 +390,16 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }
   },
 
-  openLocalFile: (path, content, encoding) => {
+  openLocalFile: (path, content, encoding, mtimeMs) => {
     set({
-      workspace: openFileIntoWorkspace(get().workspace, path, content, encoding),
+      workspace: openFileIntoWorkspace(get().workspace, path, content, encoding, mtimeMs),
       userTouched: true,
     });
   },
 
   // 系统自动打开:刻意不置位 userTouched,让 hydrate 走合并分支保住历史 Tab
-  openLocalFileFromSystem: (path, content, encoding) => {
-    set({ workspace: openFileIntoWorkspace(get().workspace, path, content, encoding) });
+  openLocalFileFromSystem: (path, content, encoding, mtimeMs) => {
+    set({ workspace: openFileIntoWorkspace(get().workspace, path, content, encoding, mtimeMs) });
   },
 
   // —— 大文件只读模式(超过 EDITOR_FILE_MAX_BYTES 的文件)——
@@ -772,6 +785,20 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const { workspace } = get();
     const tabs = workspace.tabs.map((t) => (t.id === id ? { ...t, encoding } : t));
     set({ workspace: { ...workspace, tabs }, userTouched: true });
+  },
+
+  setTabMtime: (id, mtimeMs) => {
+    const { workspace } = get();
+    const tabs = workspace.tabs.map((t) =>
+      t.id === id
+        ? mtimeMs === undefined
+          ? { ...t, openedMtimeMs: undefined }
+          : { ...t, openedMtimeMs: mtimeMs }
+        : t,
+    );
+    // mtime 基准不参与 dirty 判定,不置 userTouched(避免纯基准刷新触发持久化;
+    // 反正 markSaved 等路径已置位,此处静默更新即可)
+    set({ workspace: { ...workspace, tabs } });
   },
 
   toggleTabWordWrap: (id) => {

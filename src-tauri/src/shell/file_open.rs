@@ -44,6 +44,9 @@ pub struct OpenFilePayload {
     /// 探测到的编码标识(utf-8 / gb18030 等);前端打开 Tab 时沿用
     #[serde(default)]
     pub encoding: String,
+    /// 打开时刻的文件 mtime(epoch 毫秒);前端保存时回传做外部修改校验
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mtime_ms: Option<u64>,
     /// 拖放落点的 CSS 像素坐标(webview 内 `{ x, y }`);非拖放入口(文件
     /// 关联/命令行)不携带,前端按无落点处理
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -446,10 +449,19 @@ pub fn open_file_in_app(
     // 授权路径,使前端可 fs_read_file 重新读取 / fs_write_file 覆盖保存
     authorized.authorize(path);
 
+    // 打开时刻 mtime(best-effort:读取失败按 None,前端跳过乐观校验)
+    let mtime_ms = std::fs::metadata(path)
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.duration_since(std::time::SystemTime::UNIX_EPOCH).ok())
+        // u128 → u64 显式检夹:epoch 毫秒在 u64 内近乎不可溢出,夹取防御
+        .and_then(|d| u64::try_from(d.as_millis()).ok());
+
     let payload = OpenFilePayload {
         path: path.to_string(),
         content,
         encoding,
+        mtime_ms,
         drop_position,
     };
 

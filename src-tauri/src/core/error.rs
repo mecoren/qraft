@@ -107,6 +107,12 @@ pub enum AppError {
     #[error("file too large: {size} bytes (max {max})")]
     FileTooLarge { size: u64, max: u64 },
 
+    /// 保存时磁盘文件 mtime 与打开时不一致(外部程序已修改)。
+    /// 编辑器保存走乐观并发控制:前端带 `expected_mtime` 保存,命中本错误
+    /// 时弹「覆盖 / 对比 / 重新加载」三选,避免静默覆盖外部改动。
+    #[error("file modified since opened: current mtime {mtime_ms}ms")]
+    FileModified { mtime_ms: u64 },
+
     #[error("permission denied: {0}")]
     Permission(String),
 
@@ -135,6 +141,7 @@ impl AppError {
             Self::Io(_) => "ERR_FILE_IO",
             Self::Unsupported(_) => "ERR_FILE_UNSUPPORTED",
             Self::FileTooLarge { .. } => "ERR_FILE_TOO_LARGE",
+            Self::FileModified { .. } => "ERR_FILE_MODIFIED",
             Self::Permission(_) | Self::Forbidden(_) => "ERR_PERMISSION_DENIED",
             Self::Internal(_) | Self::Unknown(_) => "ERR_INTERNAL",
         }
@@ -201,6 +208,9 @@ impl Serialize for AppError {
             }
             Self::FileTooLarge { size, max } => {
                 map.serialize_entry("detail", &json!({ "size": size, "max": max }))?;
+            }
+            Self::FileModified { mtime_ms } => {
+                map.serialize_entry("detail", &json!({ "mtimeMs": mtime_ms }))?;
             }
         }
         map.end()

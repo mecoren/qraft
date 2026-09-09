@@ -69,11 +69,15 @@ import type { HistoryEntry } from '@/types/history';
  * 让随后挂载的编辑器 hydrate 把上次的 Tab 列表合并回来而不是整体丢弃。
  * `encoding` 为 Rust 端探测到的编码标识,打开 Tab 时一并记录(状态栏展示)。
  */
-function openFileInEditor(path: string, content: string, encoding?: string): void {
+function openFileInEditor(
+  path: string,
+  content: string,
+  encoding?: string,
+  mtimeMs?: number,
+): void {
   useUiStore.getState().openTool(DEFAULT_TOOL_ID);
-  useEditorWorkspaceStore.getState().openLocalFileFromSystem(path, content, encoding);
+  useEditorWorkspaceStore.getState().openLocalFileFromSystem(path, content, encoding, mtimeMs);
 }
-
 /**
  * 以 Markdown 预览工具打开 .md 文档:切换到 markdown_preview 工具,
  * 并把内容作为新文档注入其工作区(经 openDocFromSystem:追加并激活、
@@ -199,7 +203,7 @@ function showBinaryUnsupportedToast(path: string): void {
               if (isMarkdownPath(r.path)) openFileInMarkdownPreview(r.content);
               else if (isPdfPath(r.path)) openFileInPdfEditor(r.path);
               else if (isOfficePath(r.path)) openFileInOfficeEditor(r.path);
-              else openFileInEditor(r.path, r.content, r.encoding);
+              else openFileInEditor(r.path, r.content, r.encoding, r.mtimeMs);
             })
             .catch(() => {
               // 强制打开失败(读取错误/超大):静默,后端已有对应提示渠道
@@ -288,7 +292,7 @@ export function App(): JSX.Element {
             openFileInMarkdownPreview(p.content);
             return;
           }
-          openFileInEditor(p.path, p.content, p.encoding);
+          openFileInEditor(p.path, p.content, p.encoding, p.mtimeMs);
         }),
       );
       // 拖放/打开的文件无法直接作为文本打开:按载荷分流提示(参考 VS Code)
@@ -372,7 +376,7 @@ export function App(): JSX.Element {
             if (isMarkdownPath(item.path)) {
               openFileInMarkdownPreview(item.content);
             } else {
-              openFileInEditor(item.path, item.content, item.encoding);
+              openFileInEditor(item.path, item.content, item.encoding, item.mtimeMs);
             }
           } else if (item?.kind === 'tooLarge' && item.path) {
             openLargeFileInEditor(item.path);

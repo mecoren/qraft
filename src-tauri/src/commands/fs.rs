@@ -264,6 +264,8 @@ pub struct EncodedTextContent {
     pub content: String,
     /// 探测到的编码标识(`detect_encoding` 输出,前端展示/保存用)
     pub encoding: String,
+    /// 读取时刻的文件 mtime(epoch 毫秒):前端保存时回传做外部修改校验
+    pub mtime_ms: u64,
 }
 
 /// 读取文本文件并探测编码(必须在授权范围内);支持显式指定编码与强制打开
@@ -305,9 +307,11 @@ pub async fn fs_read_text_file_encoded_inner(
         }
         _ => detect_encoding_forced(&bytes),
     };
+    let mtime_ms = file_mtime_ms(path).await?;
     Ok(CommandResponse::ok(EncodedTextContent {
         content: decode_text(&bytes, encoding_id),
         encoding: encoding_id.to_string(),
+        mtime_ms,
     }))
 }
 
@@ -339,20 +343,53 @@ fn detect_encoding_forced(bytes: &[u8]) -> &'static str {
     }
 }
 
+/// 读取文件的 mtime(epoch 毫秒);文件不存在/不可访问时返回 `AppError::Io`
+///
+/// 编辑器打开文件时记录该值,保存时经 `expected_mtime` 回传做乐观并发校验。
+///
+/// # Errors
+///
+/// - 元数据读取失败(不存在/权限不足)时返回 `AppError::Io`(`ERR_FILE_IO`)
+async fn file_mtime_ms(path: &str) -> Result<u64, AppError> {
+    use std::time::SystemTime;
+    let meta = tokio::fs::metadata(path).await.map_err(AppError::from)?;
+    let duration = meta
+        .modified()
+        .map_err(|e| AppError::Io(std::io::Error::other(format!("mtime unavailable: {e}"))))?
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map_err(|e| AppError::Io(std::io::Error::other(format!("mtime before epoch: {e}"))))?;
+    // u128 → u64 显式检夹:epoch 毫秒在 u64 内近乎不可溢出,夹取防御
+    Ok(u64::try_from(duration.as_millis()).unwrap_or(u64::MAX))
+}
+
 /// 以指定编码把内容写入文件(路径必须已授权)
+///
+/// `expected_mtime` 提供时做乐观并发校验(VSCode「文件已在磁盘上修改」防线):
+/// 磁盘当前 mtime 与期望值不一致 → 拒绝写入并返回 `AppError::FileModified`
+/// (`ERR_FILE_MODIFIED`,detail 携带当前 mtime),由前端弹「覆盖/对比/重读」
+/// 三选,避免静默覆盖外部程序(Git checkout 等)的修改。
+/// 缺省(None)时跳过校验,保持既有调用方直接覆盖的语义。
 ///
 /// # Errors
 ///
 /// - 编码不受支持时返回 `AppError::Unsupported`
 /// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 磁盘 mtime 与 `expected_mtime` 不一致时返回 `AppError::FileModified`(`ERR_FILE_MODIFIED`)
 /// - 文件写入失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 pub async fn fs_write_file_encoded_inner(
     path: &str,
     content: &str,
     encoding_id: &str,
+    expected_mtime: Option<u64>,
     authorized: &AuthorizedPaths,
 ) -> Result<CommandResponse<()>, AppError> {
     validate_path(path, authorized)?;
+    if let Some(expected) = expected_mtime {
+        let current = file_mtime_ms(path).await?;
+        if current != expected {
+            return Err(AppError::FileModified { mtime_ms: current });
+        }
+    }
     let bytes = encode_text(content, encoding_id)?;
     tokio::fs::write(path, bytes)
         .await
@@ -802,19 +839,43 @@ pub async fn fs_read_text_file_encoded(
 
 /// 以指定编码写入文本文件(utf-8-bom 自动补 BOM)
 ///
+/// `expected_mtime` 提供时做乐观并发校验:磁盘文件已被外部修改则拒绝写入
+/// (`ERR_FILE_MODIFIED`),前端弹「覆盖/对比/重新加载」;缺省直接覆盖
+/// (既有调用方语义)。
+///
 /// # Errors
 ///
 /// - 编码不受支持时返回 `AppError::Unsupported`
 /// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 磁盘 mtime 与 `expected_mtime` 不一致时返回 `AppError::FileModified`(`ERR_FILE_MODIFIED`)
 /// - 文件写入失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 #[tauri::command]
 pub async fn fs_write_file_encoded(
     path: String,
     content: String,
     encoding: String,
+    expected_mtime: Option<u64>,
     authorized: tauri::State<'_, AuthorizedPaths>,
 ) -> Result<CommandResponse<()>, AppError> {
-    fs_write_file_encoded_inner(&path, &content, &encoding, &authorized).await
+    fs_write_file_encoded_inner(&path, &content, &encoding, expected_mtime, &authorized).await
+}
+
+/// 读取文件的 mtime(epoch 毫秒,必须在授权范围内)
+///
+/// 编辑器「覆盖保存」前经此刷新乐观校验基准:两次保存间文件再次被外部
+/// 修改时,覆盖动作同样走 mtime 校验而非盲写。
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件不存在/元数据读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+#[tauri::command]
+pub async fn fs_file_mtime(
+    path: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<u64>, AppError> {
+    validate_path(&path, &authorized)?;
+    Ok(CommandResponse::ok(file_mtime_ms(&path).await?))
 }
 
 /// PDF 文件大小上限(字节):PDF 视图按 base64 全量过 IPC,

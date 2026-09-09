@@ -50,6 +50,7 @@ import { LargeFileViewer } from './LargeFileViewer';
 import { EditorTabsBar } from './EditorTabsBar';
 import { EditorLeftSidebar } from './EditorLeftSidebar';
 import { PathBreadcrumb } from './PathBreadcrumb';
+import { FileModifiedDialog } from './FileModifiedDialog';
 import { type UnsavedMode, type UnsavedSource } from './UnsavedPopover';
 import { EditorLanguagePicker } from './EditorLanguagePicker';
 import { LANGUAGE_LABELS, fileNameFromPath, inferLanguageFromPath } from './languageMap';
@@ -68,6 +69,7 @@ import {
   windowCloseReady,
   type OpenFileFailure,
 } from './fileOps';
+import { fileMtimeMs } from './fileOps';
 import { formatBytes } from '@/lib/file-utils';
 import { useToolMenus } from '@/store/toolMenubarStore';
 import type { ToolMenu } from '@/types/tool-menu';
@@ -115,6 +117,11 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   } | null>(null);
   /** 重命名对话框目标(null = 关闭);打开时预填该 Tab 当前显示名 */
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
+  /**
+   * 保存冲突状态(null = 关闭):保存命中 ERR_FILE_MODIFIED(磁盘文件已被
+   * 外部修改)时记录目标 Tab,弹「覆盖 / 对比 / 重新加载」三选。
+   */
+  const [modifiedConflict, setModifiedConflict] = useState<string | null>(null);
   /**
    * 左栏 Ctrl+多选选中的文件(id 集合,不含激活 Tab 自身)。
    * 存储层不落盘(纯会话内 UI 状态),关闭文件时同步剔除失效 id。
@@ -313,7 +320,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                 .then((result) => {
                   useEditorWorkspaceStore
                     .getState()
-                    .openLocalFile(result.path, result.content, result.encoding);
+                    .openLocalFile(result.path, result.content, result.encoding, result.mtimeMs);
                   setActiveCompareId(null);
                 })
                 .catch((e) => {
@@ -338,7 +345,12 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       if (result?.file) {
         useEditorWorkspaceStore
           .getState()
-          .openLocalFile(result.file.path, result.file.content, result.file.encoding);
+          .openLocalFile(
+            result.file.path,
+            result.file.content,
+            result.file.encoding,
+            result.file.mtimeMs,
+          );
         setActiveCompareId(null);
       } else if (result?.failed) {
         showOpenFailure(result.failed);
@@ -381,7 +393,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       }
       try {
         const result = await readTextFileEncoded(path);
-        state.openLocalFile(result.path, result.content, result.encoding);
+        state.openLocalFile(result.path, result.content, result.encoding, result.mtimeMs);
         setActiveCompareId(null);
       } catch (e) {
         const name = fileNameFromPath(path);
@@ -413,10 +425,13 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
 
   /**
    * 保存指定 Tab:已绑定路径直接写回(按 Tab 记录的编码),untitled 弹「另存为」。
-   * 返回是否成功(用户取消另存为 / 保存失败返回 false,供「保存并关闭」判断)。
+   * 乐观并发校验:有路径且记录了打开时 mtime 的 Tab,保存携带 expectedMtime;
+   * 磁盘已被外部修改(ERR_FILE_MODIFIED)时不写盘,弹冲突三选对话框。
+   * `overwrite` 为 true 时跳过校验(冲突对话框「覆盖」入口)。
+   * 返回是否成功(用户取消另存为 / 保存失败 / 命中冲突返回 false)。
    */
   const saveTabById = useCallback(
-    async (id: string): Promise<boolean> => {
+    async (id: string, overwrite = false): Promise<boolean> => {
       const state = useEditorWorkspaceStore.getState();
       const tab = state.workspace.tabs.find((t) => t.id === id);
       if (!tab) return false;
@@ -424,9 +439,18 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       if (tab.largeFile) return false;
       try {
         if (tab.path) {
-          // 按 Tab 记录的编码写回(状态栏可切换;缺省 UTF-8)
-          await saveToPathEncoded(tab.path, tab.content, tab.encoding ?? 'utf-8');
+          // 按 Tab 记录的编码写回(状态栏可切换;缺省 UTF-8);带打开时
+          // mtime 做外部修改校验(未记录基准或覆盖模式时不校验)
+          const expect =
+            overwrite || tab.openedMtimeMs === undefined ? undefined : tab.openedMtimeMs;
+          await saveToPathEncoded(tab.path, tab.content, tab.encoding ?? 'utf-8', expect);
           state.markSaved(id, tab.path);
+          // 刷新乐观校验基准:下一次保存以新 mtime 判定外部修改
+          try {
+            state.setTabMtime(id, await fileMtimeMs(tab.path));
+          } catch {
+            // mtime 刷新失败不阻塞保存成功路径(基准保持旧值,至多下次误报冲突)
+          }
           toast.success(t('tools.text_editor.toast_saved', { name: tab.title }));
           return true;
         }
@@ -441,6 +465,11 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         // 用户取消保存对话框:保持 dirty 状态
         return false;
       } catch (e) {
+        if (e instanceof CommandError && e.code === 'ERR_FILE_MODIFIED') {
+          // 外部修改冲突:不写盘、不弹错误 toast,交给三选对话框
+          setModifiedConflict(id);
+          return false;
+        }
         toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_save'));
         return false;
       }
@@ -476,6 +505,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         state.setTabContent(tab.id, result.content);
         // 指定编码重读时后端按所选编码解码,编码标识回退用户所选
         state.setTabEncoding(tab.id, result.encoding ?? encodingId);
+        // 重读即以磁盘为准:刷新乐观校验基准到当前磁盘 mtime
+        state.setTabMtime(tab.id, result.mtimeMs);
         state.markSaved(tab.id, tab.path);
         toast.success(t('tools.text_editor.toast_reopened', { encoding: result.encoding }));
       } catch (e) {
@@ -487,18 +518,26 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
 
   /**
    * 通过编码保存(仿 VSCode):记录所选编码后立即写盘。
-   * 有路径直接按该编码写回;untitled 弹「另存为」并以该编码写入。
+   * 有路径直接按该编码写回(带 mtime 乐观校验,冲突弹三选);
+   * untitled 弹「另存为」并以该编码写入。
    */
   const saveWithEncoding = useCallback(
-    async (encodingId: string): Promise<void> => {
+    async (encodingId: string, overwrite = false): Promise<void> => {
       const state = useEditorWorkspaceStore.getState();
       const tab = state.workspace.tabs.find((t) => t.id === state.workspace.activeTabId);
       if (!tab) return;
       state.setTabEncoding(tab.id, encodingId);
       try {
         if (tab.path) {
-          await saveToPathEncoded(tab.path, tab.content, encodingId);
+          const expect =
+            overwrite || tab.openedMtimeMs === undefined ? undefined : tab.openedMtimeMs;
+          await saveToPathEncoded(tab.path, tab.content, encodingId, expect);
           state.markSaved(tab.id, tab.path);
+          try {
+            state.setTabMtime(tab.id, await fileMtimeMs(tab.path));
+          } catch {
+            // mtime 刷新失败不阻塞保存成功路径
+          }
         } else {
           const fileName = tab.title.endsWith('.txt') ? tab.title : `${tab.title}.txt`;
           const path = await saveWithDialogEncoded(fileName, tab.content, encodingId);
@@ -508,6 +547,10 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         }
         toast.success(t('tools.text_editor.toast_saved', { name: tab.title }));
       } catch (e) {
+        if (e instanceof CommandError && e.code === 'ERR_FILE_MODIFIED') {
+          if (tab.id) setModifiedConflict(tab.id);
+          return;
+        }
         toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_save'));
       }
     },
@@ -628,6 +671,91 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     },
     [t],
   );
+
+  // —— 保存冲突三选(磁盘文件已被外部修改)——
+
+  /** 冲突目标 Tab(null = 关闭对话框时的瞬时读取) */
+  const conflictTab = modifiedConflict
+    ? (useEditorWorkspaceStore.getState().workspace.tabs.find((tb) => tb.id === modifiedConflict) ??
+      null)
+    : null;
+
+  /**
+   * 「覆盖」:跳过 mtime 校验,以当前编辑内容写盘(丢弃外部修改)。
+   * 覆盖前不再刷新基准(若两次操作间文件又被改,下次保存还会拦)。
+   */
+  const handleConflictOverwrite = useCallback(() => {
+    const id = modifiedConflict;
+    setModifiedConflict(null);
+    if (id) void saveTabById(id, true);
+  }, [modifiedConflict, saveTabById]);
+
+  /**
+   * 「重新加载」:读磁盘最新内容覆盖编辑器并清 dirty(本地未保存改动丢弃)。
+   * 已有 reopenWithEncoding 的「磁盘覆盖」语义,复用其实现(编码按 Tab 记录)。
+   */
+  const handleConflictReload = useCallback(() => {
+    const id = modifiedConflict;
+    setModifiedConflict(null);
+    if (!id) return;
+    const state = useEditorWorkspaceStore.getState();
+    const tab = state.workspace.tabs.find((tb) => tb.id === id);
+    if (!tab?.path) return;
+    const { path, id: tabId } = tab;
+    void (async () => {
+      try {
+        const result = await readTextFileEncoded(path);
+        state.setTabContent(tabId, result.content);
+        state.setTabEncoding(tabId, result.encoding ?? tab.encoding ?? 'utf-8');
+        state.setTabMtime(tabId, result.mtimeMs);
+        state.markSaved(tabId, path);
+        toast.success(t('tools.text_editor.toast_reloaded', { name: tab.title }));
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_open_file'));
+      }
+    })();
+  }, [modifiedConflict, t]);
+
+  /**
+   * 「对比」:读磁盘最新内容生成快照 Tab,与当前编辑 Tab 组成对比视图,
+   * 用户看完差异后自行决定去留(快照标题标注来源,不与原文件同路径混淆)。
+   */
+  const handleConflictCompare = useCallback(() => {
+    const id = modifiedConflict;
+    setModifiedConflict(null);
+    if (!id) return;
+    const state = useEditorWorkspaceStore.getState();
+    const tab = state.workspace.tabs.find((tb) => tb.id === id);
+    if (!tab?.path) return;
+    const { path, id: tabId, title } = tab;
+    void (async () => {
+      try {
+        const disk = await readTextFileEncoded(path);
+        // 磁盘快照 Tab:无路径(不被当作本地文件),标题标注磁盘来源
+        state.openDroppedText(
+          t('tools.text_editor.modified_disk_copy', { name: title }),
+          disk.content,
+        );
+        // 快照 Tab 是刚追加的最后一个;组成「当前编辑(左) vs 磁盘快照(右)」对比并激活
+        const tabsNow = useEditorWorkspaceStore.getState().workspace.tabs;
+        const snapshotId = tabsNow[tabsNow.length - 1]?.id;
+        if (snapshotId) {
+          const pair: ComparePair = {
+            id: createCompareId(),
+            leftTabId: tabId,
+            rightTabId: snapshotId,
+          };
+          setCompares((prev) => {
+            const next = [...prev, pair];
+            setActiveCompareId(pair.id);
+            return next;
+          });
+        }
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_open_file'));
+      }
+    })();
+  }, [modifiedConflict, t]);
 
   /**
    * 左栏选中处理(单击 / Ctrl+点击)。
@@ -1322,6 +1450,19 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
             }}
             onCancel={() => setRenaming(null)}
             data-testid="tab-rename-dialog"
+          />
+        )}
+
+        {/* 保存冲突三选(磁盘文件已被外部修改):覆盖 / 对比 / 重新加载 */}
+        {modifiedConflict && (
+          <FileModifiedDialog
+            open
+            fileName={conflictTab?.title ?? ''}
+            onOverwrite={handleConflictOverwrite}
+            onCompare={() => void handleConflictCompare()}
+            onReload={handleConflictReload}
+            onCancel={() => setModifiedConflict(null)}
+            data-testid="file-modified-dialog"
           />
         )}
 

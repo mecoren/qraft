@@ -25,6 +25,8 @@ export interface OpenFileResult {
   content: string;
   /** 探测到的文件编码标识(Rust 端 detect_encoding 输出) */
   encoding?: string;
+  /** 文件当前 mtime(epoch 毫秒);保存时回传做外部修改校验 */
+  mtimeMs?: number;
 }
 
 /** 打开失败的可恢复原因(`OpenFileFailure.reason` 字段值) */
@@ -69,6 +71,8 @@ export interface OpenFileEventPayload {
   content: string;
   /** 探测到的编码标识(Rust 端附带;省略时按 UTF-8 处理) */
   encoding?: string;
+  /** 打开时刻的文件 mtime(epoch 毫秒;省略时前端跳过保存乐观校验) */
+  mtimeMs?: number;
   /** 拖放落点(拖放入口附带;文件关联/命令行打开不携带) */
   dropPosition?: DropPosition;
 }
@@ -76,12 +80,14 @@ export interface OpenFileEventPayload {
 /** 通过文件关联/命令行「用 Qraft 打开」的待打开项(Rust PendingOpenItem) */
 export type PendingOpenItem =
   | {
-      /** 正常打开:内容 + 编码 */
+      /** 正常打开:内容 + 编码 + mtime 基准 */
       kind: 'file';
       path: string;
       content: string;
       /** 探测到的编码标识(Rust 端附带;省略时按 UTF-8 处理) */
       encoding?: string;
+      /** 打开时刻的文件 mtime(epoch 毫秒;省略时前端跳过保存乐观校验) */
+      mtimeMs?: number;
     }
   | {
       /** 超限文件:切换大文件只读查看模式(fs_large_file_info 流式打开) */
@@ -135,11 +141,16 @@ export async function readDirectory(path: string): Promise<DirEntry[]> {
   return invokeCommand<DirEntry[]>('fs_read_dir', { path });
 }
 
+/** 读取文件的 mtime(epoch 毫秒);供保存前刷新乐观校验基准 */
+export async function fileMtimeMs(path: string): Promise<number> {
+  return invokeCommand<number>('fs_file_mtime', { path });
+}
+
 /**
  * 读取文本文件并探测编码(编辑器打开文件的推荐入口)。
  * GB18030/Big5/Shift-JIS 等编码自动解码;二进制内容抛
  * CommandError(code=`ERR_FILE_UNSUPPORTED`),超大文件抛
- * `ERR_FILE_TOO_LARGE`。返回内容 + 编码标识。
+ * `ERR_FILE_TOO_LARGE`。返回内容 + 编码标识 + 打开时刻 mtime。
  *
  * `encoding` 提供时跳过探测,直接按该编码解码(VSCode「通过编码重新打开」);
  * 编码不受支持时后端抛 CommandError(ERR_FILE_UNSUPPORTED)。
@@ -148,11 +159,11 @@ export async function readTextFileEncoded(
   path: string,
   encoding?: string,
 ): Promise<OpenFileResult> {
-  const result = await invokeCommand<{ content: string; encoding: string }>(
+  const result = await invokeCommand<{ content: string; encoding: string; mtimeMs: number }>(
     'fs_read_text_file_encoded',
     { path, encoding: encoding ?? null },
   );
-  return { path, content: result.content, encoding: result.encoding };
+  return { path, content: result.content, encoding: result.encoding, mtimeMs: result.mtimeMs };
 }
 
 /**
@@ -160,11 +171,11 @@ export async function readTextFileEncoded(
  * 按探测编码有损解码;仍受大小上限约束(超大抛 `ERR_FILE_TOO_LARGE`)。
  */
 export async function forceOpenFile(path: string): Promise<OpenFileResult> {
-  const result = await invokeCommand<{ content: string; encoding: string }>(
+  const result = await invokeCommand<{ content: string; encoding: string; mtimeMs: number }>(
     'fs_read_text_file_encoded',
     { path, encoding: null, force: true },
   );
-  return { path, content: result.content, encoding: result.encoding };
+  return { path, content: result.content, encoding: result.encoding, mtimeMs: result.mtimeMs };
 }
 
 // ============ 大文件只读查看(超过编辑器整读上限的文件)============
@@ -266,13 +277,24 @@ export async function saveToPath(path: string, content: string): Promise<boolean
   return true;
 }
 
-/** 以指定编码写回已授权路径(utf-8-bom 自动补 BOM);失败抛 CommandError */
+/**
+ * 以指定编码写回已授权路径(utf-8-bom 自动补 BOM)。
+ * `expectedMtime` 提供时做乐观并发校验:磁盘文件被外部修改则抛
+ * CommandError(code=`ERR_FILE_MODIFIED`,details.mtimeMs 为磁盘当前值),
+ * 不写盘;缺省直接覆盖(既有语义)。成功返回 true。
+ */
 export async function saveToPathEncoded(
   path: string,
   content: string,
   encoding: string = DEFAULT_ENCODING_ID,
+  expectedMtime?: number,
 ): Promise<boolean> {
-  await invokeCommand<boolean>('fs_write_file_encoded', { path, content, encoding });
+  await invokeCommand<boolean>('fs_write_file_encoded', {
+    path,
+    content,
+    encoding,
+    expectedMtime: expectedMtime ?? null,
+  });
   return true;
 }
 

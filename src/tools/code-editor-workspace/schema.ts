@@ -56,6 +56,13 @@ export interface EditorTab {
    */
   encoding?: string;
   /**
+   * 打开/最近一次保存时记录的文件 mtime(epoch 毫秒)。
+   * 保存时经 expectedMtime 回传做乐观并发校验:磁盘文件被外部程序修改
+   * 则后端拒绝写入(ERR_FILE_MODIFIED),前端弹「覆盖/对比/重新加载」。
+   * 可选字段缺省时不校验(旧持久化数据兼容)。
+   */
+  openedMtimeMs?: number;
+  /**
    * 大文件只读查看模式标记(超过编辑器整读上限的文件):
    * - true 时本 Tab 不持有 content/savedContent(内容不进内存与持久化),
    *   由 LargeFileViewer 经行窗口 IPC 按需读取
@@ -244,6 +251,11 @@ function sanitizeTab(raw: unknown): EditorTab | null {
   const languageAuto = t.languageAuto !== false;
   // 旧版本持久化数据无 encoding 字段:缺省视为 utf-8(与历史行为一致)
   const encoding = typeof t.encoding === 'string' && t.encoding ? t.encoding : undefined;
+  // 旧版本持久化数据无 openedMtimeMs 字段:缺省不校验(与历史行为一致)
+  const openedMtimeMs =
+    typeof t.openedMtimeMs === 'number' && Number.isFinite(t.openedMtimeMs)
+      ? t.openedMtimeMs
+      : undefined;
   return {
     id: t.id,
     title: t.title,
@@ -256,6 +268,7 @@ function sanitizeTab(raw: unknown): EditorTab | null {
     pinned,
     wordWrap,
     ...(encoding !== undefined ? { encoding } : {}),
+    ...(openedMtimeMs !== undefined ? { openedMtimeMs } : {}),
   };
 }
 

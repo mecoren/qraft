@@ -82,11 +82,13 @@ vi.mock('@/components/ui/code-editor', () => {
 });
 
 // mock IPC:hydrate 时 config_get 返回空,persist 静默成功;
-// listen 用于窗口关闭事件(仅 Tauri 环境启用,测试默认不触发)
-vi.mock('@/lib/ipc', () => ({
-  safeInvoke: vi.fn(),
-  listen: vi.fn(),
-}));
+// listen 用于窗口关闭事件(仅 Tauri 环境启用,测试默认不触发)。
+// CommandError 保留真实类定义(saveTabById 用 instanceof CommandError 捕获
+// 保存冲突,测试须以同一类构造错误才能命中)。
+vi.mock('@/lib/ipc', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ipc')>();
+  return { ...actual, safeInvoke: vi.fn(), listen: vi.fn() };
+});
 
 // react-resizable-panels 在 jsdom 下依赖 ResizeObserver 内部布局与拖动测量,
 // 与 jsdom 的 mock ResizeObserver 同步回调不兼容(会导致面板内容挂载竞态)。
@@ -112,6 +114,12 @@ vi.mock('./code-editor-workspace/fileOps', () => ({
   saveWithDialogEncoded: vi.fn(),
   encodeTextToBase64: vi.fn((t: string) => `b64:${t}`),
   windowCloseReady: vi.fn(),
+  fileMtimeMs: vi.fn().mockResolvedValue(1234),
+  largeFileInfo: vi.fn(),
+  readFileLines: vi.fn(),
+  forceOpenFile: vi.fn(),
+  openFolderDialog: vi.fn(),
+  revealInExplorer: vi.fn(),
 }));
 
 // mock sonner,避免 toast 在 jsdom 中产生副作用
@@ -132,13 +140,14 @@ vi.mock('@/tools/markdown-preview-pane', async (importOriginal) => {
 });
 
 import userEvent from '@testing-library/user-event';
-import { listen, safeInvoke } from '@/lib/ipc';
+import { CommandError, listen, safeInvoke } from '@/lib/ipc';
 import { CodeEditorTool } from './CodeEditor';
 import { useEditorWorkspaceStore } from './code-editor-workspace/useEditorWorkspaceStore';
 import { useMarkdownPreviewStore } from './markdownPreviewStore';
 import { ToolMenuBar } from '@/components/layout/ToolMenuBar';
 import {
   openTextFileDialog,
+  readTextFileEncoded,
   saveToPathEncoded,
   saveWithDialog,
 } from './code-editor-workspace/fileOps';
@@ -165,6 +174,7 @@ beforeEach(() => {
   (openTextFileDialog as unknown as Mock).mockReset();
   (saveToPathEncoded as unknown as Mock).mockReset();
   (saveWithDialog as unknown as Mock).mockReset();
+  (readTextFileEncoded as unknown as Mock).mockReset();
   (listen as unknown as Mock).mockReset();
   (listen as unknown as Mock).mockResolvedValue(() => {});
 });
@@ -398,7 +408,7 @@ describe('CodeEditorTool workspace', () => {
     (saveToPathEncoded as unknown as Mock).mockResolvedValueOnce(true);
     await clickToolbarItem('toolbar-save');
     await waitFor(() => expect(screen.queryByTestId('editor-tabs-dirty-a.txt')).toBeNull());
-    expect(saveToPathEncoded).toHaveBeenCalledWith('/a.txt', 'hello world', 'utf-8');
+    expect(saveToPathEncoded).toHaveBeenCalledWith('/a.txt', 'hello world', 'utf-8', undefined);
   });
 
   it('switches tabs and closes via the tabs bar close button', async () => {
@@ -532,7 +542,9 @@ describe('CodeEditorTool workspace', () => {
     fireEvent.mouseEnter(screen.getByTestId('editor-sidebar-item-a.txt'));
     fireEvent.click(screen.getByTestId('editor-sidebar-action-save-all'));
 
-    await waitFor(() => expect(saveToPathEncoded).toHaveBeenCalledWith('/a.txt', 'a!', 'utf-8'));
+    await waitFor(() =>
+      expect(saveToPathEncoded).toHaveBeenCalledWith('/a.txt', 'a!', 'utf-8', undefined),
+    );
     await waitFor(() => expect(screen.queryByTestId('editor-tabs-dirty-a.txt')).toBeNull());
   });
 
@@ -715,7 +727,9 @@ describe('CodeEditorTool workspace', () => {
     await waitFor(() => expect(screen.getByTestId('unsaved-dialog')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('unsaved-dialog-save'));
 
-    await waitFor(() => expect(saveToPathEncoded).toHaveBeenCalledWith('/c.txt', 'xx', 'utf-8'));
+    await waitFor(() =>
+      expect(saveToPathEncoded).toHaveBeenCalledWith('/c.txt', 'xx', 'utf-8', undefined),
+    );
     await waitFor(() => expect(screen.queryByTestId('editor-tabs-tab-c.txt')).toBeNull());
   });
 
@@ -948,7 +962,7 @@ describe('CodeEditorTool workspace', () => {
       (lastEditorProps.current?.onEncodingSave as (enc: string) => void)('gb18030');
     });
     await waitFor(() =>
-      expect(saveToPathEncoded).toHaveBeenCalledWith('/a.txt', 'hello', 'gb18030'),
+      expect(saveToPathEncoded).toHaveBeenCalledWith('/a.txt', 'hello', 'gb18030', undefined),
     );
     await waitFor(() => {
       const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
@@ -1120,6 +1134,140 @@ describe('CodeEditorTool 全局快捷键', () => {
     fireShortcut({ key: 'N', ctrlKey: true });
     // 卸载后无监听:Tab 数不变
     expect(useEditorWorkspaceStore.getState().workspace.tabs).toHaveLength(1);
+  });
+});
+
+describe('CodeEditorTool 保存冲突(外部修改保护)', () => {
+  /** 打开一个本地文件 Tab 并激活(带打开时记录的 mtime) */
+  async function openLocalFile(content = 'hello'): Promise<{ path: string; tabId: string }> {
+    (openTextFileDialog as unknown as Mock).mockResolvedValueOnce({
+      file: { path: '/conflict.txt', content, encoding: 'utf-8' },
+    });
+    await clickToolbarItem('toolbar-open');
+    await waitFor(() =>
+      expect(screen.getByTestId('editor-header')).toHaveTextContent('conflict.txt'),
+    );
+    const tabId = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+    return { path: '/conflict.txt', tabId };
+  }
+
+  it('磁盘文件被外部修改后保存:弹三选对话框,不静默覆盖', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await openLocalFile('hello');
+    // 用户编辑 → dirty
+    fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'my edit' } });
+
+    // 保存:后端拒绝(ERR_FILE_MODIFIED)
+    (saveToPathEncoded as unknown as Mock).mockImplementationOnce(() => {
+      throw new CommandError('ERR_FILE_MODIFIED', 'file modified since opened', { mtimeMs: 999 });
+    });
+    await clickToolbarItem('toolbar-save');
+
+    // 三选对话框出现,内容未被标记已保存
+    expect(await screen.findByTestId('file-modified-dialog')).toBeInTheDocument();
+    expect(useEditorWorkspaceStore.getState().workspace.tabs[0]?.content).toBe('my edit');
+  });
+
+  it('选择「覆盖」:带 force 绕过 mtime 校验重新保存成功', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await openLocalFile('hello');
+    fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'my edit' } });
+
+    (saveToPathEncoded as unknown as Mock).mockImplementationOnce(() => {
+      throw new CommandError('ERR_FILE_MODIFIED', 'file modified since opened', { mtimeMs: 999 });
+    });
+    await clickToolbarItem('toolbar-save');
+    expect(await screen.findByTestId('file-modified-dialog')).toBeInTheDocument();
+
+    // 重试保存:成功路径
+    (saveToPathEncoded as unknown as Mock).mockResolvedValueOnce(true);
+    fireEvent.click(screen.getByTestId('file-modified-overwrite'));
+    await waitFor(() => expect(saveToPathEncoded).toHaveBeenCalledTimes(2));
+    // 覆盖后 dirty 清除
+    await waitFor(() =>
+      expect(useEditorWorkspaceStore.getState().workspace.tabs[0]?.content).toBe('my edit'),
+    );
+    expect(screen.queryByTestId('file-modified-dialog')).not.toBeInTheDocument();
+  });
+
+  it('选择「重新加载」:以磁盘内容覆盖编辑器并清 dirty', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    const { tabId } = await openLocalFile('hello');
+    fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'my edit' } });
+
+    (saveToPathEncoded as unknown as Mock).mockImplementationOnce(() => {
+      throw new CommandError('ERR_FILE_MODIFIED', 'file modified since opened', { mtimeMs: 999 });
+    });
+    await clickToolbarItem('toolbar-save');
+    expect(await screen.findByTestId('file-modified-dialog')).toBeInTheDocument();
+
+    // 重新加载:从磁盘读最新内容
+    (readTextFileEncoded as unknown as Mock).mockResolvedValueOnce({
+      path: '/conflict.txt',
+      content: 'disk version',
+      encoding: 'utf-8',
+    });
+    fireEvent.click(screen.getByTestId('file-modified-reload'));
+    await waitFor(() => {
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === tabId);
+      expect(tab?.content).toBe('disk version');
+    });
+    expect(screen.queryByTestId('file-modified-dialog')).not.toBeInTheDocument();
+  });
+
+  it('选择「对比」:对当前编辑内容与磁盘内容开对比视图', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await openLocalFile('hello');
+    fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'my edit' } });
+
+    (saveToPathEncoded as unknown as Mock).mockImplementationOnce(() => {
+      throw new CommandError('ERR_FILE_MODIFIED', 'file modified since opened', { mtimeMs: 999 });
+    });
+    await clickToolbarItem('toolbar-save');
+    expect(await screen.findByTestId('file-modified-dialog')).toBeInTheDocument();
+
+    // 对比:读磁盘内容 → 生成「磁盘 vs 编辑中」两个 Tab 并激活对比
+    (readTextFileEncoded as unknown as Mock).mockResolvedValueOnce({
+      path: '/conflict.txt',
+      content: 'disk version',
+      encoding: 'utf-8',
+    });
+    fireEvent.click(screen.getByTestId('file-modified-compare'));
+    await waitFor(() => {
+      // 新增一个磁盘快照 Tab(无路径标记,标题带磁盘标识)
+      const titles = useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.title);
+      expect(titles.some((s) => s.includes('conflict'))).toBe(true);
+      expect(titles.length).toBe(2);
+    });
+    expect(screen.queryByTestId('file-modified-dialog')).not.toBeInTheDocument();
+  });
+
+  it('关闭对话框(取消):保持编辑内容与 dirty,不写盘', async () => {
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await openLocalFile('hello');
+    fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'my edit' } });
+
+    (saveToPathEncoded as unknown as Mock).mockImplementationOnce(() => {
+      throw new CommandError('ERR_FILE_MODIFIED', 'file modified since opened', { mtimeMs: 999 });
+    });
+    await clickToolbarItem('toolbar-save');
+    expect(await screen.findByTestId('file-modified-dialog')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('file-modified-cancel'));
+    expect(
+      await waitFor(() =>
+        expect(screen.queryByTestId('file-modified-dialog')).not.toBeInTheDocument(),
+      ),
+    );
+    // 编辑内容保留、仍 dirty
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab?.content).toBe('my edit');
+    expect(tab?.content).not.toBe(tab?.savedContent);
   });
 });
 
