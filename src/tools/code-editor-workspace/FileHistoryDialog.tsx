@@ -11,7 +11,7 @@
  * 数据加载由宿主(编辑器工作台)完成:快照元数据在打开对话框时拉取,
  * 组件只管展示与回调——保持 FileModifiedDialog 的同款「纯展示」分层。
  */
-import { useEffect, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { History, GitCompare, RotateCcw, Trash2 } from 'lucide-react';
 import {
@@ -42,7 +42,7 @@ export interface FileHistoryDialogProps {
   onCompare: (id: string) => void;
   /** 恢复内容:把选中快照内容读进新 Tab */
   onRestore: (id: string) => void;
-  /** 清空历史(带确认) */
+  /** 清空历史:第一次点击进入确认态,再次点击才真正执行(不可逆操作二段确认) */
   onClear: () => void;
   /** 关闭(遮罩 / Esc / 取消) */
   onCancel: () => void;
@@ -84,6 +84,28 @@ export function FileHistoryDialog({
       onSelect(snapshots[0].id);
     }
   }, [open, selectedId, snapshots, onSelect]);
+
+  // 「清空历史」二段确认:第一次点击进入确认态(按钮描红变文案),
+  // 再次点击才执行;超时未确认自动复原,避免误触也有反悔窗口
+  const [confirmClear, setConfirmClear] = useState(false);
+  const confirmTimerRef = useRef<number | undefined>(undefined);
+  const requestClear = (): void => {
+    if (confirmClear) {
+      setConfirmClear(false);
+      window.clearTimeout(confirmTimerRef.current);
+      onClear();
+      return;
+    }
+    setConfirmClear(true);
+    confirmTimerRef.current = window.setTimeout(() => setConfirmClear(false), 3000);
+  };
+  // 确认态随对话框关闭复位
+  useEffect(() => {
+    if (!open) {
+      window.clearTimeout(confirmTimerRef.current);
+      setConfirmClear(false);
+    }
+  }, [open]);
 
   return (
     <Dialog
@@ -157,18 +179,16 @@ export function FileHistoryDialog({
 
         <DialogFooter className="gap-2 sm:justify-between">
           <Button
-            variant="ghost"
+            variant={confirmClear ? 'destructive' : 'ghost'}
             size="sm"
-            onClick={onClear}
+            onClick={requestClear}
             disabled={snapshots.length === 0}
             data-testid="file-history-clear"
           >
-            <Trash2
-              aria-hidden
-              className="size-3.5 text-destructive"
-              strokeWidth={ICON_STROKE_WIDTH}
-            />
-            {t('tools.text_editor.history_clear')}
+            <Trash2 aria-hidden className="size-3.5" strokeWidth={ICON_STROKE_WIDTH} />
+            {confirmClear
+              ? t('tools.text_editor.history_clear_confirm')
+              : t('tools.text_editor.history_clear')}
           </Button>
           <div className="flex gap-2">
             <Button

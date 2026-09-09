@@ -99,11 +99,18 @@ describe('FileHistoryDialog', () => {
     expect(handlers.onRestore).toHaveBeenCalledWith('2000');
   });
 
-  it('「清空历史」分发 onClear', async () => {
+  it('「清空历史」二段确认:首次点击仅进入确认态,再次点击才执行', async () => {
     const user = userEvent.setup();
     const { handlers } = setup();
 
-    await user.click(screen.getByTestId('file-history-clear'));
+    const clearBtn = screen.getByTestId('file-history-clear');
+    expect(clearBtn).toHaveTextContent('清空历史');
+    await user.click(clearBtn);
+    // 第一次:不执行,按钮变为确认文案
+    expect(handlers.onClear).not.toHaveBeenCalled();
+    expect(clearBtn).toHaveTextContent('确认清空?');
+
+    await user.click(clearBtn);
     expect(handlers.onClear).toHaveBeenCalledTimes(1);
   });
 

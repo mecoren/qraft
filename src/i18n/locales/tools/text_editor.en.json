@@ -123,5 +123,6 @@
   "tools.text_editor.history_compare": "Compare with current",
   "tools.text_editor.history_load_error": "Failed to read local history",
   "tools.text_editor.history_snapshot_title": "{{name}} (history {{time}})",
-  "tools.text_editor.history_cleared": "Local history cleared for this file"
+  "tools.text_editor.history_cleared": "Local history cleared for this file",
+  "tools.text_editor.history_clear_confirm": "Confirm clear?"
 }

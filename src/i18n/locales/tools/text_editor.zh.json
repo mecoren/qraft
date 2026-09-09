@@ -123,5 +123,6 @@
   "tools.text_editor.history_compare": "对比当前",
   "tools.text_editor.history_load_error": "读取历史版本失败",
   "tools.text_editor.history_snapshot_title": "{{name}}(历史 {{time}})",
-  "tools.text_editor.history_cleared": "已清空该文件的历史版本"
+  "tools.text_editor.history_cleared": "已清空该文件的历史版本",
+  "tools.text_editor.history_clear_confirm": "确认清空?"
 }
