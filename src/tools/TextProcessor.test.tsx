@@ -142,6 +142,29 @@ describe('TextProcessor utilities', () => {
     expect(enc).toContain('%E4%BD%A0');
   });
 
+  it('urlDecode converts + to space in the query part of a full URL', () => {
+    // form-urlencoded 语义:query 里 + 表示空格,path 里的字面 + 保持不变
+    expect(urlDecode('https://a.com/path?q=hello+world&x=1')).toBe(
+      'https://a.com/path?q=hello world&x=1',
+    );
+    expect(urlDecode('https://a.com/a+b?q=a+b')).toBe('https://a.com/a+b?q=a b');
+  });
+
+  it('urlDecode converts + to space for bare form-encoded input (no question mark)', () => {
+    expect(urlDecode('a=hello+world&b=1+2')).toBe('a=hello world&b=1 2');
+    expect(urlDecode('hello+world')).toBe('hello world');
+  });
+
+  it('urlDecode still decodes %2B to a literal plus after + handling', () => {
+    // 先替换 + 再做 percent 解码,字面加号可经 %2B 编码往返
+    expect(urlDecode('q=%2B10')).toBe('q=+10');
+    expect(urlDecode('q=1+%2B+2')).toBe('q=1 + 2');
+  });
+
+  it('urlDecode keeps + intact in the path when a question mark exists', () => {
+    expect(urlDecode('/c++/faq?q=1')).toBe('/c++/faq?q=1');
+  });
+
   it('unicodeToChinese decodes \\uXXXX escapes back to characters', () => {
     expect(unicodeToChinese('\\u4f60\\u597d')).toBe('你好');
   });

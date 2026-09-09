@@ -142,9 +142,23 @@ export function urlEncodeUri(input: string): string {
   return encodeURI(input);
 }
 
-/** URL 解码(对畸形输入抛出 URIError) */
+/**
+ * URL 解码:先按 form-urlencoded 语义把 `+` 还原为空格,再做 percent 解码
+ * (对畸形输入抛出 URIError)。
+ *
+ * `+` 表示空格是 application/x-www-form-urlencoded 的约定(query string 常见
+ * 形态),decodeURIComponent 本身不处理。规则:
+ * - 输入含首个 `?` 时,仅 `?` 之后的 `+` 还原为空格——path 里的字面 `+`
+ *   (如 `/c++/faq`)保持原样;
+ * - 输入不含 `?` 时视为裸 query / 表单文本,全文 `+` 还原为空格;
+ * - `+` 替换发生在 percent 解码之前,`%2B` 仍能解出字面 `+`。
+ */
 export function urlDecode(input: string): string {
-  return decodeURIComponent(input);
+  const qIndex = input.indexOf('?');
+  const head = qIndex === -1 ? '' : input.slice(0, qIndex + 1);
+  const tail = qIndex === -1 ? input : input.slice(qIndex + 1);
+  const plusToSpace = tail.replace(/\+/g, ' ');
+  return decodeURIComponent(head + plusToSpace);
 }
 
 /**
