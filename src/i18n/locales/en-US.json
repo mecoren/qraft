@@ -237,6 +237,7 @@
       "need_editor_file": "Open a file in the text editor first",
       "text_search_hint": "Type keywords to search the opened file contents",
       "no_matches": "No matches for \"{{query}}\"",
+      "invalid_regex": "Invalid regular expression; check the syntax",
       "too_many_hits": "Too many matches; showing a partial result set",
       "load_more_count": "Load the next {{count}} lines"
     },

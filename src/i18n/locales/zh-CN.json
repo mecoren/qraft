@@ -237,6 +237,7 @@
       "need_editor_file": "请先在文本编辑器中打开文件",
       "text_search_hint": "输入关键字搜索已打开文件的内容",
       "no_matches": "未找到匹配「{{query}}」的内容",
+      "invalid_regex": "正则表达式无效,请检查语法",
       "too_many_hits": "命中结果过多,仅显示部分匹配行",
       "load_more_count": "点击加载后续 {{count}} 行"
     },

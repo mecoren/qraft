@@ -36,6 +36,7 @@ import { searchIndex, type SearchEntry, type SearchEntryKind } from '@/lib/searc
 import {
   MATCH_BATCH_SIZE,
   compileMatcher,
+  isRegexQueryValid,
   searchTabsText,
   type TextSearchOptions,
 } from '@/lib/editor-text-search';
@@ -299,6 +300,10 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
     if (mode === 'text') {
       if (tabs.length === 0) return t('chrome.search_dialog.need_editor_file');
       if (debounced.trim() === '') return t('chrome.search_dialog.text_search_hint');
+      // 非法正则专门提示:与「确实无匹配」区分开,用户能立即意识到写错了
+      if (!isRegexQueryValid(debounced, matchOptions)) {
+        return t('chrome.search_dialog.invalid_regex');
+      }
       return t('chrome.search_dialog.no_matches', { query: debounced.trim() });
     }
     return t('chrome.search_dialog.no_matches', { query: debounced.trim() });
@@ -362,6 +367,8 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
           <div className="ml-2 flex shrink-0 items-center gap-0.5">
             {MATCH_TOGGLES.map(({ key, labelKey, icon: Icon }) => {
               const active = matchOptions[key] === true;
+              // 正则激活且当前查询非法:图标描红,提示用户正则写错了
+              const invalid = key === 'regex' && !isRegexQueryValid(debounced, matchOptions);
               return (
                 <button
                   key={key}
@@ -374,7 +381,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
                     active
                       ? 'bg-accent text-accent-foreground'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  }`}
+                  } ${invalid ? 'text-destructive' : ''}`}
                 >
                   <Icon aria-hidden className="size-3.5" strokeWidth={ICON_STROKE_WIDTH} />
                 </button>

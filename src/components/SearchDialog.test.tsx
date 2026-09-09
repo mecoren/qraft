@@ -415,3 +415,40 @@ describe('SearchDialog 文本模式匹配选项(Aa/整词/正则)', () => {
     });
   });
 });
+
+describe('SearchDialog 正则模式非法输入提示', () => {
+  it('非法正则显示专门提示,与「未找到匹配」区分', async () => {
+    setTabs([makeTab('tab-a', 'notes.txt', 'hello')]);
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    // [ 需以键盘描述符转义输入,避免 userEvent 把它当作修饰符标签解析
+    await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), 'x{[}unclosed');
+    // 子串模式下「[unclosed」就是普通文本,无命中 → 未找到提示
+    expect(
+      await screen.findByText(/未找到匹配/, undefined, { timeout: 10000 }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '正则表达式' }));
+    // 正则模式下同一查询为非法正则 → 专门提示
+    expect(await screen.findByText(/正则表达式无效/)).toBeInTheDocument();
+    expect(screen.queryByText(/未找到匹配/)).not.toBeInTheDocument();
+  }, 20000);
+
+  it('正则钮在查询非法时描红,修好后恢复', async () => {
+    setTabs([makeTab('tab-a', 'notes.txt', 'v1.2.3')]);
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    const regexBtn = screen.getByRole('button', { name: '正则表达式' });
+    await user.click(regexBtn);
+    await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), '(');
+    // 防抖后正则钮描红(text-destructive)
+    await waitFor(() => {
+      expect(regexBtn.className).toContain('text-destructive');
+    });
+    // 补全右括号 → 合法,描红消失且出现命中
+    await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), ')');
+    await waitFor(() => {
+      expect(regexBtn.className).not.toContain('text-destructive');
+    });
+  }, 20000);
+});

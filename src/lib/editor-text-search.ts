@@ -68,6 +68,23 @@ export interface TextSearchOptions {
 }
 
 /**
+ * 正则模式下的查询合法性(供 UI 实时提示用):
+ * 空查询 / 非正则模式恒合法;正则模式返回 `new RegExp` 是否可构造。
+ * 与 `compileMatcher` 的「非法正则按无匹配」口径配套——UI 借此区分
+ * 「正则写错了」与「确实无匹配」两种空态。
+ */
+export function isRegexQueryValid(query: string, opts?: TextSearchOptions): boolean {
+  const q = query.trim();
+  if (!q || !opts?.regex) return true;
+  try {
+    new RegExp(q, opts.caseSensitive ? '' : 'i');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 编译查询为行匹配器:返回「在单行内容中找出全部命中」的函数。
  * 统一供 searchTabsText(结果列表)与 findMatchRangesInContent(跳转高亮)
  * 使用,保证两处口径永远一致。空查询返回 null(调用方短路)。

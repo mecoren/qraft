@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   searchTabsText,
   findMatchRangesInContent,
+  isRegexQueryValid,
   MATCH_BATCH_SIZE,
   MAX_LINE_PREVIEW_CHARS,
   MAX_HIGHLIGHT_RANGES,
@@ -296,5 +297,25 @@ describe('findMatchRangesInContent 搜索选项(跳转高亮同口径)', () => {
     expect(ranges).toHaveLength(2);
     expect(ranges[0].endColumn - ranges[0].startColumn).toBe(2); // v1
     expect(ranges[1].endColumn - ranges[1].startColumn).toBe(3); // v10
+  });
+});
+
+describe('isRegexQueryValid(正则合法性,UI 空态区分)', () => {
+  it('空查询 / 非正则模式恒合法', () => {
+    expect(isRegexQueryValid('', { regex: true })).toBe(true);
+    expect(isRegexQueryValid('(((', {})).toBe(true);
+    expect(isRegexQueryValid('(((', undefined)).toBe(true);
+  });
+
+  it('合法正则返回 true(含 flags 组合)', () => {
+    expect(isRegexQueryValid('v\\d+', { regex: true })).toBe(true);
+    expect(isRegexQueryValid('a|b', { regex: true, caseSensitive: true })).toBe(true);
+    expect(isRegexQueryValid('[a-z]+', { regex: true, wholeWord: true })).toBe(true);
+  });
+
+  it('非法正则返回 false(半截括号 / 悬挂反斜杠 / 未闭合字符类)', () => {
+    expect(isRegexQueryValid('[unclosed', { regex: true })).toBe(false);
+    expect(isRegexQueryValid('trailing\\', { regex: true })).toBe(false);
+    expect(isRegexQueryValid('(', { regex: true, caseSensitive: true })).toBe(false);
   });
 });
