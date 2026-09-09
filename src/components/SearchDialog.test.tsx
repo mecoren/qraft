@@ -222,7 +222,7 @@ describe('SearchDialog 文本模式', () => {
     render(<SearchDialog open onOpenChange={onOpenChange} />);
     await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), 'find');
     await user.click(await screen.findByRole('option', { name: /find me/ }));
-    expect(useSearchStore.getState().target).toEqual({
+    expect(useSearchStore.getState().target).toMatchObject({
       view: 'tool',
       toolId: 'text_editor',
       tabId: 'tab-a',
@@ -291,4 +291,127 @@ describe('SearchDialog 文本模式', () => {
     expect(await screen.findByRole('option', { name: /find line 199/ })).toBeInTheDocument();
     expect(screen.getByText('已加载 200 / 350 条结果')).toBeInTheDocument();
   }, 30000);
+});
+
+describe('SearchDialog 文本模式匹配选项(Aa/整词/正则)', () => {
+  /** 打开面板并输入查询,等待防抖出结果 */
+  async function typeQuery(user: UserEvent, q: string) {
+    await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), q);
+  }
+
+  it('默认关闭三枚切换钮,点击后进入激活态(aria-pressed)', async () => {
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    const caseBtn = screen.getByRole('button', { name: '区分大小写' });
+    const wordBtn = screen.getByRole('button', { name: '整词匹配' });
+    const regexBtn = screen.getByRole('button', { name: '正则表达式' });
+    expect(caseBtn).toHaveAttribute('aria-pressed', 'false');
+    expect(wordBtn).toHaveAttribute('aria-pressed', 'false');
+    expect(regexBtn).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(caseBtn);
+    await user.click(wordBtn);
+    await user.click(regexBtn);
+    expect(caseBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(wordBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(regexBtn).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('caseSensitive:开启后仅同大小写命中,再点一次恢复默认', async () => {
+    setTabs([makeTab('tab-a', 'notes.txt', 'Hello world\nhello again')]);
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    await typeQuery(user, 'hello');
+    // 默认大小写不敏感:两行均命中
+    expect(await screen.findByRole('option', { name: /hello again/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Hello world/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '区分大小写' }));
+    // 开启后仅小写行命中;Hello world 行消失
+    await waitFor(() => {
+      expect(screen.queryByRole('option', { name: /Hello world/ })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('option', { name: /hello again/ })).toBeInTheDocument();
+
+    // 再次点击恢复默认(两行回来)
+    await user.click(screen.getByRole('button', { name: '区分大小写' }));
+    expect(await screen.findByRole('option', { name: /Hello world/ })).toBeInTheDocument();
+  });
+
+  it('wholeWord:子串命中被排除,词边界命中保留', async () => {
+    setTabs([makeTab('tab-a', 'notes.txt', 'foo bar\nfoobar\nfoo.')]);
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    await typeQuery(user, 'foo');
+    // 默认三行全命中
+    expect((await screen.findAllByRole('option')).length).toBe(3);
+
+    await user.click(screen.getByRole('button', { name: '整词匹配' }));
+    // foobar 行被排除,foo bar 与 foo. 保留
+    await waitFor(() => {
+      expect(screen.queryByRole('option', { name: /foobar/ })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('option', { name: /foo bar/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /foo\./ })).toBeInTheDocument();
+  });
+
+  it('regex:按正则匹配且行内 <mark> 区间为实际命中长度', async () => {
+    setTabs([makeTab('tab-a', 'notes.txt', 'v1.2.3\nno match')]);
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    await typeQuery(user, 'v\\d+');
+    // 默认子串模式:查询含反斜杠无命中
+    expect(await waitFor(() => screen.queryByRole('option'))).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: '正则表达式' }));
+    // 正则模式:v1 命中,mark 内容为实际命中片段
+    const opt = await screen.findByRole('option', { name: /v1\.2\.3/ });
+    expect(opt).toBeInTheDocument();
+    const mark = opt.querySelector('mark');
+    expect(mark?.textContent).toBe('v1');
+  });
+
+  it('切换到功能模式再切回文本模式,匹配选项复位', async () => {
+    setTabs([makeTab('tab-a', 'notes.txt', 'Hello world\nhello again')]);
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    await user.click(screen.getByRole('button', { name: '区分大小写' }));
+    expect(screen.getByRole('button', { name: '区分大小写' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    await user.click(screen.getByRole('button', { name: '功能' }));
+    // 功能模式不显示切换钮
+    expect(screen.queryByRole('button', { name: '区分大小写' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '文本' }));
+    // 切回文本模式:选项已复位为关
+    expect(screen.getByRole('button', { name: '区分大小写' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('点击结果时 requestJump 携带匹配选项(编辑器高亮同口径)', async () => {
+    setTabs([makeTab('tab-a', 'notes.txt', 'hello world\nHello there')]);
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    await typeQuery(user, 'hello');
+    // 默认不区分大小写:两行均命中
+    expect(await screen.findByRole('option', { name: /hello world/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '区分大小写' }));
+    // 大小写敏感:仅小写 hello world 行保留,Hello there 行消失
+    await waitFor(() => {
+      expect(screen.queryByRole('option', { name: /Hello there/ })).not.toBeInTheDocument();
+    });
+    await user.click(screen.getByRole('option', { name: /hello world/ }));
+    expect(useSearchStore.getState().target).toEqual({
+      view: 'tool',
+      toolId: 'text_editor',
+      tabId: 'tab-a',
+      textQuery: 'hello',
+      textSearchOptions: { caseSensitive: true },
+    });
+  });
 });

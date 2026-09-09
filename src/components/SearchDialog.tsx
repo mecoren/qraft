@@ -26,11 +26,19 @@ import {
   Puzzle,
   Settings,
   Files,
+  CaseSensitive,
+  Regex,
+  WholeWord,
   type LucideIcon,
 } from 'lucide-react';
 import { QuickPickDialog, type QuickPickGroup, type QuickPickItem } from '@/components/ui/command';
 import { searchIndex, type SearchEntry, type SearchEntryKind } from '@/lib/search-index';
-import { MATCH_BATCH_SIZE, searchTabsText } from '@/lib/editor-text-search';
+import {
+  MATCH_BATCH_SIZE,
+  compileMatcher,
+  searchTabsText,
+  type TextSearchOptions,
+} from '@/lib/editor-text-search';
 import { getCatalogEntry } from '@/lib/tool-catalog';
 import { useSearchStore } from '@/store/searchStore';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
@@ -59,29 +67,47 @@ const MODES: { id: SearchMode; labelKey: string; icon: LucideIcon }[] = [
   { id: 'text', labelKey: 'chrome.search_dialog.mode_text', icon: Files },
 ];
 
-/** 文本模式匹配行内容高亮(匹配片段橙黄背景,区分大小写跟随搜索) */
-function HighlightLine({ content, query }: { content: string; query: string }): JSX.Element {
-  const q = query.trim().toLowerCase();
-  if (!q) return <span className="truncate">{content}</span>;
-  const lower = content.toLowerCase();
+/** 文本模式匹配选项切换钮(图标 + i18n 提示;id 对应 TextSearchOptions 开关) */
+const MATCH_TOGGLES: { key: keyof TextSearchOptions; labelKey: string; icon: LucideIcon }[] = [
+  { key: 'caseSensitive', labelKey: 'chrome.search_dialog.match_case', icon: CaseSensitive },
+  { key: 'wholeWord', labelKey: 'chrome.search_dialog.match_word', icon: WholeWord },
+  { key: 'regex', labelKey: 'chrome.search_dialog.match_regex', icon: Regex },
+];
+
+/**
+ * 文本模式匹配行内容高亮:匹配片段橙黄背景。
+ * 与 searchTabsText / 编辑器跳转高亮共用 compileMatcher,
+ * 保证任一开关组合下列表、行内 <mark>、编辑器 decoration 三处口径一致。
+ */
+function HighlightLine({
+  content,
+  query,
+  options,
+}: {
+  content: string;
+  query: string;
+  options?: TextSearchOptions;
+}): JSX.Element {
+  const matcher = compileMatcher(query, options);
+  if (!matcher) return <span className="truncate">{content}</span>;
+  const hits = matcher(content);
+  if (hits.length === 0) return <span className="truncate">{content}</span>;
   const parts: JSX.Element[] = [];
   let from = 0;
-  while (from < lower.length) {
-    const pos = lower.indexOf(q, from);
+  for (const { start, end } of hits) {
     const key = parts.length;
-    if (pos === -1) {
-      parts.push(<span key={key}>{content.slice(from)}</span>);
-      break;
-    }
-    if (pos > from) {
-      parts.push(<span key={key}>{content.slice(from, pos)}</span>);
+    if (start > from) {
+      parts.push(<span key={key}>{content.slice(from, start)}</span>);
     }
     parts.push(
       <mark key={parts.length} className="search-text-match-inline">
-        {content.slice(pos, pos + q.length)}
+        {content.slice(start, end)}
       </mark>,
     );
-    from = pos + q.length;
+    from = end;
+  }
+  if (from < content.length) {
+    parts.push(<span key={parts.length}>{content.slice(from)}</span>);
   }
   return <span className="flex min-w-0 items-center gap-1 font-mono text-xs">{parts}</span>;
 }
@@ -138,6 +164,8 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [loadedMatchCount, setLoadedMatchCount] = useState(MATCH_BATCH_SIZE);
+  // 文本模式匹配选项(仅语义开关,重置查询/切模式时一并复位,对齐 VSCode)
+  const [matchOptions, setMatchOptions] = useState<TextSearchOptions>({});
   const listFooterRef = useRef<HTMLButtonElement>(null);
 
   // 文本编辑工作区已打开文件
@@ -156,8 +184,8 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
   const grouped = useMemo(() => searchIndex(debounced), [debounced]);
 
   const tabGroups = useMemo(
-    () => (mode === 'text' ? searchTabsText(tabs, debounced, loadedMatchCount) : []),
-    [mode, tabs, debounced, loadedMatchCount],
+    () => (mode === 'text' ? searchTabsText(tabs, debounced, loadedMatchCount, matchOptions) : []),
+    [mode, tabs, debounced, loadedMatchCount, matchOptions],
   );
 
   const total = useMemo(() => {
@@ -172,12 +200,13 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
     [tabGroups],
   );
 
-  /** 切换模式时清空查询,避免跨模式残留 */
+  /** 切换模式时清空查询与匹配选项,避免跨模式残留 */
   const switchMode = (next: SearchMode) => {
     setMode(next);
     setQuery('');
     setDebounced('');
     setLoadedMatchCount(MATCH_BATCH_SIZE);
+    setMatchOptions({});
   };
 
   const handleSelect = (entry: SearchEntry) => {
@@ -185,7 +214,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
     onOpenChange(false);
   };
 
-  /** 文本结果点击:跳转到文本编辑器对应 tab,由 useSearchJump 做高亮定位 */
+  /** 文本结果点击:跳转到文本编辑器对应 tab,由 useSearchJump 做同口径高亮定位 */
   const handleTextSelect = (tabId: string) => {
     const q = debounced.trim();
     if (!q) return;
@@ -194,6 +223,8 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
       toolId: 'text_editor',
       tabId,
       textQuery: q,
+      // 匹配选项随信令透传,编辑器高亮与列表/行内口径一致
+      textSearchOptions: matchOptions,
     });
     onOpenChange(false);
   };
@@ -254,7 +285,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
               {m.line}
             </span>
           ),
-          label: <HighlightLine content={m.lineContent} query={debounced} />,
+          label: <HighlightLine content={m.lineContent} query={debounced} options={matchOptions} />,
           ariaLabel: `${g.tabTitle}:${m.line}: ${m.lineContent}`,
           onSelect: () => handleTextSelect(g.tabId),
         })),
@@ -324,6 +355,34 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
             ? t('chrome.search_dialog.aria_text')
             : t('chrome.search_dialog.aria_global'),
       }}
+      /* 文本模式:输入框尾随三枚匹配选项切换钮(Aa 大小写/整词/正则),
+       * 激活态 accent 色直观指示当前口径;仅文本模式显示 */
+      inputTrailing={
+        mode === 'text' ? (
+          <div className="ml-2 flex shrink-0 items-center gap-0.5">
+            {MATCH_TOGGLES.map(({ key, labelKey, icon: Icon }) => {
+              const active = matchOptions[key] === true;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={active}
+                  title={t(labelKey)}
+                  aria-label={t(labelKey)}
+                  onClick={() => setMatchOptions((prev) => ({ ...prev, [key]: !prev[key] }))}
+                  className={`flex size-7 items-center justify-center rounded-md transition-colors ${
+                    active
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}
+                >
+                  <Icon aria-hidden className="size-3.5" strokeWidth={ICON_STROKE_WIDTH} />
+                </button>
+              );
+            })}
+          </div>
+        ) : undefined
+      }
       groups={groups}
       empty={emptyNode}
       preserveSelectionOnChange={mode === 'text'}

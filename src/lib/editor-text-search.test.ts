@@ -198,3 +198,103 @@ describe('findMatchRangesInContent', () => {
     });
   });
 });
+
+describe('searchTabsText 搜索选项(大小写敏感/整词/正则)', () => {
+  const tabs = [makeTab({ id: 'a', content: 'Hello world\nhello_world again\nHELLO' })];
+
+  it('默认保持大小写不敏感(向后兼容)', () => {
+    const groups = searchTabsText(tabs, 'hello');
+    // 三行全命中(默认不区分大小写)
+    expect(groups[0].count).toBe(3);
+  });
+
+  it('caseSensitive:仅匹配同大小写', () => {
+    const groups = searchTabsText(tabs, 'Hello', MATCH_BATCH_SIZE, { caseSensitive: true });
+    // 仅第 1 行「Hello world」命中
+    expect(groups[0].count).toBe(1);
+    expect(groups[0].matches[0].line).toBe(1);
+  });
+
+  it('wholeWord:子串命中被排除,词边界命中保留(含中文语境)', () => {
+    const g = searchTabsText(tabs, 'hello', MATCH_BATCH_SIZE, { wholeWord: true });
+    // hello_world 的 hello 是标识符一部分 → 不算整词;
+    // 首行 Hello world 与第 3 行 HELLO 均为词边界命中(不区分大小写)
+    expect(g[0].count).toBe(2);
+    expect(g[0].matches[0].line).toBe(1);
+    expect(g[0].matches[1].line).toBe(3);
+
+    const zh = searchTabsText(
+      [makeTab({ id: 'zh', content: '天气\n今天天气好' })],
+      '天气',
+      MATCH_BATCH_SIZE,
+      { wholeWord: true },
+    );
+    // 中文语境:CJK 属于「词字符」,「今天天气好」中的天气被汉字包裹不算整词;
+    // 独立成词的首行保留(行首行尾均为边界)
+    expect(zh[0].count).toBe(1);
+    expect(zh[0].matches[0].line).toBe(1);
+  });
+
+  it('regex:按正则匹配,匹配区间为实际命中长度', () => {
+    const g = searchTabsText(
+      [makeTab({ id: 'r', content: 'id: 42\nid: 7\nno match' })],
+      'id: \\d+',
+      MATCH_BATCH_SIZE,
+      { regex: true },
+    );
+    expect(g[0].count).toBe(2);
+    const first = g[0].matches[0];
+    expect(first.matchEnd - first.matchStart).toBe('id: 42'.length);
+  });
+
+  it('非法正则按无匹配处理(不抛错)', () => {
+    const g = searchTabsText(tabs, '[unclosed', MATCH_BATCH_SIZE, { regex: true });
+    expect(g).toEqual([]);
+  });
+
+  it('regex + caseSensitive 组合生效', () => {
+    const g = searchTabsText(
+      [makeTab({ id: 'rc', content: 'Foo 1\nfoo 2' })],
+      'F\\soo',
+      MATCH_BATCH_SIZE,
+      { regex: true, caseSensitive: true },
+    );
+    // \\s 失配:两行都不命中
+    expect(g).toEqual([]);
+    const g2 = searchTabsText(
+      [makeTab({ id: 'rc2', content: 'Foo 1\nfoo 2' })],
+      'f\\w\\w',
+      MATCH_BATCH_SIZE,
+      { regex: true, caseSensitive: true },
+    );
+    // 仅「foo 2」命中(小写 f 开头;Foo 1 无小写 f)
+    expect(g2[0].count).toBe(1);
+    expect(g2[0].matches[0].line).toBe(2);
+  });
+});
+
+describe('findMatchRangesInContent 搜索选项(跳转高亮同口径)', () => {
+  it('caseSensitive:高亮范围与列表口径一致', () => {
+    const ranges = findMatchRangesInContent('Foo bar\nfoo end', 'foo', { caseSensitive: true });
+    expect(ranges).toEqual([
+      { startLineNumber: 2, startColumn: 1, endLineNumber: 2, endColumn: 4 },
+    ]);
+  });
+
+  it('wholeWord:高亮仅词边界命中', () => {
+    const ranges = findMatchRangesInContent('foo bar\nfoobar\nfoo.', 'foo', {
+      wholeWord: true,
+    });
+    // 第 1 行独立词 + 第 3 行句点结尾(非字母数字)算边界;第 2 行 foobar 不算
+    expect(ranges).toHaveLength(2);
+    expect(ranges[0].startLineNumber).toBe(1);
+    expect(ranges[1].startLineNumber).toBe(3);
+  });
+
+  it('regex:高亮按正则命中区间', () => {
+    const ranges = findMatchRangesInContent('v1.2.3\nv10.20.30', 'v\\d+', { regex: true });
+    expect(ranges).toHaveLength(2);
+    expect(ranges[0].endColumn - ranges[0].startColumn).toBe(2); // v1
+    expect(ranges[1].endColumn - ranges[1].startColumn).toBe(3); // v10
+  });
+});

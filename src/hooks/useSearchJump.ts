@@ -17,7 +17,11 @@ import { useSearchStore } from '@/store/searchStore';
 import { useUiStore } from '@/store/uiStore';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
 import { getTabEditor } from '@/lib/editor-search-registry';
-import { findMatchRangesInContent, type TextRange } from '@/lib/editor-text-search';
+import {
+  findMatchRangesInContent,
+  type TextRange,
+  type TextSearchOptions,
+} from '@/lib/editor-text-search';
 import type { editor } from 'monaco-editor';
 
 /** 高亮类(与 globals.css 的 .search-anchor-highlight 对应) */
@@ -65,18 +69,20 @@ export function scheduleHighlight(anchor: string, attempts = 0): void {
 /**
  * 对编辑器实例应用文本匹配高亮(Monaco decoration),返回第一个匹配范围。
  * 连续跳转先清空上一次 decoration,避免累积。
+ * options 与搜索面板列表口径一致(同 compileMatcher)。
  */
 function applyTextSearchHighlights(
   ed: editor.IStandaloneCodeEditor,
   content: string,
   query: string,
+  options?: TextSearchOptions,
 ): TextRange | null {
   // 清理上一次 decoration:仅在同一编辑器实例上清(跨实例时旧 id 无效且实例可能已销毁)
   if (lastTextDecoration && lastTextDecoration.ed === ed && lastTextDecoration.ids.length > 0) {
     ed.deltaDecorations(lastTextDecoration.ids, []);
   }
   lastTextDecoration = null;
-  const ranges = findMatchRangesInContent(content, query);
+  const ranges = findMatchRangesInContent(content, query, options);
   if (ranges.length === 0) return null;
   const decorations: editor.IModelDeltaDecoration[] = ranges.map((r) => ({
     range: {
@@ -95,11 +101,16 @@ function applyTextSearchHighlights(
  * 文本搜索跳转:等待编辑器实例挂载后应用高亮并定位。
  * 编辑器实例在 React.lazy 加载 / tab 重挂载后才注册,故按间隔重试。
  */
-function jumpToTextTarget(tabId: string, query: string, attempts = 0): void {
+function jumpToTextTarget(
+  tabId: string,
+  query: string,
+  options: TextSearchOptions | undefined,
+  attempts = 0,
+): void {
   const ed = getTabEditor(tabId);
   if (ed && ed.getModel()) {
     const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === tabId);
-    const first = applyTextSearchHighlights(ed, tab?.content ?? '', query);
+    const first = applyTextSearchHighlights(ed, tab?.content ?? '', query, options);
     if (first) {
       ed.revealRangeInCenter({
         startLineNumber: first.startLineNumber,
@@ -118,7 +129,7 @@ function jumpToTextTarget(tabId: string, query: string, attempts = 0): void {
     return;
   }
   if (attempts >= MAX_RETRIES) return; // 静默降级:tab 可能已关闭,仅打开工具
-  window.setTimeout(() => jumpToTextTarget(tabId, query, attempts + 1), RETRY_INTERVAL_MS);
+  window.setTimeout(() => jumpToTextTarget(tabId, query, options, attempts + 1), RETRY_INTERVAL_MS);
 }
 
 export function useSearchJump(): void {
@@ -135,11 +146,12 @@ export function useSearchJump(): void {
       return;
     }
 
-    // 文本搜索跳转(编辑器内容高亮):打开文本编辑器 + 激活目标 tab + decoration 高亮定位
+    // 文本搜索跳转(编辑器内容高亮):打开文本编辑器 + 激活目标 tab + decoration 高亮定位;
+    // 匹配选项随信令透传,编辑器高亮与搜索面板列表同口径
     if (target.textQuery && target.tabId) {
       if (target.toolId) ui.openTool(target.toolId);
       useEditorWorkspaceStore.getState().switchTab(target.tabId);
-      jumpToTextTarget(target.tabId, target.textQuery);
+      jumpToTextTarget(target.tabId, target.textQuery, target.textSearchOptions);
       consume();
       return;
     }

@@ -220,6 +220,53 @@ describe('useSearchJump', () => {
     expect(useSearchStore.getState().target).toBeNull();
   });
 
+  it('文本目标:textSearchOptions 透传,编辑器高亮与列表同口径', async () => {
+    const ed = fakeEditor();
+    registerTabEditor('tab-1', ed);
+    // 大小写敏感:查询小写 foo 仅命中第 2 行小写 foo;第 1 行 Foo 被排除
+    // (大小写不敏感口径下会是 2 个范围——以此证明 options 真正透传)
+    useEditorWorkspaceStore.setState({
+      workspace: {
+        tabs: [makeTab('tab-2'), makeTab('tab-1', 'Foo here\nfoo there')],
+        activeTabId: 'tab-2',
+        leftSidebarVisible: true,
+        sidebarWidth: 288,
+        folders: [],
+        expandedDirs: [],
+      },
+      ready: true,
+      userTouched: true,
+      error: null,
+    });
+
+    renderHook(() => useSearchJump());
+    act(() => {
+      useSearchStore.getState().requestJump({
+        view: 'tool',
+        toolId: 'text_editor',
+        tabId: 'tab-1',
+        textQuery: 'foo',
+        textSearchOptions: { caseSensitive: true },
+      });
+    });
+
+    await new Promise((r) => setTimeout(r, 200));
+    expect(ed.deltaDecorations).toHaveBeenCalledTimes(1);
+    const [, decorations] = (ed.deltaDecorations as unknown as ReturnType<typeof vi.fn>).mock
+      .calls[0] as [never, Array<{ range: { startLineNumber: number } }>];
+    // 仅 1 个 decoration:大小写不敏感口径则是 2 个
+    expect(decorations).toHaveLength(1);
+    expect(decorations[0].range.startLineNumber).toBe(2);
+    // 定位到首个(也是唯一)命中:第 2 行第 1~4 列
+    expect(ed.revealRangeInCenter).toHaveBeenCalledWith({
+      startLineNumber: 2,
+      startColumn: 1,
+      endLineNumber: 2,
+      endColumn: 4,
+    });
+    unregisterTabEditor('tab-1', ed);
+  });
+
   it('consumes target 防止重复触发', () => {
     renderHook(() => useSearchJump());
     act(() => {

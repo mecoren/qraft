@@ -22,6 +22,7 @@ import {
   type SettingsMenuId,
 } from './search-anchors';
 import type { AppView } from '@/store/uiStore';
+import type { TextSearchOptions } from './editor-text-search';
 
 export type SearchEntryKind = 'tool' | 'tool-section' | 'setting' | 'setting-field' | 'page';
 
@@ -48,6 +49,8 @@ export interface SearchTarget {
   tabId?: string;
   /** 文本搜索:查询关键字,用于编辑器内匹配高亮 */
   textQuery?: string;
+  /** 文本搜索:匹配选项(大小写/整词/正则),编辑器高亮与列表同口径 */
+  textSearchOptions?: TextSearchOptions;
 }
 
 /** 单条搜索结果 */

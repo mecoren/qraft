@@ -87,6 +87,8 @@ type QuickPickDialogProps = {
   placeholder?: string;
   /** 输入框前导槽(SearchDialog 模式切换按钮组) */
   leading?: React.ReactNode;
+  /** 输入框尾随槽(SearchDialog 文本模式匹配选项切换钮) */
+  inputTrailing?: React.ReactNode;
   /** 受控查询;不传则 cmdk 内部管理(CommandPalette 用法) */
   value?: string;
   onValueChange?: (v: string) => void;
@@ -204,6 +206,7 @@ const QuickPickDialog = ({
   description,
   placeholder,
   leading,
+  inputTrailing,
   value,
   onValueChange,
   shouldFilter,
@@ -313,6 +316,7 @@ const QuickPickDialog = ({
           <div className="shrink-0">
             <CommandInput
               leading={leading}
+              trailing={inputTrailing}
               placeholder={placeholder}
               value={value}
               onValueChange={onValueChange}
@@ -351,8 +355,10 @@ const CommandInput = React.forwardRef<
     wrapperClassName?: string;
     /** 输入框前导内容(缺省为 Search 图标):SearchDialog 用它嵌入「功能/文本」模式切换 */
     leading?: React.ReactNode;
+    /** 输入框尾随内容:SearchDialog 文本模式放匹配选项切换钮(Aa/整词/正则) */
+    trailing?: React.ReactNode;
   }
->(({ className, wrapperClassName, leading, ...props }, ref) => (
+>(({ className, wrapperClassName, leading, trailing, ...props }, ref) => (
   <div className={cn('flex items-center border-b px-3', wrapperClassName)} cmdk-input-wrapper="">
     {leading ?? <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />}
     <CommandPrimitive.Input
@@ -363,6 +369,7 @@ const CommandInput = React.forwardRef<
       )}
       {...props}
     />
+    {trailing}
   </div>
 ));
 
