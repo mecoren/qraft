@@ -662,6 +662,163 @@ fn emit_line(lines: &mut Vec<String>, current: &mut Vec<u8>, enc: &LargeFileEnco
     lines.push(decode_text(bytes, id));
 }
 
+// ============ 流式全文搜索 ============
+
+/// 单条命中:行号 + 该行内容预览(截断上限同窗口行展示口径)
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchHit {
+    /// 命中行号(1-based)
+    pub line: u64,
+    /// 命中行内容预览(超长截断,前端列表展示用)
+    pub preview: String,
+}
+
+/// 全文搜索结果(`fs_large_file_search` 返回)
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LargeFileSearchResult {
+    /// 命中列表(达到 `max_hits` 上限即停止扫描)
+    pub hits: Vec<SearchHit>,
+    /// 因命中数上限提前终止扫描(前端提示「仅显示前 N 条」)
+    pub truncated: bool,
+}
+
+/// 搜索预览行的字节上限(与窗口行展示截断同量级,防超长行撑爆 IPC)
+const SEARCH_PREVIEW_MAX_BYTES: u64 = 512 * 1024;
+
+/// 大文件流式全文搜索(同步核心;IPC 层用 `spawn_blocking` 包装)
+///
+/// 大小写不敏感的子串匹配;逐单元(UnitReader,正确处理 UTF-16 码元与
+/// 跨块边界)拼行,完整行解码后判定命中——行级解码保证多字节(GBK/
+/// UTF-8 中文)needle 不错位。达到 `max_hits` 即停(truncated=true),
+/// 扫描全程按 `PROGRESS_REPORT_BYTES` 节奏上报进度,完成必报一次。
+///
+/// # Errors
+///
+/// - 文件打开/读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+pub fn search_large_file(
+    path: &str,
+    needle: &str,
+    max_hits: usize,
+    on_progress: &dyn Fn(u64, u64),
+) -> Result<LargeFileSearchResult, AppError> {
+    let mut file = std::fs::File::open(path).map_err(AppError::from)?;
+    let size = file.metadata().map_err(AppError::from)?.len();
+    // 编码探测:与 scan_large_file 同一头部探测策略
+    let probe_len = ENCODE_PROBE_BYTES.min(usize::try_from(size).unwrap_or(0));
+    let mut head = vec![0_u8; probe_len];
+    if !head.is_empty() {
+        file.read_exact(&mut head).map_err(AppError::from)?;
+    }
+    let enc = detect_large_file_encoding(&head);
+
+    let needle_lower = needle.to_lowercase();
+    if needle_lower.is_empty() {
+        return Ok(LargeFileSearchResult {
+            hits: Vec::new(),
+            truncated: false,
+        });
+    }
+
+    // seek 到 BOM 之后(编码判定完毕,重读正文)
+    file.seek(SeekFrom::Start(enc.bom_len))
+        .map_err(AppError::from)?;
+    let mut reader = UnitReader::new(file, enc.bom_len, enc.utf16);
+
+    let mut hits: Vec<SearchHit> = Vec::new();
+    let mut truncated = false;
+    let mut current: Vec<u8> = Vec::new();
+    let mut line: u64 = 1;
+    // 已扫描偏移:首次循环迭代赋值,空文件时保持 BOM 起点
+    let mut scanned: u64;
+    let mut last_progress: u64 = 0;
+
+    while let Some((off, unit, len)) = reader.next()? {
+        scanned = off;
+        let unit_len = len_as_usize(len);
+        let is_eol = reader.is_eol(unit);
+        if is_eol {
+            // 行完成:解码后做大小写不敏感匹配(emit_line 会剥离行尾字节,
+            // 因此这里先克隆再 emit,或按 emit 语义手动剥离后匹配)
+            let line_text = decode_line_for_search(&current, &enc);
+            if line_text.to_lowercase().contains(&needle_lower) {
+                hits.push(SearchHit {
+                    line,
+                    preview: truncate_preview(&line_text),
+                });
+                if hits.len() >= max_hits {
+                    truncated = true;
+                    break;
+                }
+            }
+            line += 1;
+            current.clear();
+        } else {
+            current.extend_from_slice(&unit[..unit_len]);
+            // 超长行保护:仅累计到预览上限,余段跳过(不匹配超长行)
+            if current.len() as u64 >= SEARCH_PREVIEW_MAX_BYTES {
+                while let Some((off2, unit2, len2)) = reader.next()? {
+                    scanned = off2;
+                    if reader.is_eol(unit2) {
+                        break;
+                    }
+                    let _ = len2;
+                }
+                line += 1;
+                current.clear();
+            }
+        }
+        // 进度上报:沿用扫描的节奏常量
+        if scanned - last_progress >= PROGRESS_REPORT_BYTES {
+            last_progress = scanned;
+            on_progress(scanned.min(size), size);
+        }
+    }
+    // 末尾残行(EOF 无换行):同样参与匹配
+    if !truncated && !current.is_empty() {
+        let line_text = decode_line_for_search(&current, &enc);
+        if line_text.to_lowercase().contains(&needle_lower) && hits.len() < max_hits {
+            hits.push(SearchHit {
+                line,
+                preview: truncate_preview(&line_text),
+            });
+        }
+    }
+    // 扫描完成必报一次(进度 UI 收尾)
+    on_progress(size, size);
+
+    Ok(LargeFileSearchResult { hits, truncated })
+}
+
+/// 按编码把已积累的行字节解码为文本(与 `emit_line` 同语义,但不入列)
+fn decode_line_for_search(current: &[u8], enc: &LargeFileEncoding) -> String {
+    let id = if enc.id == "utf-8-bom" {
+        "utf-8"
+    } else {
+        enc.id
+    };
+    let mut bytes: &[u8] = current;
+    if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        bytes = &bytes[3..];
+    }
+    if (id == "utf-16le" || id == "utf-16be") && bytes.len() % 2 == 1 {
+        bytes = &bytes[..bytes.len() - 1];
+    }
+    decode_text(bytes, id)
+}
+
+/// 预览截断:按字符数截断(多字节安全),上限约 256 字符 + 省略号
+fn truncate_preview(line: &str) -> String {
+    const PREVIEW_MAX_CHARS: usize = 256;
+    if line.chars().count() <= PREVIEW_MAX_CHARS {
+        return line.to_string();
+    }
+    let mut out: String = line.chars().take(PREVIEW_MAX_CHARS).collect();
+    out.push('…');
+    out
+}
+
 // ============ 对外入口(同步核心 + 异步包装) ============
 
 /// 大文件索引扫描(同步核心;IPC 层用 `spawn_blocking` 包装)
@@ -753,6 +910,88 @@ fn static_id_for(id: &str) -> &'static str {
 mod tests {
     use super::*;
     use std::cell::Cell;
+
+    #[test]
+    fn search_finds_hits_with_line_numbers_case_insensitive() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_search_basic.txt");
+        std::fs::write(&path, "alpha\nBravo target\ncharlie\nTARGET again\nend\n").expect("write");
+
+        let result =
+            search_large_file(path.to_str().unwrap(), "target", 100, &|_, _| {}).expect("search");
+        // 大小写不敏感:两处命中(Bravo target / TARGET again)
+        assert_eq!(result.hits.len(), 2);
+        assert_eq!(result.hits[0].line, 2);
+        assert_eq!(result.hits[1].line, 4);
+        // 预览含命中行内容
+        assert!(result.hits[0].preview.contains("Bravo target"));
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn search_respects_max_hits_cap() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_search_cap.txt");
+        std::fs::write(&path, "x\nx\nx\nx\nx\nx\n").expect("write");
+
+        let result = search_large_file(path.to_str().unwrap(), "x", 3, &|_, _| {}).expect("search");
+        assert_eq!(result.hits.len(), 3);
+        // 达到上限即停:truncated 标记提示前端「截断展示」
+        assert!(result.truncated);
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn search_reports_progress_and_completes() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_search_progress.txt");
+        std::fs::write(&path, "needle\nrest\n").expect("write");
+
+        let calls = Cell::new(0u32);
+        let result = search_large_file(path.to_str().unwrap(), "needle", 10, &|scanned, total| {
+            assert!(scanned <= total);
+            calls.set(calls.get() + 1);
+        })
+        .expect("search");
+        assert_eq!(result.hits.len(), 1);
+        assert_eq!(result.hits[0].line, 1);
+        // 完成时必定有进度上报(至少 1 次)
+        assert!(calls.get() >= 1);
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn search_handles_multibyte_utf8_needle_across_chunk_boundary() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_search_mb.txt");
+        // 多字节中文跨块边界场景的缩影:构造一段 UTF-8 内容,
+        // needle 为中文词,验证解码-匹配不因多字节截断错位
+        let line = format!("{}\n", "目标内容在这里".repeat(100));
+        std::fs::write(&path, format!("{line}其他行\n{line}")).expect("write");
+
+        let result =
+            search_large_file(path.to_str().unwrap(), "内容", 10, &|_, _| {}).expect("search");
+        assert_eq!(result.hits.len(), 2);
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn search_reports_zero_hits_for_absent_needle() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_search_absent.txt");
+        std::fs::write(&path, "nothing relevant\nhere\n").expect("write");
+
+        let result =
+            search_large_file(path.to_str().unwrap(), "zebra", 10, &|_, _| {}).expect("search");
+        assert!(result.hits.is_empty());
+        assert!(!result.truncated);
+
+        let _ = std::fs::remove_file(&path);
+    }
 
     #[test]
     fn detect_encoding_bom_variants() {

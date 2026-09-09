@@ -8,10 +8,15 @@
 // 10GB+ 文件从不整读进内存:索引扫描只统计 \n 位置并采样校准点,
 // 行窗口按需读取固定行数/字节,webview 与 Rust 两侧内存占用均为常数级。
 
+/// 全文搜索命中数硬上限(与前端约定钳制范围的上界)
+const MAX_HITS_CAP: usize = 1000;
+
 use tauri::Emitter;
 
 use crate::commands::fs::AuthorizedPaths;
-use crate::media::large_file::{LargeFileInfo, LinesWindow};
+use crate::media::large_file::{
+    LargeFileInfo, LargeFileSearchResult, LinesWindow, search_large_file,
+};
 use crate::shell::AppError;
 use crate::shell::response::CommandResponse;
 
@@ -92,4 +97,51 @@ pub async fn fs_read_file_lines(
     .await
     .map_err(|e| AppError::Unknown(format!("read task failed: {e}")))??;
     Ok(CommandResponse::ok(window))
+}
+
+/// 大文件流式全文搜索(只读视图 Ctrl+F 入口)
+///
+/// 大小写不敏感子串匹配;命中数达 `maxHits`(钳制上限 `MAX_HITS_CAP`)即停
+/// 并在 `truncated` 标记,防止失控扫描。扫描期间经
+/// `app:large-file-search-progress` 事件上报进度
+/// (载荷 `{ path, scanned, total }`),前端展示搜索进度态。
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 文件打开/读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+#[tauri::command]
+pub async fn fs_large_file_search(
+    app: tauri::AppHandle,
+    path: String,
+    needle: String,
+    max_hits: Option<usize>,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<LargeFileSearchResult>, AppError> {
+    if !authorized.is_path_allowed(&path) {
+        return Err(AppError::Permission(format!(
+            "path not authorized, must be selected via dialog: {path}"
+        )));
+    }
+    // 命中上限钳制:防前端误传超大值导致失控扫描
+    let max_hits = max_hits.unwrap_or(100).clamp(1, MAX_HITS_CAP);
+    let path_for_progress = path.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        search_large_file(
+            &path,
+            &needle,
+            max_hits,
+            &move |scanned: u64, total: u64| {
+                let payload = serde_json::json!({
+                    "path": path_for_progress,
+                    "scanned": scanned,
+                    "total": total,
+                });
+                let _ = app.emit("app:large-file-search-progress", payload);
+            },
+        )
+    })
+    .await
+    .map_err(|e| AppError::Unknown(format!("search task failed: {e}")))??;
+    Ok(CommandResponse::ok(result))
 }

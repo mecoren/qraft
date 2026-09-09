@@ -212,6 +212,45 @@ export interface LargeFileProgressPayload {
   total: number;
 }
 
+/** 全文搜索的单条命中(Rust `SearchHit` 的 camelCase 形态) */
+export interface LargeFileSearchHit {
+  /** 命中行号(1-based) */
+  line: number;
+  /** 命中行内容预览(超长截断) */
+  preview: string;
+}
+
+/** 全文搜索结果(`fs_large_file_search` 返回) */
+export interface LargeFileSearchResult {
+  hits: LargeFileSearchHit[];
+  /** 因命中数上限提前终止(前端提示「仅显示前 N 条」) */
+  truncated: boolean;
+}
+
+/** 搜索进度事件载荷(`app:large-file-search-progress`) */
+export interface LargeFileSearchProgressPayload {
+  path: string;
+  scanned: number;
+  total: number;
+}
+
+/**
+ * 大文件流式全文搜索(只读视图 Ctrl+F 入口):
+ * 大小写不敏感子串匹配,命中数达上限(服务端钳制)即停并在 truncated 标记。
+ * 扫描期间经 `app:large-file-search-progress` 事件上报进度。
+ */
+export async function largeFileSearch(
+  path: string,
+  needle: string,
+  maxHits?: number,
+): Promise<LargeFileSearchResult> {
+  return invokeCommand<LargeFileSearchResult>('fs_large_file_search', {
+    path,
+    needle,
+    maxHits: maxHits ?? null,
+  });
+}
+
 /**
  * 大文件索引扫描:一次顺序扫描建立行校准点(10GB 文件数秒完成),
  * 期间经 `app:large-file-progress` 事件上报进度。

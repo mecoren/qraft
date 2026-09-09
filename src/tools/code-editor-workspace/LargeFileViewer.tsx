@@ -8,8 +8,11 @@
  *   行内容按需经 `fs_read_file_lines` 拉取行窗口,窗口间用返回的
  *   nextOffset/nextLine 精确锚点接续(顺序滚动零数行开销)
  * - 跳转:最近校准点锚点 + 后端数行到目标(行号恒精确)
- * - 只读:不支持编辑/保存/查找(10GB 查找需要后端全文扫描,另议);
- *   支持选中行复制、转到行、超长行截断标记
+ * - 全文搜索:`fs_large_file_search` 流式扫描(Rust 侧大小写不敏感、
+ *   命中上限钳制),进度经 `app:large-file-search-progress` 事件上报;
+ *   命中列表点击经虚拟定位跳转(10GB 级 grep 是编辑器/VSCode 做不到的
+ *   差异化能力)
+ * - 只读:不支持编辑/保存;支持选中行复制、转到行、超长行截断标记
  *
  * 行窗口缓存(LRU):Map<行号, Promise<LinesWindowResult>>,
  * 最多 CACHE_WINDOWS 个窗口(约 1600 行),超出逐出最旧;
@@ -18,13 +21,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { Search } from 'lucide-react';
 import { writeClipboardText } from '@/lib/clipboard';
 import { formatBytes } from '@/lib/file-utils';
 import { TEXT_ENCODINGS } from '@/lib/text-encodings';
 import { GotoLineQuickPick } from '@/components/ui/code-editor-quick-picks';
 import { useEditorFontSize } from '@/hooks/useEditorFontSize';
+import { listen } from '@/lib/ipc';
 import type { EditorTab } from './schema';
-import { anchorForLine, readFileLines, type LinesWindowResult } from './fileOps';
+import {
+  anchorForLine,
+  largeFileSearch,
+  readFileLines,
+  type LargeFileSearchProgressPayload,
+  type LargeFileSearchResult,
+  type LinesWindowResult,
+} from './fileOps';
 
 /** 单窗口请求行数(覆盖可视区 + 上下缓冲,一次 IPC 拿一批) */
 export const LINES_PER_WINDOW = 800;
@@ -284,6 +296,65 @@ export function LargeFileViewer({
     });
   }, [t]);
 
+  // —— 全文搜索(流式 IPC;进度事件驱动徽章)——
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResult, setSearchResult] = useState<LargeFileSearchResult | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchProgress, setSearchProgress] = useState<number | null>(null);
+  /** 搜索请求代次:仅最新请求的结果生效(快速连续搜索防竞态串台) */
+  const searchSeqRef = useRef(0);
+
+  /** 订阅搜索进度事件(组件级,载荷带 path 校验归属) */
+  useEffect(() => {
+    if (!tab.path) return;
+    let unlisten: (() => void) | undefined;
+    void (async () => {
+      try {
+        unlisten = await listen<LargeFileSearchProgressPayload>(
+          'app:large-file-search-progress',
+          (p) => {
+            if (p?.path !== tab.path) return;
+            const total = p.total || 1;
+            setSearchProgress(Math.min(100, Math.round((p.scanned / total) * 100)));
+          },
+        );
+      } catch {
+        // 事件系统不可用:搜索仍可用,仅无进度
+      }
+    })();
+    return () => unlisten?.();
+  }, [tab.path]);
+
+  /** 提交搜索:空串短路;流式命令 + 代次防竞态 */
+  const handleSearchSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const query = searchQuery.trim();
+      if (!query || !tab.path) return;
+      const seq = ++searchSeqRef.current;
+      setSearching(true);
+      setSearchProgress(0);
+      setSearchOpen(true);
+      void largeFileSearch(tab.path, query)
+        .then((result) => {
+          if (seq !== searchSeqRef.current) return; // 过期响应丢弃
+          setSearchResult(result);
+        })
+        .catch((err) => {
+          if (seq !== searchSeqRef.current) return;
+          toast.error(err instanceof Error ? err.message : t('tools.text_editor.err_open_file'));
+        })
+        .finally(() => {
+          if (seq === searchSeqRef.current) {
+            setSearching(false);
+            setSearchProgress(null);
+          }
+        });
+    },
+    [searchQuery, tab.path, t],
+  );
+
   // —— 状态层 ——
   if (error) {
     return (
@@ -341,6 +412,48 @@ export function LargeFileViewer({
           >
             {t('tools.text_editor.large_badge')}
           </span>
+          {/* 全文搜索(流式 IPC):输入即触发,徽章计数,命中列表点击跳转 */}
+          <form
+            onSubmit={handleSearchSubmit}
+            className="relative mr-1 flex items-center"
+            data-testid={dataTestId ? `${dataTestId}-search-form` : 'large-file-search-form'}
+          >
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute left-2 size-3 text-muted-foreground"
+            />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('tools.text_editor.large_search_placeholder')}
+              title={t('tools.text_editor.large_search_title')}
+              data-testid={dataTestId ? `${dataTestId}-search-input` : 'large-file-search-input'}
+              className="h-[22px] w-40 rounded-sm border border-input bg-background pl-6 pr-1.5 text-xs outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-ring"
+            />
+            {/* 命中计数徽章:搜索完成后展示;扫描中显示进度 */}
+            {searching && searchProgress !== null && (
+              <span
+                className="ml-1 whitespace-nowrap rounded-sm bg-accent px-1 py-0.5 text-[11px] tabular-nums text-accent-foreground"
+                data-testid={
+                  dataTestId ? `${dataTestId}-search-progress` : 'large-file-search-progress'
+                }
+              >
+                {searchProgress}%
+              </span>
+            )}
+            {!searching && searchResult && (
+              <span
+                data-testid={dataTestId ? `${dataTestId}-search-badge` : 'large-file-search-badge'}
+                className="ml-1 cursor-pointer whitespace-nowrap rounded-sm bg-accent px-1 py-0.5 text-[11px] tabular-nums text-accent-foreground"
+                onClick={() => setSearchOpen((v) => !v)}
+                title={t('tools.text_editor.large_search_hits_title')}
+              >
+                {t('tools.text_editor.large_search_hits', {
+                  count: searchResult.hits.length,
+                })}
+              </span>
+            )}
+          </form>
           <button
             type="button"
             onClick={handleCopySelection}
@@ -352,6 +465,49 @@ export function LargeFileViewer({
           </button>
         </span>
       </div>
+
+      {/* 搜索命中列表:徽章点击展开/收起;点击条目虚拟定位跳转 */}
+      {searchOpen && searchResult && (
+        <div
+          data-testid={dataTestId ? `${dataTestId}-search-hits` : 'large-file-search-hits'}
+          className="max-h-48 shrink-0 overflow-auto border-b border-border bg-background-layer"
+        >
+          {searchResult.truncated && (
+            <p
+              data-testid={
+                dataTestId ? `${dataTestId}-search-truncated` : 'large-file-search-truncated'
+              }
+              className="px-3 py-1 text-[11px] text-muted-foreground"
+            >
+              {t('tools.text_editor.large_search_truncated')}
+            </p>
+          )}
+          {searchResult.hits.length === 0 && !searchResult.truncated && (
+            <p className="px-3 py-1 text-[11px] text-muted-foreground">
+              {t('tools.text_editor.large_search_empty')}
+            </p>
+          )}
+          {searchResult.hits.map((hit) => (
+            <button
+              key={hit.line}
+              type="button"
+              onClick={() => {
+                jumpToLine(hit.line);
+                setSearchOpen(false);
+              }}
+              data-testid={
+                dataTestId
+                  ? `${dataTestId}-search-hit-${hit.line}`
+                  : `large-file-search-hit-${hit.line}`
+              }
+              className="flex w-full items-start gap-2 px-3 py-1 text-left font-mono text-[11px] leading-5 transition-colors hover:bg-accent"
+            >
+              <span className="shrink-0 tabular-nums text-muted-foreground">{hit.line}</span>
+              <span className="min-w-0 flex-1 truncate text-foreground">{hit.preview}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 虚拟滚动主体 */}
       <div

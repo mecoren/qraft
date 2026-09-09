@@ -233,3 +233,116 @@ describe('LargeFileViewer', () => {
     });
   });
 });
+
+describe('LargeFileViewer 全文搜索', () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    toastSpy.mockClear();
+    toastSuccessSpy.mockClear();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  function setupReady() {
+    invokeMock.mockImplementation((cmd: string, args: Record<string, unknown>) => {
+      if (cmd === 'fs_read_file_lines') {
+        const target = args.targetLine as number;
+        return Promise.resolve(windowFor(target, 3));
+      }
+      if (cmd === 'fs_large_file_search') {
+        return Promise.resolve({
+          hits: [
+            { line: 128, preview: 'ERROR timeout on api' },
+            { line: 4096, preview: 'error retry 3/5' },
+          ],
+          truncated: false,
+        });
+      }
+      return Promise.resolve({});
+    });
+    render(
+      <LargeFileViewer
+        tab={makeLargeTab({ largeFileInfo: makeInfo(), largeFileProgress: null })}
+        data-testid="lv"
+      />,
+    );
+  }
+
+  it('输入查询触发 fs_large_file_search,展示命中计数徽章', async () => {
+    setupReady();
+
+    const input = screen.getByTestId('lv-search-input');
+    fireEvent.change(input, { target: { value: 'error' } });
+    fireEvent.submit(input.closest('form') ?? input);
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        'fs_large_file_search',
+        expect.objectContaining({ needle: 'error' }),
+      ),
+    );
+    // 命中计数徽章:2 处
+    await waitFor(() => {
+      expect(screen.getByTestId('lv-search-badge').textContent).toContain('2');
+    });
+  });
+
+  it('命中列表点击跳转到对应行(滚动位置换算)', async () => {
+    setupReady();
+    const input = screen.getByTestId('lv-search-input');
+    fireEvent.change(input, { target: { value: 'error' } });
+    fireEvent.submit(input.closest('form') ?? input);
+    const item = await screen.findByTestId('lv-search-hit-4096');
+    expect(item.textContent).toContain('error retry 3/5');
+
+    fireEvent.click(item);
+    // 跳转:滚动容器按行号 × 行高移动(4096 行 → scrollTop 非 0)
+    await waitFor(() => {
+      const scroll = screen.getByTestId('lv-scroll');
+      expect((scroll as HTMLElement).scrollTop).toBeGreaterThan(0);
+    });
+  });
+
+  it('命中数达上限时展示「仅显示前 N 条」截断提示', async () => {
+    invokeMock.mockImplementation((cmd: string, args: Record<string, unknown>) => {
+      if (cmd === 'fs_read_file_lines') {
+        return Promise.resolve(windowFor(args.targetLine as number, 3));
+      }
+      if (cmd === 'fs_large_file_search') {
+        return Promise.resolve({ hits: [{ line: 1, preview: 'x' }], truncated: true });
+      }
+      return Promise.resolve({});
+    });
+    render(
+      <LargeFileViewer
+        tab={makeLargeTab({ largeFileInfo: makeInfo(), largeFileProgress: null })}
+        data-testid="lv"
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('lv-search-input'), { target: { value: 'x' } });
+    fireEvent.submit(
+      screen.getByTestId('lv-search-input').closest('form') ??
+        screen.getByTestId('lv-search-input'),
+    );
+
+    expect(await screen.findByTestId('lv-search-truncated')).toBeTruthy();
+  });
+
+  it('空查询不触发搜索命令', async () => {
+    setupReady();
+    const before = invokeMock.mock.calls.filter((c) => c[0] === 'fs_large_file_search').length;
+
+    fireEvent.change(screen.getByTestId('lv-search-input'), { target: { value: '' } });
+    fireEvent.submit(
+      screen.getByTestId('lv-search-input').closest('form') ??
+        screen.getByTestId('lv-search-input'),
+    );
+
+    // 空串短路:无新搜索调用
+    const after = invokeMock.mock.calls.filter((c) => c[0] === 'fs_large_file_search').length;
+    expect(after).toBe(before);
+  });
+});
