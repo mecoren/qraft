@@ -42,12 +42,10 @@ import {
   RemoveFormatting,
   Replace,
   ScanSearch,
-  Search,
   Shuffle,
   TextQuote,
   Type,
   Undo2,
-  Wand2,
 } from 'lucide-react';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { Button } from '@/components/ui/button';
@@ -1063,12 +1061,9 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
           </button>
         }
       >
-        <ConfigRow
-          icon={Wand2}
-          label={t('tools.json_minifier.row_transform')}
-          hint={t('tools.json_minifier.row_transform_hint')}
-          stacked
-        >
+        {/* 标题行已有「配置」总标题,分组名并入按钮组 aria-label;
+            stacked 行不传 label → 无小标题行,按钮从左侧原位起铺 */}
+        <ConfigRow stacked searchAnchor="json_minifier:row1">
           {/* 外层 ButtonGroup 起容器作用 —— 仅作为 flex 父节点,
               配合 `has-[>[data-slot=button-group]]:gap-2` 自动在子组之间
               生成间距,而无需由使用者手动添加 className。
@@ -1087,12 +1082,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
           </ButtonGroup>
         </ConfigRow>
 
-        <ConfigRow
-          icon={CaseUpper}
-          label={t('tools.json_minifier.row_adjust')}
-          hint={t('tools.json_minifier.row_adjust_hint')}
-          stacked
-        >
+        <ConfigRow stacked searchAnchor="json_minifier:row2">
           <ButtonGroup
             aria-label={t('tools.json_minifier.group_aria_row2')}
             data-testid="textproc-button-group-row2"
@@ -1111,12 +1101,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
             data-testid="textproc-more-config"
             className="max-h-[min(240px,40vh)] divide-y divide-border overflow-y-auto"
           >
-            <ConfigRow
-              icon={Type}
-              label={t('tools.json_minifier.row_advanced')}
-              hint={t('tools.json_minifier.row_advanced_hint')}
-              stacked
-            >
+            <ConfigRow stacked searchAnchor="json_minifier:row3">
               <ButtonGroup
                 aria-label={t('tools.json_minifier.group_aria_row3')}
                 data-testid="textproc-button-group-row3"
@@ -1128,12 +1113,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
               </ButtonGroup>
             </ConfigRow>
 
-            <ConfigRow
-              icon={Search}
-              label={t('tools.json_minifier.row_find_replace')}
-              hint={t('tools.json_minifier.row_find_replace_hint')}
-              stacked
-            >
+            <ConfigRow stacked searchAnchor="json_minifier:row4">
               <div className="flex flex-wrap items-center gap-2">
                 <Input
                   value={findText}
@@ -1185,12 +1165,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
               </div>
             </ConfigRow>
 
-            <ConfigRow
-              icon={ScanSearch}
-              label={t('tools.json_minifier.row_extract')}
-              hint={t('tools.json_minifier.row_extract_hint')}
-              stacked
-            >
+            <ConfigRow stacked searchAnchor="json_minifier:row5">
               <div className="flex flex-wrap items-center gap-2">
                 <Select value={extractId} onValueChange={(v) => setExtractId(v as ExtractPresetId)}>
                   <SelectTrigger

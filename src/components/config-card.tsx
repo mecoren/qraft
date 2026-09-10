@@ -79,7 +79,8 @@ export function ConfigRow({
   stacked = false,
 }: {
   icon?: LucideIcon;
-  label: string;
+  /** 行小标题;stacked 布局下可缺省(如分组名已并入控件 aria-label 的纯按钮排) */
+  label?: string;
   hint?: string;
   children?: ReactNode;
   className?: string;
@@ -89,6 +90,7 @@ export function ConfigRow({
    * 纵向堆叠布局:label(+hint)独占一行小标题,控件独占下一行满宽。
    * 适用于控件很宽的行(如文本处理工具的多组转换按钮)——默认左右布局里
    * 控件列 shrink-0 会把 label 列(min-w-0 flex-1)压成 0 宽,文字逐字竖排。
+   * label 缺省时不渲染小标题行,控件直接从行首铺开。
    */
   stacked?: boolean;
 }): JSX.Element {
@@ -98,13 +100,15 @@ export function ConfigRow({
         className={cn('flex-col items-stretch gap-1.5 px-4 py-2', className)}
         data-search-anchor={searchAnchor}
       >
-        <div className="flex min-w-0 items-center gap-2">
-          {Icon ? <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : null}
-          <span className="text-body-sm">{label}</span>
-          {hint ? (
-            <span className="min-w-0 truncate text-xs text-muted-foreground">{hint}</span>
-          ) : null}
-        </div>
+        {label ? (
+          <div className="flex min-w-0 items-center gap-2">
+            {Icon ? <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : null}
+            <span className="text-body-sm">{label}</span>
+            {hint ? (
+              <span className="min-w-0 truncate text-xs text-muted-foreground">{hint}</span>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex min-w-0 flex-wrap items-center gap-2">{children}</div>
       </div>
     );

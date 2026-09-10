@@ -289,6 +289,11 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       title: T_OUTPUT,
       keywords: ['结果', '统计', '字数'],
     },
+    { key: 'row1', title: T_CONFIG, keywords: ['转换', '编码'] },
+    { key: 'row2', title: T_CONFIG, keywords: ['大小写', '行重组'] },
+    { key: 'row3', title: T_CONFIG, keywords: ['命名风格', '行清理', '排序'] },
+    { key: 'row4', title: T_CONFIG, keywords: ['查找', '替换', '正则'] },
+    { key: 'row5', title: T_CONFIG, keywords: ['提取', '词频', '行号'] },
   ],
   sql_formatter: [
     {
