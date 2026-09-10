@@ -61,6 +61,7 @@
   "tools.json_minifier.btn_add_prefix": "Add prefix",
   "tools.json_minifier.btn_number_lines": "Number lines",
   "tools.json_minifier.toast_keyword_empty": "Enter a keyword first",
+  "tools.json_minifier.more_toggle": "Expand / collapse advanced transforms (naming styles, line cleanup, find & replace, extract & count)",
   "tools.json_minifier.group_aria_inner": "Text transforms",
   "tools.json_minifier.group_aria_row1": "Symbol and encoding transforms",
   "tools.json_minifier.group_aria_row2": "Case and line reordering",

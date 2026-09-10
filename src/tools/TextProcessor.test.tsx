@@ -295,7 +295,7 @@ describe('TextProcessor component', () => {
 
   it('renders two outer ButtonGroup rows with nested subgroups', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
-    // 两个外层容器:第一排(转换/符号)、第二排(大小写/行重组)
+    // 常驻条两个外层容器:第一排(转换/符号)、第二排(大小写/行重组)
     expect(screen.getByTestId('textproc-button-group-row1')).toBeInTheDocument();
     expect(screen.getByTestId('textproc-button-group-row2')).toBeInTheDocument();
     // 第一排 4 个内层子组
@@ -320,6 +320,24 @@ describe('TextProcessor component', () => {
     expect(
       screen.getByTestId('textproc-group-reverseText-uniqueLines-sortLines'),
     ).toBeInTheDocument();
+  });
+
+  it('folds advanced transforms away by default; the toggle icon expands them', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    // 默认折叠:命名风格等进阶转换不可见,常驻条可用
+    expect(screen.queryByTestId('textproc-btn-camelCase')).not.toBeInTheDocument();
+    expect(screen.getByTestId('textproc-btn-escape')).toBeInTheDocument();
+
+    // 点击右上角切换图标 → 展开区出现,进阶按钮可见
+    fireEvent.click(screen.getByTestId('textproc-more-toggle'));
+    expect(screen.getByTestId('textproc-more-config')).toBeInTheDocument();
+    expect(screen.getByTestId('textproc-btn-camelCase')).toBeInTheDocument();
+    expect(screen.getByTestId('textproc-find-input')).toBeInTheDocument();
+    expect(screen.getByTestId('textproc-btn-wordfreq')).toBeInTheDocument();
+
+    // 再次点击 → 折叠回去
+    fireEvent.click(screen.getByTestId('textproc-more-toggle'));
+    expect(screen.queryByTestId('textproc-more-config')).not.toBeInTheDocument();
   });
 
   it('groups related transforms together (same group) and separates different ones', () => {
@@ -470,8 +488,14 @@ describe('TextProcessor component', () => {
     expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(urlDecode(encoded));
   });
 
+  /** 展开进阶区后再操作进阶按钮的公共前置步骤 */
+  function expandAdvanced(): void {
+    fireEvent.click(screen.getByTestId('textproc-more-toggle'));
+  }
+
   it('camelCase button converts input to camelCase naming style', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expandAdvanced();
     fireEvent.change(getInput(), { target: { value: 'hello world foo' } });
     fireEvent.click(screen.getByTestId('textproc-btn-camelCase'));
     expect(getInput().value).toBe('hello world foo');
@@ -480,6 +504,7 @@ describe('TextProcessor component', () => {
 
   it('sortLinesDesc button writes descending sort to output', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expandAdvanced();
     fireEvent.change(getInput(), { target: { value: 'b\na\nc' } });
     fireEvent.click(screen.getByTestId('textproc-btn-sortLinesDesc'));
     expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('c\nb\na');
@@ -503,9 +528,10 @@ describe('TextProcessor component', () => {
     expect(screen.getByTestId('textproc-btn-useOutputAsInput')).toBeDisabled();
   });
 
-  it('renders a third row for naming-style and advanced line operations', () => {
+  it('renders the expanded area with naming-style and advanced line operations', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
-    // 第三排内层子组:命名风格 / 行清理 / 排序与行序
+    expandAdvanced();
+    // 展开区内层子组:命名风格 / 行清理 / 排序与行序
     expect(
       screen.getByTestId('textproc-group-camelCase-pascalCase-snakeCase-kebabCase-constantCase'),
     ).toBeInTheDocument();
@@ -521,6 +547,7 @@ describe('TextProcessor component', () => {
 
   it('find & replace writes the replaced text to the output (regex with $1)', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expandAdvanced();
     fireEvent.change(getInput(), { target: { value: 'key=value' } });
     fireEvent.change(screen.getByTestId('textproc-find-input'), {
       target: { value: '(\\w+)=(\\w+)' },
@@ -534,6 +561,7 @@ describe('TextProcessor component', () => {
 
   it('find & replace in plain-text mode matches literally (dots are not wildcards)', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expandAdvanced();
     fireEvent.change(getInput(), { target: { value: 'a.b axb' } });
     fireEvent.change(screen.getByTestId('textproc-find-input'), {
       target: { value: 'a.b' },
@@ -551,6 +579,7 @@ describe('TextProcessor component', () => {
     const { toast } = await import('sonner');
     const toastSpy = vi.spyOn(toast, 'error');
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expandAdvanced();
     fireEvent.change(getInput(), { target: { value: 'abc' } });
     fireEvent.change(screen.getByTestId('textproc-find-input'), { target: { value: '(' } });
     fireEvent.click(screen.getByTestId('textproc-btn-find-replace'));
@@ -561,6 +590,7 @@ describe('TextProcessor component', () => {
 
   it('extractor select writes extracted URLs to the output', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expandAdvanced();
     fireEvent.change(getInput(), {
       target: { value: 'see https://a.com/x then http://b.org?y=1' },
     });
@@ -572,6 +602,7 @@ describe('TextProcessor component', () => {
 
   it('word frequency button writes value/count lines to the output', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expandAdvanced();
     fireEvent.change(getInput(), { target: { value: 'b a b a c' } });
     fireEvent.click(screen.getByTestId('textproc-btn-wordfreq'));
     expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('b\t2\na\t2\nc\t1');
@@ -684,6 +715,7 @@ describe('TextProcessor component', () => {
 
   it('full-width to ascii button converts full-width digits/letters', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expandAdvanced();
     fireEvent.change(getInput(), { target: { value: 'Ａ１２３' } });
     fireEvent.click(screen.getByTestId('textproc-btn-fullWidthToAscii'));
     expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('A123');
@@ -691,6 +723,7 @@ describe('TextProcessor component', () => {
 
   it('remove consecutive duplicate lines button keeps non-adjacent duplicates', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expandAdvanced();
     fireEvent.change(getInput(), { target: { value: 'a\na\nb\na' } });
     fireEvent.click(screen.getByTestId('textproc-btn-removeConsecutiveDuplicates'));
     expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('a\nb\na');
@@ -698,6 +731,7 @@ describe('TextProcessor component', () => {
 
   it('remove lines containing keyword (from the keyword input)', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expandAdvanced();
     fireEvent.change(getInput(), { target: { value: 'keep\nDROP me\nkeep2' } });
     fireEvent.change(screen.getByTestId('textproc-keyword-input'), { target: { value: 'drop' } });
     fireEvent.click(screen.getByTestId('textproc-btn-removeLinesContaining'));
@@ -706,6 +740,7 @@ describe('TextProcessor component', () => {
 
   it('add prefix to every line (prefix/suffix inputs)', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expandAdvanced();
     fireEvent.change(getInput(), { target: { value: 'a\nb' } });
     fireEvent.change(screen.getByTestId('textproc-prefix-input'), { target: { value: '> ' } });
     fireEvent.click(screen.getByTestId('textproc-btn-addPrefixSuffix'));
@@ -714,6 +749,7 @@ describe('TextProcessor component', () => {
 
   it('number lines button prefixes each line with its index', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expandAdvanced();
     fireEvent.change(getInput(), { target: { value: 'a\nb\nc' } });
     fireEvent.click(screen.getByTestId('textproc-btn-numberLines'));
     expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('1. a\n2. b\n3. c');

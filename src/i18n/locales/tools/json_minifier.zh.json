@@ -61,6 +61,7 @@
   "tools.json_minifier.btn_add_prefix": "加前缀",
   "tools.json_minifier.btn_number_lines": "行编号",
   "tools.json_minifier.toast_keyword_empty": "请先输入关键字",
+  "tools.json_minifier.more_toggle": "展开 / 收起进阶转换(命名风格、行清理、查找替换、提取统计)",
   "tools.json_minifier.group_aria_inner": "文本转换",
   "tools.json_minifier.group_aria_row1": "符号与编码转换",
   "tools.json_minifier.group_aria_row2": "大小写与行重排",

@@ -28,6 +28,8 @@ import {
   CaseLower,
   CaseSensitive,
   CaseUpper,
+  ChevronsDown,
+  ChevronsUp,
   Copy,
   CopyX,
   CornerDownLeft,
@@ -870,10 +872,12 @@ function GroupFragment({
 /**
  * 文本处理工具主组件
  *
- * - 上方"配置"区域(与 SQL 格式化器一致)以嵌套 ButtonGroup 放置文本转换
- *   按钮(含原「文本分析和实用工具」的大小写 / 行重组,以及命名风格 /
- *   行清理 / 排序变体),组内紧密拼边、组间留出 gap-2;按钮组在宽度
- *   不足时自动换行,分三排呈现。
+ * - 顶部"配置"区分两层:
+ *   - 常驻条(默认可见):常用转换(转义/URL/Unicode/中文场景)+ 大小写
+ *     与行重组核心,两排 ButtonGroup;右上角 ChevronsUpDown 图标切换进阶区;
+ *   - 进阶区(点击图标展开):命名风格 / 行清理 / 排序变体 / 查找替换 /
+ *     提取统计。展开区限高 `min(320px, 50vh)` 内部滚动——按钮再多也不
+ *     挤压下方编辑器,收起即恢复全高编辑区。
  * - 下方为左右两栏的输入/输出编辑器:输入框可编辑,转换按钮只
  *   把结果写入 **输出框**,输入保持原值不动;输出框的「作为输入」
  *   按钮把输出回填到输入,衔接多步流水线。
@@ -886,6 +890,9 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
+  // 进阶配置区(命名风格 / 行清理 / 查找替换 / 提取统计)默认折叠,
+  // 保持常驻条两排,编辑器始终占据主体高度
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // handoff 接收:跨工具发来的文本直接进入输入框
   useToolHandoff(toolId, setInput);
@@ -1034,11 +1041,30 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="text-processor"
     >
-      <ConfigSection title="" searchAnchor="json_minifier:config">
+      <ConfigSection title="" searchAnchor="json_minifier:config" className="relative">
+        {/* 进阶区切换按钮:常驻条右上角(绝对定位,不占行内空间),
+            展开时图标转 ChevronsUp 语义收起 */}
+        <button
+          type="button"
+          data-testid="textproc-more-toggle"
+          aria-pressed={moreOpen}
+          title={t('tools.json_minifier.more_toggle')}
+          aria-label={t('tools.json_minifier.more_toggle')}
+          onClick={() => setMoreOpen((v) => !v)}
+          className="absolute right-2 top-2 z-10 flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {moreOpen ? (
+            <ChevronsUp aria-hidden className="size-3.5" />
+          ) : (
+            <ChevronsDown aria-hidden className="size-3.5" />
+          )}
+        </button>
+
         <ConfigRow
           icon={Wand2}
           label={t('tools.json_minifier.row_transform')}
           hint={t('tools.json_minifier.row_transform_hint')}
+          stacked
         >
           {/* 外层 ButtonGroup 起容器作用 —— 仅作为 flex 父节点,
               配合 `has-[>[data-slot=button-group]]:gap-2` 自动在子组之间
@@ -1062,6 +1088,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
           icon={CaseUpper}
           label={t('tools.json_minifier.row_adjust')}
           hint={t('tools.json_minifier.row_adjust_hint')}
+          stacked
         >
           <ButtonGroup
             aria-label={t('tools.json_minifier.group_aria_row2')}
@@ -1074,178 +1101,190 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
           </ButtonGroup>
         </ConfigRow>
 
-        <ConfigRow
-          icon={Type}
-          label={t('tools.json_minifier.row_advanced')}
-          hint={t('tools.json_minifier.row_advanced_hint')}
-        >
-          <ButtonGroup
-            aria-label={t('tools.json_minifier.group_aria_row3')}
-            data-testid="textproc-button-group-row3"
-            className="w-full flex-wrap gap-y-2"
+        {/* 进阶配置区:默认折叠;展开时限高 min(240px, 40vh) 内部滚动,
+            按钮再多也不进一步压缩编辑器 */}
+        {moreOpen && (
+          <div
+            data-testid="textproc-more-config"
+            className="max-h-[min(240px,40vh)] divide-y divide-border overflow-y-auto"
           >
-            {THIRD_ROW_GROUPS.map((ids) => (
-              <GroupFragment key={ids.join('-')} ids={ids} renderGroup={renderGroup} />
-            ))}
-          </ButtonGroup>
-        </ConfigRow>
-
-        <ConfigRow
-          icon={Search}
-          label={t('tools.json_minifier.row_find_replace')}
-          hint={t('tools.json_minifier.row_find_replace_hint')}
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              value={findText}
-              onChange={(e) => setFindText(e.target.value)}
-              placeholder={t('tools.json_minifier.find_placeholder')}
-              className="h-7 w-44 font-mono text-xs"
-              data-testid="textproc-find-input"
-            />
-            <span aria-hidden className="text-xs text-muted-foreground">
-              →
-            </span>
-            <Input
-              value={replaceText}
-              onChange={(e) => setReplaceText(e.target.value)}
-              placeholder={t('tools.json_minifier.replace_placeholder')}
-              className="h-7 w-44 font-mono text-xs"
-              data-testid="textproc-replace-input"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!input || !findText}
-              onClick={handleFindReplace}
-              data-testid="textproc-btn-find-replace"
-              className="gap-1"
+            <ConfigRow
+              icon={Type}
+              label={t('tools.json_minifier.row_advanced')}
+              hint={t('tools.json_minifier.row_advanced_hint')}
+              stacked
             >
-              <Replace aria-hidden className="size-3.5" />
-              {t('tools.json_minifier.btn_replace')}
-            </Button>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Switch
-                checked={regexMode}
-                onCheckedChange={setRegexMode}
-                aria-label={t('tools.json_minifier.regex_mode')}
-                data-testid="textproc-regex-toggle"
-              />
-              {t('tools.json_minifier.regex_mode')}
-            </label>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Switch
-                checked={caseSensitive}
-                onCheckedChange={setCaseSensitive}
-                aria-label={t('tools.json_minifier.case_sensitive')}
-                data-testid="textproc-case-toggle"
-              />
-              {t('tools.json_minifier.case_sensitive')}
-            </label>
-          </div>
-        </ConfigRow>
-
-        <ConfigRow
-          icon={ScanSearch}
-          label={t('tools.json_minifier.row_extract')}
-          hint={t('tools.json_minifier.row_extract_hint')}
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <Select value={extractId} onValueChange={(v) => setExtractId(v as ExtractPresetId)}>
-              <SelectTrigger
-                className="h-7 w-32 text-xs"
-                data-testid="textproc-extract-select"
-                aria-label={t('tools.json_minifier.row_extract')}
+              <ButtonGroup
+                aria-label={t('tools.json_minifier.group_aria_row3')}
+                data-testid="textproc-button-group-row3"
+                className="w-full flex-wrap gap-y-2"
               >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {EXTRACT_PRESETS.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {t(`tools.json_minifier.extract_${p.id}`)}
-                  </SelectItem>
+                {THIRD_ROW_GROUPS.map((ids) => (
+                  <GroupFragment key={ids.join('-')} ids={ids} renderGroup={renderGroup} />
                 ))}
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!input}
-              onClick={handleExtract}
-              data-testid="textproc-btn-extract"
-              className="gap-1"
-            >
-              <ScanSearch aria-hidden className="size-3.5" />
-              {t('tools.json_minifier.btn_extract')}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!input}
-              onClick={handleWordFrequency}
-              data-testid="textproc-btn-wordfreq"
-              className="gap-1"
-            >
-              <BarChart3 aria-hidden className="size-3.5" />
-              {t('tools.json_minifier.btn_wordfreq')}
-            </Button>
+              </ButtonGroup>
+            </ConfigRow>
 
-            <span aria-hidden className="h-4 w-px bg-border" />
-            <Input
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder={t('tools.json_minifier.keyword_placeholder')}
-              className="h-7 w-32 text-xs"
-              data-testid="textproc-keyword-input"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!input || !keyword}
-              onClick={handleRemoveLinesContaining}
-              data-testid="textproc-btn-removeLinesContaining"
-              className="gap-1"
+            <ConfigRow
+              icon={Search}
+              label={t('tools.json_minifier.row_find_replace')}
+              hint={t('tools.json_minifier.row_find_replace_hint')}
+              stacked
             >
-              <Eraser aria-hidden className="size-3.5" />
-              {t('tools.json_minifier.btn_remove_containing')}
-            </Button>
-            <Input
-              value={prefix}
-              onChange={(e) => setPrefix(e.target.value)}
-              placeholder={t('tools.json_minifier.prefix_placeholder')}
-              className="h-7 w-24 font-mono text-xs"
-              data-testid="textproc-prefix-input"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!input || !prefix}
-              onClick={handleAddPrefixSuffix}
-              data-testid="textproc-btn-addPrefixSuffix"
-              className="gap-1"
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  value={findText}
+                  onChange={(e) => setFindText(e.target.value)}
+                  placeholder={t('tools.json_minifier.find_placeholder')}
+                  className="h-7 w-44 font-mono text-xs"
+                  data-testid="textproc-find-input"
+                />
+                <span aria-hidden className="text-xs text-muted-foreground">
+                  →
+                </span>
+                <Input
+                  value={replaceText}
+                  onChange={(e) => setReplaceText(e.target.value)}
+                  placeholder={t('tools.json_minifier.replace_placeholder')}
+                  className="h-7 w-44 font-mono text-xs"
+                  data-testid="textproc-replace-input"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!input || !findText}
+                  onClick={handleFindReplace}
+                  data-testid="textproc-btn-find-replace"
+                  className="gap-1"
+                >
+                  <Replace aria-hidden className="size-3.5" />
+                  {t('tools.json_minifier.btn_replace')}
+                </Button>
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Switch
+                    checked={regexMode}
+                    onCheckedChange={setRegexMode}
+                    aria-label={t('tools.json_minifier.regex_mode')}
+                    data-testid="textproc-regex-toggle"
+                  />
+                  {t('tools.json_minifier.regex_mode')}
+                </label>
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Switch
+                    checked={caseSensitive}
+                    onCheckedChange={setCaseSensitive}
+                    aria-label={t('tools.json_minifier.case_sensitive')}
+                    data-testid="textproc-case-toggle"
+                  />
+                  {t('tools.json_minifier.case_sensitive')}
+                </label>
+              </div>
+            </ConfigRow>
+
+            <ConfigRow
+              icon={ScanSearch}
+              label={t('tools.json_minifier.row_extract')}
+              hint={t('tools.json_minifier.row_extract_hint')}
+              stacked
             >
-              <Replace aria-hidden className="size-3.5" />
-              {t('tools.json_minifier.btn_add_prefix')}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!input}
-              onClick={handleNumberLines}
-              data-testid="textproc-btn-numberLines"
-              className="gap-1"
-            >
-              <ListOrdered aria-hidden className="size-3.5" />
-              {t('tools.json_minifier.btn_number_lines')}
-            </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={extractId} onValueChange={(v) => setExtractId(v as ExtractPresetId)}>
+                  <SelectTrigger
+                    className="h-7 w-32 text-xs"
+                    data-testid="textproc-extract-select"
+                    aria-label={t('tools.json_minifier.row_extract')}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EXTRACT_PRESETS.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {t(`tools.json_minifier.extract_${p.id}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!input}
+                  onClick={handleExtract}
+                  data-testid="textproc-btn-extract"
+                  className="gap-1"
+                >
+                  <ScanSearch aria-hidden className="size-3.5" />
+                  {t('tools.json_minifier.btn_extract')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!input}
+                  onClick={handleWordFrequency}
+                  data-testid="textproc-btn-wordfreq"
+                  className="gap-1"
+                >
+                  <BarChart3 aria-hidden className="size-3.5" />
+                  {t('tools.json_minifier.btn_wordfreq')}
+                </Button>
+
+                <span aria-hidden className="h-4 w-px bg-border" />
+                <Input
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  placeholder={t('tools.json_minifier.keyword_placeholder')}
+                  className="h-7 w-32 text-xs"
+                  data-testid="textproc-keyword-input"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!input || !keyword}
+                  onClick={handleRemoveLinesContaining}
+                  data-testid="textproc-btn-removeLinesContaining"
+                  className="gap-1"
+                >
+                  <Eraser aria-hidden className="size-3.5" />
+                  {t('tools.json_minifier.btn_remove_containing')}
+                </Button>
+                <Input
+                  value={prefix}
+                  onChange={(e) => setPrefix(e.target.value)}
+                  placeholder={t('tools.json_minifier.prefix_placeholder')}
+                  className="h-7 w-24 font-mono text-xs"
+                  data-testid="textproc-prefix-input"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!input || !prefix}
+                  onClick={handleAddPrefixSuffix}
+                  data-testid="textproc-btn-addPrefixSuffix"
+                  className="gap-1"
+                >
+                  <Replace aria-hidden className="size-3.5" />
+                  {t('tools.json_minifier.btn_add_prefix')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!input}
+                  onClick={handleNumberLines}
+                  data-testid="textproc-btn-numberLines"
+                  className="gap-1"
+                >
+                  <ListOrdered aria-hidden className="size-3.5" />
+                  {t('tools.json_minifier.btn_number_lines')}
+                </Button>
+              </div>
+            </ConfigRow>
           </div>
-        </ConfigRow>
+        )}
       </ConfigSection>
 
       {/* 双栏工作区直接置于 shell 卡片内(外框由根元素提供):
