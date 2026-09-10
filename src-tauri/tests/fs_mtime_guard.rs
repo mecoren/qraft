@@ -14,7 +14,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use qraft_lib::commands::fs::{AuthorizedPaths, fs_write_file_encoded_inner};
 use qraft_lib::core::error::AppError;
@@ -40,6 +40,21 @@ fn temp_file(name: &str, content: &str) -> std::path::PathBuf {
     path
 }
 
+/// 把文件 mtime 回拨指定时长(测试夹具:确保后续写入必然使 mtime 前进,
+/// 跨平台免 sleep——Linux CI 上创建/改写可能落在同一毫秒,mtime 不变
+/// 会让"外部修改"用例误判为未修改而放行)
+fn rewind_mtime(path: &std::path::Path, back: Duration) {
+    let past = SystemTime::now()
+        .checked_sub(back)
+        .unwrap_or(SystemTime::UNIX_EPOCH + Duration::from_secs(1));
+    std::fs::File::options()
+        .write(true)
+        .open(path)
+        .unwrap()
+        .set_modified(past)
+        .unwrap();
+}
+
 /// 外部修改后保存:期望 mtime 过时 → 拒绝写入并返回 `ERR_FILE_MODIFIED`
 #[tokio::test]
 async fn rejects_overwrite_when_file_modified_externally() {
@@ -49,7 +64,8 @@ async fn rejects_overwrite_when_file_modified_externally() {
     let authorized = AuthorizedPaths::new();
     authorized.authorize(path_str);
 
-    // 打开时刻记录的 mtime,随后外部程序改写文件
+    // 打开时刻记录的 mtime(拨回过去,与"随后外部改写"的新 mtime 必然拉开差距)
+    rewind_mtime(&path, Duration::from_secs(5));
     let opened_mtime = mtime_ms(path_str).await;
     std::fs::write(&path, "externally modified").unwrap();
 
