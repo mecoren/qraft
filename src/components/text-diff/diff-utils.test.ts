@@ -107,6 +107,33 @@ describe('computeLineDiff', () => {
     expect(r.originalDecos).toEqual([]);
     expect(r.modifiedDecos).toEqual([]);
   });
+
+  it('ignoreWhitespace:仅行尾空白不同的行视为相同', () => {
+    const r = computeLineDiff('a   \nb\n', 'a\nb\n', { ignoreWhitespace: true });
+    expect(r.stats).toEqual({ added: 0, removed: 0, modified: 0 });
+    expect(r.originalDecos).toEqual([]);
+    expect(r.modifiedDecos).toEqual([]);
+  });
+
+  it('ignoreWhitespace 默认关闭:行尾空白不同仍算修改', () => {
+    const r = computeLineDiff('a   \nb\n', 'a\nb\n');
+    expect(r.stats.modified).toBe(1);
+  });
+
+  it('ignoreCase:仅大小写不同的行视为相同', () => {
+    const r = computeLineDiff('Hello\nworld\n', 'hello\nWORLD\n', { ignoreCase: true });
+    expect(r.stats).toEqual({ added: 0, removed: 0, modified: 0 });
+    expect(r.originalDecos).toEqual([]);
+    expect(r.modifiedDecos).toEqual([]);
+  });
+
+  it('ignoreWhitespace + ignoreCase 可叠加', () => {
+    const r = computeLineDiff('Hello  \n', 'hello\n', {
+      ignoreWhitespace: true,
+      ignoreCase: true,
+    });
+    expect(r.stats).toEqual({ added: 0, removed: 0, modified: 0 });
+  });
 });
 
 /** 构建最小 Monaco 编辑器实例桩:按行内容数组模拟 model 行数与最大列号 */

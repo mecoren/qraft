@@ -25,10 +25,13 @@ vi.mock('@/lib/ipc', () => {
 // 导入必须在 mock 声明之后,确保组件拿到的是 mocked 模块
 import { TextCompare } from './TextCompare';
 import { useTextCompareStore } from './textCompareStore';
+import { requestHandoff, useHandoffStore } from '@/store/handoffStore';
+import { useToolStateStore } from '@/store/toolStateStore';
 
 describe('TextCompare', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useHandoffStore.setState({ pending: null });
     // zustand 模块级单例:每个用例重置为「单个空白文档」初始态,避免跨用例污染
     useTextCompareStore.setState({
       docs: [
@@ -173,6 +176,43 @@ describe('TextCompare', () => {
     expect(header).toContainElement(screen.getByTestId('diff-stats'));
     expect(header).toContainElement(screen.getByTestId('diff-inline-toggle'));
     expect(header).toContainElement(screen.getByTestId('diff-sync-scroll'));
+  });
+
+  it('忽略行尾空白开关:仅空白差异时统计归零', async () => {
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    fireEvent.change(getOriginalEditor(), { target: { value: 'a   \nb' } });
+    fireEvent.change(getModifiedEditor(), { target: { value: 'a\nb' } });
+    await waitFor(() => {
+      expect(screen.getByTestId('diff-stats')).toHaveTextContent('~1');
+    });
+    // 打开忽略行尾空白 → 该差异被忽略
+    fireEvent.click(screen.getByTestId('diff-ignore-ws'));
+    await waitFor(() => {
+      expect(screen.getByTestId('diff-stats')).toHaveTextContent('无差异');
+    });
+  });
+
+  it('忽略大小写开关:仅大小写差异时统计归零', async () => {
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    fireEvent.change(getOriginalEditor(), { target: { value: 'Hello\nworld' } });
+    fireEvent.change(getModifiedEditor(), { target: { value: 'hello\nWORLD' } });
+    await waitFor(() => {
+      expect(screen.getByTestId('diff-stats')).toHaveTextContent('~2');
+    });
+    fireEvent.click(screen.getByTestId('diff-ignore-case'));
+    await waitFor(() => {
+      expect(screen.getByTestId('diff-stats')).toHaveTextContent('无差异');
+    });
+  });
+
+  it('handoff:接收文本写入当前文档的修改侧', () => {
+    useToolStateStore.setState({ currentToolId: 'text_compare' });
+    requestHandoff('text_compare', 'from other tool');
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    expect(useTextCompareStore.getState().docs[0]?.modified).toBe('from other tool');
+    // 载荷已被消费,不再残留
+    expect(useHandoffStore.getState().pending).toBeNull();
+    useToolStateStore.setState({ currentToolId: 'text_editor' });
   });
 
   it('不渲染全屏弹窗(已按需求移除)', () => {

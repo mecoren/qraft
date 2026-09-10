@@ -38,6 +38,7 @@ import {
 import { RenameDialog } from '@/components/RenameDialog';
 import { TextDiffView } from '@/components/text-diff/TextDiffView';
 import { cn } from '@/lib/utils';
+import { useToolHandoff } from '@/hooks/useToolHandoff';
 import { useTextCompareStore, type CompareDoc } from './textCompareStore';
 import type { ToolProps } from './registry';
 
@@ -50,7 +51,7 @@ function persistDelayFor(totalChars: number): number {
   return 500;
 }
 
-export function TextCompare(_props: ToolProps): JSX.Element {
+export function TextCompare({ toolId }: ToolProps): JSX.Element {
   const { t } = useTranslation();
 
   // —— 多 Tab 工作区状态(模式对齐 JsonFormatter)——
@@ -122,6 +123,17 @@ export function TextCompare(_props: ToolProps): JSX.Element {
     },
     [activeDocId, setDocContent],
   );
+
+  // —— 比较 ignore 选项(会话级,不持久化进文档结构)——
+  const [ignoreWhitespace, setIgnoreWhitespace] = useState(false);
+  const [ignoreCase, setIgnoreCase] = useState(false);
+
+  // handoff 接收:跨工具发来的文本填入当前文档的「修改后」侧(常见流:
+  // 从文本处理/编辑器把改后版本送来与原文对比)
+  useToolHandoff(toolId, (incoming) => {
+    const s = useTextCompareStore.getState();
+    if (s.activeDocId) s.setDocContent(s.activeDocId, 'modified', incoming);
+  });
 
   // 启动时从 Rust config 还原文档(hydrate 内部幂等)
   useEffect(() => {
@@ -363,6 +375,38 @@ export function TextCompare(_props: ToolProps): JSX.Element {
         {/* 「+」新建按钮固定在滚动区外右端(对齐 VSCode):Tab 溢出滚动时始终可见可点 */}
         <button
           type="button"
+          data-testid="diff-ignore-ws"
+          aria-pressed={ignoreWhitespace}
+          title={t('tools.text_compare.ignore_whitespace')}
+          aria-label={t('tools.text_compare.ignore_whitespace')}
+          onClick={() => setIgnoreWhitespace((v) => !v)}
+          className={cn(
+            'flex size-7 shrink-0 items-center justify-center transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
+            ignoreWhitespace ? 'text-primary' : 'text-muted-foreground',
+          )}
+        >
+          <span aria-hidden className="font-mono text-xs font-semibold">
+            ␣≠
+          </span>
+        </button>
+        <button
+          type="button"
+          data-testid="diff-ignore-case"
+          aria-pressed={ignoreCase}
+          title={t('tools.text_compare.ignore_case')}
+          aria-label={t('tools.text_compare.ignore_case')}
+          onClick={() => setIgnoreCase((v) => !v)}
+          className={cn(
+            'flex size-7 shrink-0 items-center justify-center transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
+            ignoreCase ? 'text-primary' : 'text-muted-foreground',
+          )}
+        >
+          <span aria-hidden className="font-mono text-xs font-semibold">
+            Aa
+          </span>
+        </button>
+        <button
+          type="button"
           data-testid="doc-add"
           title={t('tools.text_compare.new_doc')}
           aria-label={t('tools.text_compare.new_doc')}
@@ -383,6 +427,8 @@ export function TextCompare(_props: ToolProps): JSX.Element {
         modifiedTitle={t('tools.text_compare.modified_title')}
         originalLanguage="plaintext"
         modifiedLanguage="plaintext"
+        ignoreWhitespace={ignoreWhitespace}
+        ignoreCase={ignoreCase}
         leftChrome={{
           showPaste: true,
           showOpenFile: true,

@@ -24,6 +24,8 @@ const HANDOFF_TARGETS: ReadonlyArray<{ toolId: string }> = [
   { toolId: 'json_formatter' },
   { toolId: 'base64_codec' },
   { toolId: 'hash_calculator' },
+  { toolId: 'json_minifier' },
+  { toolId: 'text_compare' },
 ];
 
 interface SendToMenuProps {

@@ -2,21 +2,22 @@
  * 差异计算 Web Worker 入口 —— 把 jsdiff 的 O(ND) 计算移出主线程
  *
  * 协议:
- * - 请求 DiffWorkerRequest: { id, original, modified, includeWordDiff }
+ * - 请求 DiffWorkerRequest: { id, original, modified, diffOptions }
  * - 响应 DiffWorkerResponse: { id, result: LineDiffResult }
  * id 由主线程单调递增分配,响应按 id 路由回对应 Promise,天然支持乱序/并发。
  *
  * 注意:本文件运行在 worker 作用域(self 非 window),不能 import 任何
  * 触碰 DOM 的模块;diff-utils.ts 是纯函数封装,可安全复用。
  */
-import { computeLineDiff } from './diff-utils';
+import { computeLineDiff, type ComputeLineDiffOptions } from './diff-utils';
 import type { LineDiffResult } from './diff-utils';
 
 export interface DiffWorkerRequest {
   id: number;
   original: string;
   modified: string;
-  includeWordDiff?: boolean;
+  /** computeLineDiff 的计算选项(includeWordDiff / ignoreWhitespace / ignoreCase) */
+  diffOptions?: ComputeLineDiffOptions;
 }
 
 export interface DiffWorkerResponse {
@@ -31,7 +32,7 @@ const ctx = self as unknown as {
 };
 
 ctx.onmessage = (e: MessageEvent<DiffWorkerRequest>) => {
-  const { id, original, modified, includeWordDiff } = e.data;
-  const result = computeLineDiff(original, modified, { includeWordDiff });
+  const { id, original, modified, diffOptions } = e.data;
+  const result = computeLineDiff(original, modified, diffOptions);
   ctx.postMessage({ id, result });
 };

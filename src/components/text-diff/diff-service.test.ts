@@ -39,7 +39,7 @@ describe('diff-service', () => {
   it('小输入走同步快路径,不创建 Worker,结果与 computeLineDiff 一致', async () => {
     const { createDiffService } = await import('./diff-service');
     const service = createDiffService();
-    const result = await service.compute('a\nb\nc\n', 'a\nX\nc\n', true);
+    const result = await service.compute('a\nb\nc\n', 'a\nX\nc\n', { includeWordDiff: true });
     expect(result.stats).toEqual(
       computeLineDiff('a\nb\nc\n', 'a\nX\nc\n', { includeWordDiff: true }).stats,
     );
@@ -53,7 +53,7 @@ describe('diff-service', () => {
     const bigA = `${'x'.repeat(40_000)}\nend`;
     const bigB = `${'y'.repeat(40_000)}\nend`;
     const expected = computeLineDiff(bigA, bigB, { includeWordDiff: false });
-    const pending = service.compute(bigA, bigB, false);
+    const pending = service.compute(bigA, bigB, { includeWordDiff: false });
     // Worker 惰性创建,首个大请求触发
     expect(FakeWorker.instances).toHaveLength(1);
     const worker = FakeWorker.instances[0];
@@ -71,8 +71,8 @@ describe('diff-service', () => {
     const service = createDiffService();
     const bigA = `${'x'.repeat(40_000)}\nend`;
     const bigB = `${'y'.repeat(40_000)}\nend`;
-    const p1 = service.compute(bigA, bigB, false);
-    const p2 = service.compute(bigB, bigA, false);
+    const p1 = service.compute(bigA, bigB, { includeWordDiff: false });
+    const p2 = service.compute(bigB, bigA, { includeWordDiff: false });
     const worker = FakeWorker.instances[0];
     expect(worker.sent.map((m) => m.id)).toEqual([1, 2]);
     const r2 = computeLineDiff(bigB, bigA, { includeWordDiff: false });
@@ -89,12 +89,12 @@ describe('diff-service', () => {
     const { createDiffService } = await import('./diff-service');
     const service = createDiffService();
     const big = 'z'.repeat(40_000);
-    const p1 = service.compute(big, `${big}!`, false);
+    const p1 = service.compute(big, `${big}!`, { includeWordDiff: false });
     const worker = FakeWorker.instances[0];
     service.dispose();
     expect(worker.terminated).toBe(true);
     // dispose 后新请求重建 Worker(jsdiff 兜底解析前先验证重建)
-    const p2 = service.compute(big, `${big}?`, false);
+    const p2 = service.compute(big, `${big}?`, { includeWordDiff: false });
     expect(FakeWorker.instances).toHaveLength(2);
     FakeWorker.instances[1].onmessage!({
       data: {
@@ -118,7 +118,7 @@ describe('diff-service', () => {
     const { createDiffService } = await import('./diff-service');
     const service = createDiffService();
     const bigA = 'x'.repeat(40_000);
-    const result = await service.compute(bigA, `${bigA}!`, false);
+    const result = await service.compute(bigA, `${bigA}!`, { includeWordDiff: false });
     expect(result.stats).toEqual(
       computeLineDiff(bigA, `${bigA}!`, { includeWordDiff: false }).stats,
     );

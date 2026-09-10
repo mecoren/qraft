@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 
 import { changeLocale } from '@/i18n';
+import { requestHandoff, useHandoffStore } from '@/store/handoffStore';
+import { useToolStateStore } from '@/store/toolStateStore';
 
 import {
   TextProcessor,
@@ -679,6 +681,15 @@ describe('TextProcessor component', () => {
     fireEvent.change(getInput(), { target: { value: 'hello' } });
     // mock 中 mock 的选区长度 = value.length
     expect(screen.getByTestId('input-status-sel').textContent).toBe('(已选择5)');
+  });
+
+  it('handoff:接收文本写入输入框', () => {
+    useToolStateStore.setState({ currentToolId: 'json_minifier' });
+    requestHandoff('json_minifier', 'sent from elsewhere');
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expect(getInput().value).toBe('sent from elsewhere');
+    expect(useHandoffStore.getState().pending).toBeNull();
+    useToolStateStore.setState({ currentToolId: 'text_editor' });
   });
 
   it('en-US:按钮/统计/标题文案随语言切换(手动切语言场景),结束恢复 zh 桩', () => {

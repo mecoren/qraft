@@ -51,6 +51,8 @@ import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
+import { SendToMenu } from '@/components/send-to-menu';
+import { useToolHandoff } from '@/hooks/useToolHandoff';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -863,10 +865,13 @@ function GroupFragment({
  *   (`showCharCount={false}`),改由统一的 EditorStats 紧凑展示
  *   「字符 · 单词 · 行 · 字节 · 句子 · 段落」,字号与编辑器状态栏一致。
  */
-export function TextProcessor(_props: ToolProps): JSX.Element {
+export function TextProcessor({ toolId }: ToolProps): JSX.Element {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
+
+  // handoff 接收:跨工具发来的文本直接进入输入框
+  useToolHandoff(toolId, setInput);
 
   // 查找替换 / 提取器 / 词频(第四排):文本输入即状态,点击按钮才执行
   const [findText, setFindText] = useState('');
@@ -1199,6 +1204,11 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
                   {t('tools.json_minifier.use_output_as_input_short')}
                 </Button>
                 <CopyAction text={output} testId="output-copy" />
+                <SendToMenu
+                  text={output}
+                  currentToolId={toolId}
+                  testId="output-send-to"
+                />
               </span>
             }
             showCharCount={false}

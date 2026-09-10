@@ -57,6 +57,10 @@ export interface ComputeLineDiffOptions {
   includeWordDiff?: boolean;
   /** 行级 diff 的编辑距离上限,超限降级为整体替换 */
   maxEditLength?: number;
+  /** 忽略行尾空白差异(预处理剥掉每行行尾空白),默认 false */
+  ignoreWhitespace?: boolean;
+  /** 忽略大小写差异(预处理统一小写比较),默认 false */
+  ignoreCase?: boolean;
 }
 
 /** 默认编辑距离上限:正常文档远低于此值,病态输入触发降级 */
@@ -108,6 +112,11 @@ function computeWordSpans(
   return { origSpans, modSpans };
 }
 
+/** 比较前预处理:剥掉每行行尾空白(保留换行结构) */
+function stripTrailingWhitespacePerLine(text: string): string {
+  return text.replace(/[ \t]+(?=\r?\n|$)/g, '');
+}
+
 /**
  * 计算两侧文本的行级差异 + 配对行词级差异。
  *
@@ -115,22 +124,41 @@ function computeWordSpans(
  * - 连续 removed/added 段:前 min(n,m) 行两两配对记「修改」,
  *   removed 余量记「删除」、added 余量记「新增」。
  * - 配对行额外给出两侧行内变更片段的列区间(wordSpans)。
+ * - ignoreWhitespace / ignoreCase 在比较前对输入做规范化,
+ *   但装饰行号仍按原文行号(两侧行结构不变)。
  */
 export function computeLineDiff(
   original: string,
   modified: string,
   options: ComputeLineDiffOptions = {},
 ): LineDiffResult {
-  const { includeWordDiff = true, maxEditLength = DEFAULT_MAX_EDIT_LENGTH } = options;
+  const {
+    includeWordDiff = true,
+    maxEditLength = DEFAULT_MAX_EDIT_LENGTH,
+    ignoreWhitespace = false,
+    ignoreCase = false,
+  } = options;
   const stats: DiffStats = { added: 0, removed: 0, modified: 0 };
   const originalDecos: LineDeco[] = [];
   const modifiedDecos: LineDeco[] = [];
 
-  if (original === modified) {
+  // 规范化仅用于比较;原文行号结构不变(剥空白/小写化不改变行数)
+  let cmpOriginal = original;
+  let cmpModified = modified;
+  if (ignoreWhitespace) {
+    cmpOriginal = stripTrailingWhitespacePerLine(cmpOriginal);
+    cmpModified = stripTrailingWhitespacePerLine(cmpModified);
+  }
+  if (ignoreCase) {
+    cmpOriginal = cmpOriginal.toLowerCase();
+    cmpModified = cmpModified.toLowerCase();
+  }
+
+  if (cmpOriginal === cmpModified) {
     return { stats, originalDecos, modifiedDecos, degraded: false };
   }
 
-  const parts: Change[] | undefined = diffLines(original, modified, {
+  const parts: Change[] | undefined = diffLines(cmpOriginal, cmpModified, {
     maxEditLength,
     ignoreNewlineAtEof: true,
   });

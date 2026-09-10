@@ -35,6 +35,7 @@ import { CodeEditor } from '@/components/ui/code-editor';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { toast } from 'sonner';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
+import { useToolHandoff } from '@/hooks/useToolHandoff';
 import type { ToolProps } from './registry';
 
 // ============================================================
@@ -223,7 +224,7 @@ function parseNonNegativeInt(value: string): number | null {
   return Math.floor(n);
 }
 
-export function DuplicateDetector(_props: ToolProps): JSX.Element {
+export function DuplicateDetector({ toolId }: ToolProps): JSX.Element {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [mode, setMode] = useState<DupMatchMode>('line');
@@ -231,6 +232,9 @@ export function DuplicateDetector(_props: ToolProps): JSX.Element {
   const [lengthStr, setLengthStr] = useState('1');
   const [uniqMode, setUniqMode] = useState<UnduplicateMode>('keepFirst');
   const [statUnique, setStatUnique] = useState(true);
+
+  // handoff 接收:跨工具发来的文本直接进入输入框
+  useToolHandoff(toolId, setInput);
 
   const offsetNum = parseNonNegativeInt(offsetStr);
   const lengthNum = parseNonNegativeInt(lengthStr);

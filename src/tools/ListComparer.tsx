@@ -17,6 +17,7 @@ import { CodeEditor } from '@/components/ui/code-editor';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
+import { useToolHandoff } from '@/hooks/useToolHandoff';
 import type { ToolProps } from './registry';
 
 type CompareMode = 'intersection' | 'union' | 'onlyA' | 'onlyB';
@@ -73,13 +74,16 @@ export function compareLists(
   }
 }
 
-export function ListComparer(_props: ToolProps): JSX.Element {
+export function ListComparer({ toolId }: ToolProps): JSX.Element {
   const { t } = useTranslation();
   const [listA, setListA] = useState('');
   const [listB, setListB] = useState('');
   const [mode, setMode] = useState<CompareMode>('intersection');
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [trimItems, setTrimItems] = useState(true);
+
+  // handoff 接收:跨工具发来的文本进入 A 列(首个输入位)
+  useToolHandoff(toolId, setListA);
   // 万级行对比(规范化 + 集合运算)开销随行数增长明显:defer 双侧输入
   const deferredA = useDeferredValue(listA);
   const deferredB = useDeferredValue(listB);

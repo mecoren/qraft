@@ -11,7 +11,7 @@
  * - Worker 构造失败(资源加载失败等)时永久降级为同步计算,功能不缺失;
  * - 响应按请求 id 路由,支持乱序;调用方(视图层)自行只采纳最新请求结果。
  */
-import { computeLineDiff } from './diff-utils';
+import { computeLineDiff, type ComputeLineDiffOptions } from './diff-utils';
 import type { LineDiffResult } from './diff-utils';
 import type { DiffWorkerRequest, DiffWorkerResponse } from './diff.worker';
 
@@ -28,15 +28,19 @@ interface PendingRequest {
   resolve: (result: LineDiffResult) => void;
   original: string;
   modified: string;
-  includeWordDiff: boolean;
+  diffOptions: ComputeLineDiffOptions;
 }
 
 export interface DiffService {
   /**
    * 计算两份文本差异。
-   * @param includeWordDiff 是否计算行内词级差异(透传 computeLineDiff)
+   * @param diffOptions 计算选项(includeWordDiff / ignoreWhitespace / ignoreCase)
    */
-  compute(original: string, modified: string, includeWordDiff: boolean): Promise<LineDiffResult>;
+  compute(
+    original: string,
+    modified: string,
+    diffOptions: ComputeLineDiffOptions,
+  ): Promise<LineDiffResult>;
   /** 终止 worker;dispose 后再 compute 会按需重建(懒创建) */
   dispose(): void;
 }
@@ -70,11 +74,7 @@ export function createDiffService(): DiffService {
         const waiting = [...pendingMap.values()];
         pendingMap.clear();
         for (const entry of waiting) {
-          entry.resolve(
-            computeLineDiff(entry.original, entry.modified, {
-              includeWordDiff: entry.includeWordDiff,
-            }),
-          );
+          entry.resolve(computeLineDiff(entry.original, entry.modified, entry.diffOptions));
         }
       };
       worker = w;
@@ -88,19 +88,19 @@ export function createDiffService(): DiffService {
   const compute = (
     original: string,
     modified: string,
-    includeWordDiff: boolean,
+    diffOptions: ComputeLineDiffOptions,
   ): Promise<LineDiffResult> => {
     if (isSmallDiff(original, modified)) {
-      return Promise.resolve(computeLineDiff(original, modified, { includeWordDiff }));
+      return Promise.resolve(computeLineDiff(original, modified, diffOptions));
     }
     const w = ensureWorker();
     if (!w) {
-      return Promise.resolve(computeLineDiff(original, modified, { includeWordDiff }));
+      return Promise.resolve(computeLineDiff(original, modified, diffOptions));
     }
     const id = nextId++;
     return new Promise<LineDiffResult>((resolve) => {
-      pendingMap.set(id, { resolve, original, modified, includeWordDiff });
-      w.postMessage({ id, original, modified, includeWordDiff } satisfies DiffWorkerRequest);
+      pendingMap.set(id, { resolve, original, modified, diffOptions });
+      w.postMessage({ id, original, modified, diffOptions } satisfies DiffWorkerRequest);
     });
   };
 

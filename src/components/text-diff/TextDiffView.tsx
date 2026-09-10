@@ -82,6 +82,10 @@ export interface TextDiffViewProps {
   folding?: boolean;
   /** 初始即使用行内模式,默认并排 */
   defaultInline?: boolean;
+  /** 比较时忽略行尾空白差异(受控,由调用方保存状态) */
+  ignoreWhitespace?: boolean;
+  /** 比较时忽略大小写差异(受控,由调用方保存状态) */
+  ignoreCase?: boolean;
   /** 左(原始)侧文件级外观 */
   leftChrome?: TextDiffSideChrome;
   /** 右(修改)侧文件级外观 */
@@ -108,6 +112,8 @@ export function TextDiffView({
   modifiedLanguage = 'plaintext',
   folding = false,
   defaultInline = false,
+  ignoreWhitespace = false,
+  ignoreCase = false,
   leftChrome,
   rightChrome,
   searchAnchor,
@@ -143,15 +149,21 @@ export function TextDiffView({
     const service = serviceRef.current;
     if (!service) return;
     let cancelled = false;
-    void service.compute(deferredOriginal, deferredModified, includeWordDiff).then((result) => {
-      // 只采纳最新一次请求:输入连续变化时,旧响应结果丢弃,防止乱序回写
-      // 过期高亮(装饰构建处另有行号/列号夹取兜底)
-      if (!cancelled) setDiffResult(result);
-    });
+    void service
+      .compute(deferredOriginal, deferredModified, {
+        includeWordDiff,
+        ignoreWhitespace,
+        ignoreCase,
+      })
+      .then((result) => {
+        // 只采纳最新一次请求:输入连续变化时,旧响应结果丢弃,防止乱序回写
+        // 过期高亮(装饰构建处另有行号/列号夹取兜底)
+        if (!cancelled) setDiffResult(result);
+      });
     return () => {
       cancelled = true;
     };
-  }, [deferredOriginal, deferredModified, includeWordDiff]);
+  }, [deferredOriginal, deferredModified, includeWordDiff, ignoreWhitespace, ignoreCase]);
   const stats = diffResult.stats;
   const hasDiff = stats.added > 0 || stats.removed > 0 || stats.modified > 0;
 
@@ -344,8 +356,17 @@ export function TextDiffView({
       originalEditable: false,
       readOnly: false,
       renderSideBySide: false,
+      // 行内模式直接用 Monaco 原生空白忽略;大小写忽略无原生选项,经输入预处理
+      ignoreTrimWhitespace: ignoreWhitespace,
     }),
-    [baseDiffOptions],
+    [baseDiffOptions, ignoreWhitespace],
+  );
+
+  // 行内模式大小写忽略:Monaco 无原生选项,对 original 做小写化比较
+  // (modified 保持原样可编辑,写回不受影响)
+  const inlineOriginal = useMemo(
+    () => (ignoreCase ? original.toLowerCase() : original),
+    [original, ignoreCase],
   );
 
   // —— 工具栏公共小件:统计徽标 / 行内开关 / 同步滚动开关 ——
@@ -430,7 +451,7 @@ export function TextDiffView({
               language={modifiedLanguage}
               theme={themeName}
               beforeMount={handleBeforeMount}
-              original={original}
+              original={inlineOriginal}
               modified={modified}
               // 行内模式修改侧可编辑:onMount 挂载内容监听写回(经 ref 取最新回调)
               onMount={handleInlineMount}

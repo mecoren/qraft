@@ -25,6 +25,16 @@ describe('SendToMenu', () => {
     expect(screen.queryByRole('menuitem', { name: /JSON 格式化器/ })).not.toBeInTheDocument();
   });
 
+  it('目标清单含文本处理与文本比较两个文本类工具', async () => {
+    const user = userEvent.setup();
+    render(<SendToMenu text="abc" currentToolId="json_formatter" testId="send-json" />);
+    await user.click(screen.getByTestId('send-json'));
+    expect(
+      await screen.findByRole('menuitem', { name: /文本处理工具/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /文本比较工具/ })).toBeInTheDocument();
+  });
+
   it('选择目标后写入对应载荷', async () => {
     const user = userEvent.setup();
     render(<SendToMenu text="abc" currentToolId="json_formatter" testId="send-json" />);
