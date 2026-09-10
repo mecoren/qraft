@@ -86,10 +86,8 @@ describe('ListComparer(组件)', () => {
     useHandoffStore.setState({ pending: null });
   });
 
-  const getA = (): HTMLTextAreaElement =>
-    screen.getByTestId('lc-a').querySelector('textarea')!;
-  const getB = (): HTMLTextAreaElement =>
-    screen.getByTestId('lc-b').querySelector('textarea')!;
+  const getA = (): HTMLTextAreaElement => screen.getByTestId('lc-a').querySelector('textarea')!;
+  const getB = (): HTMLTextAreaElement => screen.getByTestId('lc-b').querySelector('textarea')!;
   const getResult = (): HTMLTextAreaElement =>
     screen.getByTestId('lc-result').querySelector('textarea')!;
 

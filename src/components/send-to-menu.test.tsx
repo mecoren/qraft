@@ -29,9 +29,7 @@ describe('SendToMenu', () => {
     const user = userEvent.setup();
     render(<SendToMenu text="abc" currentToolId="json_formatter" testId="send-json" />);
     await user.click(screen.getByTestId('send-json'));
-    expect(
-      await screen.findByRole('menuitem', { name: /文本处理工具/ }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('menuitem', { name: /文本处理工具/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /文本比较工具/ })).toBeInTheDocument();
   });
 

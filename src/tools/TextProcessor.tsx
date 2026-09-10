@@ -66,13 +66,7 @@ import { Switch } from '@/components/ui/switch';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { toast } from 'sonner';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
-import {
-  camelCase,
-  constantCase,
-  kebabCase,
-  pascalCase,
-  snakeCase,
-} from '@/lib/naming-convention';
+import { camelCase, constantCase, kebabCase, pascalCase, snakeCase } from '@/lib/naming-convention';
 import {
   applyFindReplace,
   extractPattern,
@@ -352,7 +346,10 @@ function joinKeepShape(lines: string[], endsWithNewline: boolean): string {
 /** 去除每行行首与行尾空白(空格、Tab 等;CRLF 安全) */
 export function trimLines(input: string): string {
   const { lines, endsWithNewline } = splitLinesKeepShape(input);
-  return joinKeepShape(lines.map((l) => l.trim()), endsWithNewline);
+  return joinKeepShape(
+    lines.map((l) => l.trim()),
+    endsWithNewline,
+  );
 }
 
 /** 删除全部空行(仅空白的行视为空行;保留结尾换行形状) */
@@ -366,10 +363,7 @@ export function removeEmptyLines(input: string): string {
 
 /** 移除换行符:换行(含 CRLF)替换为单个空格,连续换行合并为一个空格 */
 export function removeLineBreaks(input: string): string {
-  return input
-    .replace(/\r\n/g, '\n')
-    .replace(/\n+/g, ' ')
-    .trim();
+  return input.replace(/\r\n/g, '\n').replace(/\n+/g, ' ').trim();
 }
 
 /** LF → CRLF(先把 CRLF 归一再统一替换,避免 CR 重复) */
@@ -423,7 +417,9 @@ export function naturalSortLines(input: string): string {
 
 /** 大小写互换:大写变小写、小写变大写(与 Sublime / N++ 的 Swap Case 对齐) */
 export function swapCase(input: string): string {
-  return input.replace(/\p{L}/gu, (ch) => (ch === ch.toLowerCase() ? ch.toUpperCase() : ch.toLowerCase()));
+  return input.replace(/\p{L}/gu, (ch) =>
+    ch === ch.toLowerCase() ? ch.toUpperCase() : ch.toLowerCase(),
+  );
 }
 
 /** 行洗牌:Fisher-Yates 随机打乱行的顺序(保持行集合不变) */
@@ -948,7 +944,9 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
       return;
     }
     try {
-      setOutput(applyFindReplace(input, findText, replaceText, { regex: regexMode, caseSensitive }));
+      setOutput(
+        applyFindReplace(input, findText, replaceText, { regex: regexMode, caseSensitive }),
+      );
     } catch (e) {
       toast.error(
         t('tools.json_minifier.toast_failed', {
@@ -1302,11 +1300,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
                   {t('tools.json_minifier.use_output_as_input_short')}
                 </Button>
                 <CopyAction text={output} testId="output-copy" />
-                <SendToMenu
-                  text={output}
-                  currentToolId={toolId}
-                  testId="output-send-to"
-                />
+                <SendToMenu text={output} currentToolId={toolId} testId="output-send-to" />
               </span>
             }
             showCharCount={false}

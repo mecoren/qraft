@@ -112,10 +112,7 @@ export interface WordFrequencyOptions {
  * 词频统计:切分文本并对每段计数,按「次数降序、首次出现升序」排列,
  * 与重复行检测器的「值 / 数量」表格同一口径。
  */
-export function wordFrequency(
-  input: string,
-  options: WordFrequencyOptions = {},
-): WordFreqRow[] {
+export function wordFrequency(input: string, options: WordFrequencyOptions = {}): WordFreqRow[] {
   const { delimiter } = options;
   const segments = delimiter !== undefined ? input.split(delimiter) : input.split(/\s+/);
   const counts = new Map<string, number>();

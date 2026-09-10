@@ -28,13 +28,7 @@ import {
   swapCase,
   shuffleLines,
 } from './TextProcessor';
-import {
-  camelCase,
-  pascalCase,
-  snakeCase,
-  kebabCase,
-  constantCase,
-} from '@/lib/naming-convention';
+import { camelCase, pascalCase, snakeCase, kebabCase, constantCase } from '@/lib/naming-convention';
 
 // CodeEditor 内嵌 Monaco,在 jsdom 环境无法加载,替换为简单的 textarea 替身。
 // Test environment is jsdom, which can't load the Monaco editor. We stub CodeEditor
@@ -513,14 +507,10 @@ describe('TextProcessor component', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     // 第三排内层子组:命名风格 / 行清理 / 排序与行序
     expect(
-      screen.getByTestId(
-        'textproc-group-camelCase-pascalCase-snakeCase-kebabCase-constantCase',
-      ),
+      screen.getByTestId('textproc-group-camelCase-pascalCase-snakeCase-kebabCase-constantCase'),
     ).toBeInTheDocument();
     expect(
-      screen.getByTestId(
-        'textproc-group-trimLines-removeEmptyLines-removeLineBreaks-toCrlf-toLf',
-      ),
+      screen.getByTestId('textproc-group-trimLines-removeEmptyLines-removeLineBreaks-toCrlf-toLf'),
     ).toBeInTheDocument();
     expect(
       screen.getByTestId(
@@ -584,9 +574,7 @@ describe('TextProcessor component', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     fireEvent.change(getInput(), { target: { value: 'b a b a c' } });
     fireEvent.click(screen.getByTestId('textproc-btn-wordfreq'));
-    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(
-      'b\t2\na\t2\nc\t1',
-    );
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('b\t2\na\t2\nc\t1');
   });
 
   it('shows 0-character counts in both status bars when empty', () => {

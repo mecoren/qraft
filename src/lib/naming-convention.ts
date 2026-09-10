@@ -163,7 +163,10 @@ export function toggleCase(text: string): string {
  */
 function convertTo(
   text: string,
-  id: Extract<NamingConventionId, 'camelCase' | 'CamelCase' | 'snake_case' | 'SNAKE_CASE' | 'kebab-case'>,
+  id: Extract<
+    NamingConventionId,
+    'camelCase' | 'CamelCase' | 'snake_case' | 'SNAKE_CASE' | 'kebab-case'
+  >,
 ): string {
   const convention = NAMING_CONVENTION_MAP.get(id);
   const words = splitWords(text);

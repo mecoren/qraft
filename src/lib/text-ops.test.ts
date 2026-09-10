@@ -57,9 +57,9 @@ describe('applyFindReplace', () => {
   });
 
   it('invalid regex throws SyntaxError with pattern info for the UI to catch', () => {
-    expect(() =>
-      applyFindReplace('x', '(', 'y', { regex: true, caseSensitive: true }),
-    ).toThrow(SyntaxError);
+    expect(() => applyFindReplace('x', '(', 'y', { regex: true, caseSensitive: true })).toThrow(
+      SyntaxError,
+    );
   });
 });
 
