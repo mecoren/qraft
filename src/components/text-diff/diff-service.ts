@@ -34,7 +34,7 @@ interface PendingRequest {
 export interface DiffService {
   /**
    * 计算两份文本差异。
-   * @param diffOptions 计算选项(includeWordDiff / ignoreWhitespace / ignoreCase)
+   * @param diffOptions 计算选项(includeWordDiff / ignoreWhitespace / ignoreCase / ignoreEol)
    */
   compute(
     original: string,

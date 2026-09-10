@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 
 // Mock @/lib/ipc:safeInvoke 默认失败,hydrate 走默认空态(与 JsonFormatter 测试同模式)
 vi.mock('@/lib/ipc', () => {
@@ -213,6 +213,131 @@ describe('TextCompare', () => {
     // 载荷已被消费,不再残留
     expect(useHandoffStore.getState().pending).toBeNull();
     useToolStateStore.setState({ currentToolId: 'text_editor' });
+  });
+
+  it('忽略换行符开关:仅 CRLF/LF 差异时统计归零', async () => {
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    // 经 store 直写:textarea(浏览器规范)会把 \r\n 归一成 \n,无法在测试里
+    // 模拟 CRLF 输入;真实场景来自打开文件/粘贴,值在 store 侧不归一
+    useTextCompareStore.getState().setDocContent('default', 'original', 'a\r\nb\r\n');
+    useTextCompareStore.getState().setDocContent('default', 'modified', 'a\nb\n');
+    await waitFor(() => {
+      expect(screen.getByTestId('diff-stats')).toHaveTextContent('~2');
+    });
+    fireEvent.click(screen.getByTestId('diff-ignore-eol'));
+    await waitFor(() => {
+      expect(screen.getByTestId('diff-stats')).toHaveTextContent('无差异');
+    });
+  });
+
+  it('交换两侧:内容与来源文件名互换', () => {
+    useTextCompareStore.setState({
+      docs: [
+        {
+          id: 'swap-doc',
+          title: 't',
+          pinned: false,
+          original: 'AAA',
+          modified: 'BBB',
+          originalFileName: 'left.rs',
+          modifiedFileName: 'right.rs',
+        },
+      ],
+      activeDocId: 'swap-doc',
+      ready: true,
+    });
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    fireEvent.click(screen.getByTestId('diff-swap-sides'));
+    const doc = useTextCompareStore.getState().docs[0]!;
+    expect(doc.original).toBe('BBB');
+    expect(doc.modified).toBe('AAA');
+    expect(doc.originalFileName).toBe('right.rs');
+    expect(doc.modifiedFileName).toBe('left.rs');
+  });
+
+  it('导出补丁:触发 .patch 文件下载,含统一格式头', () => {
+    useTextCompareStore.setState({
+      docs: [
+        {
+          id: 'patch-doc',
+          title: 'demo',
+          pinned: false,
+          original: 'a\nold\n',
+          modified: 'a\nnew\n',
+          originalFileName: 'left.txt',
+          modifiedFileName: 'right.txt',
+        },
+      ],
+      activeDocId: 'patch-doc',
+      ready: true,
+    });
+    const downloads: Array<{ name: string }> = [];
+    // downloadText 走 Blob+createObjectURL+<a download>;jsdom 的 <a download>
+    // 不导航,拦截 HTMLAnchorElement.click 即捕获下载动作;内容正确性由
+    // buildUnifiedPatch 单测覆盖,此处验证触发与文件名
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      downloads.push({ name: this.download });
+    });
+    try {
+      render(<TextCompare toolId="text_compare" metadata={null as never} />);
+      fireEvent.click(screen.getByTestId('diff-export-patch'));
+      expect(downloads).toHaveLength(1);
+      expect(downloads[0]!.name).toBe('demo.patch');
+    } finally {
+      clickSpy.mockRestore();
+    }
+  });
+
+  it('文件装入后:标题显示文件名,语言按扩展名推断', async () => {
+    useTextCompareStore.setState({
+      docs: [
+        {
+          id: 'file-doc',
+          title: 't',
+          pinned: false,
+          original: '',
+          modified: '',
+        },
+      ],
+      activeDocId: 'file-doc',
+      ready: true,
+    });
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    // 经 setDocSideFile 写入(等价于打开/拖放文件的落库路径);render 外的
+    // store 变更需 act 刷 React 状态
+    act(() => {
+      useTextCompareStore
+        .getState()
+        .setDocSideFile('file-doc', 'original', 'fn main() {}', 'main.rs');
+    });
+    expect(await screen.findByText('main.rs')).toBeInTheDocument();
+  });
+
+  it('并排模式差异导航:按钮随差异出现,计数与跳转生效', async () => {
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    // 无差异时导航按钮不出现
+    expect(screen.queryByTestId('diff-nav')).not.toBeInTheDocument();
+    fireEvent.change(getOriginalEditor(), { target: { value: 'a\nX\nc' } });
+    fireEvent.change(getModifiedEditor(), { target: { value: 'a\nY\nc' } });
+    await waitFor(() => {
+      expect(screen.getByTestId('diff-nav')).toBeInTheDocument();
+      expect(screen.getByTestId('diff-nav-count')).toHaveTextContent('1/1');
+    });
+    // 下一处(循环回绕)仍停留在唯一差异
+    fireEvent.click(screen.getByTestId('diff-nav-next'));
+    expect(screen.getByTestId('diff-nav-count')).toHaveTextContent('1/1');
+  });
+
+  it('相似度随差异内容出现在统计徽标中', async () => {
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    fireEvent.change(getOriginalEditor(), { target: { value: 'aaaa\nbbbb' } });
+    fireEvent.change(getModifiedEditor(), { target: { value: 'aaaa\ncccc' } });
+    await waitFor(() => {
+      expect(screen.getByTestId('diff-stats')).toHaveTextContent('相似');
+      expect(screen.getByTestId('diff-stats')).toHaveTextContent('%');
+    });
   });
 
   it('不渲染全屏弹窗(已按需求移除)', () => {

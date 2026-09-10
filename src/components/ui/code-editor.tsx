@@ -27,6 +27,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type DragEvent as ReactDragEvent,
   type ReactNode,
 } from 'react';
 import Editor, { type BeforeMount, type Monaco, type OnMount } from '@monaco-editor/react';
@@ -302,6 +303,17 @@ export interface CodeEditorProps {
    * 错误定位系统(chip + setModelMarkers)接管报错展示。
    */
   disableJsonValidate?: boolean;
+  /**
+   * 文件装入回调(打开文件 / 拖放文件统一入口)。提供时覆盖默认的
+   * onChange 直写行为,宿主可借此记录来源文件名(语言推断、标题派生等)。
+   */
+  onFileLoad?: (text: string, fileName: string) => void;
+  /**
+   * 是否启用拖放文件填充(默认 false)。启用后把文件拖到编辑器区域
+   * 即读入文本(单文件;多文件取第一个)。仅文本类扩展名接受,
+   * 其余(图片/二进制)弹提示拒绝。
+   */
+  acceptFileDrop?: boolean;
 }
 
 function ToolbarButton({
@@ -366,6 +378,8 @@ export function CodeEditor({
   disableJsonValidate = false,
   lineNumbers = true,
   overviewRulerLanes = 0,
+  onFileLoad,
+  acceptFileDrop = false,
 }: CodeEditorProps): ReactNode {
   const { t } = useTranslation();
   /** 编码展示名:带 labelKey 的条目随语言翻译,其余用静态 label */
@@ -669,17 +683,138 @@ export function CodeEditor({
     }
   };
 
-  const handleFileChange = async (files: FileList | null) => {
-    const file = files?.[0];
-    if (!file) return;
+  /**
+   * 文本文件装入上限(字节):超过即拒绝并提示,防止超大文件把内容
+   * 整体塞进 Monaco 与依赖方(如 diff worker)拖垮应用。
+   * 10MB 对纯文本对比/编辑场景已远超常见体量。
+   */
+  const MAX_TEXT_FILE_BYTES = 10 * 1024 * 1024;
+
+  /** 文本类文件扩展名白名单:拖放时过滤,双击目录/可执行文件拒绝装入 */
+  const TEXT_FILE_EXT = new Set([
+    'txt',
+    'md',
+    'json',
+    'jsonc',
+    'json5',
+    'yml',
+    'yaml',
+    'toml',
+    'ini',
+    'cfg',
+    'conf',
+    'js',
+    'jsx',
+    'mjs',
+    'cjs',
+    'ts',
+    'tsx',
+    'vue',
+    'svelte',
+    'html',
+    'htm',
+    'css',
+    'scss',
+    'less',
+    'svg',
+    'py',
+    'rb',
+    'rs',
+    'go',
+    'java',
+    'kt',
+    'kts',
+    'c',
+    'h',
+    'cpp',
+    'hpp',
+    'cs',
+    'php',
+    'sh',
+    'bash',
+    'zsh',
+    'ps1',
+    'bat',
+    'cmd',
+    'sql',
+    'graphql',
+    'gql',
+    'xml',
+    'csv',
+    'tsv',
+    'log',
+    'env',
+    'gitignore',
+    'editorconfig',
+    'patch',
+    'diff',
+    'dart',
+    'swift',
+    'scala',
+    'lua',
+    'pl',
+    'r',
+    'jl',
+    'ex',
+    'exs',
+    'erl',
+    'hs',
+    'vim',
+    'gd',
+    'proto',
+    'tf',
+    'hcl',
+  ]);
+
+  /** 判断文件是否为可装入的文本文件(按扩展名白名单) */
+  const isTextFileName = (name: string): boolean => {
+    const dot = name.lastIndexOf('.');
+    // 无扩展名文件(如 LICENSE、Makefile)按文本接受
+    if (dot < 0) return true;
+    return TEXT_FILE_EXT.has(name.slice(dot + 1).toLowerCase());
+  };
+
+  /** 装入一个文本文件:大小守卫 + 扩展名过滤 + onFileLoad/onChange 双路径 */
+  const loadTextFile = async (file: File) => {
+    if (!isTextFileName(file.name)) {
+      toast.error(t('chrome.code_editor.file_type_rejected'));
+      return;
+    }
+    if (file.size > MAX_TEXT_FILE_BYTES) {
+      toast.error(t('chrome.code_editor.file_too_large', { size: formatBytes(file.size) }));
+      return;
+    }
     try {
       const text = await readFileAsText(file);
-      onChange?.(text);
+      if (onFileLoad) {
+        onFileLoad(text, file.name);
+      } else {
+        onChange?.(text);
+      }
     } catch {
       toast.error(t('chrome.code_editor.read_file_failed'));
     }
+  };
+
+  const handleFileChange = (files: FileList | null) => {
+    const file = files?.[0];
+    if (file) void loadTextFile(file);
     // 允许重复选择同一文件
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // 拖放文件填充:容器级 dragover/drop(必须 preventDefault 否则浏览器导航);
+  // 只处理文件类拖放,拖选区文本走 Monaco 原生 drop 行为(drop 时按类型分发)
+  const handleDragOver = (e: ReactDragEvent<HTMLDivElement>) => {
+    if (!acceptFileDrop || readOnly) return;
+    if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
+  };
+  const handleDrop = (e: ReactDragEvent<HTMLDivElement>) => {
+    if (!acceptFileDrop || readOnly) return;
+    if (!e.dataTransfer?.types.includes('Files')) return;
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) void loadTextFile(file);
   };
 
   const showHeader =
@@ -700,6 +835,8 @@ export function CodeEditor({
       data-testid={dataTestId}
       data-slot="code-editor"
       data-search-anchor={searchAnchor}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
       className={cn(
         'relative flex min-h-[200px] h-full w-full flex-col',
         // 非嵌入模式:独立使用时自带圆角 + 边框,作为自包含的"卡片"

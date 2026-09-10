@@ -16,7 +16,7 @@ export interface DiffWorkerRequest {
   id: number;
   original: string;
   modified: string;
-  /** computeLineDiff 的计算选项(includeWordDiff / ignoreWhitespace / ignoreCase) */
+  /** computeLineDiff 的计算选项(includeWordDiff / ignoreWhitespace / ignoreCase / ignoreEol) */
   diffOptions?: ComputeLineDiffOptions;
 }
 

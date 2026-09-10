@@ -5,9 +5,11 @@
  * - 并排布局:双 CodeEditor + ResizablePanelGroup 可拖分隔条;
  * - 差异渲染四件套:行级红/绿背景、行内词级高亮、gutter 色条 + 行号加粗、
  *   右缘概览标尺刻度(差异计算见 ./diff-utils);
- * - 工具栏:差异统计徽标 / 行内开关 / 滚动同步开关,内联在「修改侧标题旁」
- *   (VSCode 风格);
- * - 行内模式:单体 DiffEditor(renderSideBySide: false,修改侧可编辑)。
+ * - 工具栏:差异统计徽标 / 相似度 / 降级提示 / 差异导航(上一处/下一处+
+ *   位置计数,并排 F7/Shift+F7 快捷键)/ 行内开关 / 滚动同步开关,
+ *   内联在「修改侧标题旁」(VSCode 风格);
+ * - 行内模式:单体 DiffEditor(renderSideBySide: false,修改侧可编辑),
+ *   可选折叠未变更区域(Monaco 原生 hideUnchangedRegions)。
  *
  * 边界:
  * - 内容受控于调用方(onOriginalChange / onModifiedChange),组件不持久化;
@@ -24,19 +26,30 @@ import {
   type JSX,
 } from 'react';
 import {
+  ChevronDown,
+  ChevronUp,
+  FoldVertical,
+  Link2,
+  Link2Off,
+  Rows3,
+  TriangleAlert,
+} from 'lucide-react';
+import {
   DiffEditor,
   type DiffBeforeMount,
   type DiffOnMount,
   type Monaco,
 } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
-import { Link2, Link2Off, Rows3 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { CodeEditor, type EditorLanguage } from '@/components/ui/code-editor';
-import { defineThemeFor, getThemeName, useMonacoTheme } from '@/components/ui/monaco-theme';
+import { useMonacoTheme, defineThemeFor, getThemeName } from '@/components/ui/monaco-theme';
 import type { MonacoEditor } from '@/components/ui/monaco-context-menu';
 import { useEditorFontSize } from '@/hooks/useEditorFontSize';
+import { useShortcut } from '@/hooks/useShortcut';
+import { useConfigStore } from '@/store/configStore';
+import { DEFAULT_SHORTCUTS } from '@/types/config';
 import { cn } from '@/lib/utils';
 import {
   buildDiffDecorations,
@@ -55,6 +68,7 @@ const EMPTY_DIFF_RESULT: LineDiffResult = {
   originalDecos: [],
   modifiedDecos: [],
   degraded: false,
+  similarity: 1,
 };
 
 /** 单侧编辑器的文件级外观选项(粘贴/打开/清除按钮与占位文案) */
@@ -63,6 +77,10 @@ export interface TextDiffSideChrome {
   showOpenFile?: boolean;
   showClear?: boolean;
   placeholder?: string;
+  /** 文件装入回调(打开/拖放文件统一入口,宿主记录文件名用),缺省直写 onChange */
+  onFileLoad?: (text: string, fileName: string) => void;
+  /** 是否接受拖放文件填充(缺省关闭) */
+  acceptFileDrop?: boolean;
 }
 
 export interface TextDiffViewProps {
@@ -86,6 +104,8 @@ export interface TextDiffViewProps {
   ignoreWhitespace?: boolean;
   /** 比较时忽略大小写差异(受控,由调用方保存状态) */
   ignoreCase?: boolean;
+  /** 比较时忽略换行符差异(CRLF/LF 归一,受控,由调用方保存状态) */
+  ignoreEol?: boolean;
   /** 左(原始)侧文件级外观 */
   leftChrome?: TextDiffSideChrome;
   /** 右(修改)侧文件级外观 */
@@ -114,6 +134,7 @@ export function TextDiffView({
   defaultInline = false,
   ignoreWhitespace = false,
   ignoreCase = false,
+  ignoreEol = false,
   leftChrome,
   rightChrome,
   searchAnchor,
@@ -154,6 +175,7 @@ export function TextDiffView({
         includeWordDiff,
         ignoreWhitespace,
         ignoreCase,
+        ignoreEol,
       })
       .then((result) => {
         // 只采纳最新一次请求:输入连续变化时,旧响应结果丢弃,防止乱序回写
@@ -163,7 +185,14 @@ export function TextDiffView({
     return () => {
       cancelled = true;
     };
-  }, [deferredOriginal, deferredModified, includeWordDiff, ignoreWhitespace, ignoreCase]);
+  }, [
+    deferredOriginal,
+    deferredModified,
+    includeWordDiff,
+    ignoreWhitespace,
+    ignoreCase,
+    ignoreEol,
+  ]);
   const stats = diffResult.stats;
   const hasDiff = stats.added > 0 || stats.removed > 0 || stats.modified > 0;
 
@@ -269,11 +298,73 @@ export function TextDiffView({
     };
   }, [origEditor, modEditor, syncScroll]);
 
+  // —— 差异导航(仅并排模式;行内 DiffEditor 无装饰行号,导航不可用)——
+  // 差异行序列取两侧行号的并集(排序去重):一段差异往往双侧行号相邻,
+  // 以并集为粒度计数,导航在两侧间自然衔接,计数与概览标尺观感一致。
+  const diffLinesList = useMemo(() => {
+    if (inlineMode) return [];
+    const seen = new Set<number>();
+    for (const d of diffResult.originalDecos) seen.add(d.line);
+    for (const d of diffResult.modifiedDecos) seen.add(d.line);
+    return [...seen].sort((a, b) => a - b);
+  }, [diffResult, inlineMode]);
+  const diffCount = diffLinesList.length;
+
+  const [navIndexRaw, setNavIndexRaw] = useState(0);
+  // 差异集变化(内容编辑/切换)时当前导航位置可能越界:渲染期直接夹取,
+  // 不用 effect(setState-in-effect 会级联渲染),越界值也无需回写状态
+  const navIndex = Math.min(navIndexRaw, Math.max(0, diffCount - 1));
+
+  const revealDiffAt = useCallback(
+    (index: number) => {
+      if (diffLinesList.length === 0) return;
+      const clamped =
+        ((index % diffLinesList.length) + diffLinesList.length) % diffLinesList.length;
+      setNavIndexRaw(clamped);
+      const line = diffLinesList[clamped];
+      origEditor?.revealLineInCenter(line);
+      modEditor?.revealLineInCenter(line);
+    },
+    [diffLinesList, origEditor, modEditor],
+  );
+  const goToPrevDiff = useCallback(() => revealDiffAt(navIndex - 1), [revealDiffAt, navIndex]);
+  const goToNextDiff = useCallback(() => revealDiffAt(navIndex + 1), [revealDiffAt, navIndex]);
+
+  // 导航按钮 tooltip 展示用户实际配置的快捷键组合(设置页同源)
+  const navPrevLabel =
+    useConfigStore((s) => s.config?.shortcuts.diff_prev_change) ??
+    DEFAULT_SHORTCUTS.diff_prev_change;
+  const navNextLabel =
+    useConfigStore((s) => s.config?.shortcuts.diff_next_change) ??
+    DEFAULT_SHORTCUTS.diff_next_change;
+
+  // F7 / Shift+F7 导航快捷键(VSCode Diff Editor 同款语义;窗口捕获阶段
+  // 监听,Monaco 聚焦时也生效);行内/无差异时放行不吞
+  useShortcut(
+    'diff_prev_change',
+    (e) => {
+      if (inlineMode || diffCount === 0) return false;
+      goToPrevDiff();
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    [inlineMode, diffCount, goToPrevDiff],
+  );
+  useShortcut(
+    'diff_next_change',
+    (e) => {
+      if (inlineMode || diffCount === 0) return false;
+      goToNextDiff();
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    [inlineMode, diffCount, goToNextDiff],
+  );
+
   const handleBeforeMount: DiffBeforeMount = useCallback((monaco) => {
     monacoRef.current = monaco;
     defineThemeFor(monaco, getThemeName());
   }, []);
-
   // 行内模式写回经 ref 取最新回调:监听只在挂载时注册一次,直接闭包会
   // 滞留首次渲染的回调(多 Tab/多对比切换时写错目标);受控 prop 同步更新
   // 模型时监听同样触发,getValue 与受控值相等,写回为幂等 no-op,不会成环
@@ -350,6 +441,7 @@ export function TextDiffView({
   );
 
   /** 行内模式:修改侧可编辑(onChange 写回),原始侧只读 */
+  const [inlineFold, setInlineFold] = useState(false);
   const inlineOptions = useMemo<editor.IDiffEditorConstructionOptions>(
     () => ({
       ...baseDiffOptions,
@@ -358,8 +450,11 @@ export function TextDiffView({
       renderSideBySide: false,
       // 行内模式直接用 Monaco 原生空白忽略;大小写忽略无原生选项,经输入预处理
       ignoreTrimWhitespace: ignoreWhitespace,
+      // 折叠未变更区域(仅行内 DiffEditor 原生支持;并排装饰方案无法成对协调):
+      // 大文档只有少量差异时,折叠能让差异一目了然;折叠区点击可展开
+      hideUnchangedRegions: { enabled: inlineFold, minimumLineCount: 3, contextLineCount: 3 },
     }),
-    [baseDiffOptions, ignoreWhitespace],
+    [baseDiffOptions, ignoreWhitespace, inlineFold],
   );
 
   // 行内模式大小写忽略:Monaco 无原生选项,对 original 做小写化比较
@@ -369,7 +464,7 @@ export function TextDiffView({
     [original, ignoreCase],
   );
 
-  // —— 工具栏公共小件:统计徽标 / 行内开关 / 同步滚动开关 ——
+  // —— 工具栏公共小件:统计徽标 / 相似度 / 降级提示 / 导航 / 行内开关 ——
   const statsBadge = (
     <span
       className="flex items-center gap-1 whitespace-nowrap tabular-nums text-xs text-muted-foreground"
@@ -380,12 +475,62 @@ export function TextDiffView({
           <span className="text-success">+{stats.added}</span>
           <span className="text-destructive">−{stats.removed}</span>
           <span>~{stats.modified}</span>
+          <span title={t('tools.text_compare.similarity_title')}>
+            {t('tools.text_compare.similarity_value', {
+              percent: Math.round(diffResult.similarity * 100),
+            })}
+          </span>
         </>
       ) : (
         t('tools.text_compare.diff_none')
       )}
     </span>
   );
+
+  /** 降级提示:行级 diff 超限,当前按整体替换展示,统计非真实粒度 */
+  const degradedBadge = diffResult.degraded ? (
+    <span
+      className="flex items-center gap-1 whitespace-nowrap text-xs text-warning"
+      data-testid={`${testIdPrefix}-degraded`}
+      title={t('tools.text_compare.degraded_title')}
+    >
+      <TriangleAlert aria-hidden className="size-3.5" />
+      {t('tools.text_compare.degraded_badge')}
+    </span>
+  ) : null;
+
+  /** 差异导航(并排专属):上一处/下一处 + 当前位置计数;无差异时禁用 */
+  const diffNav =
+    !inlineMode && diffCount > 0 ? (
+      <span
+        className="flex items-center gap-0.5 whitespace-nowrap tabular-nums text-xs text-muted-foreground"
+        data-testid={`${testIdPrefix}-nav`}
+      >
+        <button
+          type="button"
+          data-testid={`${testIdPrefix}-nav-prev`}
+          title={t('tools.text_compare.nav_prev_title', { combo: navPrevLabel })}
+          aria-label={t('tools.text_compare.nav_prev_title', { combo: navPrevLabel })}
+          onClick={goToPrevDiff}
+          className="flex items-center rounded px-1 py-1 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ChevronUp aria-hidden className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          data-testid={`${testIdPrefix}-nav-next`}
+          title={t('tools.text_compare.nav_next_title', { combo: navNextLabel })}
+          aria-label={t('tools.text_compare.nav_next_title', { combo: navNextLabel })}
+          onClick={goToNextDiff}
+          className="flex items-center rounded px-1 py-1 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ChevronDown aria-hidden className="size-3.5" />
+        </button>
+        <span data-testid={`${testIdPrefix}-nav-count`}>
+          {diffCount === 0 ? '' : `${navIndex + 1}/${diffCount}`}
+        </span>
+      </span>
+    ) : null;
 
   const inlineToggle = (
     <button
@@ -403,6 +548,24 @@ export function TextDiffView({
       <Rows3 aria-hidden className="size-3.5" />
     </button>
   );
+
+  /** 行内模式的未变更区折叠开关(Monaco 原生 hideUnchangedRegions) */
+  const inlineFoldToggle = inlineMode ? (
+    <button
+      type="button"
+      data-testid={`${testIdPrefix}-inline-fold`}
+      aria-pressed={inlineFold}
+      title={t('tools.text_compare.inline_fold')}
+      aria-label={t('tools.text_compare.inline_fold')}
+      onClick={() => setInlineFold((v) => !v)}
+      className={cn(
+        'flex items-center gap-1 rounded px-1.5 py-1 text-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        inlineFold ? 'text-primary' : 'text-muted-foreground',
+      )}
+    >
+      <FoldVertical aria-hidden className="size-3.5" />
+    </button>
+  ) : null;
 
   const syncScrollButton = (
     <button
@@ -437,13 +600,15 @@ export function TextDiffView({
           data-search-anchor={searchAnchor}
           data-testid={`${testIdPrefix}-inline`}
         >
-          {/* 工具栏:与 CodeEditor 标题栏同款样式(行内模式无同步滚动按钮);
+          {/* 工具栏:与 CodeEditor 标题栏同款样式(行内模式无同步滚动/导航);
            * 统计/开关紧跟标题(VSCode 风格),不贴工具栏右缘 */}
           <div className="flex min-w-0 shrink-0 items-center border-b border-input px-2 py-0.5">
             <span className="flex min-w-0 items-center gap-2 pl-1 text-xs font-medium text-foreground">
               <span className="truncate">{t('tools.text_compare.inline_diff_title')}</span>
               {statsBadge}
+              {degradedBadge}
               {inlineToggle}
+              {inlineFoldToggle}
             </span>
           </div>
           <div className="min-h-0 flex-1">
@@ -478,6 +643,8 @@ export function TextDiffView({
               value={original}
               onChange={onOriginalChange}
               placeholder={leftChrome?.placeholder}
+              onFileLoad={leftChrome?.onFileLoad}
+              acceptFileDrop={leftChrome?.acceptFileDrop}
               // 只保留右侧边框(朝向中间分隔缝),去掉外三边:外层容器已提供
               // 框体,避免双线/双圆角叠加
               className="h-full rounded-none border-0 border-r"
@@ -509,6 +676,8 @@ export function TextDiffView({
                 >
                   <span className="truncate">{modifiedTitle}</span>
                   {statsBadge}
+                  {degradedBadge}
+                  {diffNav}
                   {inlineToggle}
                   {syncScrollButton}
                 </span>
@@ -516,6 +685,8 @@ export function TextDiffView({
               value={modified}
               onChange={onModifiedChange}
               placeholder={rightChrome?.placeholder}
+              onFileLoad={rightChrome?.onFileLoad}
+              acceptFileDrop={rightChrome?.acceptFileDrop}
               // 对称:只保留左侧边框(朝向中间分隔缝),理由同原始侧
               className="h-full rounded-none border-0 border-l"
               data-testid={`${testIdPrefix}-modified`}

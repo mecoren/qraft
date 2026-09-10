@@ -28,7 +28,7 @@ describe('config types', () => {
     expect(m).toBe('dark');
   });
 
-  it('ShortcutBinding has all 23 keys', () => {
+  it('ShortcutBinding has all 25 keys', () => {
     const s: ShortcutBinding = {
       open_command_palette: 'Ctrl+K',
       toggle_sidebar: 'Ctrl+B',
@@ -53,8 +53,10 @@ describe('config types', () => {
       next_tab: 'Ctrl+Tab',
       previous_tab: 'Ctrl+Shift+Tab',
       reopen_closed_tab: 'Ctrl+Shift+T',
+      diff_prev_change: 'F7',
+      diff_next_change: 'Shift+F7',
     };
-    expect(Object.keys(s)).toHaveLength(23);
+    expect(Object.keys(s)).toHaveLength(25);
   });
 });
 

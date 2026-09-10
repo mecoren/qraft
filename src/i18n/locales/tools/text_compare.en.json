@@ -21,5 +21,18 @@
   "tools.text_compare.sync_scroll_aria": "Scroll sync",
   "tools.text_compare.inline_mode": "Inline view",
   "tools.text_compare.inline_diff_title": "Inline diff",
-  "tools.text_compare.loading_editor": "Loading editor…"
+  "tools.text_compare.loading_editor": "Loading editor…",
+  "tools.text_compare.ignore_whitespace": "Ignore trailing whitespace",
+  "tools.text_compare.ignore_case": "Ignore case",
+  "tools.text_compare.ignore_eol": "Ignore line-ending differences (CRLF/LF)",
+  "tools.text_compare.swap_sides": "Swap sides",
+  "tools.text_compare.export_patch": "Export patch file (.patch, unified format)",
+  "tools.text_compare.patch_empty_toast": "Both sides are empty; nothing to export",
+  "tools.text_compare.similarity_title": "Similarity: common content ratio against the longer side",
+  "tools.text_compare.similarity_value": "{{percent}}% similar",
+  "tools.text_compare.degraded_title": "Input too large; diff exceeded its limit. Shown as full replacement, stats are not per-line",
+  "tools.text_compare.degraded_badge": "Degraded",
+  "tools.text_compare.nav_prev_title": "Previous change ({{combo}})",
+  "tools.text_compare.nav_next_title": "Next change ({{combo}})",
+  "tools.text_compare.inline_fold": "Collapse unchanged regions"
 }

@@ -61,6 +61,10 @@ export interface ShortcutBinding {
   previous_tab: string;
   /** 文本编辑器：恢复最近关闭的 Tab */
   reopen_closed_tab: string;
+  /** 文本比较：跳到上一处差异(仅并排模式生效) */
+  diff_prev_change: string;
+  /** 文本比较：跳到下一处差异(仅并排模式生效) */
+  diff_next_change: string;
 }
 
 export interface ToolPref {
@@ -115,6 +119,9 @@ export const DEFAULT_SHORTCUTS: ShortcutBinding = {
   next_tab: 'Ctrl+Tab',
   previous_tab: 'Ctrl+Shift+Tab',
   reopen_closed_tab: 'Ctrl+Shift+T',
+  // F7/Shift+F7 与 VSCode Diff Editor 原生「上一处/下一处差异」一致
+  diff_prev_change: 'F7',
+  diff_next_change: 'Shift+F7',
 };
 
 export const DEFAULT_EDITOR_CONFIG: EditorConfig = {

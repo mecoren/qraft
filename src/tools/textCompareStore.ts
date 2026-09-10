@@ -35,6 +35,10 @@ export interface CompareDoc {
   original: string;
   /** 修改后文本(右侧) */
   modified: string;
+  /** 原始侧来源文件名(打开/拖放文件时记录;语言推断与补丁头文件名用) */
+  originalFileName?: string;
+  /** 修改侧来源文件名(同上) */
+  modifiedFileName?: string;
 }
 
 /** 文档工作区(整体持久化单元) */
@@ -102,6 +106,10 @@ function sanitizeDoc(raw: unknown): CompareDoc | null {
   const pinned = t.pinned === true;
   const original = typeof t.original === 'string' ? t.original : '';
   const modified = typeof t.modified === 'string' ? t.modified : '';
+  const originalFileName =
+    typeof t.originalFileName === 'string' && t.originalFileName ? t.originalFileName : undefined;
+  const modifiedFileName =
+    typeof t.modifiedFileName === 'string' && t.modifiedFileName ? t.modifiedFileName : undefined;
   return {
     id: t.id,
     title: t.title,
@@ -109,6 +117,8 @@ function sanitizeDoc(raw: unknown): CompareDoc | null {
     pinned,
     original,
     modified,
+    ...(originalFileName !== undefined ? { originalFileName } : {}),
+    ...(modifiedFileName !== undefined ? { modifiedFileName } : {}),
   };
 }
 
@@ -151,8 +161,41 @@ interface TextCompareWorkspaceState {
   togglePinDoc: (id: string) => void;
   /** 更新文档某一侧内容(编辑器 onChange 调用);自动命名 Tab 随原始侧内容派生标题 */
   setDocContent: (id: string, side: 'original' | 'modified', text: string) => void;
+  /**
+   * 更新文档某一侧内容并记录来源文件名(打开/拖放文件时调用)。
+   * 与 setDocContent 分开:手输编辑不应清除已记录的文件名,文件装载
+   * 是显式动作,允许覆盖(替换文件语义)。
+   */
+  setDocSideFile: (
+    id: string,
+    side: 'original' | 'modified',
+    text: string,
+    fileName: string | null,
+  ) => void;
+  /** 交换文档两侧内容与文件名(反向验证对照) */
+  swapDocSides: (id: string) => void;
   /** 将当前文档列表写入 Rust config(组件防抖后调用) */
   persistDocs: () => Promise<void>;
+}
+
+/**
+ * 持久化载荷防护上限(单侧字符数):超限侧内容替换为占位提示,
+ * 防止多个超大文档把 config.json 撑到数十 MB(与 JsonFormatter 历史
+ * 上限同量级;编辑中内容不受影响,仅落盘时裁剪)。
+ */
+export const MAX_PERSIST_SIDE_CHARS = 512 * 1024;
+
+/** 落盘前对文档做载荷防护:超限侧替换为占位文本(保留 Tab 结构与标题) */
+function capDocForPersist(doc: CompareDoc): CompareDoc {
+  const cap = (text: string): string =>
+    text.length > MAX_PERSIST_SIDE_CHARS ? text.slice(0, MAX_PERSIST_SIDE_CHARS) : text;
+  if (
+    doc.original.length <= MAX_PERSIST_SIDE_CHARS &&
+    doc.modified.length <= MAX_PERSIST_SIDE_CHARS
+  ) {
+    return doc;
+  }
+  return { ...doc, original: cap(doc.original), modified: cap(doc.modified) };
 }
 
 /** 默认文档 id(store 初始即含一个空文档,避免 hydrate 异步完成前的输入丢失) */
@@ -263,13 +306,55 @@ export const useTextCompareStore = create<TextCompareWorkspaceState>((set, get) 
     set({ docs: next, userTouched: true });
   },
 
+  setDocSideFile: (id, side, text, fileName) => {
+    const { docs } = get();
+    const next = docs.map((d) => {
+      if (d.id !== id) return d;
+      const content = { ...d, [side]: text } as CompareDoc;
+      if (side === 'original') {
+        content.originalFileName = fileName ?? undefined;
+        // 文件装载同样参与标题派生(自动命名 Tab)
+        if (d.autoTitle !== undefined || /^compare-\d+$/.test(d.title)) {
+          const autoTitle = d.autoTitle ?? d.title;
+          content.title = fileName ?? deriveTitleFromContent(text) ?? autoTitle;
+          content.autoTitle = autoTitle;
+        }
+      } else {
+        content.modifiedFileName = fileName ?? undefined;
+      }
+      return content;
+    });
+    set({ docs: next, userTouched: true });
+  },
+
+  swapDocSides: (id) => {
+    set((s) => ({
+      docs: s.docs.map((d) => {
+        if (d.id !== id) return d;
+        const { original, modified, originalFileName, modifiedFileName, ...rest } = d;
+        return {
+          ...rest,
+          original: modified,
+          modified: original,
+          originalFileName: modifiedFileName,
+          modifiedFileName: originalFileName,
+        };
+      }),
+      userTouched: true,
+    }));
+  },
+
   persistDocs: async () => {
     // hydrate 完成前不写,避免覆盖已存数据
     const { ready, docs, activeDocId } = get();
     if (!ready) return;
     const r = await safeInvoke<boolean>('config_set', {
       key: DOCS_CONFIG_KEY,
-      value: { docs, activeDocId } satisfies CompareDocs,
+      // 落盘前载荷防护:超限侧截断,防止 config.json 被超大文档撑爆
+      value: {
+        docs: docs.map(capDocForPersist),
+        activeDocId,
+      } satisfies CompareDocs,
     });
     if (!r.ok) set({ error: r.error.message });
   },

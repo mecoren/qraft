@@ -23,8 +23,9 @@ import {
   type JSX,
   type KeyboardEvent,
 } from 'react';
-import { Check, FileDiff, Pin, Plus, X } from 'lucide-react';
+import { ArrowLeftRight, Check, FileDiff, Pin, Plus, Save, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -37,6 +38,9 @@ import {
 } from '@/components/ui/context-menu';
 import { RenameDialog } from '@/components/RenameDialog';
 import { TextDiffView } from '@/components/text-diff/TextDiffView';
+import { buildUnifiedPatch } from '@/components/text-diff/diff-utils';
+import { downloadText } from '@/lib/file-utils';
+import { inferLanguageFromPath } from './code-editor-workspace/languageMap';
 import { cn } from '@/lib/utils';
 import { useToolHandoff } from '@/hooks/useToolHandoff';
 import { useTextCompareStore, type CompareDoc } from './textCompareStore';
@@ -127,6 +131,53 @@ export function TextCompare({ toolId }: ToolProps): JSX.Element {
   // —— 比较 ignore 选项(会话级,不持久化进文档结构)——
   const [ignoreWhitespace, setIgnoreWhitespace] = useState(false);
   const [ignoreCase, setIgnoreCase] = useState(false);
+  const [ignoreEol, setIgnoreEol] = useState(false);
+
+  const swapDocSides = useTextCompareStore((s) => s.swapDocSides);
+  const setDocSideFile = useTextCompareStore((s) => s.setDocSideFile);
+
+  /** 文件装入(打开/拖放统一入口):写内容 + 记录文件名 */
+  const loadOriginalFile = useCallback(
+    (text: string, fileName: string) => {
+      if (activeDocId) setDocSideFile(activeDocId, 'original', text, fileName);
+    },
+    [activeDocId, setDocSideFile],
+  );
+  const loadModifiedFile = useCallback(
+    (text: string, fileName: string) => {
+      if (activeDocId) setDocSideFile(activeDocId, 'modified', text, fileName);
+    },
+    [activeDocId, setDocSideFile],
+  );
+
+  /** 语言按两侧来源文件名分别推断(未记录文件名回退纯文本);
+   *  文件名先解构为普通变量再 useMemo(React Compiler 无法保留 activeDoc?.x 依赖) */
+  const originalFileName = activeDoc?.originalFileName;
+  const modifiedFileName = activeDoc?.modifiedFileName;
+  const originalLanguage = useMemo(
+    () => (originalFileName ? inferLanguageFromPath(originalFileName) : 'plaintext'),
+    [originalFileName],
+  );
+  const modifiedLanguage = useMemo(
+    () => (modifiedFileName ? inferLanguageFromPath(modifiedFileName) : 'plaintext'),
+    [modifiedFileName],
+  );
+
+  /** 导出统一格式补丁(.patch):与界面高亮同口径(含 ignore 选项) */
+  const handleExportPatch = useCallback(() => {
+    if (!original.trim() && !modified.trim()) {
+      toast.info(t('tools.text_compare.patch_empty_toast'));
+      return;
+    }
+    const patch = buildUnifiedPatch(original, modified, {
+      ignoreWhitespace,
+      ignoreCase,
+      ignoreEol,
+      originalName: activeDoc?.originalFileName ?? 'original',
+      modifiedName: activeDoc?.modifiedFileName ?? 'modified',
+    });
+    downloadText(`${activeDoc?.title ?? 'compare'}.patch`, patch, 'text/x-diff');
+  }, [original, modified, ignoreWhitespace, ignoreCase, ignoreEol, activeDoc, t]);
 
   // handoff 接收:跨工具发来的文本填入当前文档的「修改后」侧(常见流:
   // 从文本处理/编辑器把改后版本送来与原文对比)
@@ -373,6 +424,8 @@ export function TextCompare({ toolId }: ToolProps): JSX.Element {
           </div>
         </ScrollArea>
         {/* 「+」新建按钮固定在滚动区外右端(对齐 VSCode):Tab 溢出滚动时始终可见可点 */}
+        {/* 比较选项与文档动作(固定在滚动区外右端):三个 ignore 开关 +
+            交换两侧 / 导出补丁 / 新建;图标按钮 + title,不占 Tab 滚动区 */}
         <button
           type="button"
           data-testid="diff-ignore-ws"
@@ -407,6 +460,44 @@ export function TextCompare({ toolId }: ToolProps): JSX.Element {
         </button>
         <button
           type="button"
+          data-testid="diff-ignore-eol"
+          aria-pressed={ignoreEol}
+          title={t('tools.text_compare.ignore_eol')}
+          aria-label={t('tools.text_compare.ignore_eol')}
+          onClick={() => setIgnoreEol((v) => !v)}
+          className={cn(
+            'flex size-7 shrink-0 items-center justify-center transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
+            ignoreEol ? 'text-primary' : 'text-muted-foreground',
+          )}
+        >
+          <span aria-hidden className="font-mono text-xs font-semibold">
+            ⇥≠
+          </span>
+        </button>
+        <button
+          type="button"
+          data-testid="diff-swap-sides"
+          disabled={!activeDoc}
+          title={t('tools.text_compare.swap_sides')}
+          aria-label={t('tools.text_compare.swap_sides')}
+          onClick={() => activeDocId && swapDocSides(activeDocId)}
+          className="flex size-7 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
+        >
+          <ArrowLeftRight aria-hidden className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          data-testid="diff-export-patch"
+          disabled={!activeDoc}
+          title={t('tools.text_compare.export_patch')}
+          aria-label={t('tools.text_compare.export_patch')}
+          onClick={handleExportPatch}
+          className="flex size-7 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
+        >
+          <Save aria-hidden className="size-3.5" />
+        </button>
+        <button
+          type="button"
           data-testid="doc-add"
           title={t('tools.text_compare.new_doc')}
           aria-label={t('tools.text_compare.new_doc')}
@@ -423,23 +514,28 @@ export function TextCompare({ toolId }: ToolProps): JSX.Element {
         modified={modified}
         onOriginalChange={setOriginal}
         onModifiedChange={setModified}
-        originalTitle={t('tools.text_compare.original_title')}
-        modifiedTitle={t('tools.text_compare.modified_title')}
-        originalLanguage="plaintext"
-        modifiedLanguage="plaintext"
+        originalTitle={activeDoc?.originalFileName ?? t('tools.text_compare.original_title')}
+        modifiedTitle={activeDoc?.modifiedFileName ?? t('tools.text_compare.modified_title')}
+        originalLanguage={originalLanguage}
+        modifiedLanguage={modifiedLanguage}
         ignoreWhitespace={ignoreWhitespace}
         ignoreCase={ignoreCase}
+        ignoreEol={ignoreEol}
         leftChrome={{
           showPaste: true,
           showOpenFile: true,
           showClear: true,
           placeholder: t('tools.text_compare.placeholder_original'),
+          onFileLoad: loadOriginalFile,
+          acceptFileDrop: true,
         }}
         rightChrome={{
           showPaste: true,
           showOpenFile: true,
           showClear: true,
           placeholder: t('tools.text_compare.placeholder_modified'),
+          onFileLoad: loadModifiedFile,
+          acceptFileDrop: true,
         }}
         searchAnchor="text_compare:diff"
         leftSearchAnchor="text_compare:original"

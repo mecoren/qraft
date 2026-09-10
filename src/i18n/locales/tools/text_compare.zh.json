@@ -21,5 +21,18 @@
   "tools.text_compare.sync_scroll_aria": "滚动同步",
   "tools.text_compare.inline_mode": "行内模式",
   "tools.text_compare.inline_diff_title": "行内差异",
-  "tools.text_compare.loading_editor": "加载编辑器…"
+  "tools.text_compare.loading_editor": "加载编辑器…",
+  "tools.text_compare.ignore_whitespace": "忽略行尾空白",
+  "tools.text_compare.ignore_case": "忽略大小写",
+  "tools.text_compare.ignore_eol": "忽略换行符差异(CRLF/LF)",
+  "tools.text_compare.swap_sides": "交换两侧内容",
+  "tools.text_compare.export_patch": "导出补丁文件(.patch,统一格式)",
+  "tools.text_compare.patch_empty_toast": "两侧内容均为空,无补丁可导出",
+  "tools.text_compare.similarity_title": "相似度:公共内容占较长侧的比例",
+  "tools.text_compare.similarity_value": "相似 {{percent}}%",
+  "tools.text_compare.degraded_title": "输入过大,差异计算超限;当前按整体替换展示,统计非逐行粒度",
+  "tools.text_compare.degraded_badge": "已降级",
+  "tools.text_compare.nav_prev_title": "上一处差异({{combo}})",
+  "tools.text_compare.nav_next_title": "下一处差异({{combo}})",
+  "tools.text_compare.inline_fold": "折叠未变更区域"
 }

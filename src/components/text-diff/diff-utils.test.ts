@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildDiffDecorations, computeLineDiff } from './diff-utils';
+import { buildDiffDecorations, buildUnifiedPatch, computeLineDiff } from './diff-utils';
 
 /** 便捷:只取每侧行号列表 */
 function lines(decos: ReadonlyArray<{ line: number }>): number[] {
@@ -133,6 +133,81 @@ describe('computeLineDiff', () => {
       ignoreCase: true,
     });
     expect(r.stats).toEqual({ added: 0, removed: 0, modified: 0 });
+  });
+
+  it('ignoreEol:仅 CRLF/LF 不同的文本视为相同(默认则整篇标红绿)', () => {
+    // 默认:连续 REM/ADD 段按行配对记「修改」——两行全是假差异
+    const off = computeLineDiff('a\r\nb\r\n', 'a\nb\n');
+    expect(off.stats).toEqual({ added: 0, removed: 0, modified: 2 });
+    expect(lines(off.originalDecos)).toEqual([1, 2]);
+    expect(lines(off.modifiedDecos)).toEqual([1, 2]);
+    // 开启 EOL 归一:无差异
+    const on = computeLineDiff('a\r\nb\r\n', 'a\nb\n', { ignoreEol: true });
+    expect(on.stats).toEqual({ added: 0, removed: 0, modified: 0 });
+    expect(on.originalDecos).toEqual([]);
+    expect(on.modifiedDecos).toEqual([]);
+  });
+
+  it('ignoreEol 与真实内容差异叠加:只标出真实修改行', () => {
+    const r = computeLineDiff('a\r\nB\r\nc\r\n', 'a\nb\nc\n', { ignoreEol: true });
+    expect(r.stats).toEqual({ added: 0, removed: 0, modified: 1 });
+    expect(lines(r.originalDecos)).toEqual([2]);
+    expect(lines(r.modifiedDecos)).toEqual([2]);
+  });
+});
+
+describe('computeLineDiff similarity', () => {
+  it('完全相同(含双侧空)相似度为 1', () => {
+    expect(computeLineDiff('a\nb\n', 'a\nb\n').similarity).toBe(1);
+    expect(computeLineDiff('', '').similarity).toBe(1);
+  });
+
+  it('完全不同相似度为 0', () => {
+    expect(computeLineDiff('aaa\n', 'bbb\n').similarity).toBe(0);
+  });
+
+  it('公共段占较长侧比例(0~1 区间)', () => {
+    // 公共 'a\n' (2 字符)/ 较长侧 4 字符 = 0.5
+    const r = computeLineDiff('a\n', 'a\nzz');
+    expect(r.similarity).toBeCloseTo(2 / 4);
+  });
+
+  it('降级(整体替换)时相似度为 0', () => {
+    const r = computeLineDiff('a\nb\n', 'x\ny\n', { maxEditLength: 0 });
+    expect(r.degraded).toBe(true);
+    expect(r.similarity).toBe(0);
+  });
+});
+
+describe('buildUnifiedPatch', () => {
+  it('生成统一格式补丁:头文件名 + hunk 头 + +/- 行', () => {
+    const patch = buildUnifiedPatch('a\nold\n', 'a\nnew\n', {
+      originalName: 'left.txt',
+      modifiedName: 'right.txt',
+    });
+    expect(patch).toContain('--- left.txt');
+    expect(patch).toContain('+++ right.txt');
+    expect(patch).toContain('@@');
+    expect(patch).toContain('-old');
+    expect(patch).toContain('+new');
+    expect(patch).toContain(' a');
+  });
+
+  it('ignore 选项与主比较同口径:仅空白差异不进补丁', () => {
+    const patch = buildUnifiedPatch('foo  \n', 'foo\n', { ignoreWhitespace: true });
+    expect(patch).not.toContain('-foo');
+    expect(patch).not.toContain('+foo');
+  });
+
+  it('ignoreEol:仅换行符差异不进补丁', () => {
+    const patch = buildUnifiedPatch('a\r\nb\r\n', 'a\nb\n', { ignoreEol: true });
+    expect(patch).not.toMatch(/^[-+]a/m);
+  });
+
+  it('自定义文件名缺省用 original/modified 占位', () => {
+    const patch = buildUnifiedPatch('x\n', 'y\n');
+    expect(patch).toContain('--- original');
+    expect(patch).toContain('+++ modified');
   });
 });
 

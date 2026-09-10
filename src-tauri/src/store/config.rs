@@ -132,6 +132,10 @@ pub struct ShortcutBinding {
     pub previous_tab: String,
     #[serde(default)]
     pub reopen_closed_tab: String,
+    #[serde(default)]
+    pub diff_prev_change: String,
+    #[serde(default)]
+    pub diff_next_change: String,
 }
 
 impl Default for ShortcutBinding {
@@ -159,6 +163,8 @@ impl Default for ShortcutBinding {
             next_tab: "Ctrl+Tab".into(),
             previous_tab: "Ctrl+Shift+Tab".into(),
             reopen_closed_tab: "Ctrl+Shift+T".into(),
+            diff_prev_change: "F7".into(),
+            diff_next_change: "Shift+F7".into(),
         }
     }
 }
