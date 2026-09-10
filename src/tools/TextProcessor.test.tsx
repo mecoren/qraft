@@ -15,7 +15,24 @@ import {
   urlDecode,
   urlEncode,
   urlEncodeUri,
+  trimLines,
+  removeEmptyLines,
+  removeLineBreaks,
+  toCrlf,
+  toLf,
+  reverseLines,
+  sortLinesDesc,
+  naturalSortLines,
+  swapCase,
+  shuffleLines,
 } from './TextProcessor';
+import {
+  camelCase,
+  pascalCase,
+  snakeCase,
+  kebabCase,
+  constantCase,
+} from '@/lib/naming-convention';
 
 // CodeEditor 内嵌 Monaco,在 jsdom 环境无法加载,替换为简单的 textarea 替身。
 // Test environment is jsdom, which can't load the Monaco editor. We stub CodeEditor
@@ -175,6 +192,66 @@ describe('TextProcessor utilities', () => {
 
   it('chineseSymbolToEnglish replaces full-width punctuation', () => {
     expect(chineseSymbolToEnglish('你好，世界！今天？')).toBe('你好,世界!今天?');
+  });
+
+  it('trimLines strips leading and trailing whitespace on every line (CRLF-safe)', () => {
+    expect(trimLines('  a  \n\tb\t\r\nc  ')).toBe('a\nb\nc');
+  });
+
+  it('removeEmptyLines drops blank lines and keeps the trailing newline shape', () => {
+    expect(removeEmptyLines('a\n\nb\n \n\n\nc\n')).toBe('a\nb\nc\n');
+    expect(removeEmptyLines('a\n\nb')).toBe('a\nb');
+  });
+
+  it('removeLineBreaks replaces newlines with a single space and collapses runs', () => {
+    expect(removeLineBreaks('a\n\nb\r\nc')).toBe('a b c');
+  });
+
+  it('toCrlf / toLf convert line endings in both directions (roundtrip)', () => {
+    expect(toCrlf('a\nb\r\nc')).toBe('a\r\nb\r\nc');
+    expect(toLf('a\r\nb\nc')).toBe('a\nb\nc');
+  });
+
+  it('reverseLines reverses the order of lines without touching line content', () => {
+    expect(reverseLines('a\nb\nc')).toBe('c\nb\na');
+    // 行序反转不动每行内部字符(区别于字符级反转)
+    expect(reverseLines('abc\ndef')).toBe('def\nabc');
+  });
+
+  it('sortLinesDesc sorts lines in descending locale order', () => {
+    expect(sortLinesDesc('b\na\nc')).toBe('c\nb\na');
+  });
+
+  it('naturalSortLines orders embedded numbers by value (file2 < file10)', () => {
+    expect(naturalSortLines('file10\nfile2\nfile1')).toBe('file1\nfile2\nfile10');
+    // 无数字行退化为字典序
+    expect(naturalSortLines('b\na')).toBe('a\nb');
+  });
+
+  it('swapCase swaps upper and lower case characters', () => {
+    expect(swapCase('Hello World')).toBe('hELLO wORLD');
+  });
+
+  it('shuffleLines returns a permutation of the same lines (multi-run)', () => {
+    const input = 'a\nb\nc\nd\ne\nf\ng\nh';
+    // 单次洗牌可能恰好等于原序;连续多次应至少一次打乱,且恒为原行集合的排列
+    let sawDiff = false;
+    for (let i = 0; i < 20; i++) {
+      const out = shuffleLines(input);
+      expect(out.split('\n').sort()).toEqual(input.split('\n').sort());
+      if (out !== input) sawDiff = true;
+    }
+    expect(sawDiff).toBe(true);
+    expect(shuffleLines('only')).toBe('only');
+  });
+
+  it('naming-convention helpers convert arbitrary text into each target style', () => {
+    // 直接验证 TextProcessor 将复用的现成库的行为(输入为整段文本,内部自动拆词)
+    expect(camelCase('hello world')).toBe('helloWorld');
+    expect(pascalCase('hello world')).toBe('HelloWorld');
+    expect(snakeCase('Hello World')).toBe('hello_world');
+    expect(kebabCase('hello world')).toBe('hello-world');
+    expect(constantCase('hello world')).toBe('HELLO_WORLD');
   });
 });
 
@@ -384,6 +461,59 @@ describe('TextProcessor component', () => {
     fireEvent.click(screen.getByTestId('textproc-btn-urlDecode'));
     expect(getInput().value).toBe(encoded);
     expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(urlDecode(encoded));
+  });
+
+  it('camelCase button converts input to camelCase naming style', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'hello world foo' } });
+    fireEvent.click(screen.getByTestId('textproc-btn-camelCase'));
+    expect(getInput().value).toBe('hello world foo');
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('helloWorldFoo');
+  });
+
+  it('sortLinesDesc button writes descending sort to output', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'b\na\nc' } });
+    fireEvent.click(screen.getByTestId('textproc-btn-sortLinesDesc'));
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('c\nb\na');
+  });
+
+  it('useOutputAsInput button moves the output text back into the input editor', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'a b' } });
+    fireEvent.click(screen.getByTestId('textproc-btn-stripWhitespace'));
+    fireEvent.click(screen.getByTestId('textproc-btn-useOutputAsInput'));
+    expect(getInput().value).toBe('ab');
+    // 回填后输出清空,统计随之归零
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('');
+    expect(
+      within(screen.getByTestId('output-status')).getByTestId('textproc-stat-chars').textContent,
+    ).toBe('0');
+  });
+
+  it('useOutputAsInput button is disabled when output is empty', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    expect(screen.getByTestId('textproc-btn-useOutputAsInput')).toBeDisabled();
+  });
+
+  it('renders a third row for naming-style and advanced line operations', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    // 第三排内层子组:命名风格 / 行清理 / 排序与行序
+    expect(
+      screen.getByTestId(
+        'textproc-group-camelCase-pascalCase-snakeCase-kebabCase-constantCase',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(
+        'textproc-group-trimLines-removeEmptyLines-removeLineBreaks-toCrlf-toLf',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(
+        'textproc-group-sortLinesDesc-naturalSortLines-reverseLines-shuffleLines-swapCase',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('shows 0-character counts in both status bars when empty', () => {

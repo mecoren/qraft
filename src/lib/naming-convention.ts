@@ -156,3 +156,42 @@ export function toggleCase(text: string): string {
   }
   return text.toUpperCase();
 }
+
+/**
+ * 单风格具名转换:把任意文本拆词后转换为指定命名风格。
+ * 供文本处理工具的命名风格按钮直接调用(等价于 splitWords + 对应 convert)。
+ */
+function convertTo(
+  text: string,
+  id: Extract<NamingConventionId, 'camelCase' | 'CamelCase' | 'snake_case' | 'SNAKE_CASE' | 'kebab-case'>,
+): string {
+  const convention = NAMING_CONVENTION_MAP.get(id);
+  const words = splitWords(text);
+  if (!convention || words.length === 0) return text;
+  return convention.convert(words);
+}
+
+/** 转换为 camelCase(如 "hello world" / "hello-world" → "helloWorld") */
+export function camelCase(text: string): string {
+  return convertTo(text, 'camelCase');
+}
+
+/** 转换为 PascalCase(如 "hello world" → "HelloWorld") */
+export function pascalCase(text: string): string {
+  return convertTo(text, 'CamelCase');
+}
+
+/** 转换为 snake_case(如 "Hello World" → "hello_world") */
+export function snakeCase(text: string): string {
+  return convertTo(text, 'snake_case');
+}
+
+/** 转换为 SNAKE_CASE 常量风格(如 "hello world" → "HELLO_WORLD") */
+export function constantCase(text: string): string {
+  return convertTo(text, 'SNAKE_CASE');
+}
+
+/** 转换为 kebab-case(如 "hello world" → "hello-world") */
+export function kebabCase(text: string): string {
+  return convertTo(text, 'kebab-case');
+}

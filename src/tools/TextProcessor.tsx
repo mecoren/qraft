@@ -9,11 +9,12 @@
  *
  * 设计说明:
  * - 所有转换均为纯前端同步操作,无需调用 Rust 后端。
- * - 7 个按钮按功能拆成 4 个逻辑组;同一组的转换(操作相近、互为反操)
+ * - 按钮按功能拆成逻辑组;同一组的转换(操作相近、互为反操作)
  *   放进同一个内层 ButtonGroup 让它们紧密拼接、相邻组之间通过外层
  *   ButtonGroup 的 flex `gap-2` 留白(参考 shadcn ButtonGroup 嵌套用法)。
- * - 点击按钮即把当前输入文本替换为转换结果,并在右侧输出框同步展示。
- * - 连续点击多个按钮会在前一次结果上叠加,便于组合多步处理。
+ * - 点击转换按钮把 **输入** 的转换结果写入 **输出框**,输入保持原值不动;
+ *   输出框的「作为输入」按钮可把输出回填到输入,实现多步流水线
+ *   (escape → 回填 → 去空格,无需复制粘贴)。
  * - 配置行采用 `ConfigSection > ConfigRow > ButtonGroup(嵌套) + 图标`,
  *   与 SQL 格式化器保持一致。
  */
@@ -21,11 +22,14 @@ import { useCallback, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowDownNarrowWide,
+  ArrowDownWideNarrow,
   Binary,
   CaseLower,
+  CaseSensitive,
   CaseUpper,
   Copy,
   CopyX,
+  CornerDownLeft,
   Eraser,
   Link2,
   Link2Off,
@@ -33,6 +37,7 @@ import {
   Quote,
   RemoveFormatting,
   Replace,
+  Shuffle,
   TextQuote,
   Type,
   Undo2,
@@ -46,6 +51,13 @@ import { CopyAction } from '@/components/copy-action';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { toast } from 'sonner';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
+import {
+  camelCase,
+  constantCase,
+  kebabCase,
+  pascalCase,
+  snakeCase,
+} from '@/lib/naming-convention';
 import type { ToolProps } from './registry';
 
 // ============================================================
@@ -290,6 +302,114 @@ export function sortLines(input: string): string {
 }
 
 // ============================================================
+// 行清理 / 命名风格 / 排序变体(竞品对齐批次,纯函数同上)
+// ============================================================
+
+/**
+ * 统一按 LF 拆行并保留「是否以换行结尾」形状。
+ * 供行级操作族共享 CRLF 兼容语义(行尾不残留 \r)。
+ */
+function splitLinesKeepShape(text: string): { lines: string[]; endsWithNewline: boolean } {
+  if (text === '') return { lines: [], endsWithNewline: false };
+  const normalized = text.replace(/\r\n/g, '\n');
+  const lines = normalized.split('\n');
+  const endsWithNewline = lines.length > 0 && lines[lines.length - 1] === '';
+  if (endsWithNewline) lines.pop();
+  return { lines, endsWithNewline };
+}
+
+function joinKeepShape(lines: string[], endsWithNewline: boolean): string {
+  return endsWithNewline ? lines.join('\n') + '\n' : lines.join('\n');
+}
+
+/** 去除每行行首与行尾空白(空格、Tab 等;CRLF 安全) */
+export function trimLines(input: string): string {
+  const { lines, endsWithNewline } = splitLinesKeepShape(input);
+  return joinKeepShape(lines.map((l) => l.trim()), endsWithNewline);
+}
+
+/** 删除全部空行(仅空白的行视为空行;保留结尾换行形状) */
+export function removeEmptyLines(input: string): string {
+  const { lines, endsWithNewline } = splitLinesKeepShape(input);
+  return joinKeepShape(
+    lines.filter((l) => l.trim() !== ''),
+    endsWithNewline,
+  );
+}
+
+/** 移除换行符:换行(含 CRLF)替换为单个空格,连续换行合并为一个空格 */
+export function removeLineBreaks(input: string): string {
+  return input
+    .replace(/\r\n/g, '\n')
+    .replace(/\n+/g, ' ')
+    .trim();
+}
+
+/** LF → CRLF(先把 CRLF 归一再统一替换,避免 CR 重复) */
+export function toCrlf(input: string): string {
+  return input.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+}
+
+/** CRLF → LF */
+export function toLf(input: string): string {
+  return input.replace(/\r\n/g, '\n');
+}
+
+/** 行序反转:行的顺序倒排,每行内容不变(区别于字符级反转) */
+export function reverseLines(input: string): string {
+  const { lines, endsWithNewline } = splitLinesKeepShape(input);
+  return joinKeepShape([...lines].reverse(), endsWithNewline);
+}
+
+/** 按字典序降序排序所有行(与 sortLines 同形状语义) */
+export function sortLinesDesc(input: string): string {
+  const { lines, endsWithNewline } = splitLinesKeepShape(input);
+  lines.sort((a, b) => b.localeCompare(a));
+  return joinKeepShape(lines, endsWithNewline);
+}
+
+/**
+ * 自然排序:行内嵌入数字按数值比较(file2 < file10),无数字段退化为字典序。
+ * 按「数字块 / 非数字块」切分逐块比较;大小写按 locale 字典序。
+ */
+export function naturalSortLines(input: string): string {
+  const { lines, endsWithNewline } = splitLinesKeepShape(input);
+  const chunk = (s: string): string[] => s.split(/(\d+)/);
+  const cmpChunk = (a: string, b: string): number => {
+    const aNum = /^\d+$/.test(a);
+    const bNum = /^\d+$/.test(b);
+    if (aNum && bNum) return Number(a) - Number(b) || a.localeCompare(b);
+    return a.localeCompare(b);
+  };
+  lines.sort((a, b) => {
+    const ca = chunk(a);
+    const cb = chunk(b);
+    const n = Math.min(ca.length, cb.length);
+    for (let i = 0; i < n; i++) {
+      const c = cmpChunk(ca[i]!, cb[i]!);
+      if (c !== 0) return c;
+    }
+    return ca.length - cb.length;
+  });
+  return joinKeepShape(lines, endsWithNewline);
+}
+
+/** 大小写互换:大写变小写、小写变大写(与 Sublime / N++ 的 Swap Case 对齐) */
+export function swapCase(input: string): string {
+  return input.replace(/\p{L}/gu, (ch) => (ch === ch.toLowerCase() ? ch.toUpperCase() : ch.toLowerCase()));
+}
+
+/** 行洗牌:Fisher-Yates 随机打乱行的顺序(保持行集合不变) */
+export function shuffleLines(input: string): string {
+  const { lines, endsWithNewline } = splitLinesKeepShape(input);
+  for (let i = lines.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [lines[i], lines[j]] = [lines[j]!, lines[i]!];
+  }
+  return joinKeepShape(lines, endsWithNewline);
+}
+
+// ============================================================
 // 编辑器底部统计(独立模块,供 EditorStats 与将来的单元测试复用)
 // ============================================================
 /**
@@ -428,7 +548,22 @@ type TransformId =
   | 'capitalizeWords'
   | 'reverseText'
   | 'uniqueLines'
-  | 'sortLines';
+  | 'sortLines'
+  | 'camelCase'
+  | 'pascalCase'
+  | 'snakeCase'
+  | 'kebabCase'
+  | 'constantCase'
+  | 'trimLines'
+  | 'removeEmptyLines'
+  | 'removeLineBreaks'
+  | 'toCrlf'
+  | 'toLf'
+  | 'sortLinesDesc'
+  | 'naturalSortLines'
+  | 'reverseLines'
+  | 'shuffleLines'
+  | 'swapCase';
 
 /** 单个转换的配置(label 存 i18n 键名,由组件层翻译,保证语言切换即生效) */
 interface TransformDef {
@@ -530,6 +665,96 @@ const TRANSFORMS: readonly TransformDef[] = [
     Icon: ArrowDownNarrowWide,
     apply: sortLines,
   },
+  {
+    id: 'camelCase',
+    labelKey: 'tools.json_minifier.label_camel_case',
+    Icon: Type,
+    apply: camelCase,
+  },
+  {
+    id: 'pascalCase',
+    labelKey: 'tools.json_minifier.label_pascal_case',
+    Icon: Type,
+    apply: pascalCase,
+  },
+  {
+    id: 'snakeCase',
+    labelKey: 'tools.json_minifier.label_snake_case',
+    Icon: Type,
+    apply: snakeCase,
+  },
+  {
+    id: 'kebabCase',
+    labelKey: 'tools.json_minifier.label_kebab_case',
+    Icon: Type,
+    apply: kebabCase,
+  },
+  {
+    id: 'constantCase',
+    labelKey: 'tools.json_minifier.label_constant_case',
+    Icon: Type,
+    apply: constantCase,
+  },
+  {
+    id: 'trimLines',
+    labelKey: 'tools.json_minifier.label_trim_lines',
+    Icon: Eraser,
+    apply: trimLines,
+  },
+  {
+    id: 'removeEmptyLines',
+    labelKey: 'tools.json_minifier.label_remove_empty_lines',
+    Icon: Eraser,
+    apply: removeEmptyLines,
+  },
+  {
+    id: 'removeLineBreaks',
+    labelKey: 'tools.json_minifier.label_remove_line_breaks',
+    Icon: Eraser,
+    apply: removeLineBreaks,
+  },
+  {
+    id: 'toCrlf',
+    labelKey: 'tools.json_minifier.label_to_crlf',
+    Icon: Replace,
+    apply: toCrlf,
+  },
+  {
+    id: 'toLf',
+    labelKey: 'tools.json_minifier.label_to_lf',
+    Icon: Replace,
+    apply: toLf,
+  },
+  {
+    id: 'sortLinesDesc',
+    labelKey: 'tools.json_minifier.label_sort_lines_desc',
+    Icon: ArrowDownWideNarrow,
+    apply: sortLinesDesc,
+  },
+  {
+    id: 'naturalSortLines',
+    labelKey: 'tools.json_minifier.label_natural_sort',
+    Icon: ArrowDownNarrowWide,
+    apply: naturalSortLines,
+  },
+  {
+    id: 'reverseLines',
+    labelKey: 'tools.json_minifier.label_reverse_lines',
+    Icon: Undo2,
+    apply: reverseLines,
+  },
+  {
+    id: 'shuffleLines',
+    labelKey: 'tools.json_minifier.label_shuffle_lines',
+    Icon: Shuffle,
+    apply: shuffleLines,
+  },
+  {
+    id: 'swapCase',
+    labelKey: 'tools.json_minifier.label_swap_case',
+    Icon: CaseSensitive,
+    apply: swapCase,
+  },
 ];
 
 /**
@@ -570,6 +795,19 @@ const SECOND_ROW_GROUPS: ReadonlyArray<ReadonlyArray<TransformId>> = [
   ['reverseText', 'uniqueLines', 'sortLines'],
 ];
 
+/**
+ * 第三排按钮组(命名风格 / 行清理 / 排序与行序):
+ * - 命名风格:camelCase / PascalCase / snake_case / kebab-case / CONSTANT_CASE,
+ *   复用编辑器快捷键同款 naming-convention 库;
+ * - 行清理:Trim 行首尾 / 删空行 / 移除换行 / LF→CRLF / CRLF→LF;
+ * - 排序与行序:降序 / 自然排序 / 行序反转 / 洗牌 / 大小写互换。
+ */
+const THIRD_ROW_GROUPS: ReadonlyArray<ReadonlyArray<TransformId>> = [
+  ['camelCase', 'pascalCase', 'snakeCase', 'kebabCase', 'constantCase'],
+  ['trimLines', 'removeEmptyLines', 'removeLineBreaks', 'toCrlf', 'toLf'],
+  ['sortLinesDesc', 'naturalSortLines', 'reverseLines', 'shuffleLines', 'swapCase'],
+];
+
 const TRANSFORMS_BY_ID: ReadonlyMap<TransformId, TransformDef> = new Map(
   TRANSFORMS.map((t) => [t.id, t]),
 );
@@ -595,11 +833,12 @@ function GroupFragment({
  * 文本处理工具主组件
  *
  * - 上方"配置"区域(与 SQL 格式化器一致)以嵌套 ButtonGroup 放置文本转换
- *   按钮(含原「文本分析和实用工具」的大小写 / 行重组功能),组内紧密拼边、
- *   组间留出 gap-2;按钮组在宽度不足时自动换行(共 ~14 个按钮),设计上
- *   期望其占满两排。
+ *   按钮(含原「文本分析和实用工具」的大小写 / 行重组,以及命名风格 /
+ *   行清理 / 排序变体),组内紧密拼边、组间留出 gap-2;按钮组在宽度
+ *   不足时自动换行,分三排呈现。
  * - 下方为左右两栏的输入/输出编辑器:输入框可编辑,转换按钮只
- *   把结果写入 **输出框**,输入保持原值不动。
+ *   把结果写入 **输出框**,输入保持原值不动;输出框的「作为输入」
+ *   按钮把输出回填到输入,衔接多步流水线。
  * - 统计指标移到输入/输出编辑器各自的底部状态栏(CodeEditor 内置)右侧,
  *   通过 statusBarRight 自定义节点注入;关闭编辑器默认字符数
  *   (`showCharCount={false}`),改由统一的 EditorStats 紧凑展示
@@ -638,6 +877,13 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
   );
 
   const disabled = !input;
+
+  /** 把输出框内容回填到输入框并清空输出,实现多步流水线的衔接 */
+  const handleUseOutputAsInput = useCallback((): void => {
+    if (!output) return;
+    setInput(output);
+    setOutput('');
+  }, [output]);
 
   function renderGroup(ids: readonly TransformId[]): JSX.Element {
     return (
@@ -717,6 +963,22 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
             ))}
           </ButtonGroup>
         </ConfigRow>
+
+        <ConfigRow
+          icon={Type}
+          label={t('tools.json_minifier.row_advanced')}
+          hint={t('tools.json_minifier.row_advanced_hint')}
+        >
+          <ButtonGroup
+            aria-label={t('tools.json_minifier.group_aria_row3')}
+            data-testid="textproc-button-group-row3"
+            className="w-full flex-wrap gap-y-2"
+          >
+            {THIRD_ROW_GROUPS.map((ids) => (
+              <GroupFragment key={ids.join('-')} ids={ids} renderGroup={renderGroup} />
+            ))}
+          </ButtonGroup>
+        </ConfigRow>
       </ConfigSection>
 
       {/* 双栏工作区直接置于 shell 卡片内(外框由根元素提供):
@@ -754,7 +1016,25 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
             className="h-full rounded-none border-0 border-l"
             data-testid="output"
             searchAnchor="json_minifier:output"
-            actions={<CopyAction text={output} testId="output-copy" />}
+            actions={
+              <span className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-1.5 text-xs"
+                  disabled={!output}
+                  onClick={handleUseOutputAsInput}
+                  title={t('tools.json_minifier.use_output_as_input')}
+                  aria-label={t('tools.json_minifier.use_output_as_input')}
+                  data-testid="textproc-btn-useOutputAsInput"
+                >
+                  <CornerDownLeft aria-hidden className="size-3" />
+                  {t('tools.json_minifier.use_output_as_input_short')}
+                </Button>
+                <CopyAction text={output} testId="output-copy" />
+              </span>
+            }
             showCharCount={false}
             statusBarRight={<EditorStats text={output} />}
           />
