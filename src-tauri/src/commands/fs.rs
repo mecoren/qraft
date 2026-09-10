@@ -903,6 +903,57 @@ pub async fn fs_write_file_encoded(
 
 // ============ 文件本地历史(编辑器「历史版本」)============
 
+/// 历史三命令的纯逻辑层:路径授权门禁 + `FileHistoryStore` 转发,
+/// 供集成测试直接执行(命令包装层依赖 `tauri::State` 无法脱离运行时构造)。
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+pub fn fs_file_history_list_inner(
+    path: &str,
+    authorized: &AuthorizedPaths,
+    history: &FileHistoryStore,
+) -> Result<CommandResponse<Vec<FileSnapshotMeta>>, AppError> {
+    validate_path(path, authorized)?;
+    Ok(CommandResponse::ok(history.list_snapshots(path)))
+}
+
+/// 读取指定历史快照的原始字节并编码为 base64(非 UTF-8 文件同样可还原)
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 快照 id 非法 / 不存在或读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+pub fn fs_file_history_get_inner(
+    path: &str,
+    snapshot_id: &str,
+    authorized: &AuthorizedPaths,
+    history: &FileHistoryStore,
+) -> Result<CommandResponse<String>, AppError> {
+    validate_path(path, authorized)?;
+    let bytes = history
+        .read_snapshot(path, snapshot_id)
+        .map_err(AppError::from)?;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+    Ok(CommandResponse::ok(b64))
+}
+
+/// 清空指定文件的全部本地历史快照
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 桶目录删除失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+pub fn fs_file_history_clear_inner(
+    path: &str,
+    authorized: &AuthorizedPaths,
+    history: &FileHistoryStore,
+) -> Result<CommandResponse<()>, AppError> {
+    validate_path(path, authorized)?;
+    history.clear_snapshots(path).map_err(AppError::from)?;
+    Ok(CommandResponse::ok(()))
+}
+
 /// 列出指定文件的本地历史快照(新 → 旧)
 ///
 /// 路径必须在授权集合中(与读取同一信任级:历史内容源于磁盘旧版)。
@@ -916,10 +967,7 @@ pub async fn fs_file_history_list(
     authorized: tauri::State<'_, AuthorizedPaths>,
     state: tauri::State<'_, AppState>,
 ) -> Result<CommandResponse<Vec<FileSnapshotMeta>>, AppError> {
-    validate_path(&path, &authorized)?;
-    Ok(CommandResponse::ok(
-        state.file_history.list_snapshots(&path),
-    ))
+    fs_file_history_list_inner(&path, &authorized, &state.file_history)
 }
 
 /// 读取指定历史快照的原始字节(base64;非 UTF-8 文件同样可还原)
@@ -935,13 +983,7 @@ pub async fn fs_file_history_get(
     authorized: tauri::State<'_, AuthorizedPaths>,
     state: tauri::State<'_, AppState>,
 ) -> Result<CommandResponse<String>, AppError> {
-    validate_path(&path, &authorized)?;
-    let bytes = state
-        .file_history
-        .read_snapshot(&path, &snapshot_id)
-        .map_err(AppError::from)?;
-    let b64 = base64::engine::general_purpose::STANDARD.encode(bytes);
-    Ok(CommandResponse::ok(b64))
+    fs_file_history_get_inner(&path, &snapshot_id, &authorized, &state.file_history)
 }
 
 /// 清空指定文件的全部本地历史快照
@@ -956,12 +998,7 @@ pub async fn fs_file_history_clear(
     authorized: tauri::State<'_, AuthorizedPaths>,
     state: tauri::State<'_, AppState>,
 ) -> Result<CommandResponse<()>, AppError> {
-    validate_path(&path, &authorized)?;
-    state
-        .file_history
-        .clear_snapshots(&path)
-        .map_err(AppError::from)?;
-    Ok(CommandResponse::ok(()))
+    fs_file_history_clear_inner(&path, &authorized, &state.file_history)
 }
 
 /// 读取文件的 mtime(epoch 毫秒,必须在授权范围内)
