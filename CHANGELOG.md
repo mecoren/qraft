@@ -5,6 +5,31 @@ All notable changes to Qraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.7] - 2026-09-10
+
+### Added
+
+- 新增 4 个加密安全域工具:NanoID 生成器、HMAC 计算器、TOTP/HTOP 一次性密码(OTP)生成器、AES 加解密;左右分栏布局,RFC 官方测试向量保障正确性
+- Markdown 编辑器全量升级:聚焦模式、远程图片加载开关;GitHub 警报、==高亮==、Front Matter、emoji 短码等扩展语法;本地图片资产系统(粘贴截图自动保存、`mdasset:` 引用解析);另存 Markdown、打印导出 PDF;双击预览跳转编辑器对应行(VSCode 式联动)
+- 文件本地历史:覆盖保存前由 Rust 快照旧内容,每文件保留 20 版;Tab 右键「历史版本」列出快照,支持对比当前、恢复内容、清空历史;清空前二段确认防误删,列表支持完整键盘操作(↑↓ 循环移动、Home/End 跳首末、Enter 直接开对比)
+- 保存前 mtime 乐观校验:文件被外部程序修改后拒绝盲目写入,冲突时弹出覆盖 / 对比 / 重读三选,数据安全闭环
+- 文本编辑器 10GB+ 大文件流式全文搜索:Rust 跨块流式扫描(大小写不敏感),进度事件 + 命中计数徽章,点击命中项虚拟定位跳转
+- 全局文本搜索补齐匹配选项:大小写敏感、整词匹配、正则三切换钮,统一口径贯通列表、行内高亮与编辑器 decoration;正则模式实时纠错,非法正则与「确实无匹配」区分提示
+- 文本编辑器快捷键批次:菜单九键真绑定(保存 / 关闭 Tab / 切换 Tab 等)、Ctrl+Tab 标签导航、恢复关闭标签栈(Ctrl+Shift+T)
+- Monaco model 池化:切 Tab 不再重挂载编辑器,undo 栈与视图状态跨切换存活,关闭 Tab 才释放 model
+- JSON 格式化器四连增强:
+  - 错误定位与修复:零依赖扫描器定位 11 类错误到行列,编辑器波浪线跳转 chip,显式修复按钮如实呈现修复报告(歧义输入拒绝猜测)
+  - 统计面板:单遍历输出节点/数组/字符串等结构统计,大数字丢精度警示条,格式化主路径接入统计徽标
+  - 转换菜单新增 CSV 输出:对象数组经 RFC 4180 序列化导出,列取键并集
+  - 树视图增强:行内 JSONPath 复制按钮,URL / 颜色 / 日期内容推断预览 chip(色块内联渲染、点击复制原值)
+
+### Fixed
+
+- 修复 URL 解码把 query 段 `+` 误留为字面加号的问题:按表单语义还原为空格,path 字面 `+` 保留,`%2B` 仍可解出字面加号
+- 修复后端 JSON 格式化键序重排:serde_json 启用 preserve_order,与前端 JSON.stringify 保持插入序一致
+- 修复 JSON 显式修复后输入框波浪线报错残留;报错 chip 紧凑化(L3:C3 格式),窄窗口下标题栏溢出按钮不再裁切
+- 修复 WebView2 下编辑器标题栏动作区竖向滚动条常驻、按钮被挤 0 宽的问题
+
 ## [0.2.6] - 2026-09-07
 
 ### Added
@@ -165,6 +190,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tauri Updater 签名验证(ed25519)
 - MVP 阶段:Windows/macOS 使用占位签名(ad-hoc),正式发布需 EV 证书与 Apple Developer ID
 
+[0.2.7]: https://github.com/qraft/qraft/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/qraft/qraft/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/qraft/qraft/compare/v0.2.2...v0.2.5
 [0.2.2]: https://github.com/qraft/qraft/compare/v0.2.0...v0.2.2
