@@ -15,8 +15,8 @@
  * - 点击转换按钮把 **输入** 的转换结果写入 **输出框**,输入保持原值不动;
  *   输出框的「作为输入」按钮可把输出回填到输入,实现多步流水线
  *   (escape → 回填 → 去空格,无需复制粘贴)。
- * - 配置行采用 `ConfigSection > ConfigRow > ButtonGroup(嵌套) + 图标`,
- *   与 SQL 格式化器保持一致。
+ * - 配置行采用 `ConfigSection > ConfigRow(左 label/hint + 右 ButtonGroup 嵌套)`,
+ *   与 SQL 格式化器保持一致;宽按钮组在控件列内自动换行,不挤压左侧提示。
  */
 import { useCallback, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -42,10 +42,12 @@ import {
   RemoveFormatting,
   Replace,
   ScanSearch,
+  Search,
   Shuffle,
   TextQuote,
   Type,
   Undo2,
+  Wand2,
 } from 'lucide-react';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { Button } from '@/components/ui/button';
@@ -876,6 +878,8 @@ function GroupFragment({
  *   - 进阶区(点击图标展开):命名风格 / 行清理 / 排序变体 / 查找替换 /
  *     提取统计。展开区限高 `min(320px, 50vh)` 内部滚动——按钮再多也不
  *     挤压下方编辑器,收起即恢复全高编辑区。
+ * - 每个配置行恢复「左提示 + 右控件」左右布局:label 列(图标 + 小标题
+ *   + 一行 hint)居左,按钮组/输入控件居右;宽按钮组在控件列内自动换行。
  * - 下方为左右两栏的输入/输出编辑器:输入框可编辑,转换按钮只
  *   把结果写入 **输出框**,输入保持原值不动;输出框的「作为输入」
  *   按钮把输出回填到输入,衔接多步流水线。
@@ -1061,9 +1065,14 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
           </button>
         }
       >
-        {/* 标题行已有「配置」总标题,分组名并入按钮组 aria-label;
-            stacked 行不传 label → 无小标题行,按钮从左侧原位起铺 */}
-        <ConfigRow stacked searchAnchor="json_minifier:row1">
+        {/* 左侧 label 列带图标与一行提示,右侧按钮组换行铺开;
+            ConfigRow 防压零宽契约(label 列 shrink-0)保证按钮再宽也不挤瘪提示 */}
+        <ConfigRow
+          icon={Wand2}
+          label={t('tools.json_minifier.row_transform')}
+          hint={t('tools.json_minifier.row_transform_hint')}
+          searchAnchor="json_minifier:row1"
+        >
           {/* 外层 ButtonGroup 起容器作用 —— 仅作为 flex 父节点,
               配合 `has-[>[data-slot=button-group]]:gap-2` 自动在子组之间
               生成间距,而无需由使用者手动添加 className。
@@ -1082,7 +1091,12 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
           </ButtonGroup>
         </ConfigRow>
 
-        <ConfigRow stacked searchAnchor="json_minifier:row2">
+        <ConfigRow
+          icon={CaseUpper}
+          label={t('tools.json_minifier.row_adjust')}
+          hint={t('tools.json_minifier.row_adjust_hint')}
+          searchAnchor="json_minifier:row2"
+        >
           <ButtonGroup
             aria-label={t('tools.json_minifier.group_aria_row2')}
             data-testid="textproc-button-group-row2"
@@ -1101,7 +1115,12 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
             data-testid="textproc-more-config"
             className="max-h-[min(240px,40vh)] divide-y divide-border overflow-y-auto"
           >
-            <ConfigRow stacked searchAnchor="json_minifier:row3">
+            <ConfigRow
+              icon={Type}
+              label={t('tools.json_minifier.row_advanced')}
+              hint={t('tools.json_minifier.row_advanced_hint')}
+              searchAnchor="json_minifier:row3"
+            >
               <ButtonGroup
                 aria-label={t('tools.json_minifier.group_aria_row3')}
                 data-testid="textproc-button-group-row3"
@@ -1113,7 +1132,12 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
               </ButtonGroup>
             </ConfigRow>
 
-            <ConfigRow stacked searchAnchor="json_minifier:row4">
+            <ConfigRow
+              icon={Search}
+              label={t('tools.json_minifier.row_find_replace')}
+              hint={t('tools.json_minifier.row_find_replace_hint')}
+              searchAnchor="json_minifier:row4"
+            >
               <div className="flex flex-wrap items-center gap-2">
                 <Input
                   value={findText}
@@ -1165,7 +1189,12 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
               </div>
             </ConfigRow>
 
-            <ConfigRow stacked searchAnchor="json_minifier:row5">
+            <ConfigRow
+              icon={ScanSearch}
+              label={t('tools.json_minifier.row_extract')}
+              hint={t('tools.json_minifier.row_extract_hint')}
+              searchAnchor="json_minifier:row5"
+            >
               <div className="flex flex-wrap items-center gap-2">
                 <Select value={extractId} onValueChange={(v) => setExtractId(v as ExtractPresetId)}>
                   <SelectTrigger

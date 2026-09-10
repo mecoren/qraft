@@ -76,54 +76,42 @@ export function ConfigRow({
   children,
   className,
   searchAnchor,
-  stacked = false,
 }: {
   icon?: LucideIcon;
-  /** 行小标题;stacked 布局下可缺省(如分组名已并入控件 aria-label 的纯按钮排) */
+  /** 行小标题(左侧提示);缺省时控件列占满整行 */
   label?: string;
   hint?: string;
   children?: ReactNode;
   className?: string;
   /** 全局搜索锚点(完整值 `${toolId}:${key}`),用于搜索跳转定位高亮 */
   searchAnchor?: string;
-  /**
-   * 纵向堆叠布局:label(+hint)独占一行小标题,控件独占下一行满宽。
-   * 适用于控件很宽的行(如文本处理工具的多组转换按钮)——默认左右布局里
-   * 控件列 shrink-0 会把 label 列(min-w-0 flex-1)压成 0 宽,文字逐字竖排。
-   * label 缺省时不渲染小标题行,控件直接从行首铺开。
-   */
-  stacked?: boolean;
 }): JSX.Element {
-  if (stacked) {
-    return (
-      <div
-        className={cn('flex-col items-stretch gap-1.5 px-4 py-2', className)}
-        data-search-anchor={searchAnchor}
-      >
-        {label ? (
-          <div className="flex min-w-0 items-center gap-2">
-            {Icon ? <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : null}
-            <span className="text-body-sm">{label}</span>
-            {hint ? (
-              <span className="min-w-0 truncate text-xs text-muted-foreground">{hint}</span>
-            ) : null}
-          </div>
-        ) : null}
-        <div className="flex min-w-0 flex-wrap items-center gap-2">{children}</div>
-      </div>
-    );
-  }
+  // 左右布局的防压零宽契约:
+  // - label 列 w-fit + shrink-0(不参与压缩),max-w-40 + truncate 兜住
+  //   超长文案;控件再多也压不瘪左侧提示(曾因 flex-1 被压成 0 宽逐字竖排);
+  // - 控件列 flex-1 + flex-wrap:超出横向空间自动换行,而不挤压 label。
+  //   换行后行高自然增高,后续行由 ConfigSection 的 divide-y 分隔。
+  // - 控件列 justify-end:窄控件(Select / Switch 等)沿右侧对齐,
+  //   与 label 之间由 flex-1 的空隙自然隔开,是仓库既有的视觉基准。
   return (
     <div
-      className={cn('flex items-center gap-3 px-4 py-2.5', className)}
+      className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5', className)}
       data-search-anchor={searchAnchor}
     >
-      {Icon ? <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : null}
-      <div className="min-w-0 flex-1">
-        <div className="text-body-sm">{label}</div>
-        {hint ? <div className="text-xs text-muted-foreground">{hint}</div> : null}
-      </div>
-      <div className="flex shrink-0 items-center gap-2">{children}</div>
+      {label !== undefined ? (
+        <div className="flex w-fit max-w-40 shrink-0 items-center gap-2">
+          {Icon ? <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : null}
+          <div className="min-w-0">
+            <div className="truncate text-body-sm">{label}</div>
+            {hint ? (
+              <div className="truncate text-xs text-muted-foreground" title={hint}>
+                {hint}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">{children}</div>
     </div>
   );
 }
