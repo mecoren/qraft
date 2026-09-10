@@ -328,6 +328,11 @@ describe('TextProcessor component', () => {
     expect(screen.queryByTestId('textproc-btn-camelCase')).not.toBeInTheDocument();
     expect(screen.getByTestId('textproc-btn-escape')).toBeInTheDocument();
 
+    // 切换图标位于首行紧凑标题行:标题「配置」居左 + 图标居右
+    const header = screen.getByTestId('textproc-config-header');
+    expect(header).toHaveTextContent('配置');
+    expect(header).toContainElement(screen.getByTestId('textproc-more-toggle'));
+
     // 点击右上角切换图标 → 展开区出现,进阶按钮可见
     fireEvent.click(screen.getByTestId('textproc-more-toggle'));
     expect(screen.getByTestId('textproc-more-config')).toBeInTheDocument();

@@ -17,6 +17,8 @@ export function ConfigSection({
   children,
   className,
   searchAnchor,
+  headerAction,
+  headerTestId,
 }: {
   /** 卡片标题;缺省用「配置」;传入空字符串时不渲染标题文字(仅保留无障碍名称) */
   title?: string;
@@ -24,9 +26,33 @@ export function ConfigSection({
   className?: string;
   /** 全局搜索锚点(完整值 `${toolId}:${key}`),用于搜索跳转定位高亮 */
   searchAnchor?: string;
+  /** 标题行右侧动作(如折叠/展开切换按钮);传入时标题恒渲染(独立紧凑标题行) */
+  headerAction?: ReactNode;
+  /** 标题行的 data-testid(配合 headerAction 断言) */
+  headerTestId?: string;
 }): JSX.Element {
   const { t } = useTranslation();
   const resolvedTitle = title ?? t('chrome.config_card.title');
+  if (headerAction) {
+    // 紧凑标题行变体:标题居左 + 动作居右,整行 h-7 低于配置行
+    // (py-2.5),带下边线与后续行分隔;适合「配置 + 展开/收起」这类顶栏
+    return (
+      <section
+        aria-label={resolvedTitle || t('chrome.config_card.title')}
+        className={className}
+        data-search-anchor={searchAnchor}
+      >
+        <div
+          className="flex h-7 items-center justify-between border-b border-border px-3"
+          data-testid={headerTestId}
+        >
+          <h2 className="text-xs font-semibold text-foreground">{resolvedTitle}</h2>
+          {headerAction}
+        </div>
+        <div className="divide-y divide-border border-b border-border">{children}</div>
+      </section>
+    );
+  }
   return (
     <section
       aria-label={resolvedTitle || t('chrome.config_card.title')}

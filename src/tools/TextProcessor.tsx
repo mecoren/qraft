@@ -1041,25 +1041,28 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="text-processor"
     >
-      <ConfigSection title="" searchAnchor="json_minifier:config" className="relative">
-        {/* 进阶区切换按钮:常驻条右上角(绝对定位,不占行内空间),
-            展开时图标转 ChevronsUp 语义收起 */}
-        <button
-          type="button"
-          data-testid="textproc-more-toggle"
-          aria-pressed={moreOpen}
-          title={t('tools.json_minifier.more_toggle')}
-          aria-label={t('tools.json_minifier.more_toggle')}
-          onClick={() => setMoreOpen((v) => !v)}
-          className="absolute right-2 top-2 z-10 flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {moreOpen ? (
-            <ChevronsUp aria-hidden className="size-3.5" />
-          ) : (
-            <ChevronsDown aria-hidden className="size-3.5" />
-          )}
-        </button>
-
+      <ConfigSection
+        searchAnchor="json_minifier:config"
+        headerTestId="textproc-config-header"
+        headerAction={
+          /* 进阶区切换按钮:标题行右侧;展开时图标转 ChevronsUp 语义收起 */
+          <button
+            type="button"
+            data-testid="textproc-more-toggle"
+            aria-pressed={moreOpen}
+            title={t('tools.json_minifier.more_toggle')}
+            aria-label={t('tools.json_minifier.more_toggle')}
+            onClick={() => setMoreOpen((v) => !v)}
+            className="flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {moreOpen ? (
+              <ChevronsUp aria-hidden className="size-3.5" />
+            ) : (
+              <ChevronsDown aria-hidden className="size-3.5" />
+            )}
+          </button>
+        }
+      >
         <ConfigRow
           icon={Wand2}
           label={t('tools.json_minifier.row_transform')}
