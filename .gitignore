@@ -55,3 +55,6 @@ vitest-result.json
 
 # Testing
 coverage/
+
+# 浏览器 UI 实测截图(会话性验证证据,不入库)
+gui-test-screenshots/
