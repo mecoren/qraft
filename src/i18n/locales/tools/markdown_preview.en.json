@@ -75,5 +75,12 @@
   "tools.markdown_preview.rename": "Rename",
   "tools.markdown_preview.pin": "Pin",
   "tools.markdown_preview.new_doc": "New Markdown document",
-  "tools.markdown_preview.rename_dialog_title": "Rename tab"
+  "tools.markdown_preview.rename_dialog_title": "Rename tab",
+  "tools.markdown_preview.export_md": "Save as Markdown file",
+  "tools.markdown_preview.export_print": "Print / Export PDF",
+  "tools.markdown_preview.focus_mode": "Focus",
+  "tools.markdown_preview.focus_mode_aria": "Focus mode (dim paragraphs away from cursor)",
+  "tools.markdown_preview.remote_images": "Remote images",
+  "tools.markdown_preview.remote_images_aria": "Load remote images (requires network)",
+  "tools.markdown_preview.remote_blocked": "Remote image blocked by the local-first policy. Enable Remote images in the toolbar to load it."
 }

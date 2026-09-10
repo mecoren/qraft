@@ -16,7 +16,7 @@
  */
 
 const STYLE_SELECTOR_WHITELIST =
-  /markdown-body|md-theme|md-toc|md-code|md-mermaid|md-fn|md-math|md-footnote|\bkatex\b|\.hljs|data-md-/;
+  /markdown-body|markdown-alert|md-theme|md-toc|md-code|md-mermaid|md-fn|md-math|md-mark|md-footnote|md-frontmatter|\bkatex\b|\.hljs|data-md-/;
 
 interface CssRuleLike {
   cssText: string;
@@ -157,17 +157,39 @@ export async function saveStandaloneHtml(html: string, fileName: string): Promis
     throw new Error(result.error.message);
   } catch {
     // 非 Tauri 环境:Blob 下载兜底(dev)
-    try {
-      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = fileName;
-      anchor.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      return true;
-    } catch {
-      return false;
-    }
+    return downloadTextBlob(html, fileName, 'text/html;charset=utf-8');
+  }
+}
+
+/** 另存纯文本文件(.md 等):与 HTML 同一保存对话框通道,UTF-8 无 BOM */
+export async function saveTextFile(text: string, fileName: string): Promise<boolean> {
+  try {
+    const { safeInvoke } = await import('@/lib/ipc');
+    const result = await safeInvoke<string | null>('fs_save_text_file_encoded', {
+      fileName,
+      content: text,
+      encoding: 'utf-8',
+    });
+    if (result.ok && result.value) return true;
+    if (result.ok) return false; // 用户取消对话框
+    throw new Error(result.error.message);
+  } catch {
+    return downloadTextBlob(text, fileName, 'text/markdown;charset=utf-8');
+  }
+}
+
+/** 浏览器环境兜底:Blob 下载 */
+function downloadTextBlob(text: string, fileName: string, mime: string): boolean {
+  try {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
+  } catch {
+    return false;
   }
 }

@@ -75,5 +75,12 @@
   "tools.markdown_preview.rename": "重命名",
   "tools.markdown_preview.pin": "固定",
   "tools.markdown_preview.new_doc": "新建 Markdown 文档",
-  "tools.markdown_preview.rename_dialog_title": "重命名 Tab"
+  "tools.markdown_preview.rename_dialog_title": "重命名 Tab",
+  "tools.markdown_preview.export_md": "另存为 Markdown 文件",
+  "tools.markdown_preview.export_print": "打印 / 导出 PDF",
+  "tools.markdown_preview.focus_mode": "聚焦",
+  "tools.markdown_preview.focus_mode_aria": "聚焦模式(淡化非当前段落)",
+  "tools.markdown_preview.remote_images": "远程图片",
+  "tools.markdown_preview.remote_images_aria": "加载远程图片(需要联网)",
+  "tools.markdown_preview.remote_blocked": "远程图片已按本地优先原则拦截,可在工具栏开启「远程图片」加载"
 }

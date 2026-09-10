@@ -42,12 +42,21 @@ interface MarkdownPreviewState {
   syncScroll: boolean;
   /** 打字机模式:输入时滚动保持光标行居中(Typora 行为) */
   typewriterMode: boolean;
+  /** 聚焦模式:非当前段落淡化(Typora/MarkText 写作模式) */
+  focusMode: boolean;
+  /**
+   * 加载远程图片(http(s) 引用)。默认关闭:Local-First 原则下预览不主动
+   * 出网,开启后 WebView 才会请求远程图床
+   */
+  loadRemoteImages: boolean;
 
   setThemeId: (themeId: MdThemeId) => void;
   setViewMode: (viewMode: MdViewMode) => void;
   toggleOutline: () => void;
   setSyncScroll: (syncScroll: boolean) => void;
   setTypewriterMode: (typewriterMode: boolean) => void;
+  setFocusMode: (focusMode: boolean) => void;
+  setLoadRemoteImages: (loadRemoteImages: boolean) => void;
 }
 
 export const useMarkdownPreviewStore = create<MarkdownPreviewState>()(
@@ -58,12 +67,16 @@ export const useMarkdownPreviewStore = create<MarkdownPreviewState>()(
       outlineOpen: true,
       syncScroll: true,
       typewriterMode: false,
+      focusMode: false,
+      loadRemoteImages: false,
 
       setThemeId: (themeId) => set({ themeId }),
       setViewMode: (viewMode) => set({ viewMode }),
       toggleOutline: () => set((s) => ({ outlineOpen: !s.outlineOpen })),
       setSyncScroll: (syncScroll) => set({ syncScroll }),
       setTypewriterMode: (typewriterMode) => set({ typewriterMode }),
+      setFocusMode: (focusMode) => set({ focusMode }),
+      setLoadRemoteImages: (loadRemoteImages) => set({ loadRemoteImages }),
     }),
     {
       name: 'qraft_markdown_preview_v1',

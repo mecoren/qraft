@@ -12,5 +12,6 @@ pub mod fs_large_file;
 pub mod history;
 pub mod image;
 pub mod ip_lookup;
+pub mod md_assets;
 pub mod regex_lab;
 pub mod tool;

@@ -1551,6 +1551,114 @@
   text-decoration: none;
 }
 
+/* —— GitHub Alerts(> [!NOTE] 等 5 类):左侧色条 + 标题着色,配色对齐 GitHub —— */
+.markdown-body .markdown-alert {
+  --alert-accent: #0969da;
+  --alert-fg: #0969da;
+  margin: 1em 0;
+  padding: 0.6em 1em;
+  border-left: 0.25em solid var(--alert-accent);
+  color: var(--md-text);
+}
+.markdown-body .markdown-alert .markdown-alert-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  margin: 0 0 0.35em;
+  font-weight: 600;
+  font-size: 1em;
+  color: var(--alert-fg);
+}
+.markdown-body .markdown-alert > :last-child {
+  margin-bottom: 0;
+}
+.markdown-body .markdown-alert-note {
+  --alert-accent: #0969da;
+  --alert-fg: #0969da;
+}
+.markdown-body .markdown-alert-tip {
+  --alert-accent: #1a7f37;
+  --alert-fg: #1a7f37;
+}
+.markdown-body .markdown-alert-important {
+  --alert-accent: #8250df;
+  --alert-fg: #8250df;
+}
+.markdown-body .markdown-alert-warning {
+  --alert-accent: #9a6700;
+  --alert-fg: #9a6700;
+}
+.markdown-body .markdown-alert-caution {
+  --alert-accent: #cf222e;
+  --alert-fg: #cf222e;
+}
+.dark .markdown-body .markdown-alert-note,
+.dark .markdown-body .markdown-alert-tip,
+.dark .markdown-body .markdown-alert-important {
+  --alert-accent: #4493f8;
+  --alert-fg: #4493f8;
+}
+.dark .markdown-body .markdown-alert-tip {
+  --alert-accent: #3fb950;
+  --alert-fg: #3fb950;
+}
+.dark .markdown-body .markdown-alert-important {
+  --alert-accent: #ab7df8;
+  --alert-fg: #ab7df8;
+}
+.dark .markdown-body .markdown-alert-warning {
+  --alert-accent: #d29922;
+  --alert-fg: #d29922;
+}
+.dark .markdown-body .markdown-alert-caution {
+  --alert-accent: #f85149;
+  --alert-fg: #f85149;
+}
+
+/* —— ==高亮==(Typora / Obsidian 语法)—— */
+.markdown-body .md-mark {
+  padding: 0.08em 0.2em;
+  border-radius: 3px;
+  background: oklch(0.9 0.12 100);
+  color: inherit;
+}
+.dark .markdown-body .md-mark {
+  background: oklch(0.55 0.13 85);
+}
+
+/* —— Front matter 属性表(置顶键值区,GitHub 上下文元信息风格)—— */
+.markdown-body .md-frontmatter {
+  margin-bottom: 1.25em;
+  padding: 0.6em 1em;
+  border: 1px solid var(--md-border);
+  border-radius: 8px;
+  background: var(--md-toc-bg);
+  font-size: 0.82em;
+}
+.markdown-body .md-frontmatter table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  border: 0;
+  overflow-x: auto;
+}
+.markdown-body .md-frontmatter th,
+.markdown-body .md-frontmatter td {
+  padding: 0.25em 0.75em 0.25em 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  vertical-align: top;
+  white-space: pre-wrap;
+}
+.markdown-body .md-frontmatter th {
+  width: 1%;
+  white-space: nowrap;
+  color: var(--md-muted);
+  font-weight: 600;
+}
+
 /* —— 脚注悬浮预览气泡(JS 定位,挂在滚动容器内随滚动联动)—— */
 .md-fn-popover {
   position: absolute;

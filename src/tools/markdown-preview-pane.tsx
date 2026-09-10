@@ -29,6 +29,7 @@ import { showAlert } from '@/lib/toast-alert';
 import { renderMarkdown, type OutlineItem, type RenderResult } from './markdown-render';
 import { renderMarkdownAsync } from './markdown-render-client';
 import { renderMermaidIn } from './markdown-mermaid';
+import { resolveAssetImages } from './markdown-image-assets';
 import { useMarkdownPreviewStore } from './markdownPreviewStore';
 
 /** 渲染防抖间隔(ms):输入到预览刷新的延迟 */
@@ -79,6 +80,8 @@ export interface MarkdownPreviewPaneProps {
   onArticle?: (el: HTMLElement | null) => void;
   /** 附加滚动监听(在内部 rAF 节流之外原样触发) */
   onScroll?: () => void;
+  /** 预览区双击代理:宿主用于跳回编辑器对应源行(元素 → 源行映射由宿主实现) */
+  onSourceLocate?: (target: HTMLElement) => void;
 }
 
 export function MarkdownPreviewPane({
@@ -89,15 +92,20 @@ export function MarkdownPreviewPane({
   onScroller,
   onArticle,
   onScroll,
+  onSourceLocate,
 }: MarkdownPreviewPaneProps): JSX.Element {
   const { t } = useTranslation();
   const themeId = useMarkdownPreviewStore((s) => s.themeId);
+  const loadRemoteImages = useMarkdownPreviewStore((s) => s.loadRemoteImages);
   /** 空文档提示:宿主未提供时按当前语言取默认文案(语言切换即重算) */
   const resolvedEmptyHint = emptyHint ?? t('tools.markdown_preview.empty_hint');
 
-  // 首帧直接渲染初始内容(同步路径),避免空窗;后续更新经 Worker 异步推进
-  const initialRendered = useMemo(() => renderMarkdown(source), [source]);
-  const [rendered, setRendered] = useState<RenderResult>(initialRendered);
+  // 首帧直接渲染初始内容(同步路径),避免空窗;后续更新经 Worker 异步推进。
+  // 惰性 useState 只在挂载时执行一次:后续 source 变化由下方 Worker effect
+  // 接管,主线程不再做任何同步渲染(曾用 useMemo 依赖 [source],导致每次
+  // 键击都在主线程跑一遍完整渲染然后丢弃,恰是 Worker 管线要隔离的开销)。
+  // mdasset: 引用若存在,挂载后由首拍 Worker 渲染替换为 data URL。
+  const [rendered, setRendered] = useState<RenderResult>(() => renderMarkdown(source));
   /** 渲染请求代际:仅应用最新一次结果,丢弃过期异步响应 */
   const renderGenRef = useRef(0);
 
@@ -107,6 +115,20 @@ export function MarkdownPreviewPane({
 
   const articleRef = useRef<HTMLElement | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * 远程图片拦截:Local-First 原则下默认不出网。开关关闭时把 http(s) img
+   * 的 src 摘到 data-md-blocked-src 并置空(不渲染、不请求,无裂图),
+   * 点击代理区显示「远程图片已拦截」占位;开启时原样放行。
+   * 本地引用(asset:/data:/blob:/相对路径)不受影响。
+   */
+  const renderableHtml = useMemo(() => {
+    if (loadRemoteImages) return rendered.html;
+    return rendered.html.replace(
+      /(<img\b[^>]*?\bsrc)="(https?:\/\/[^"]+)"/gi,
+      (_whole: string, attr: string, url: string) => `${attr}="" data-md-blocked-src="${url}"`,
+    );
+  }, [rendered.html, loadRemoteImages]);
 
   /** 图片 lightbox 当前展示的 src(null=关闭) */
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -121,9 +143,12 @@ export function MarkdownPreviewPane({
   useEffect(() => {
     const gen = ++renderGenRef.current;
     const apply = (fast: boolean): void => {
-      void renderMarkdownAsync(source, fast).then((result) => {
+      void renderMarkdownAsync(source, fast).then(async (result) => {
         if (gen !== renderGenRef.current) return;
-        setRendered(result);
+        // mdasset: 图片引用 → data URL(纯本地读取;带缓存,无引用时零开销)
+        const html = await resolveAssetImages(result.html);
+        if (gen !== renderGenRef.current) return;
+        setRendered({ ...result, html });
         onRendered?.(result);
       });
     };
@@ -162,10 +187,17 @@ export function MarkdownPreviewPane({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [lightboxSrc]);
 
-  /** 预览区点击代理:图片 lightbox / 代码块复制按钮 / 锚点链接 / 外部链接 */
+  /** 预览区点击代理:图片 lightbox / 代码块复制按钮 / 锚点链接 / 外部链接 / 被拦截图片提示 */
   const handleArticleClick = useCallback(
     (event: MouseEvent<HTMLElement>) => {
       const target = event.target as HTMLElement;
+
+      // 被拦截的远程图片:提示原因(不放大、不请求)
+      if (target.closest('[data-md-blocked-src]')) {
+        event.preventDefault();
+        showAlert({ variant: 'info', title: t('tools.markdown_preview.remote_blocked') });
+        return;
+      }
 
       // 图片 → lightbox 放大
       const image = target.closest('img');
@@ -207,6 +239,21 @@ export function MarkdownPreviewPane({
       }
     },
     [t],
+  );
+
+  /** 预览区双击代理:VSCode 行为——双击任意预览元素跳回编辑器对应源行 */
+  const handleArticleDoubleClick = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      if (!onSourceLocate) return;
+      // 忽略双击的纯交互控件(代码复制按钮/任务勾选),仅正文元素触发
+      const target = event.target as HTMLElement;
+      if (target.closest('[data-md-copy]')) return;
+      const block = target.closest(
+        'p,li,blockquote,pre,table,h1,h2,h3,h4,h5,h6,.md-code,.md-mermaid',
+      );
+      if (block instanceof HTMLElement) onSourceLocate(block);
+    },
+    [onSourceLocate],
   );
 
   /** 脚注引用悬停:在滚动容器内定位内容气泡(随内容滚动联动) */
@@ -275,8 +322,9 @@ export function MarkdownPreviewPane({
               data-testid="md-preview"
               className={`markdown-body md-theme-${themeId}`}
               // eslint-disable-next-line react-dom/no-dangerously-set-innerhtml -- 已在 markdown-render.ts 经 DOMPurify 白名单消毒
-              dangerouslySetInnerHTML={{ __html: rendered.html }}
+              dangerouslySetInnerHTML={{ __html: renderableHtml }}
               onClick={handleArticleClick}
+              onDoubleClick={handleArticleDoubleClick}
               onMouseOver={handleArticleMouseOver}
               onMouseOut={handleArticleMouseOut}
             />

@@ -248,8 +248,7 @@ export interface HeadingMeta {
  * 并递归下钻 list/blockquote 等嵌套 tokens,与 marked 的渲染展开顺序一致。
  *
  * @param source 预处理后的源文本(必须与传给渲染器的一致)
- */
-export function extractHeadingLines(source: string): number[] {
+ */ export function extractHeadingLines(source: string): number[] {
   const lines: number[] = [];
   let searchFrom = 0;
 
@@ -420,6 +419,133 @@ const subscriptExtension = {
 };
 
 // ============================================================
+// 高亮扩展(Typora / Obsidian 语法:==mark==)
+// ============================================================
+
+const highlightExtension = {
+  name: 'mdHighlight',
+  level: 'inline' as const,
+  start(src: string): number | undefined {
+    const idx = src.indexOf('==');
+    return idx === -1 ? undefined : idx;
+  },
+  tokenizer(this: TokenizerThis, src: string): SimpleToken | undefined {
+    const match = /^==(?!\s)([^=\s](?:[^=]*[^=\s])?)==/.exec(src);
+    if (!match) return undefined;
+    return { type: 'mdHighlight', raw: match[0], text: match[1] };
+  },
+  renderer(this: RendererThis, token: Tokens.Generic): string {
+    return `<mark class="md-mark">${escapeHtml(String(token.text))}</mark>`;
+  },
+};
+
+// ============================================================
+// 反引号行内公式扩展(GitHub 语法:$`...`$)
+// ============================================================
+
+const inlineCodeMathExtension = {
+  name: 'inlineCodeMath',
+  level: 'inline' as const,
+  start(src: string): number | undefined {
+    const idx = src.indexOf('$`');
+    return idx === -1 ? undefined : idx;
+  },
+  tokenizer(this: TokenizerThis, src: string): SimpleToken | undefined {
+    const match = /^\$`([^`]*)`\$/.exec(src);
+    if (!match) return undefined;
+    return { type: 'inlineCodeMath', raw: match[0], text: match[1] };
+  },
+  renderer(this: RendererThis, token: Tokens.Generic): string {
+    return renderKatex(String(token.text), false);
+  },
+};
+
+// ============================================================
+// GitHub Alerts 扩展(> [!NOTE] / [!TIP] / [!IMPORTANT] / [!WARNING] / [!CAUTION])
+//
+// 输出结构与 GitHub 官方渲染一致(div.markdown-alert + 标题行),仅以
+// Unicode 图形符号代替 octicon SVG(避免 Worker 内打包图标资源)。
+// Obsidian 的折叠语法(+/-)不跟进:GitHub 端不折叠,保持单一事实源。
+// ============================================================
+
+/** GitHub alerts 5 类;标识符大小写不敏感(GitHub 行为) */
+const ALERT_TYPES: ReadonlyArray<{ type: string; label: string; icon: string }> = [
+  { type: 'note', label: 'Note', icon: 'ℹ' },
+  { type: 'tip', label: 'Tip', icon: '💡' },
+  { type: 'important', label: 'Important', icon: '❗' },
+  { type: 'warning', label: 'Warning', icon: '⚠' },
+  { type: 'caution', label: 'Caution', icon: '⛔' },
+];
+
+function matchAlertType(tag: string): (typeof ALERT_TYPES)[number] | null {
+  const lower = tag.toLowerCase();
+  return ALERT_TYPES.find((item) => item.type === lower) ?? null;
+}
+
+const alertExtension = {
+  name: 'githubAlert',
+  level: 'block' as const,
+  start(src: string): number | undefined {
+    const idx = src.search(/^> ?\[!/m);
+    return idx === -1 ? undefined : idx;
+  },
+  tokenizer(this: TokenizerThis, src: string, _lexer: unknown): SimpleToken | undefined {
+    // 仅匹配单行引用头(> [!NOTE]);随后的引用体行在此一并消费并
+    // 预解析为 tokens(嵌套列表/表格/公式走标准 lexer,renderer 直接展开)
+    const match = /^> ?\[!(\w+)\][ \t]*\n/.exec(src);
+    if (!match) return undefined;
+    const meta = matchAlertType(match[1] ?? '');
+    if (!meta) return undefined;
+
+    let consumed = match[0];
+    const rest = src.slice(match[0].length);
+    let pos = 0;
+    const quoteLines: string[] = [];
+    while (pos < rest.length) {
+      const m = /^>(?:[ \t][^\n]*|[ \t]*)?\n?/.exec(rest.slice(pos));
+      if (!m || m[0] === '') break;
+      quoteLines.push(m[0]);
+      pos += m[0].length;
+    }
+    const body = quoteLines.join('');
+    consumed += body;
+
+    // 引用体剥掉 > 前缀后预词法分析(marked block extension 惯例:
+    // renderer 的 parser.parse 只吃 token 数组,不能现场喂字符串)
+    const token: SimpleToken = {
+      type: 'githubAlert',
+      raw: consumed,
+      text: body.replace(/^> ?/gm, ''),
+      alertType: meta.type,
+    };
+    try {
+      token.tokens = this.lexer.blockTokens(token.text as string);
+    } catch {
+      token.tokens = [];
+    }
+    return token;
+  },
+  renderer(this: RendererThis, token: Tokens.Generic): string {
+    const meta = ALERT_TYPES.find((item) => item.type === token.alertType) ?? ALERT_TYPES[0];
+    if (!meta) return '';
+    let inner = '';
+    try {
+      const tokens = (token.tokens ?? []) as unknown as Token[];
+      if (tokens.length > 0) inner = String(this.parser.parse(tokens));
+    } catch {
+      inner = '';
+    }
+    if (!inner) inner = `<p>${escapeHtml(String(token.text ?? ''))}</p>`;
+    return (
+      `<div class="markdown-alert markdown-alert-${meta.type}">` +
+      `<p class="markdown-alert-title">${meta.icon} ${meta.label}</p>` +
+      inner +
+      '</div>\n'
+    );
+  },
+};
+
+// ============================================================
 // 脚注预处理([^label]: 定义 + [^label] 引用)
 // ============================================================
 
@@ -583,7 +709,7 @@ function createRendererObject(
       );
     },
 
-    /** 围栏代码块:mermaid → 占位容器;其余 → hljs 高亮 + 语言徽标 + 复制按钮 */
+    /** 围栏代码块:mermaid/math → 专属容器;其余 → hljs 高亮 + 语言徽标 + 复制按钮 */
     code({ text, lang }: Tokens.Code): string {
       const langTag =
         lang
@@ -597,6 +723,11 @@ function createRendererObject(
           encodeURIComponent(text) +
           `"><pre class="md-mermaid-src">${escapeHtml(text)}</pre></div>`
         );
+      }
+
+      // GitHub ```math 围栏:等价块级 $$ 公式,无需 $ 定界符
+      if (langTag === 'math') {
+        return renderKatex(text, true);
       }
 
       const hljsLang = resolveHighlightLang(langTag);
@@ -621,14 +752,295 @@ function createRendererObject(
 }
 
 // ============================================================
-// Marked 实例组装(每次渲染新建实例,避免 use() 累积副作用)
+// Front matter(YAML 头)预处理与属性表渲染
+//
+// 约束:不引入 YAML 解析依赖,只做「键: 值」一级行的宽容提取;
+// 复杂结构(嵌套/数组)整行作为值文本展示。仅在文档首行是 --- 时生效。
 // ============================================================
+
+export interface FrontMatterEntry {
+  key: string;
+  value: string;
+}
+
+/**
+ * 剥离文档头部的 YAML front matter(`---` 与下一个 `---`/`...` 之间)。
+ * 无 front matter 时返回原文本与 null。
+ */
+export function stripFrontMatter(source: string): {
+  body: string;
+  entries: FrontMatterEntry[] | null;
+} {
+  if (!/^---[ \t]*\r?\n/.test(source)) return { body: source, entries: null };
+  const lines = source.split('\n');
+  // 首行为 ---,找闭合的 ---/...(整行,允许 4 空格以内缩进,对齐 YAML 惯例)
+  let end = -1;
+  for (let i = 1; i < lines.length; i += 1) {
+    const raw = lines[i] ?? '';
+    if (/^ {0,3}(---|\.\.\.)[ \t]*$/.test(raw)) {
+      end = i;
+      break;
+    }
+    // 键值行 / 空行 / 缩进行可继续;其余视为正文,front matter 未闭合
+    if (raw.trim() && !/^[ \t]/.test(raw) && !/^([A-Za-z0-9_][^:]*):/.test(raw.trim())) break;
+  }
+  if (end === -1) return { body: source, entries: null };
+
+  const entries: FrontMatterEntry[] = [];
+  for (let i = 1; i < end; i += 1) {
+    const match = /^([A-Za-z0-9_][^:]*):(?:[ \t]+(.*))?$/.exec((lines[i] ?? '').trim());
+    if (match) entries.push({ key: match[1].trim(), value: (match[2] ?? '').trim() });
+  }
+  return { body: lines.slice(end + 1).join('\n'), entries };
+}
+
+/** 把 front matter 条目渲染为置顶属性表(GitHub 上下文键值区风格) */
+function buildFrontMatterHtml(entries: readonly FrontMatterEntry[]): string {
+  if (entries.length === 0) return '';
+  const rows = entries
+    .map((e) => `<tr><th>${escapeHtml(e.key)}</th><td>${escapeHtml(e.value)}</td></tr>`)
+    .join('');
+  return `<div class="md-frontmatter"><table><tbody>${rows}</tbody></table></div>`;
+}
+
+// ============================================================
+// Emoji 短码(:smile: → 😀)—— GitHub 常用子集
+//
+// 约束:不引入 emoji 数据包(几十 KB);收录 GFM 场景高频短码约 160 个,
+// 键全部小写(短码大小写不敏感,对齐 GitHub)。未收录短码原样保留。
+// ============================================================
+
+const EMOJI_CODES: Readonly<Record<string, string>> = {
+  '+1': '👍',
+  '-1': '👎',
+  '100': '💯',
+  '1234': '🔢',
+  heart: '❤️',
+  ' Broken_Heart': '💔',
+  smile: '😄',
+  grin: '😁',
+  laughing: '😆',
+  joy: '😂',
+  rofl: '🤣',
+  wink: '😉',
+  blush: '😊',
+  slightly_smiling_face: '🙂',
+  upside_down_face: '🙃',
+  relief: '😌',
+  cry: '😢',
+  sob: '😭',
+  angry: '😠',
+  rage: '😡',
+  thinking: '🤔',
+  thinking_face: '🤔',
+  neutral_face: '😐',
+  expressionless: '😑',
+  confused: '😕',
+  flushed: '😳',
+  sunglasses: '😎',
+  sleeping: '😴',
+  dizzy_face: '😵',
+  mask: '😷',
+  star: '⭐',
+  sparkles: '✨',
+  zap: '⚡',
+  fire: '🔥',
+  boom: '💥',
+  tada: '🎉',
+  confetti_ball: '🎊',
+  balloon: '🎈',
+  cake: '🎂',
+  gift: '🎁',
+  bell: '🔔',
+  mega: '📣',
+  speech_balloon: '💬',
+  eyes: '👀',
+  eye: '👁️',
+  see_no_evil: '🙈',
+  hear_no_evil: '🙉',
+  speak_no_evil: '🙊',
+  point_up: '☝️',
+  point_down: '👇',
+  point_left: '👈',
+  point_right: '👉',
+  raised_hands: '🙌',
+  clap: '👏',
+  wave: '👋',
+  ok_hand: '👌',
+  muscle: '💪',
+  pray: '🙏',
+  handshake: '🤝',
+  white_check_mark: '✅',
+  heavy_check_mark: '✔️',
+  x: '❌',
+  negative_squared_cross_mark: '❎',
+  o: '⭕',
+  no_entry: '⛔',
+  no_entry_sign: '🚫',
+  warning: '⚠️',
+  question: '❓',
+  exclamation: '❗',
+  grey_question: '❔',
+  grey_exclamation: '❕',
+  bulb: '💡',
+  memo: '📝',
+  book: '📖',
+  books: '📚',
+  notebook: '📓',
+  calendar: '📆',
+  date: '📅',
+  pushpin: '📌',
+  paperclip: '📎',
+  scissors: '✂️',
+  pencil: '📝',
+  lock: '🔒',
+  unlock: '🔓',
+  key: '🔑',
+  hammer: '🔨',
+  wrench: '🔧',
+  gear: '⚙️',
+  package: '📦',
+  mailbox: '📫',
+  inbox_tray: '📥',
+  outbox_tray: '📤',
+  mag: '🔍',
+  rocket: '🚀',
+  airplane: '✈️',
+  car: '🚗',
+  turtle: '🐢',
+  seedling: '🌱',
+  evergreen_tree: '🌲',
+  deciduous_tree: '🌳',
+  palm_tree: '🌴',
+  cactus: '🌵',
+  tulip: '🌷',
+  cherry_blossom: '🌸',
+  rose: '🌹',
+  sunflower: '🌻',
+  blossom: '🌼',
+  maple_leaf: '🍁',
+  leaves: '🍃',
+  partly_sunny: '⛅',
+  sunny: '☀️',
+  umbrella: '☔',
+  snowflake: '❄️',
+  snowman: '☃️',
+  cyclone: '🌀',
+  rainbow: '🌈',
+  ocean: '🌊',
+  volcano: '🌋',
+  milky_way: '🌌',
+  earth_asia: '🌏',
+  new_moon: '🌑',
+  full_moon: '🌕',
+  sun_with_face: '🌞',
+  crescent_moon: '🌙',
+  coffee: '☕',
+  tea: '🍵',
+  beer: '🍺',
+  beers: '🍻',
+  cocktail: '🍸',
+  tropical_drink: '🍹',
+  wine_glass: '🍷',
+  pizza: '🍕',
+  hamburger: '🍔',
+  fries: '🍟',
+  shallow_pan_of_food: '🥘',
+  spaghetti: '🍝',
+  ramen: '🍜',
+  sushi: '🍣',
+  bento: '🍱',
+  rice: '🍚',
+  curry: '🍛',
+  soup: '🍲',
+  egg: '🥚',
+  bread: '🍞',
+  doughnut: '🍩',
+  cookie: '🍪',
+  chocolate_bar: '🍫',
+  candy: '🍬',
+  lollipop: '🍭',
+  honey_pot: '🍯',
+  green_apple: '🍏',
+  apple: '🍎',
+  pear: '🍐',
+  orange: '🍊',
+  lemon: '🍋',
+  banana: '🍌',
+  watermelon: '🍉',
+  grapes: '🍇',
+  strawberry: '🍓',
+  melon: '🍈',
+  cherry: '🍒',
+  peach: '🍑',
+  pineapple: '🍍',
+  computer: '💻',
+  desktop_computer: '🖥️',
+  minidisc: '💽',
+  floppy_disk: '💾',
+  cd: '💿',
+  dvd: '📀',
+  keyboard: '⌨️',
+  mouse: '🖱️',
+  printer: '🖨️',
+  camera: '📷',
+  video_camera: '📹',
+  tv: '📺',
+  radio: '📻',
+  phone: '☎️',
+  iphone: '📱',
+  battery: '🔋',
+  electric_plug: '🔌',
+  bug: '🐛',
+  ant: '🐜',
+  bee: '🐝',
+  hatched_chick: '🐥',
+  bird: '🐦',
+  penguin: '🐧',
+  dog: '🐶',
+  cat2: '🐱',
+  cat: '🐱',
+  bear: '🐻',
+  panda_face: '🐼',
+  tiger: '🐯',
+  lion_face: '🦁',
+  pig: '🐷',
+  frog: '🐸',
+  monkey_face: '🐵',
+  unicorn_face: '🦄',
+  octocat: ':octocat:',
+  trollface: '😠',
+};
+
+const emojiExtension = {
+  name: 'mdEmoji',
+  level: 'inline' as const,
+  start(src: string): number | undefined {
+    const idx = src.indexOf(':');
+    return idx === -1 ? undefined : idx;
+  },
+  tokenizer(this: TokenizerThis, src: string): SimpleToken | undefined {
+    // 词边界约束:冒号紧贴 \w,未收录短码整体原样返回(不吞时间 12:30)
+    const match = /^:([a-z0-9_+-]+):/i.exec(src);
+    if (!match) return undefined;
+    const emoji = EMOJI_CODES[match[1].toLowerCase()];
+    if (emoji === undefined || emoji.startsWith(':')) return undefined;
+    return { type: 'mdEmoji', raw: match[0], text: emoji };
+  },
+  renderer(this: RendererThis, token: Tokens.Generic): string {
+    return String(token.text ?? '');
+  },
+};
 
 const MARKED_EXTENSIONS = [
   blockMathExtension,
   inlineMathExtension,
+  inlineCodeMathExtension,
   superscriptExtension,
   subscriptExtension,
+  highlightExtension,
+  emojiExtension,
+  alertExtension,
 ];
 
 function createMarked(
@@ -679,10 +1091,14 @@ export function renderMarkdownCore(source: string, options: RenderOptions = {}):
   if (!source.trim()) return { html: '', outline: [], hasMermaid: false };
 
   const slugs = new Slugger();
+  // 0. front matter:首行 --- 时剥离头部,渲染为置顶属性表
+  //    (front matter 不参与正文渲染,故先于 TOC/脚注预处理)
+  const { body: withoutFm, entries: fmEntries } = stripFrontMatter(source);
+
   // 1. [toc] 占位:整行匹配替换为原始 HTML,marked 原样透传。
   //    注意结尾用 [ \t]*$:若用 \s*$ 会在 m 标志下吞掉行尾换行,
   //    使占位 div 与下一行合并为同一个 HTML 块,吸收后续标题
-  const withTocPlaceholder = source.replace(
+  const withTocPlaceholder = withoutFm.replace(
     /^[ \t]{0,3}\[(toc|目录)\][ \t]*$/gim,
     '<div class="md-toc-placeholder"></div>',
   );
@@ -711,11 +1127,12 @@ export function renderMarkdownCore(source: string, options: RenderOptions = {}):
     line: headingLines[index] ?? 1,
   }));
 
-  // 5. 回填 [toc] 目录与文末脚注
+  // 5. 回填 [toc] 目录与文末脚注;front matter 属性表置于最前
   const tocHtml = buildTocHtml(outline);
   if (tocHtml) rendered = rendered.replace('<div class="md-toc-placeholder"></div>', () => tocHtml);
   else rendered = rendered.replace('<div class="md-toc-placeholder"></div>', '');
   rendered += buildFootnotesHtml(defs, order, labels);
+  if (fmEntries) rendered = buildFrontMatterHtml(fmEntries) + rendered;
 
   return {
     html: rendered,

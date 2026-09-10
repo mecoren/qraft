@@ -44,6 +44,7 @@ import {
   PenLine,
   Pin,
   Plus,
+  Printer,
   Quote,
   Strikethrough,
   Table,
@@ -85,9 +86,10 @@ import { cn } from '@/lib/utils';
 import { computeDocStats, type DocStats, type OutlineItem } from './markdown-render';
 import { applyInlineWrap, toggleLinePrefixes, type LinePrefixMode } from './markdown-edit';
 import { htmlToMarkdown } from './markdown-paste';
+import { savePastedImage } from './markdown-image-assets';
 import { MarkdownPreviewPane, useIsDarkTheme } from './markdown-preview-pane';
 import { buildSyncAnchors, mapAcrossAnchors } from './markdown-scroll';
-import { buildStandaloneHtml, saveStandaloneHtml } from './markdown-export';
+import { buildStandaloneHtml, saveStandaloneHtml, saveTextFile } from './markdown-export';
 import { useMdDocsStore, type MdDoc } from './markdownPreviewDocsStore';
 import {
   THEME_ITEMS,
@@ -248,11 +250,15 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
   const outlineOpen = useMarkdownPreviewStore((s) => s.outlineOpen);
   const syncScroll = useMarkdownPreviewStore((s) => s.syncScroll);
   const typewriterMode = useMarkdownPreviewStore((s) => s.typewriterMode);
+  const focusMode = useMarkdownPreviewStore((s) => s.focusMode);
+  const loadRemoteImages = useMarkdownPreviewStore((s) => s.loadRemoteImages);
   const setThemeId = useMarkdownPreviewStore((s) => s.setThemeId);
   const setViewMode = useMarkdownPreviewStore((s) => s.setViewMode);
   const toggleOutline = useMarkdownPreviewStore((s) => s.toggleOutline);
   const setSyncScroll = useMarkdownPreviewStore((s) => s.setSyncScroll);
   const setTypewriterMode = useMarkdownPreviewStore((s) => s.setTypewriterMode);
+  const setFocusMode = useMarkdownPreviewStore((s) => s.setFocusMode);
+  const setLoadRemoteImages = useMarkdownPreviewStore((s) => s.setLoadRemoteImages);
 
   // —— 多 Tab 工作区(store 为模块级单例,状态跨挂载保留)——
   const docs = useMdDocsStore((s) => s.docs);
@@ -334,6 +340,21 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
   /** 滚动同步方向锁:'editor' | 'preview' | null,防止联动回环 */
   const syncingRef = useRef<{ source: 'editor' | 'preview'; until: number } | null>(null);
   const scrollRafRef = useRef<number | null>(null);
+
+  /** 聚焦模式:光标行中心相对编辑器视口的 y 坐标(遮罩高度由此换算) */
+  const [focusCursorY, setFocusCursorY] = useState<number | null>(null);
+  /** 编辑器内容区高度(onDidLayoutChange 更新,聚焦遮罩下缘换算用) */
+  const [editorViewportHeight, setEditorViewportHeight] = useState(0);
+
+  /** 换算聚焦遮罩高度:光标行上下各留 2.5 行清晰区,余下为渐隐遮罩 */
+  const focusMaskTop = useMemo(() => {
+    if (focusCursorY === null) return 0;
+    return Math.max(0, focusCursorY - 60);
+  }, [focusCursorY]);
+  const focusMaskBottom = useMemo(() => {
+    if (focusCursorY === null) return 0;
+    return Math.max(0, editorViewportHeight - focusCursorY - 60);
+  }, [focusCursorY, editorViewportHeight]);
 
   const stats = useMemo(() => computeDocStats(input), [input]);
 
@@ -634,6 +655,22 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
     insertRawText(text);
   }, [insertRawText, t]);
 
+  /**
+   * 聚焦模式:光标行中心 → 编辑器视口 y 坐标。
+   * 行高取相邻行 top 差(与滚动同步的 getTopForLineNumber 同源,
+   * 不引入 monaco 值包),失败退 20px。
+   */
+  const updateFocusCursorY = useCallback((instance: MonacoEditor.IStandaloneCodeEditor) => {
+    const position = instance.getPosition();
+    const model = instance.getModel();
+    if (!position || !model) return;
+    const top = instance.getTopForLineNumber(position.lineNumber);
+    const nextLine = Math.min(model.getLineCount(), position.lineNumber + 1);
+    const nextTop = instance.getTopForLineNumber(nextLine);
+    const lineHeight = Math.max(16, nextTop - top || 20);
+    setFocusCursorY(top + lineHeight / 2 - instance.getScrollTop());
+  }, []);
+
   /** CodeEditor onMount:捕获实例与 monaco 命名空间,挂监听并注册快捷键 */
   const handleEditorMount = useCallback(
     (instance: MonacoEditor.IStandaloneCodeEditor, monacoNs: Monaco) => {
@@ -649,6 +686,14 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
       // —— 光标 / 选区统计(live store 局部订阅)——
       instance.onDidChangeCursorPosition((e) => {
         setMdCursor(e.position.lineNumber, e.position.column);
+        updateFocusCursorY(instance);
+      });
+
+      // —— 聚焦模式:滚动/布局变化时光标行的视口 y 同步重算 ——
+      instance.onDidScrollChange(() => updateFocusCursorY(instance));
+      instance.onDidLayoutChange((e) => {
+        setEditorViewportHeight(e.height);
+        updateFocusCursorY(instance);
       });
       instance.onDidChangeCursorSelection(() => {
         const model = instance.getModel();
@@ -668,6 +713,23 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
         const position = instance.getPosition();
         if (position) instance.revealLineInCenter(position.lineNumber);
       });
+
+      // —— 粘贴图片截获:位图落盘资产目录并插入 mdasset: 引用;
+      // 非图片粘贴走默认行为(纯文本 / HTML→Markdown 由 Ctrl+Shift+V 显式触发)。
+      // 挂 DOM 捕获阶段:Monaco onDidPaste 不暴露 clipboardData 文件 ——
+      const container = instance.getContainerDomNode();
+      const handlePaste = (event: ClipboardEvent): void => {
+        const files = event.clipboardData?.files;
+        if (!files || files.length === 0) return;
+        const image = Array.from(files).find((f) => f.type.startsWith('image/'));
+        if (!image) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        void savePastedImage(image).then((result) => {
+          if (result) insertRawText(result.markdown);
+        });
+      };
+      container.addEventListener('paste', handlePaste, true);
 
       // —— 快捷键(KeyMod/KeyCode 取自运行时命名空间,避免引入 monaco 值包)——
       // 占位文案在触发时经全局 translate 即时翻译(命令只注册一次,
@@ -697,7 +759,14 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
         () => void pasteAsMarkdown(),
       );
     },
-    [applyInline, applyLinePrefix, pasteAsMarkdown, syncEditorToPreview],
+    [
+      applyInline,
+      applyLinePrefix,
+      insertRawText,
+      pasteAsMarkdown,
+      syncEditorToPreview,
+      updateFocusCursorY,
+    ],
   );
 
   /** 大纲点击:预览平滑滚动至锚点 + 编辑器跳转对应源行 */
@@ -711,6 +780,37 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
     monacoRef.current?.revealLineInCenter(item.line);
     monacoRef.current?.setPosition({ lineNumber: item.line, column: 1 });
   }, []);
+
+  /** 双击预览元素 → 跳回编辑器对应源行:块内含标题按 outline 精确反查,
+   * 普通块取预览文档序中它之前最近的标题(其源行即所属章节起点) */
+  const handleSourceLocate = useCallback(
+    (block: HTMLElement) => {
+      const heading = block.matches('h1[id],h2[id],h3[id],h4[id],h5[id],h6[id]')
+        ? block
+        : (block.querySelector('h1[id],h2[id],h3[id],h4[id],h5[id],h6[id]') as HTMLElement | null);
+      let outlineItem = heading?.id ? outline.find((o) => o.id === heading.id) : undefined;
+
+      if (!outlineItem) {
+        const headings = articleRef.current?.querySelectorAll<HTMLElement>(
+          'h1[id],h2[id],h3[id],h4[id],h5[id],h6[id]',
+        );
+        if (headings) {
+          let prev: HTMLElement | null = null;
+          for (const h of headings) {
+            // compareDocumentPosition 返回 4 = block 在 h 之后(h 在 block 之前)
+            if (h.compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING) prev = h;
+            else break;
+          }
+          outlineItem = prev ? outline.find((o) => o.id === prev?.id) : undefined;
+        }
+      }
+      if (!outlineItem) return;
+      monacoRef.current?.revealLineInCenter(outlineItem.line);
+      monacoRef.current?.setPosition({ lineNumber: outlineItem.line, column: 1 });
+      monacoRef.current?.focus();
+    },
+    [outline],
+  );
 
   /** 请求关闭文档:一律先弹确认框防误关(非空内容确认后直接关闭,
    * Markdown 工具不设本地历史,关闭即丢,确认是唯一的挽留手段) */
@@ -779,6 +879,24 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
         title: t('tools.markdown_preview.toast_exported', { name: fileName }),
       });
   }, [effectiveDark, outline, t]);
+
+  /** 另存当前文档为 .md 文件(复用导出基建的保存对话框路径) */
+  const handleExportMarkdown = useCallback(async () => {
+    if (!activeDoc || !input.trim()) return;
+    const base = activeDoc.title.replace(/[\\/:*?"<>|]/g, '').slice(0, 40) || 'document';
+    const fileName = `${base}.md`;
+    const ok = await saveTextFile(fileName, input);
+    if (ok)
+      showAlert({
+        variant: 'success',
+        title: t('tools.markdown_preview.toast_exported', { name: fileName }),
+      });
+  }, [activeDoc, input, t]);
+
+  /** 打印 / 导出 PDF:系统打印对话框(CSS @media print 已铺好分页样式) */
+  const handlePrint = useCallback(() => {
+    window.print();
+  }, []);
 
   const showEditor = viewMode !== 'preview';
   const showPreview = viewMode !== 'edit';
@@ -1059,6 +1177,26 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
           />
         </label>
 
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {t('tools.markdown_preview.focus_mode')}
+          <Switch
+            checked={focusMode}
+            onCheckedChange={setFocusMode}
+            aria-label={t('tools.markdown_preview.focus_mode_aria')}
+            data-testid="md-focus-mode"
+          />
+        </label>
+
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {t('tools.markdown_preview.remote_images')}
+          <Switch
+            checked={loadRemoteImages}
+            onCheckedChange={setLoadRemoteImages}
+            aria-label={t('tools.markdown_preview.remote_images_aria')}
+            data-testid="md-remote-images"
+          />
+        </label>
+
         {/* 主题选择(同步滚动左侧):置顶全局工具条,预览标题栏仅保留复制/导出,
             与 CodeEditor 26px 标题栏严格等高,不再被 h-7 的 Select 撑高 */}
         <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -1101,113 +1239,137 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
             {showEditor && (
               <>
                 <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
-                  <CodeEditor
-                    // 切换 Tab 重挂编辑器:Monaco 实例与文档内容绑定(滚动同步/
-                    // 光标监听/快捷键注册都以单实例为前提),复用实例会串内容
-                    key={activeDocId ?? 'empty'}
-                    title="Markdown"
-                    language="markdown"
-                    value={input}
-                    onChange={setInput}
-                    placeholder={t('tools.markdown_preview.editor_placeholder')}
-                    data-testid="md-input"
-                    // 嵌入 shell:去掉编辑器自带圆角/边框(外框由 shell 提供);
-                    // 分屏时仅在朝向预览的一侧保留 border-r 作分栏分隔线,
-                    // 纯编辑模式下两侧都与 shell 边缘齐平
-                    className={cn('h-full rounded-none border-0', showPreview && 'border-r')}
-                    searchAnchor="markdown_preview:input"
-                    showPaste
-                    showOpenFile
-                    showClear
-                    showStatusBar={false}
-                    minimap={false}
-                    onMount={handleEditorMount}
-                    actions={
+                  {/* 聚焦模式容器:上下渐隐遮罩绝对定位于编辑器之上,
+                      随光标行 y 坐标移动(pointer-events 关闭,不影响编辑) */}
+                  <div className="relative h-full" data-testid="md-editor-focus-wrap">
+                    <CodeEditor
+                      // 切换 Tab 重挂编辑器:Monaco 实例与文档内容绑定(滚动同步/
+                      // 光标监听/快捷键注册都以单实例为前提),复用实例会串内容
+                      key={activeDocId ?? 'empty'}
+                      title="Markdown"
+                      language="markdown"
+                      value={input}
+                      onChange={setInput}
+                      placeholder={t('tools.markdown_preview.editor_placeholder')}
+                      data-testid="md-input"
+                      // 嵌入 shell:去掉编辑器自带圆角/边框(外框由 shell 提供);
+                      // 分屏时仅在朝向预览的一侧保留 border-r 作分栏分隔线,
+                      // 纯编辑模式下两侧都与 shell 边缘齐平
+                      className={cn('h-full rounded-none border-0', showPreview && 'border-r')}
+                      searchAnchor="markdown_preview:input"
+                      showPaste
+                      showOpenFile
+                      showClear
+                      showStatusBar={false}
+                      minimap={false}
+                      onMount={handleEditorMount}
+                      actions={
+                        <>
+                          {/* —— 格式工具栏(Typora 常用插入;快捷键见 addCommand)—— */}
+                          <MdFormatButton
+                            icon={Bold}
+                            title={t('tools.markdown_preview.fmt_bold')}
+                            testId="fmt-bold"
+                            onClick={() =>
+                              applyInline('**', '**', t('tools.markdown_preview.ph_bold'))
+                            }
+                          />
+                          <MdFormatButton
+                            icon={Italic}
+                            title={t('tools.markdown_preview.fmt_italic')}
+                            testId="fmt-italic"
+                            onClick={() =>
+                              applyInline('*', '*', t('tools.markdown_preview.ph_italic'))
+                            }
+                          />
+                          <MdFormatButton
+                            icon={Strikethrough}
+                            title={t('tools.markdown_preview.fmt_strike')}
+                            testId="fmt-strike"
+                            onClick={() =>
+                              applyInline('~~', '~~', t('tools.markdown_preview.ph_strike'))
+                            }
+                          />
+                          <MdFormatButton
+                            icon={Code}
+                            title={t('tools.markdown_preview.fmt_inline_code')}
+                            testId="fmt-code"
+                            onClick={() =>
+                              applyInline('`', '`', t('tools.markdown_preview.ph_code'))
+                            }
+                          />
+                          <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+                          <MdFormatButton
+                            text="H1"
+                            title={t('tools.markdown_preview.fmt_h1')}
+                            testId="fmt-h1"
+                            onClick={() => applyLinePrefix('h1')}
+                          />
+                          <MdFormatButton
+                            text="H2"
+                            title={t('tools.markdown_preview.fmt_h2')}
+                            testId="fmt-h2"
+                            onClick={() => applyLinePrefix('h2')}
+                          />
+                          <MdFormatButton
+                            icon={Quote}
+                            title={t('tools.markdown_preview.fmt_quote')}
+                            testId="fmt-quote"
+                            onClick={() => applyLinePrefix('quote')}
+                          />
+                          <MdFormatButton
+                            icon={List}
+                            title={t('tools.markdown_preview.fmt_bullet')}
+                            testId="fmt-bullet"
+                            onClick={() => applyLinePrefix('bullet')}
+                          />
+                          <MdFormatButton
+                            icon={ListTodo}
+                            title={t('tools.markdown_preview.fmt_task')}
+                            testId="fmt-task"
+                            onClick={() => applyLinePrefix('task')}
+                          />
+                          <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+                          <MdFormatButton
+                            icon={Table}
+                            title={t('tools.markdown_preview.fmt_table')}
+                            testId="fmt-table"
+                            onClick={insertTableTemplate}
+                          />
+                          <MdFormatButton
+                            icon={Link2}
+                            title={t('tools.markdown_preview.fmt_link')}
+                            testId="fmt-link"
+                            onClick={insertLink}
+                          />
+                          <MdFormatButton
+                            icon={ClipboardPaste}
+                            title={t('tools.markdown_preview.fmt_paste_md')}
+                            testId="fmt-paste-md"
+                            onClick={() => void pasteAsMarkdown()}
+                          />
+                        </>
+                      }
+                    />
+                    {/* 聚焦模式遮罩:光标行中心上下渐隐(视口坐标由 focusY 状态驱动,
+                      rAF 节流换算;pointer-events-none 不干扰编辑与选择) */}
+                    {focusMode && (
                       <>
-                        {/* —— 格式工具栏(Typora 常用插入;快捷键见 addCommand)—— */}
-                        <MdFormatButton
-                          icon={Bold}
-                          title={t('tools.markdown_preview.fmt_bold')}
-                          testId="fmt-bold"
-                          onClick={() =>
-                            applyInline('**', '**', t('tools.markdown_preview.ph_bold'))
-                          }
+                        <div
+                          aria-hidden
+                          data-testid="md-focus-mask-top"
+                          className="pointer-events-none absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-background/85 to-transparent"
+                          style={{ height: `${focusMaskTop}px` }}
                         />
-                        <MdFormatButton
-                          icon={Italic}
-                          title={t('tools.markdown_preview.fmt_italic')}
-                          testId="fmt-italic"
-                          onClick={() =>
-                            applyInline('*', '*', t('tools.markdown_preview.ph_italic'))
-                          }
-                        />
-                        <MdFormatButton
-                          icon={Strikethrough}
-                          title={t('tools.markdown_preview.fmt_strike')}
-                          testId="fmt-strike"
-                          onClick={() =>
-                            applyInline('~~', '~~', t('tools.markdown_preview.ph_strike'))
-                          }
-                        />
-                        <MdFormatButton
-                          icon={Code}
-                          title={t('tools.markdown_preview.fmt_inline_code')}
-                          testId="fmt-code"
-                          onClick={() => applyInline('`', '`', t('tools.markdown_preview.ph_code'))}
-                        />
-                        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
-                        <MdFormatButton
-                          text="H1"
-                          title={t('tools.markdown_preview.fmt_h1')}
-                          testId="fmt-h1"
-                          onClick={() => applyLinePrefix('h1')}
-                        />
-                        <MdFormatButton
-                          text="H2"
-                          title={t('tools.markdown_preview.fmt_h2')}
-                          testId="fmt-h2"
-                          onClick={() => applyLinePrefix('h2')}
-                        />
-                        <MdFormatButton
-                          icon={Quote}
-                          title={t('tools.markdown_preview.fmt_quote')}
-                          testId="fmt-quote"
-                          onClick={() => applyLinePrefix('quote')}
-                        />
-                        <MdFormatButton
-                          icon={List}
-                          title={t('tools.markdown_preview.fmt_bullet')}
-                          testId="fmt-bullet"
-                          onClick={() => applyLinePrefix('bullet')}
-                        />
-                        <MdFormatButton
-                          icon={ListTodo}
-                          title={t('tools.markdown_preview.fmt_task')}
-                          testId="fmt-task"
-                          onClick={() => applyLinePrefix('task')}
-                        />
-                        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
-                        <MdFormatButton
-                          icon={Table}
-                          title={t('tools.markdown_preview.fmt_table')}
-                          testId="fmt-table"
-                          onClick={insertTableTemplate}
-                        />
-                        <MdFormatButton
-                          icon={Link2}
-                          title={t('tools.markdown_preview.fmt_link')}
-                          testId="fmt-link"
-                          onClick={insertLink}
-                        />
-                        <MdFormatButton
-                          icon={ClipboardPaste}
-                          title={t('tools.markdown_preview.fmt_paste_md')}
-                          testId="fmt-paste-md"
-                          onClick={() => void pasteAsMarkdown()}
+                        <div
+                          aria-hidden
+                          data-testid="md-focus-mask-bottom"
+                          className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-background/85 to-transparent"
+                          style={{ height: `${focusMaskBottom}px` }}
                         />
                       </>
-                    }
-                  />
+                    )}
+                  </div>
                 </ResizablePanel>
                 {showPreview && <ResizableHandle withHandle />}
               </>
@@ -1262,6 +1424,17 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
                             {t('tools.markdown_preview.export_html')}
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            data-testid="export-md-file"
+                            onSelect={() => void handleExportMarkdown()}
+                          >
+                            <FileText aria-hidden className="mr-2 size-3.5 opacity-60" />
+                            {t('tools.markdown_preview.export_md')}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem data-testid="export-print" onSelect={handlePrint}>
+                            <Printer aria-hidden className="mr-2 size-3.5 opacity-60" />
+                            {t('tools.markdown_preview.export_print')}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             data-testid="copy-html-source"
                             onSelect={handleCopyHtmlSource}
                           >
@@ -1280,6 +1453,7 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
                     onArticle={handlePaneArticle}
                     onRendered={handlePaneRendered}
                     onScroll={handlePreviewScroll}
+                    onSourceLocate={handleSourceLocate}
                   />
                 </section>
               </ResizablePanel>

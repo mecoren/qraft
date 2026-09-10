@@ -349,4 +349,67 @@ describe('MarkdownPreview', () => {
     const tabs = screen.getAllByTestId('md-doc-tab');
     expect(tabs[0].getAttribute('data-doc-id')).toBe(firstId);
   });
+
+  it('远程图片默认拦截:src 摘除并挂 data-md-blocked-src,开启开关后放行', async () => {
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForHydrate();
+    fireEvent.change(screen.getByTestId('md-input-textarea'), {
+      target: {
+        value: '![remote](https://example.com/a.png)\n\n![local](mdasset:img-x.png)',
+      },
+    });
+    await waitFor(
+      () => {
+        const imgs = screen.getByTestId('md-preview').querySelectorAll('img');
+        expect(imgs.length).toBeGreaterThan(0);
+      },
+      { timeout: 2000 },
+    );
+    // 默认(loadRemoteImages=false):远程 src 摘除,本地引用不动(解析由
+    // resolveAssetImages 异步处理,此处仅断言远程拦截行为)
+    const article = screen.getByTestId('md-preview');
+    const remote = article.querySelector('[data-md-blocked-src]');
+    expect(remote?.getAttribute('data-md-blocked-src')).toBe('https://example.com/a.png');
+
+    // 点击被拦截图片:提示拦截原因
+    fireEvent.click(remote as HTMLElement);
+
+    // 开启开关:重渲后远程 src 恢复
+    act(() => {
+      useMarkdownPreviewStore.getState().setLoadRemoteImages(true);
+    });
+    await waitFor(
+      () => {
+        const article2 = screen.getByTestId('md-preview');
+        expect(article2.querySelector('img[src="https://example.com/a.png"]')).not.toBeNull();
+        expect(article2.querySelector('[data-md-blocked-src]')).toBeNull();
+      },
+      { timeout: 2000 },
+    );
+  });
+
+  it('聚焦模式:开关切换遮罩挂载/卸载', async () => {
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForHydrate();
+    // 编辑器可见(split 模式),聚焦默认关闭
+    expect(screen.queryByTestId('md-focus-mask-top')).toBeNull();
+    act(() => {
+      useMarkdownPreviewStore.getState().setFocusMode(true);
+    });
+    await waitFor(() => expect(screen.getByTestId('md-focus-mask-top')).toBeInTheDocument());
+    act(() => {
+      useMarkdownPreviewStore.getState().setFocusMode(false);
+    });
+    await waitFor(() => expect(screen.queryByTestId('md-focus-mask-top')).toBeNull());
+  });
+
+  it('导出菜单含打印与另存 .md 入口', async () => {
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForHydrate();
+    // Radix DropdownMenu 由 pointerdown 打开(jsdom 下 click 不触发)
+    fireEvent.pointerDown(screen.getByTestId('btn-export'));
+    await waitFor(() => expect(screen.getByTestId('export-md-file')).toBeInTheDocument());
+    expect(screen.getByTestId('export-print')).toBeInTheDocument();
+    expect(screen.getByTestId('export-html-file')).toBeInTheDocument();
+  });
 });
