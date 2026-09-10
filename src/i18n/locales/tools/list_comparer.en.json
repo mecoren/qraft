@@ -7,6 +7,8 @@
   "tools.list_comparer.compare_mode": "Compare mode",
   "tools.list_comparer.trim_whitespace": "Trim whitespace",
   "tools.list_comparer.trim_whitespace_hint": "Ignore leading/trailing whitespace and blank lines",
+  "tools.list_comparer.with_counts": "With occurrence counts",
+  "tools.list_comparer.with_counts_hint": "Append the source-side occurrence count to each result row (value\\tcount)",
   "tools.list_comparer.list_a": "List A",
   "tools.list_comparer.list_b": "List B",
   "tools.list_comparer.result_title": "Result · {{mode}}"

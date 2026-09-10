@@ -43,7 +43,7 @@ vi.mock('@/components/ui/resizable', () => ({
   ResizableHandle: () => <div data-testid="resizable-handle" />,
 }));
 
-import { ListComparer, compareLists } from './ListComparer';
+import { ListComparer, compareLists, compareListsWithCounts } from './ListComparer';
 import { requestHandoff, useHandoffStore } from '@/store/handoffStore';
 import { useToolStateStore } from '@/store/toolStateStore';
 
@@ -79,6 +79,25 @@ describe('compareLists(纯函数)', () => {
     // 同为 'a '(带空白)时仍可相交
     expect(compareLists('a \nx', 'a \ny', 'intersection', true, false)).toEqual(['a ']);
   });
+
+  it('compareListsWithCounts:交集附 A 侧出现次数(与 compareLists 同序)', () => {
+    const rows = compareListsWithCounts(
+      'apple\nbanana\nbanana\ncherry',
+      'banana\ncherry',
+      'intersection',
+      true,
+      true,
+    );
+    expect(rows).toEqual([
+      { value: 'banana', count: 2 },
+      { value: 'cherry', count: 1 },
+    ]);
+  });
+
+  it('compareListsWithCounts:忽略大小写与 trim 与 compareLists 同口径', () => {
+    const rows = compareListsWithCounts('Apple\nx ', 'apple\ny', 'intersection', false, true);
+    expect(rows).toEqual([{ value: 'Apple', count: 1 }]);
+  });
 });
 
 describe('ListComparer(组件)', () => {
@@ -105,6 +124,16 @@ describe('ListComparer(组件)', () => {
     fireEvent.click(screen.getByTestId('lc-mode'));
     fireEvent.click(screen.getByRole('option', { name: /仅在 A 中/ }));
     expect(getResult().value).toBe('apple');
+  });
+
+  it('计数开关:开启后结果附 A 侧出现次数(值\\t次数)', () => {
+    render(<ListComparer toolId="list_comparer" metadata={null as never} />);
+    fireEvent.change(getA(), { target: { value: 'banana\nbanana\napple' } });
+    fireEvent.change(getB(), { target: { value: 'banana\napple' } });
+    // 默认关闭:纯值输出
+    expect(getResult().value).toBe('banana\napple');
+    fireEvent.click(screen.getByTestId('lc-count'));
+    expect(getResult().value).toBe('banana\t2\napple\t1');
   });
 
   it('handoff:接收文本进入 A 列', () => {

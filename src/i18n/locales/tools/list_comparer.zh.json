@@ -7,6 +7,8 @@
   "tools.list_comparer.compare_mode": "比较模式",
   "tools.list_comparer.trim_whitespace": "修剪空白",
   "tools.list_comparer.trim_whitespace_hint": "忽略行首尾空白与空行",
+  "tools.list_comparer.with_counts": "附出现次数",
+  "tools.list_comparer.with_counts_hint": "结果每行附来源侧出现次数(值\\t次数)",
   "tools.list_comparer.list_a": "列表 A",
   "tools.list_comparer.list_b": "列表 B",
   "tools.list_comparer.result_title": "结果 · {{mode}}"
