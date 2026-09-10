@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ArrowDownNarrowWide,
   ArrowDownWideNarrow,
+  BarChart3,
   Binary,
   CaseLower,
   CaseSensitive,
@@ -37,6 +38,8 @@ import {
   Quote,
   RemoveFormatting,
   Replace,
+  ScanSearch,
+  Search,
   Shuffle,
   TextQuote,
   Type,
@@ -48,6 +51,15 @@ import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { toast } from 'sonner';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
@@ -58,6 +70,13 @@ import {
   pascalCase,
   snakeCase,
 } from '@/lib/naming-convention';
+import {
+  applyFindReplace,
+  extractPattern,
+  wordFrequency,
+  EXTRACT_PRESETS,
+  type ExtractPresetId,
+} from '@/lib/text-ops';
 import type { ToolProps } from './registry';
 
 // ============================================================
@@ -849,6 +868,13 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
 
+  // 查找替换 / 提取器 / 词频(第四排):文本输入即状态,点击按钮才执行
+  const [findText, setFindText] = useState('');
+  const [replaceText, setReplaceText] = useState('');
+  const [regexMode, setRegexMode] = useState(true);
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const [extractId, setExtractId] = useState<ExtractPresetId>('url');
+
   // 把当前输入按指定转换处理:成功时把结果写入输出框、不改动输入;
   // 输出为只读副本,不会随输入实时同步,需要时再点转换。失败时弹 toast 并保持输出不变。
   // toast 文案在回调内即时翻译(t 进入依赖数组),语言切换后再次点击即为新语言。
@@ -884,6 +910,41 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
     setInput(output);
     setOutput('');
   }, [output]);
+
+  /** 查找替换:非法正则 / 空查找串走 toast,失败不改动输出 */
+  const handleFindReplace = useCallback((): void => {
+    if (!input) return;
+    if (!findText) {
+      toast.info(t('tools.json_minifier.toast_find_empty'));
+      return;
+    }
+    try {
+      setOutput(applyFindReplace(input, findText, replaceText, { regex: regexMode, caseSensitive }));
+    } catch (e) {
+      toast.error(
+        t('tools.json_minifier.toast_failed', {
+          label: t('tools.json_minifier.row_find_replace'),
+          message: e instanceof Error ? e.message : String(e),
+        }),
+      );
+    }
+  }, [input, findText, replaceText, regexMode, caseSensitive, t]);
+
+  /** 提取器:按预设正则抽取匹配项写入输出 */
+  const handleExtract = useCallback((): void => {
+    if (!input) return;
+    setOutput(extractPattern(input, extractId));
+  }, [input, extractId]);
+
+  /** 词频统计:值\t次数 逐行写入输出(与重复行检测器表格同口径) */
+  const handleWordFrequency = useCallback((): void => {
+    if (!input) return;
+    setOutput(
+      wordFrequency(input)
+        .map((r) => `${r.value}\t${r.count}`)
+        .join('\n'),
+    );
+  }, [input]);
 
   function renderGroup(ids: readonly TransformId[]): JSX.Element {
     return (
@@ -978,6 +1039,111 @@ export function TextProcessor(_props: ToolProps): JSX.Element {
               <GroupFragment key={ids.join('-')} ids={ids} renderGroup={renderGroup} />
             ))}
           </ButtonGroup>
+        </ConfigRow>
+
+        <ConfigRow
+          icon={Search}
+          label={t('tools.json_minifier.row_find_replace')}
+          hint={t('tools.json_minifier.row_find_replace_hint')}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={findText}
+              onChange={(e) => setFindText(e.target.value)}
+              placeholder={t('tools.json_minifier.find_placeholder')}
+              className="h-7 w-44 font-mono text-xs"
+              data-testid="textproc-find-input"
+            />
+            <span aria-hidden className="text-xs text-muted-foreground">
+              →
+            </span>
+            <Input
+              value={replaceText}
+              onChange={(e) => setReplaceText(e.target.value)}
+              placeholder={t('tools.json_minifier.replace_placeholder')}
+              className="h-7 w-44 font-mono text-xs"
+              data-testid="textproc-replace-input"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!input || !findText}
+              onClick={handleFindReplace}
+              data-testid="textproc-btn-find-replace"
+              className="gap-1"
+            >
+              <Replace aria-hidden className="size-3.5" />
+              {t('tools.json_minifier.btn_replace')}
+            </Button>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Switch
+                checked={regexMode}
+                onCheckedChange={setRegexMode}
+                aria-label={t('tools.json_minifier.regex_mode')}
+                data-testid="textproc-regex-toggle"
+              />
+              {t('tools.json_minifier.regex_mode')}
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Switch
+                checked={caseSensitive}
+                onCheckedChange={setCaseSensitive}
+                aria-label={t('tools.json_minifier.case_sensitive')}
+                data-testid="textproc-case-toggle"
+              />
+              {t('tools.json_minifier.case_sensitive')}
+            </label>
+          </div>
+        </ConfigRow>
+
+        <ConfigRow
+          icon={ScanSearch}
+          label={t('tools.json_minifier.row_extract')}
+          hint={t('tools.json_minifier.row_extract_hint')}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={extractId} onValueChange={(v) => setExtractId(v as ExtractPresetId)}>
+              <SelectTrigger
+                className="h-7 w-32 text-xs"
+                data-testid="textproc-extract-select"
+                aria-label={t('tools.json_minifier.row_extract')}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EXTRACT_PRESETS.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {t(`tools.json_minifier.extract_${p.id}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!input}
+              onClick={handleExtract}
+              data-testid="textproc-btn-extract"
+              className="gap-1"
+            >
+              <ScanSearch aria-hidden className="size-3.5" />
+              {t('tools.json_minifier.btn_extract')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!input}
+              onClick={handleWordFrequency}
+              data-testid="textproc-btn-wordfreq"
+              className="gap-1"
+            >
+              <BarChart3 aria-hidden className="size-3.5" />
+              {t('tools.json_minifier.btn_wordfreq')}
+            </Button>
+          </div>
         </ConfigRow>
       </ConfigSection>
 

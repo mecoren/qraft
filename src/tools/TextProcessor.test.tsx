@@ -516,6 +516,66 @@ describe('TextProcessor component', () => {
     ).toBeInTheDocument();
   });
 
+  it('find & replace writes the replaced text to the output (regex with $1)', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'key=value' } });
+    fireEvent.change(screen.getByTestId('textproc-find-input'), {
+      target: { value: '(\\w+)=(\\w+)' },
+    });
+    fireEvent.change(screen.getByTestId('textproc-replace-input'), {
+      target: { value: '$2=$1' },
+    });
+    fireEvent.click(screen.getByTestId('textproc-btn-find-replace'));
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('value=key');
+  });
+
+  it('find & replace in plain-text mode matches literally (dots are not wildcards)', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'a.b axb' } });
+    fireEvent.change(screen.getByTestId('textproc-find-input'), {
+      target: { value: 'a.b' },
+    });
+    fireEvent.change(screen.getByTestId('textproc-replace-input'), {
+      target: { value: 'X' },
+    });
+    // 关掉正则开关 → 纯文本字面量匹配,. 不再是通配符
+    fireEvent.click(screen.getByTestId('textproc-regex-toggle'));
+    fireEvent.click(screen.getByTestId('textproc-btn-find-replace'));
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('X axb');
+  });
+
+  it('find & replace toasts on invalid regex and keeps the output unchanged', async () => {
+    const { toast } = await import('sonner');
+    const toastSpy = vi.spyOn(toast, 'error');
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'abc' } });
+    fireEvent.change(screen.getByTestId('textproc-find-input'), { target: { value: '(' } });
+    fireEvent.click(screen.getByTestId('textproc-btn-find-replace'));
+    expect(toastSpy).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('');
+    toastSpy.mockRestore();
+  });
+
+  it('extractor select writes extracted URLs to the output', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), {
+      target: { value: 'see https://a.com/x then http://b.org?y=1' },
+    });
+    fireEvent.click(screen.getByTestId('textproc-btn-extract'));
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(
+      'https://a.com/x\nhttp://b.org?y=1',
+    );
+  });
+
+  it('word frequency button writes value/count lines to the output', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'b a b a c' } });
+    fireEvent.click(screen.getByTestId('textproc-btn-wordfreq'));
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe(
+      'b\t2\na\t2\nc\t1',
+    );
+  });
+
   it('shows 0-character counts in both status bars when empty', () => {
     render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
     // 字符统计由 EditorStats 渲染,位于各编辑器状态栏内(textproc-stat-chars 为纯数字)
