@@ -34,5 +34,7 @@
   "tools.text_compare.degraded_badge": "已降级",
   "tools.text_compare.nav_prev_title": "上一处差异({{combo}})",
   "tools.text_compare.nav_next_title": "下一处差异({{combo}})",
-  "tools.text_compare.inline_fold": "折叠未变更区域"
+  "tools.text_compare.inline_fold": "折叠未变更区域",
+  "tools.text_compare.copy_block_to_other": "复制此差异块到对侧({{side}})",
+  "tools.text_compare.copy_block_aria": "复制此差异块到对侧"
 }

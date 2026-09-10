@@ -38,7 +38,11 @@ import {
 } from '@/components/ui/context-menu';
 import { RenameDialog } from '@/components/RenameDialog';
 import { TextDiffView } from '@/components/text-diff/TextDiffView';
-import { buildUnifiedPatch } from '@/components/text-diff/diff-utils';
+import {
+  applyDiffBlockCopy,
+  buildUnifiedPatch,
+  type DiffBlock,
+} from '@/components/text-diff/diff-utils';
 import { downloadText } from '@/lib/file-utils';
 import { inferLanguageFromPath } from './code-editor-workspace/languageMap';
 import { cn } from '@/lib/utils';
@@ -135,6 +139,25 @@ export function TextCompare({ toolId }: ToolProps): JSX.Element {
 
   const swapDocSides = useTextCompareStore((s) => s.swapDocSides);
   const setDocSideFile = useTextCompareStore((s) => s.setDocSideFile);
+
+  /**
+   * 复制差异块到对侧(WinMerge 式逐块拷贝):
+   * 从发起侧取块内容,经 applyDiffBlockCopy 写进对侧的配对区间,再走
+   * setDocContent 同款受控路径回 store(编辑器 undo 栈语义与手输一致)。
+   */
+  const handleCopyBlock = useCallback(
+    (side: 'original' | 'modified', block: DiffBlock) => {
+      if (!activeDocId) return;
+      const doc = useTextCompareStore.getState().docs.find((d) => d.id === activeDocId);
+      if (!doc) return;
+      const next =
+        side === 'original'
+          ? applyDiffBlockCopy(doc.original, doc.modified, block, 'original')
+          : applyDiffBlockCopy(doc.modified, doc.original, block, 'modified');
+      setDocContent(activeDocId, side === 'original' ? 'modified' : 'original', next);
+    },
+    [activeDocId, setDocContent],
+  );
 
   /** 文件装入(打开/拖放统一入口):写内容 + 记录文件名 */
   const loadOriginalFile = useCallback(
@@ -521,6 +544,7 @@ export function TextCompare({ toolId }: ToolProps): JSX.Element {
         ignoreWhitespace={ignoreWhitespace}
         ignoreCase={ignoreCase}
         ignoreEol={ignoreEol}
+        onCopyBlock={handleCopyBlock}
         leftChrome={{
           showPaste: true,
           showOpenFile: true,

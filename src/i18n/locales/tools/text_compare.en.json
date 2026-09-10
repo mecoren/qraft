@@ -34,5 +34,7 @@
   "tools.text_compare.degraded_badge": "Degraded",
   "tools.text_compare.nav_prev_title": "Previous change ({{combo}})",
   "tools.text_compare.nav_next_title": "Next change ({{combo}})",
-  "tools.text_compare.inline_fold": "Collapse unchanged regions"
+  "tools.text_compare.inline_fold": "Collapse unchanged regions",
+  "tools.text_compare.copy_block_to_other": "Copy this change block to the other side ({{side}})",
+  "tools.text_compare.copy_block_aria": "Copy this change block to the other side"
 }

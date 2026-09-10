@@ -53,6 +53,12 @@ export interface LineDiffResult {
   originalDecos: LineDeco[];
   /** 修改侧需要差异背景的行(纯新增 + 配对修改) */
   modifiedDecos: LineDeco[];
+  /**
+   * 差异块列表(「复制到对侧」的操作粒度):每个连续差异 chunk 一块,
+   * 由 chunk 循环直接产出——块边界与配对关系(decos 单侧连续性推不出
+   * 「配对行 vs 余量行」的分界)只有 chunk 语境才可靠。
+   */
+  blocks: DiffBlock[];
   /** 行级 diff 因超限降级为整体替换时为 true */
   degraded: boolean;
   /**
@@ -60,6 +66,22 @@ export interface LineDiffResult {
    * 降级(整体替换)时为 0
    */
   similarity: number;
+}
+
+/**
+ * 一个差异块(两侧连续差异段的配对视图):
+ * 原始侧 [origStart, origEnd] 行 ↔ 修改侧 [modStart, modEnd] 行。
+ * 「复制到对侧」按块操作——把本侧区间整段替换成对侧区间内容。
+ */
+export interface DiffBlock {
+  /** 原始侧起始行(1-based,inclusive);纯新增块为 null(原始侧无对应行) */
+  origStart: number | null;
+  /** 原始侧结束行(inclusive);origStart 为 null 时恒 null */
+  origEnd: number | null;
+  /** 修改侧起始行(1-based,inclusive);纯删除块为 null(修改侧无对应行) */
+  modStart: number | null;
+  /** 修改侧结束行(inclusive);modStart 为 null 时恒 null */
+  modEnd: number | null;
 }
 
 export interface ComputeLineDiffOptions {
@@ -189,6 +211,135 @@ export function buildUnifiedPatch(
 }
 
 /**
+ * 把差异装饰行号分组为差异块(「复制到对侧」的操作粒度)。
+ *
+ * 警告:仅按 decos 单侧连续性推导在「同 chunk 内增删不等长」场景会把
+ * 配对行与余量行错误并块——块的准确来源是 computeLineDiff 的 chunk 循环
+ * (result.blocks)。本导出保留给调用方对既有 decos 做粗粒度分组
+ * (不要求配对精度的场景,如概览统计)。
+ */
+export function groupDiffBlocks(
+  originalDecos: readonly LineDeco[],
+  modifiedDecos: readonly LineDeco[],
+): DiffBlock[] {
+  const origLines = originalDecos.map((d) => d.line);
+  const modLines = modifiedDecos.map((d) => d.line);
+
+  /** 把连续行号切成区间数组 */
+  const toRanges = (lines: readonly number[]): Array<[number, number]> => {
+    const ranges: Array<[number, number]> = [];
+    for (const line of lines) {
+      const last = ranges[ranges.length - 1];
+      if (last && line === last[1] + 1) last[1] = line;
+      else ranges.push([line, line]);
+    }
+    return ranges;
+  };
+
+  const origRanges = toRanges(origLines);
+  const modRanges = toRanges(modLines);
+
+  // 块数必然相等:每个差异 chunk 在两侧各产生一个连续区间(纯新增/纯删除
+  // 侧为空)。但空区间信息已丢失,须靠「上下文对齐」重建配对:
+  // 用累加行号推进两侧游标,相同段的行数在同步推进。
+  const blocks: DiffBlock[] = [];
+  let oi = 0;
+  let mi = 0;
+  while (oi < origRanges.length || mi < modRanges.length) {
+    const oRange = origRanges[oi];
+    const mRange = modRanges[mi];
+    if (oRange && mRange) {
+      // 双侧都有差异:同一 chunk 中原始区间与修改区间成对出现
+      blocks.push({
+        origStart: oRange[0],
+        origEnd: oRange[1],
+        modStart: mRange[0],
+        modEnd: mRange[1],
+      });
+      oi += 1;
+      mi += 1;
+    } else if (oRange) {
+      // 纯删除块(修改侧无差异行)
+      blocks.push({
+        origStart: oRange[0],
+        origEnd: oRange[1],
+        modStart: null,
+        modEnd: null,
+      });
+      oi += 1;
+    } else if (mRange) {
+      // 纯新增块
+      blocks.push({
+        origStart: null,
+        origEnd: null,
+        modStart: mRange[0],
+        modEnd: mRange[1],
+      });
+      mi += 1;
+    } else {
+      break;
+    }
+  }
+  return blocks;
+}
+
+/** 读文本指定行区间(1-based inclusive)的内容,含行间换行(按文本原 EOL) */
+function readLineRange(text: string, start: number, end: number): string {
+  const eol = text.includes('\r\n') ? '\r\n' : '\n';
+  const lines = text.split(/\r\n|\r|\n/);
+  const from = Math.max(1, start);
+  const to = Math.min(lines.length, end);
+  if (from > to) return '';
+  return lines.slice(from - 1, to).join(eol);
+}
+
+/**
+ * 「复制差异块到对侧」的纯函数核心:把一侧的块内容写进另一侧。
+ *
+ * 方向:side 为动作发起侧('original' | 'modified'),块内容取自该侧,
+ * 替换对侧的配对区间(对侧区间为 null 时在配对位置插入)。
+ * 返回对侧的新全文;块内容与对侧原内容相同时返回原文本(no-op)。
+ */
+export function applyDiffBlockCopy(
+  fromText: string,
+  toText: string,
+  block: DiffBlock,
+  side: 'original' | 'modified',
+): string {
+  // 发起侧区间(动作按钮挂在发起侧 gutter,区间非空)
+  const srcStart = side === 'original' ? block.origStart : block.modStart;
+  const srcEnd = side === 'original' ? block.origEnd : block.modEnd;
+  if (srcStart === null || srcEnd === null) return toText;
+  // 对侧配对区间(null → 插入语义:替换对侧插入锚点,即修改侧起始行前)
+  const dstStart = side === 'original' ? block.modStart : block.origStart;
+  const dstEnd = side === 'original' ? block.modEnd : block.origEnd;
+
+  const source = readLineRange(fromText, srcStart, srcEnd);
+  const toEol = toText.includes('\r\n') ? '\r\n' : '\n';
+  const toLines = toText === '' ? [] : toText.split(/\r\n|\r|\n/);
+  // 末尾换行语义:文本以 EOL 结尾时 split 尾部产生空串,保留该空串以维持
+  // 「末尾换行」结构;写回时 join 天然还原
+  const srcLines = source === '' ? [] : source.split(/\r\n|\r|\n/);
+
+  if (dstStart === null || dstEnd === null) {
+    // 插入:发起侧为纯增/纯删,对侧无对应行。插入位置 = 发起侧块起始行
+    // 在对侧的对齐点——用「上一相同段的下一行」近似:即发起侧区间起行
+    // 对齐到对侧同号行前(块内对侧游标未推进,起始行即对齐锚点)
+    const anchor = side === 'original' ? block.origStart! : block.modStart!;
+    const insertAt = Math.min(Math.max(anchor - 1, 0), toLines.length);
+    const next = [...toLines.slice(0, insertAt), ...srcLines, ...toLines.slice(insertAt)];
+    return next.join(toEol);
+  }
+
+  // 替换:对侧区间整段换成发起侧块内容
+  const from = Math.max(1, dstStart);
+  const to = Math.min(toLines.length, dstEnd);
+  if (from > to) return toText;
+  const next = [...toLines.slice(0, from - 1), ...srcLines, ...toLines.slice(to)];
+  return next.join(toEol);
+}
+
+/**
  * 计算两侧文本的行级差异 + 配对行词级差异。
  *
  * 统计语义(与旧版 Monaco getLineChanges 汇总一致):
@@ -213,6 +364,7 @@ export function computeLineDiff(
   const stats: DiffStats = { added: 0, removed: 0, modified: 0 };
   const originalDecos: LineDeco[] = [];
   const modifiedDecos: LineDeco[] = [];
+  const blocks: DiffBlock[] = [];
 
   // 规范化仅用于比较;原文行号结构不变(剥空白/小写化/EOL 归一均不改行数,
   // EOL 归一只把 '\r\n' 收敛为 '\n',切行后每行内容与原文剥 \r 后一致)
@@ -232,7 +384,7 @@ export function computeLineDiff(
   }
 
   if (cmpOriginal === cmpModified) {
-    return { stats, originalDecos, modifiedDecos, degraded: false, similarity: 1 };
+    return { stats, originalDecos, modifiedDecos, blocks, degraded: false, similarity: 1 };
   }
 
   const parts: Change[] | undefined = diffLines(cmpOriginal, cmpModified, {
@@ -250,7 +402,9 @@ export function computeLineDiff(
     stats.added = modCount;
     for (let line = 1; line <= origCount; line++) originalDecos.push({ line, wordSpans: [] });
     for (let line = 1; line <= modCount; line++) modifiedDecos.push({ line, wordSpans: [] });
-    return { stats, originalDecos, modifiedDecos, degraded: true, similarity: 0 };
+    // 降级块:两侧各自一个整文件块(复制语义 = 整文件覆盖)
+    blocks.push({ origStart: 1, origEnd: origCount, modStart: 1, modEnd: modCount });
+    return { stats, originalDecos, modifiedDecos, blocks, degraded: true, similarity: 0 };
   }
 
   let origLine = 1;
@@ -265,6 +419,12 @@ export function computeLineDiff(
       for (let k = 0; k < lines.length; k++)
         modifiedDecos.push({ line: modLine + k, wordSpans: [] });
       stats.added += lines.length;
+      blocks.push({
+        origStart: null,
+        origEnd: null,
+        modStart: modLine,
+        modEnd: modLine + lines.length - 1,
+      });
       modLine += lines.length;
       i += 1;
       continue;
@@ -294,6 +454,14 @@ export function computeLineDiff(
           modifiedDecos.push({ line: modLine + k, wordSpans: [] });
         }
         stats.added += addedLines.length - paired;
+        // 混合段一块:配对行与增/删余量行同属一个连续差异段(拷贝时整段搬运)。
+        // 先记块后推进行号(此处 origLine/modLine 仍指向块起始行)
+        blocks.push({
+          origStart: origLine,
+          origEnd: origLine + removedLines.length - 1,
+          modStart: modLine,
+          modEnd: modLine + addedLines.length - 1,
+        });
         origLine += removedLines.length;
         modLine += addedLines.length;
         i += 2;
@@ -303,6 +471,12 @@ export function computeLineDiff(
           originalDecos.push({ line: origLine + k, wordSpans: [] });
         }
         stats.removed += removedLines.length;
+        blocks.push({
+          origStart: origLine,
+          origEnd: origLine + removedLines.length - 1,
+          modStart: null,
+          modEnd: null,
+        });
         origLine += removedLines.length;
         i += 1;
       }
@@ -316,7 +490,7 @@ export function computeLineDiff(
     i += 1;
   }
 
-  return { stats, originalDecos, modifiedDecos, degraded: false, similarity };
+  return { stats, originalDecos, modifiedDecos, blocks, degraded: false, similarity };
 }
 
 /**

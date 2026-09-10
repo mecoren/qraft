@@ -25,6 +25,7 @@ import {
   useState,
   type JSX,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ChevronDown,
   ChevronUp,
@@ -40,7 +41,7 @@ import {
   type DiffOnMount,
   type Monaco,
 } from '@monaco-editor/react';
-import type { editor } from 'monaco-editor';
+import { editor } from 'monaco-editor';
 import { useTranslation } from 'react-i18next';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { CodeEditor, type EditorLanguage } from '@/components/ui/code-editor';
@@ -54,6 +55,7 @@ import { cn } from '@/lib/utils';
 import {
   buildDiffDecorations,
   WORD_DIFF_MAX_CHARS,
+  type DiffBlock,
   type DiffRulerColors,
   type LineDiffResult,
 } from './diff-utils';
@@ -67,6 +69,7 @@ const EMPTY_DIFF_RESULT: LineDiffResult = {
   stats: { added: 0, removed: 0, modified: 0 },
   originalDecos: [],
   modifiedDecos: [],
+  blocks: [],
   degraded: false,
   similarity: 1,
 };
@@ -106,6 +109,12 @@ export interface TextDiffViewProps {
   ignoreCase?: boolean;
   /** 比较时忽略换行符差异(CRLF/LF 归一,受控,由调用方保存状态) */
   ignoreEol?: boolean;
+  /**
+   * 「复制差异块到对侧」回调(WinMerge 式逐块拷贝)。提供时并排模式
+   * 在差异块的 gutter 中点显示复制按钮;缺省(如文本编辑器文件对比)
+   * 不显示。side 为动作发起侧,block 标识块的两侧行号区间。
+   */
+  onCopyBlock?: (side: 'original' | 'modified', block: DiffBlock) => void;
   /** 左(原始)侧文件级外观 */
   leftChrome?: TextDiffSideChrome;
   /** 右(修改)侧文件级外观 */
@@ -119,6 +128,108 @@ export interface TextDiffViewProps {
   /** testid 前缀:生成 `{prefix}-stats` / `{prefix}-original` 等 */
   testIdPrefix?: string;
   className?: string;
+}
+
+/**
+ * 单侧差异块的 gutter 复制按钮浮层(顶层组件,props 驱动;WinMerge 式):
+ * - 悬停差异行(含行号槽)时,在该侧块的中点行 gutter 显示「→ 对侧」按钮;
+ * - 纯增/纯删块:按钮只挂在「有差异行的一侧」(对侧无对应行,无按钮可挂);
+ * - 垂直位置 = 编辑器 getTopForLineNumber(中点行) - 滚动偏移,gutter 左缘对齐;
+ * - 点击后按钮消失(diff 重算),新块出现时自然重新定位。
+ */
+function GutterCopyOverlay({
+  side,
+  editorInstance,
+  copyBlocks,
+  onCopy,
+  testIdPrefix,
+  t,
+}: {
+  side: 'original' | 'modified';
+  editorInstance: MonacoEditor | null;
+  copyBlocks: readonly DiffBlock[];
+  /** 点击复制回调(side + 块) */
+  onCopy: (side: 'original' | 'modified', block: DiffBlock) => void;
+  testIdPrefix: string;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+}): JSX.Element | null {
+  const [hoverLine, setHoverLine] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!editorInstance || copyBlocks.length === 0) return;
+    const dom = editorInstance.getDomNode();
+    if (!dom) return;
+
+    /** 从鼠标事件解出 1-based 行号;命中不到行(gutter 外/视口外)返回 null */
+    const lineFromEvent = (e: MouseEvent): number | null => {
+      const target = editorInstance.getTargetAtClientPoint(e.clientX, e.clientY);
+      if (!target || !target.position) return null;
+      return target.position.lineNumber;
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      const line = lineFromEvent(e);
+      setHoverLine((prev) => (prev === line ? prev : line));
+    };
+    const onMouseLeave = () => setHoverLine(null);
+    dom.addEventListener('mousemove', onMouseMove);
+    dom.addEventListener('mouseleave', onMouseLeave);
+    return () => {
+      dom.removeEventListener('mousemove', onMouseMove);
+      dom.removeEventListener('mouseleave', onMouseLeave);
+    };
+  }, [editorInstance, copyBlocks]);
+
+  // 悬停行不在任何块内 → 不显示
+  const block = hoverLine !== null ? blockAtLine(copyBlocks, side, hoverLine) : null;
+  if (!block || !editorInstance) return null;
+
+  // 中点行:本侧区间为 null 时(对侧纯增/纯删)本侧本就不在块内,已排除
+  const start = (side === 'original' ? block.origStart : block.modStart)!;
+  const end = (side === 'original' ? block.origEnd : block.modEnd)!;
+  const mid = Math.floor((start + end) / 2);
+  const model = editorInstance.getModel();
+  const dom = editorInstance.getDomNode();
+  if (!model || !dom || mid < 1 || mid > model.getLineCount()) return null;
+
+  const layout = editorInstance.getLayoutInfo();
+  const top = editorInstance.getTopForLineNumber(mid) - editorInstance.getScrollTop();
+  // 按钮挂 gutter 中缝:行号槽右侧、内容左缘(约行号区宽 + 4px)
+  const left = layout.glyphMarginWidth + layout.lineNumbersWidth + 4;
+  // 行高经相邻行 top 差推导(避免依赖 EditorOption enum 的导出差异)
+  const lineHeight =
+    editorInstance.getTopForLineNumber(Math.min(mid + 1, model.getLineCount() + 1)) -
+    editorInstance.getTopForLineNumber(mid);
+  const dirIcon = side === 'original' ? '→' : '←';
+
+  return createPortal(
+    <button
+      type="button"
+      data-testid={`${testIdPrefix}-copy-block-${side}`}
+      title={t('tools.text_compare.copy_block_to_other', { side: dirIcon })}
+      aria-label={t('tools.text_compare.copy_block_aria')}
+      onClick={() => onCopy(side, block)}
+      className="text-compare-copy-btn"
+      style={{ position: 'absolute', top: top + Math.max(0, (lineHeight - 18) / 2), left }}
+    >
+      {dirIcon}
+    </button>,
+    dom,
+  );
+}
+
+/** 找行号所属的块(无则 null);块区间为本侧有差异行的连续段 */
+function blockAtLine(
+  blocks: readonly DiffBlock[],
+  side: 'original' | 'modified',
+  line: number,
+): DiffBlock | null {
+  for (const b of blocks) {
+    const start = side === 'original' ? b.origStart : b.modStart;
+    const end = side === 'original' ? b.origEnd : b.modEnd;
+    if (start !== null && end !== null && line >= start && line <= end) return b;
+  }
+  return null;
 }
 
 export function TextDiffView({
@@ -135,6 +246,7 @@ export function TextDiffView({
   ignoreWhitespace = false,
   ignoreCase = false,
   ignoreEol = false,
+  onCopyBlock,
   leftChrome,
   rightChrome,
   searchAnchor,
@@ -361,9 +473,23 @@ export function TextDiffView({
     [inlineMode, diffCount, goToNextDiff],
   );
 
-  const handleBeforeMount: DiffBeforeMount = useCallback((monaco) => {
-    monacoRef.current = monaco;
-    defineThemeFor(monaco, getThemeName());
+  // —— 复制差异块到对侧(WinMerge 式;仅并排模式 + 提供 onCopyBlock)——
+  // 块列表由 computeLineDiff 的 chunk 循环直接产出(配对边界精确);
+  // deferred 滞后时区间可能超模型行数,overlay 渲染处夹取
+  const copyBlocks = useMemo(
+    () => (onCopyBlock && !inlineMode ? diffResult.blocks : []),
+    [onCopyBlock, inlineMode, diffResult],
+  );
+
+  // onCopyBlock 经 ref 取最新(与 onModifiedChangeRef 同模式),供 overlay 回调稳定引用
+  const onCopyBlockRef = useRef(onCopyBlock);
+  useEffect(() => {
+    onCopyBlockRef.current = onCopyBlock;
+  });
+
+  /** overlay 点击 → 调用方回调(经 ref 取最新,回调 identity 不进 overlay props 破坏 hover state) */
+  const handleCopyBlockClick = useCallback((side: 'original' | 'modified', block: DiffBlock) => {
+    onCopyBlockRef.current?.(side, block);
   }, []);
   // 行内模式写回经 ref 取最新回调:监听只在挂载时注册一次,直接闭包会
   // 滞留首次渲染的回调(多 Tab/多对比切换时写错目标);受控 prop 同步更新
@@ -372,6 +498,11 @@ export function TextDiffView({
   useEffect(() => {
     onModifiedChangeRef.current = onModifiedChange;
   });
+
+  const handleBeforeMount: DiffBeforeMount = useCallback((monaco) => {
+    monacoRef.current = monaco;
+    defineThemeFor(monaco, getThemeName());
+  }, []);
 
   const handleInlineMount: DiffOnMount = useCallback((instance) => {
     const mod = instance.getModifiedEditor();
@@ -636,7 +767,7 @@ export function TextDiffView({
           className="min-h-0 flex-1"
           data-search-anchor={searchAnchor}
         >
-          <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
+          <ResizablePanel defaultSize="50" minSize="20" className="relative min-h-0 min-w-0">
             <CodeEditor
               title={originalTitle}
               language={originalLanguage}
@@ -658,11 +789,21 @@ export function TextDiffView({
               showClear={leftChrome?.showClear}
               onMount={(instance) => setOrigEditor(instance)}
             />
+            {onCopyBlock && (
+              <GutterCopyOverlay
+                side="original"
+                editorInstance={origEditor}
+                copyBlocks={copyBlocks}
+                onCopy={handleCopyBlockClick}
+                testIdPrefix={testIdPrefix}
+                t={t}
+              />
+            )}
           </ResizablePanel>
 
           <ResizableHandle withHandle />
 
-          <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
+          <ResizablePanel defaultSize="50" minSize="20" className="relative min-h-0 min-w-0">
             <CodeEditor
               title={modifiedTitle}
               language={modifiedLanguage}
@@ -699,6 +840,16 @@ export function TextDiffView({
               showClear={rightChrome?.showClear}
               onMount={(instance) => setModEditor(instance)}
             />
+            {onCopyBlock && (
+              <GutterCopyOverlay
+                side="modified"
+                editorInstance={modEditor}
+                copyBlocks={copyBlocks}
+                onCopy={handleCopyBlockClick}
+                testIdPrefix={testIdPrefix}
+                t={t}
+              />
+            )}
           </ResizablePanel>
         </ResizablePanelGroup>
       )}

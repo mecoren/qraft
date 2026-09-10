@@ -27,6 +27,7 @@ import { TextCompare } from './TextCompare';
 import { useTextCompareStore } from './textCompareStore';
 import { requestHandoff, useHandoffStore } from '@/store/handoffStore';
 import { useToolStateStore } from '@/store/toolStateStore';
+import { applyDiffBlockCopy, computeLineDiff } from '@/components/text-diff/diff-utils';
 
 describe('TextCompare', () => {
   beforeEach(() => {
@@ -343,5 +344,94 @@ describe('TextCompare', () => {
   it('不渲染全屏弹窗(已按需求移除)', () => {
     render(<TextCompare toolId="text_compare" metadata={null as never} />);
     expect(screen.queryByTestId('diff-fullscreen')).not.toBeInTheDocument();
+  });
+
+  it('复制差异块到对侧:原始侧修改块写回修改侧(受控路径,块拷贝语义)', () => {
+    // 与 GutterCopyOverlay → handleCopyBlock 的集成链路等价:
+    // 块由 computeLineDiff 产出,写回走 setDocContent(与手输同路径)
+    useTextCompareStore.setState({
+      docs: [
+        {
+          id: 'copy-doc',
+          title: 't',
+          pinned: false,
+          original: 'a\nold\nc\n',
+          modified: 'a\nnew\nc\n',
+        },
+      ],
+      activeDocId: 'copy-doc',
+      ready: true,
+    });
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+
+    // 模拟 overlay 回调:块取自真实差异计算,side='original'
+    const r = computeLineDiff('a\nold\nc\n', 'a\nnew\nc\n');
+    const block = r.blocks[0]!;
+    const nextModified = applyDiffBlockCopy('a\nold\nc\n', 'a\nnew\nc\n', block, 'original');
+    useTextCompareStore.getState().setDocContent('copy-doc', 'modified', nextModified);
+
+    const doc = useTextCompareStore.getState().docs[0]!;
+    expect(doc.modified).toBe('a\nold\nc\n');
+    expect(doc.original).toBe('a\nold\nc\n');
+    // 拷贝后两侧一致:界面统计应归零(受控重算)
+    return waitFor(() => {
+      expect(screen.getByTestId('diff-stats')).toHaveTextContent('无差异');
+    });
+  });
+
+  it('复制差异块到对侧:纯删除块从原始侧拷回,修改侧补齐缺失行', () => {
+    useTextCompareStore.setState({
+      docs: [
+        {
+          id: 'copy-doc2',
+          title: 't',
+          pinned: false,
+          original: 'a\nb\nc\n',
+          modified: 'a\nb\n',
+        },
+      ],
+      activeDocId: 'copy-doc2',
+      ready: true,
+    });
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+
+    const r = computeLineDiff('a\nb\nc\n', 'a\nb\n');
+    const block = r.blocks[0]!;
+    expect(block.modStart).toBeNull();
+    const nextModified = applyDiffBlockCopy('a\nb\nc\n', 'a\nb\n', block, 'original');
+    useTextCompareStore.getState().setDocContent('copy-doc2', 'modified', nextModified);
+
+    expect(useTextCompareStore.getState().docs[0]!.modified).toBe('a\nb\nc\n');
+    return waitFor(() => {
+      expect(screen.getByTestId('diff-stats')).toHaveTextContent('无差异');
+    });
+  });
+
+  it('反向拷贝:修改侧块写回原始侧', () => {
+    useTextCompareStore.setState({
+      docs: [
+        {
+          id: 'copy-doc3',
+          title: 't',
+          pinned: false,
+          original: 'a\nold\nc\n',
+          modified: 'a\nnew\nc\n',
+        },
+      ],
+      activeDocId: 'copy-doc3',
+      ready: true,
+    });
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+
+    const r = computeLineDiff('a\nold\nc\n', 'a\nnew\nc\n');
+    const block = r.blocks[0]!;
+    // side='modified':从修改侧取内容写原始侧
+    const nextOriginal = applyDiffBlockCopy('a\nnew\nc\n', 'a\nold\nc\n', block, 'modified');
+    useTextCompareStore.getState().setDocContent('copy-doc3', 'original', nextOriginal);
+
+    expect(useTextCompareStore.getState().docs[0]!.original).toBe('a\nnew\nc\n');
+    return waitFor(() => {
+      expect(screen.getByTestId('diff-stats')).toHaveTextContent('无差异');
+    });
   });
 });

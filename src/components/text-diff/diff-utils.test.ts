@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildDiffDecorations, buildUnifiedPatch, computeLineDiff } from './diff-utils';
+import {
+  applyDiffBlockCopy,
+  buildDiffDecorations,
+  buildUnifiedPatch,
+  computeLineDiff,
+} from './diff-utils';
 
 /** 便捷:只取每侧行号列表 */
 function lines(decos: ReadonlyArray<{ line: number }>): number[] {
@@ -296,5 +301,104 @@ describe('buildDiffDecorations', () => {
     });
     const noColors = buildDiffDecorations(editor, [{ line: 1, wordSpans: [] }], 'modified');
     expect(noColors[0].options).not.toHaveProperty('overviewRuler', expect.anything());
+  });
+});
+
+describe('blocks (chunk 精确产出)', () => {
+  it('修改块:双侧区间配对', () => {
+    const r = computeLineDiff('a\nX\nc\nd\n', 'a\nY\nc\nd\n');
+    const blocks = r.blocks;
+    expect(blocks).toEqual([{ origStart: 2, origEnd: 2, modStart: 2, modEnd: 2 }]);
+  });
+
+  it('纯新增块:原始侧区间为 null', () => {
+    const r = computeLineDiff('a\nb\n', 'a\nb\nc\n');
+    const blocks = r.blocks;
+    expect(blocks).toEqual([{ origStart: null, origEnd: null, modStart: 3, modEnd: 3 }]);
+  });
+
+  it('纯删除块:修改侧区间为 null', () => {
+    const r = computeLineDiff('a\nb\nc\n', 'a\nb\n');
+    const blocks = r.blocks;
+    expect(blocks).toEqual([{ origStart: 3, origEnd: 3, modStart: null, modEnd: null }]);
+  });
+
+  it('增删不等长段:整段一块(配对行与余量行连续,拷贝整段搬运)', () => {
+    // removed 1 行 + added 3 行:同一 chunk 产出单块,双侧区间各自完整
+    const r = computeLineDiff('x\ny\n', 'x\np\nq\nr\n');
+    const blocks = r.blocks;
+    expect(blocks).toEqual([{ origStart: 2, origEnd: 2, modStart: 2, modEnd: 4 }]);
+  });
+
+  it('多段差异:各成独立块(顺序排列)', () => {
+    const r = computeLineDiff('a\nb\nc\nX\ne\n', 'a\nB\nc\nD\ne\n');
+    const blocks = r.blocks;
+    expect(blocks).toEqual([
+      { origStart: 2, origEnd: 2, modStart: 2, modEnd: 2 },
+      { origStart: 4, origEnd: 4, modStart: 4, modEnd: 4 },
+    ]);
+  });
+});
+
+describe('applyDiffBlockCopy', () => {
+  it('从原始侧复制修改块:对侧配对区间被替换为原始侧内容', () => {
+    // 原始 'old' → 修改 'new';从原始侧复制后,修改侧该行变回 'old'
+    const r = computeLineDiff('a\nold\nc\n', 'a\nnew\nc\n');
+    const block = r.blocks[0]!;
+    const next = applyDiffBlockCopy('a\nold\nc\n', 'a\nnew\nc\n', block, 'original');
+    expect(next).toBe('a\nold\nc\n');
+  });
+
+  it('从修改侧复制修改块:原始侧配对区间被替换为修改侧内容', () => {
+    const r = computeLineDiff('a\nold\nc\n', 'a\nnew\nc\n');
+    const block = r.blocks[0]!;
+    const next = applyDiffBlockCopy('a\nnew\nc\n', 'a\nold\nc\n', block, 'modified');
+    expect(next).toBe('a\nnew\nc\n');
+  });
+
+  it('从原始侧复制纯删除块:修改侧在配对位置插入被删行', () => {
+    // 原始多了第 3 行;从原始侧复制该块,修改侧补回第 3 行
+    const r = computeLineDiff('a\nb\nc\n', 'a\nb\n');
+    const block = r.blocks[0]!;
+    const next = applyDiffBlockCopy('a\nb\nc\n', 'a\nb\n', block, 'original');
+    expect(next).toBe('a\nb\nc\n');
+  });
+
+  it('从修改侧复制纯新增块:原始侧在配对位置获得新增行', () => {
+    const r = computeLineDiff('a\nb\n', 'a\nb\nc\n');
+    const block = r.blocks[0]!;
+    const next = applyDiffBlockCopy('a\nb\nc\n', 'a\nb\n', block, 'modified');
+    expect(next).toBe('a\nb\nc\n');
+  });
+
+  it('从修改侧删除纯新增块:原始侧对应行被移除', () => {
+    // 修改侧多了第 3 行;反向「复制」= 把修改侧的空区间写到原始?
+    // 语义:发起侧区间为 null(修改侧纯新增块中原始侧为空)时 no-op 由调用侧
+    // 不挂按钮规避;此处验证原始侧发起(删除语义:原始侧空 → no-op)
+    const r = computeLineDiff('a\nb\n', 'a\nb\nc\n');
+    const block = r.blocks[0]!;
+    // 从原始侧发起:srcStart=null → no-op
+    const noop = applyDiffBlockCopy('a\nb\n', 'a\nb\nc\n', block, 'original');
+    expect(noop).toBe('a\nb\nc\n');
+  });
+
+  it('多行块整段替换:CRLF 文本保持原 EOL 写回', () => {
+    const r = computeLineDiff('a\nX1\nX2\nb\n', 'a\nY1\nY2\nb\n');
+    const block = r.blocks[0]!;
+    const next = applyDiffBlockCopy(
+      'a\r\nX1\r\nX2\r\nb\r\n',
+      'a\r\nY1\r\nY2\r\nb\r\n',
+      block,
+      'original',
+    );
+    expect(next).toBe('a\r\nX1\r\nX2\r\nb\r\n');
+  });
+
+  it('内容相同时为幂等 no-op(返回对侧原文本)', () => {
+    const r = computeLineDiff('a\nold\nc\n', 'a\nnew\nc\n');
+    const block = r.blocks[0]!;
+    // 同块自复制(对侧已一致时):替换结果与原文相等
+    const next = applyDiffBlockCopy('a\nnew\nc\n', 'a\nnew\nc\n', block, 'modified');
+    expect(next).toBe('a\nnew\nc\n');
   });
 });

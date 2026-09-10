@@ -821,6 +821,35 @@
 }
 
 /* ============================================================
+ * 文本比较 —— 差异块「复制到对侧」gutter 按钮(WinMerge 式)
+ * 悬停差异行时浮层定位在行号槽右侧(portal 进编辑器 DOM,absolute);
+ * 仅按钮本身接收指针,不遮挡 gutter 其他区域
+ * ============================================================ */
+.text-compare-copy-btn {
+  z-index: 30;
+  display: flex;
+  height: 18px;
+  min-width: 20px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-popover-layer);
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+  transition:
+    color 0.12s ease,
+    background-color 0.12s ease;
+}
+.text-compare-copy-btn:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* ============================================================
  * Monaco 查找组件 —— 关闭按钮垂直对齐
  *
  * Monaco 默认把关闭按钮(.codicon-widget-close)绝对定位在部件顶部
