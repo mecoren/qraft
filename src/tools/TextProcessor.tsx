@@ -35,6 +35,7 @@ import {
   Link2,
   Link2Off,
   Languages,
+  ListOrdered,
   Quote,
   RemoveFormatting,
   Replace,
@@ -76,6 +77,11 @@ import {
   applyFindReplace,
   extractPattern,
   wordFrequency,
+  addPrefixSuffix,
+  fullWidthToAscii,
+  numberLines,
+  removeConsecutiveDuplicateLines,
+  removeLinesContaining,
   EXTRACT_PRESETS,
   type ExtractPresetId,
 } from '@/lib/text-ops';
@@ -584,7 +590,9 @@ type TransformId =
   | 'naturalSortLines'
   | 'reverseLines'
   | 'shuffleLines'
-  | 'swapCase';
+  | 'swapCase'
+  | 'fullWidthToAscii'
+  | 'removeConsecutiveDuplicates';
 
 /** 单个转换的配置(label 存 i18n 键名,由组件层翻译,保证语言切换即生效) */
 interface TransformDef {
@@ -776,6 +784,18 @@ const TRANSFORMS: readonly TransformDef[] = [
     Icon: CaseSensitive,
     apply: swapCase,
   },
+  {
+    id: 'fullWidthToAscii',
+    labelKey: 'tools.json_minifier.label_fullwidth_to_ascii',
+    Icon: Languages,
+    apply: fullWidthToAscii,
+  },
+  {
+    id: 'removeConsecutiveDuplicates',
+    labelKey: 'tools.json_minifier.label_remove_consecutive_dup',
+    Icon: CopyX,
+    apply: removeConsecutiveDuplicateLines,
+  },
 ];
 
 /**
@@ -804,7 +824,7 @@ const FIRST_ROW_GROUPS: ReadonlyArray<ReadonlyArray<TransformId>> = [
   ['escape', 'unescape', 'stripWhitespace'],
   ['urlEncode', 'urlEncodeUri', 'urlDecode'],
   ['unicodeToChinese', 'chineseToUnicode'],
-  ['chineseSymbolToEnglish'],
+  ['chineseSymbolToEnglish', 'fullWidthToAscii'],
 ];
 
 /**
@@ -814,6 +834,7 @@ const FIRST_ROW_GROUPS: ReadonlyArray<ReadonlyArray<TransformId>> = [
 const SECOND_ROW_GROUPS: ReadonlyArray<ReadonlyArray<TransformId>> = [
   ['toUpperCase', 'toLowerCase', 'capitalizeSentences', 'capitalizeWords'],
   ['reverseText', 'uniqueLines', 'sortLines'],
+  ['removeConsecutiveDuplicates'],
 ];
 
 /**
@@ -879,6 +900,9 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
   const [regexMode, setRegexMode] = useState(true);
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [extractId, setExtractId] = useState<ExtractPresetId>('url');
+  // 行级参数化操作:删含关键字行 / 加前后缀
+  const [keyword, setKeyword] = useState('');
+  const [prefix, setPrefix] = useState('');
 
   // 把当前输入按指定转换处理:成功时把结果写入输出框、不改动输入;
   // 输出为只读副本,不会随输入实时同步,需要时再点转换。失败时弹 toast 并保持输出不变。
@@ -949,6 +973,28 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
         .map((r) => `${r.value}\t${r.count}`)
         .join('\n'),
     );
+  }, [input]);
+
+  /** 删除包含关键字的行(大小写不敏感);空关键字 toast 提示 */
+  const handleRemoveLinesContaining = useCallback((): void => {
+    if (!input) return;
+    if (!keyword) {
+      toast.info(t('tools.json_minifier.toast_keyword_empty'));
+      return;
+    }
+    setOutput(removeLinesContaining(input, keyword));
+  }, [input, keyword, t]);
+
+  /** 加前后缀:prefix 输入为前缀,suffix 输入为后缀(空则原样) */
+  const handleAddPrefixSuffix = useCallback((): void => {
+    if (!input) return;
+    setOutput(addPrefixSuffix(input, { prefix }));
+  }, [input, prefix]);
+
+  /** 行编号:1 起始逐行编号 */
+  const handleNumberLines = useCallback((): void => {
+    if (!input) return;
+    setOutput(numberLines(input));
   }, [input]);
 
   function renderGroup(ids: readonly TransformId[]): JSX.Element {
@@ -1147,6 +1193,58 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
             >
               <BarChart3 aria-hidden className="size-3.5" />
               {t('tools.json_minifier.btn_wordfreq')}
+            </Button>
+
+            <span aria-hidden className="h-4 w-px bg-border" />
+            <Input
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder={t('tools.json_minifier.keyword_placeholder')}
+              className="h-7 w-32 text-xs"
+              data-testid="textproc-keyword-input"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!input || !keyword}
+              onClick={handleRemoveLinesContaining}
+              data-testid="textproc-btn-removeLinesContaining"
+              className="gap-1"
+            >
+              <Eraser aria-hidden className="size-3.5" />
+              {t('tools.json_minifier.btn_remove_containing')}
+            </Button>
+            <Input
+              value={prefix}
+              onChange={(e) => setPrefix(e.target.value)}
+              placeholder={t('tools.json_minifier.prefix_placeholder')}
+              className="h-7 w-24 font-mono text-xs"
+              data-testid="textproc-prefix-input"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!input || !prefix}
+              onClick={handleAddPrefixSuffix}
+              data-testid="textproc-btn-addPrefixSuffix"
+              className="gap-1"
+            >
+              <Replace aria-hidden className="size-3.5" />
+              {t('tools.json_minifier.btn_add_prefix')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!input}
+              onClick={handleNumberLines}
+              data-testid="textproc-btn-numberLines"
+              className="gap-1"
+            >
+              <ListOrdered aria-hidden className="size-3.5" />
+              {t('tools.json_minifier.btn_number_lines')}
             </Button>
           </div>
         </ConfigRow>

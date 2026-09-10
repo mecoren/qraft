@@ -7,6 +7,13 @@ import {
   EXTRACT_PRESETS,
   type ExtractPresetId,
 } from './text-ops';
+import {
+  fullWidthToAscii,
+  removeConsecutiveDuplicateLines,
+  removeLinesContaining,
+  addPrefixSuffix,
+  numberLines,
+} from './text-ops';
 
 describe('applyFindReplace', () => {
   it('replaces all occurrences of a plain-text pattern by default', () => {
@@ -127,5 +134,33 @@ describe('wordFrequency', () => {
 
   it('returns empty for blank input', () => {
     expect(wordFrequency('   ')).toEqual([]);
+  });
+});
+
+describe('行级杂项操作(P2 批次)', () => {
+  it('fullWidthToAscii 转换全角数字/字母/标点为半角', () => {
+    expect(fullWidthToAscii('ＡＢＣ１２３')).toBe('ABC123');
+    expect(fullWidthToAscii('中文ｘｙ保留')).toBe('中文xy保留');
+  });
+
+  it('removeConsecutiveDuplicateLines 仅删相邻重复(非相邻重复保留)', () => {
+    expect(removeConsecutiveDuplicateLines('a\na\nb\na\nc\nc\n')).toBe('a\nb\na\nc\n');
+  });
+
+  it('removeLinesContaining 删除包含关键字的行(保留不含关键字的行)', () => {
+    expect(removeLinesContaining('keep this\nDROP me\nkeep too\ndrop it', 'drop')).toBe(
+      'keep this\nkeep too',
+    );
+  });
+
+  it('addPrefixSuffix 给每行加前后缀', () => {
+    expect(addPrefixSuffix('a\nb', { prefix: '> ', suffix: '' })).toBe('> a\n> b');
+    expect(addPrefixSuffix('a', { prefix: '[', suffix: ']' })).toBe('[a]');
+  });
+
+  it('numberLines 给每行加行号(1 起始,可选分隔符)', () => {
+    expect(numberLines('a\nb\nc')).toBe('1. a\n2. b\n3. c');
+    expect(numberLines('a\nb', { separator: ' ' })).toBe('1 a\n2 b');
+    expect(numberLines('a\nb', { start: 10, step: 2 })).toBe('10. a\n12. b');
   });
 });

@@ -314,7 +314,9 @@ describe('TextProcessor component', () => {
     expect(
       screen.getByTestId('textproc-group-unicodeToChinese-chineseToUnicode'),
     ).toBeInTheDocument();
-    expect(screen.getByTestId('textproc-group-chineseSymbolToEnglish')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('textproc-group-chineseSymbolToEnglish-fullWidthToAscii'),
+    ).toBeInTheDocument();
     // 第二排子组(大小写 / 行重组)
     expect(
       screen.getByTestId(
@@ -365,9 +367,18 @@ describe('TextProcessor component', () => {
       ),
     ).toBe(true);
 
-    // 中文符号转英文 —— 单独成组
+    // 中文符号转英文 + 全角转半角 —— 同组(中文场景字符整理)
     expect(
-      withinGroup('textproc-group-chineseSymbolToEnglish', 'textproc-btn-chineseSymbolToEnglish'),
+      withinGroup(
+        'textproc-group-chineseSymbolToEnglish-fullWidthToAscii',
+        'textproc-btn-chineseSymbolToEnglish',
+      ),
+    ).toBe(true);
+    expect(
+      withinGroup(
+        'textproc-group-chineseSymbolToEnglish-fullWidthToAscii',
+        'textproc-btn-fullWidthToAscii',
+      ),
     ).toBe(true);
   });
 
@@ -681,6 +692,43 @@ describe('TextProcessor component', () => {
     fireEvent.change(getInput(), { target: { value: 'hello' } });
     // mock 中 mock 的选区长度 = value.length
     expect(screen.getByTestId('input-status-sel').textContent).toBe('(已选择5)');
+  });
+
+  it('full-width to ascii button converts full-width digits/letters', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'Ａ１２３' } });
+    fireEvent.click(screen.getByTestId('textproc-btn-fullWidthToAscii'));
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('A123');
+  });
+
+  it('remove consecutive duplicate lines button keeps non-adjacent duplicates', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'a\na\nb\na' } });
+    fireEvent.click(screen.getByTestId('textproc-btn-removeConsecutiveDuplicates'));
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('a\nb\na');
+  });
+
+  it('remove lines containing keyword (from the keyword input)', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'keep\nDROP me\nkeep2' } });
+    fireEvent.change(screen.getByTestId('textproc-keyword-input'), { target: { value: 'drop' } });
+    fireEvent.click(screen.getByTestId('textproc-btn-removeLinesContaining'));
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('keep\nkeep2');
+  });
+
+  it('add prefix to every line (prefix/suffix inputs)', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'a\nb' } });
+    fireEvent.change(screen.getByTestId('textproc-prefix-input'), { target: { value: '> ' } });
+    fireEvent.click(screen.getByTestId('textproc-btn-addPrefixSuffix'));
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('> a\n> b');
+  });
+
+  it('number lines button prefixes each line with its index', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    fireEvent.change(getInput(), { target: { value: 'a\nb\nc' } });
+    fireEvent.click(screen.getByTestId('textproc-btn-numberLines'));
+    expect(screen.getByTestId('output').querySelector('textarea')!.value).toBe('1. a\n2. b\n3. c');
   });
 
   it('handoff:接收文本写入输入框', () => {

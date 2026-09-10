@@ -135,3 +135,75 @@ export function wordFrequency(
     .map((value) => ({ value, count: counts.get(value)! }))
     .sort((a, b) => b.count - a.count || order.indexOf(a.value) - order.indexOf(b.value));
 }
+
+// ============================================================
+// 行级杂项操作(全角转半角 / 相邻去重 / 按内容删行 / 前后缀 / 行号)
+// ============================================================
+
+/**
+ * 全角字符转半角(ASCII 码位偏移:全角 U+FF01..U+FF5E ↔ 半角 U+0021..U+007E,
+ * 全角空格 U+3000 → 半角空格)。中文等非全角区字符原样保留。
+ */
+export function fullWidthToAscii(input: string): string {
+  return input.replace(/[\uFF01-\uFF5E\u3000]/g, (ch) => {
+    if (ch === '\u3000') return ' ';
+    return String.fromCharCode(ch.charCodeAt(0) - 0xfee0);
+  });
+}
+
+/** 仅删除相邻重复行(保留每组相邻重复的首行;非相邻的重复保留) */
+export function removeConsecutiveDuplicateLines(input: string): string {
+  const lines = input === '' ? [] : input.split('\n');
+  const endsWithNewline = lines.length > 0 && lines[lines.length - 1] === '';
+  if (endsWithNewline) lines.pop();
+  const out = lines.filter((line, i) => i === 0 || line !== lines[i - 1]);
+  return endsWithNewline ? out.join('\n') + '\n' : out.join('\n');
+}
+
+/** 删除包含给定关键字的行(大小写不敏感的子串匹配) */
+export function removeLinesContaining(input: string, keyword: string): string {
+  if (!keyword) return input;
+  const kw = keyword.toLowerCase();
+  const lines = input === '' ? [] : input.split('\n');
+  const endsWithNewline = lines.length > 0 && lines[lines.length - 1] === '';
+  if (endsWithNewline) lines.pop();
+  const out = lines.filter((line) => !line.toLowerCase().includes(kw));
+  return endsWithNewline ? out.join('\n') + '\n' : out.join('\n');
+}
+
+export interface PrefixSuffixOptions {
+  /** 行首前缀,缺省空 */
+  prefix?: string;
+  /** 行尾后缀,缺省空 */
+  suffix?: string;
+}
+
+/** 给每行添加前缀与后缀(如 markdown 引用 "> "、数组行 "[" "]" ) */
+export function addPrefixSuffix(input: string, options: PrefixSuffixOptions): string {
+  const { prefix = '', suffix = '' } = options;
+  if (!prefix && !suffix) return input;
+  const lines = input === '' ? [] : input.split('\n');
+  const endsWithNewline = lines.length > 0 && lines[lines.length - 1] === '';
+  if (endsWithNewline) lines.pop();
+  const out = lines.map((line) => `${prefix}${line}${suffix}`);
+  return endsWithNewline ? out.join('\n') + '\n' : out.join('\n');
+}
+
+export interface NumberLinesOptions {
+  /** 行号与内容的分隔符,默认 ". " */
+  separator?: string;
+  /** 起始编号,默认 1 */
+  start?: number;
+  /** 步长,默认 1 */
+  step?: number;
+}
+
+/** 给每行加行号(如 "1. a",编号可配置起始与步长) */
+export function numberLines(input: string, options: NumberLinesOptions = {}): string {
+  const { separator = '. ', start = 1, step = 1 } = options;
+  const lines = input === '' ? [] : input.split('\n');
+  const endsWithNewline = lines.length > 0 && lines[lines.length - 1] === '';
+  if (endsWithNewline) lines.pop();
+  const out = lines.map((line, i) => `${start + i * step}${separator}${line}`);
+  return endsWithNewline ? out.join('\n') + '\n' : out.join('\n');
+}
