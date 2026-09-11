@@ -95,6 +95,8 @@ const SHORTCUT_KEYS: Array<{
   { key: 'next_tab', labelKey: 'settings.sc_next_tab' },
   { key: 'previous_tab', labelKey: 'settings.sc_previous_tab' },
   { key: 'reopen_closed_tab', labelKey: 'settings.sc_reopen_closed_tab' },
+  { key: 'navigate_edit_back', labelKey: 'settings.sc_navigate_edit_back' },
+  { key: 'navigate_edit_forward', labelKey: 'settings.sc_navigate_edit_forward' },
   { key: 'diff_prev_change', labelKey: 'settings.sc_diff_prev_change' },
   { key: 'diff_next_change', labelKey: 'settings.sc_diff_next_change' },
 ];
@@ -935,6 +937,8 @@ export function ShortcutSection(): JSX.Element {
         next_tab: 'Ctrl+Tab',
         previous_tab: 'Ctrl+Shift+Tab',
         reopen_closed_tab: 'Ctrl+Shift+T',
+        navigate_edit_back: 'Alt+Left',
+        navigate_edit_forward: 'Alt+Right',
         diff_prev_change: 'F7',
         diff_next_change: 'Shift+F7',
       },

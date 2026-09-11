@@ -389,6 +389,8 @@
     "sc_next_tab": "Next tab",
     "sc_previous_tab": "Previous tab",
     "sc_reopen_closed_tab": "Reopen closed tab",
+    "sc_navigate_edit_back": "Navigate back (editor location)",
+    "sc_navigate_edit_forward": "Navigate forward (editor location)",
     "sc_diff_prev_change": "Previous change (text compare)",
     "sc_diff_next_change": "Next change (text compare)",
     "pending_badge": "Pending",

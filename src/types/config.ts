@@ -61,6 +61,10 @@ export interface ShortcutBinding {
   previous_tab: string;
   /** 文本编辑器：恢复最近关闭的 Tab */
   reopen_closed_tab: string;
+  /** 文本编辑器：返回上一个编辑位置(跨 Tab,含行/列恢复) */
+  navigate_edit_back: string;
+  /** 文本编辑器：前进到下一个编辑位置(配合返回使用) */
+  navigate_edit_forward: string;
   /** 文本比较：跳到上一处差异(仅并排模式生效) */
   diff_prev_change: string;
   /** 文本比较：跳到下一处差异(仅并排模式生效) */
@@ -119,6 +123,10 @@ export const DEFAULT_SHORTCUTS: ShortcutBinding = {
   next_tab: 'Ctrl+Tab',
   previous_tab: 'Ctrl+Shift+Tab',
   reopen_closed_tab: 'Ctrl+Shift+T',
+  // 位置历史与浏览器后退/前进同款心智(Alt+Left / Alt+Right),
+  // VSCode「后退」默认同为 Alt+Left
+  navigate_edit_back: 'Alt+Left',
+  navigate_edit_forward: 'Alt+Right',
   // F7/Shift+F7 与 VSCode Diff Editor 原生「上一处/下一处差异」一致
   diff_prev_change: 'F7',
   diff_next_change: 'Shift+F7',

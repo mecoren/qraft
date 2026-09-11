@@ -389,6 +389,8 @@
     "sc_next_tab": "下一个 Tab",
     "sc_previous_tab": "上一个 Tab",
     "sc_reopen_closed_tab": "恢复关闭的 Tab",
+    "sc_navigate_edit_back": "返回上一个编辑位置",
+    "sc_navigate_edit_forward": "前进到下一个编辑位置",
     "sc_diff_prev_change": "上一处差异(文本比较)",
     "sc_diff_next_change": "下一处差异(文本比较)",
     "pending_badge": "暂未生效",

@@ -30,6 +30,8 @@
   "tools.text_editor.unsaved_discard_all": "Discard All",
   "tools.text_editor.open_editors": "Open Editors",
   "tools.text_editor.no_open_editors": "No open editors",
+  "tools.text_editor.tab_overflow_aria": "List of open editors",
+  "tools.text_editor.tab_overflow_title": "Show all open editors",
   "tools.text_editor.close_tab_aria": "Close {{title}}",
   "tools.text_editor.close_compare_aria": "Close compare {{label}}",
   "tools.text_editor.dirty_badge": "{{num}} unsaved",

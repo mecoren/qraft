@@ -20,7 +20,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import type { editor } from 'monaco-editor';
 import type { Monaco } from '@monaco-editor/react';
-import { Columns2, Eye, FilePlus2, Folder, FolderOpen, PenLine } from 'lucide-react';
+import {
+  Columns2,
+  Eye,
+  FilePlus2,
+  Folder,
+  FolderOpen,
+  PenLine,
+  ArrowLeftRight,
+  Save,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
@@ -34,7 +43,7 @@ import {
   cycleNamingCaseShortcutHandler,
   toggleCaseShortcutHandler,
 } from './namingCaseCommand';
-import { registerTabEditor, clearTabEditors } from '@/lib/editor-search-registry';
+import { registerTabEditor, clearTabEditors, getTabEditor } from '@/lib/editor-search-registry';
 import { registerMonacoInstance, disposeModel } from './editorModelRegistry';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
@@ -46,8 +55,16 @@ import { writeClipboardText } from '@/lib/clipboard';
 import type { ToolProps } from '@/tools/registry';
 import { MarkdownPreviewPane, isMarkdownDocument } from '@/tools/markdown-preview-pane';
 import { useMarkdownPreviewStore, type MdViewMode } from '@/tools/markdownPreviewStore';
+import { buildUnifiedPatch } from '@/components/text-diff/diff-utils';
+import { downloadText } from '@/lib/file-utils';
 import { useEditorWorkspaceStore, folderNameFromPath } from './useEditorWorkspaceStore';
 import { useLargeFileScan } from './useLargeFileScan';
+import {
+  goBackEditLocation,
+  goForwardEditLocation,
+  recordEditLocation,
+  type EditLocation,
+} from './editLocationHistory';
 import { LargeFileViewer } from './LargeFileViewer';
 import { EditorTabsBar } from './EditorTabsBar';
 import { EditorLeftSidebar } from './EditorLeftSidebar';
@@ -91,6 +108,30 @@ import {
 
 // Monaco loader 路径配置(import 即执行,保证任何 DiffEditor 挂载前就绪;详见模块内注释)
 import '@/lib/monaco-loader-config';
+
+/** 位置恢复重试间隔与上限(对齐 useSearchJump:跨 Tab 切换后实例可能未就绪) */
+const LOCATION_RETRY_INTERVAL_MS = 120;
+const LOCATION_MAX_RETRIES = 20;
+
+/**
+ * 恢复一个历史编辑位置:定位目标 Tab 的编辑器实例,
+ * 设置光标(行/列)并滚动到视野中央。跨 Tab 后退时切换激活先于本调用,
+ * 实例经 tabId→编辑器注册表获取;模型池化下切 Tab 不重挂,通常首次即中。
+ */
+function revealEditLocation(loc: EditLocation, attempts = 0): void {
+  const ed = getTabEditor(loc.tabId);
+  const model = ed?.getModel();
+  if (ed && model) {
+    const line = Math.min(Math.max(1, loc.line), model.getLineCount());
+    const column = Math.min(Math.max(1, loc.column), model.getLineMaxColumn(line));
+    ed.setPosition({ lineNumber: line, column });
+    ed.revealLineInCenter(line);
+    ed.focus();
+    return;
+  }
+  if (attempts >= LOCATION_MAX_RETRIES) return;
+  window.setTimeout(() => revealEditLocation(loc, attempts + 1), LOCATION_RETRY_INTERVAL_MS);
+}
 
 /** 批量关闭意图:用于未保存确认通过后执行对应 store 动作 */
 type BatchCloseAction = 'close-others' | 'close-right' | 'close-all';
@@ -281,6 +322,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   // 挂载时把编辑器实例注册到全局「激活编辑器」注册表,供 cycle_naming_case
   // 全局快捷键(useShortcut)使用;并按当前 tab 注册到 tabId→实例注册表,
   // 供全局搜索文本跳转定位高亮;卸载时同时注销。
+  // 光标变化 → 记录位置历史(Alt+Left/Right 后退/前进的输入源)。
   const handleEditorMount = useCallback(
     (editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) => {
       activeEditorRef.current = editorInstance;
@@ -289,6 +331,17 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       registerMonacoInstance(monaco as unknown as typeof import('monaco-editor'));
       const tabId = useEditorWorkspaceStore.getState().workspace.activeTabId;
       if (tabId) registerTabEditor(tabId, editorInstance);
+      // 位置历史:光标/选区变化时记录(模块内部做时间与跳距合并节流)
+      editorInstance.onDidChangeCursorPosition((e) => {
+        const current = useEditorWorkspaceStore.getState().workspace.activeTabId;
+        if (current) {
+          recordEditLocation({
+            tabId: current,
+            line: e.position.lineNumber,
+            column: e.position.column,
+          });
+        }
+      });
     },
     [],
   );
@@ -306,6 +359,21 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     }
     knownTabIdsRef.current = [...valid];
   }, [workspace.tabs]);
+
+  /**
+   * 激活 Tab 变化 → 同步 tabId→编辑器实例注册表(池化配套):
+   * 切 Tab 不重挂编辑器(onMount 不再触发),注册表停留在挂载那一刻的
+   * tabId——按 tabId 取实例的调用方(全局搜索跳转 / 位置历史恢复)在
+   * 其它 Tab 上会拿到 null 而重试失败。这里随 activeTabId 把当前唯一
+   * 实例重新注册到新 tabId(旧 tabId 条目保留无害:实例相同,getModel
+   * 经 modelKey 切换恒命中当前 model)。
+   */
+  useEffect(() => {
+    const ed = activeEditorRef.current;
+    if (workspace.activeTabId && ed) {
+      registerTabEditor(workspace.activeTabId, ed);
+    }
+  }, [workspace.activeTabId]);
 
   useEffect(() => {
     return () => {
@@ -1035,6 +1103,37 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     setActiveCompareId(null);
   }, []);
 
+  /**
+   * 交换对比两侧(对齐文本比较工具「交换两侧内容」):把对比项的左右
+   * Tab id 互换。内容在 Tab 本身,不拷贝数据;渲染层标题/语言各自跟随。
+   */
+  const swapCompareSides = useCallback((compareId: string) => {
+    setCompares((prev) =>
+      prev.map((cp) =>
+        cp.id === compareId ? { ...cp, leftTabId: cp.rightTabId, rightTabId: cp.leftTabId } : cp,
+      ),
+    );
+  }, []);
+
+  /**
+   * 导出当前对比的统一格式补丁(.patch):复用文本比较工具的
+   * buildUnifiedPatch(与界面高亮同口径),文件名取两侧 Tab 名。
+   */
+  const exportComparePatch = useCallback(
+    async (left: EditorTab, right: EditorTab) => {
+      if (!left.content.trim() && !right.content.trim()) {
+        toast.info(t('tools.text_compare.patch_empty_toast'));
+        return;
+      }
+      const patch = buildUnifiedPatch(left.content, right.content, {
+        originalName: left.title,
+        modifiedName: right.title,
+      });
+      downloadText(`${left.title}-${right.title}.patch`, patch, 'text/x-diff');
+    },
+    [t],
+  );
+
   /** 对比项引用的 Tab 被关闭时,自动清理该对比项 */
   useEffect(() => {
     // 同上文:订阅 store.tabs 变化后清理对比缓存(外部状态源同步),非普通渲染副作用。
@@ -1094,6 +1193,27 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   }, []);
 
   /**
+   * 位置历史导航(Alt+Left / Alt+Right,浏览器后退-前进心智):
+   * - 目标 Tab 与当前不同 → 先切换激活(复用 handleEditorMount 注册的
+   *   tabId→实例表,等待重试由位置恢复统一处理);
+   * - 激活后经注册表定位编辑器实例,setPosition + revealLineInCenter;
+   * - 目标 Tab 已被关闭 → 丢弃该条并继续弹栈取下一条;
+   * - 空栈静默 no-op(与 reopenClosedTab 行为一致)。
+   */
+  const navigateEditHistory = useCallback((direction: 'back' | 'forward') => {
+    const state = useEditorWorkspaceStore.getState();
+    for (;;) {
+      const target = direction === 'back' ? goBackEditLocation() : goForwardEditLocation();
+      if (!target) return;
+      const exists = state.workspace.tabs.some((t) => t.id === target.tabId);
+      if (!exists) continue; // 目标 Tab 已关闭:丢弃,继续弹下一条
+      if (state.workspace.activeTabId !== target.tabId) state.switchTab(target.tabId);
+      revealEditLocation(target);
+      return;
+    }
+  }, []);
+
+  /**
    * 文本编辑器工作区快捷键全套(菜单 File/View 项的键盘入口):
    * 全部经 useShortcut 读取用户可自定义的绑定,菜单标签经 shortcutLabel
    * 同源渲染,保证「标签显示的 = 实际生效的」。卸载(切换工具)自动
@@ -1108,6 +1228,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   useShortcut('next_tab', () => cycleActiveTab('next'), []);
   useShortcut('previous_tab', () => cycleActiveTab('previous'), []);
   useShortcut('reopen_closed_tab', reopenClosedTab, [reopenClosedTab]);
+  useShortcut('navigate_edit_back', () => navigateEditHistory('back'), []);
+  useShortcut('navigate_edit_forward', () => navigateEditHistory('forward'), []);
   // Alt+1..9 直达第 N 个 Tab:固定映射不进 ShortcutBinding(九个键位
   // 挤占设置页且录制繁琐,VSCode/浏览器同样固定);超出 Tab 数夹到末尾
   useEffect(() => {
@@ -1524,7 +1646,9 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               data-search-anchor={showCompare ? 'text_editor:compare' : undefined}
             >
               {showCompare && compareLeft && compareRight ? (
-                /* 对比差异视图:直接在页面中显示,两侧均可直接编辑 */
+                /* 对比差异视图:直接在页面中显示,两侧均可直接编辑;
+                 * toolbar 注入「交换两侧 / 导出补丁」动作(能力与文本比较工具
+                 * 同源,共享 TextDiffView 与 diff-utils) */
                 <FileCompareView
                   key={activeCompareId ?? 'compare'}
                   left={compareLeft}
@@ -1535,6 +1659,10 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                   onChangeRight={(v) =>
                     useEditorWorkspaceStore.getState().setTabContent(compareRight.id, v)
                   }
+                  onSwap={() => {
+                    if (activeCompareId) swapCompareSides(activeCompareId);
+                  }}
+                  onExportPatch={() => void exportComparePatch(compareLeft, compareRight)}
                   data-testid="compare-view"
                 />
               ) : activeTab ? (
@@ -1688,11 +1816,13 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
  * - 语言按各文件扩展名分别推断(旧实现写死 plaintext,此处顺带修复),
  *   未识别扩展名回退纯文本。
  */
-function FileCompareView({
+export function FileCompareView({
   left,
   right,
   onChangeLeft,
   onChangeRight,
+  onSwap,
+  onExportPatch,
   'data-testid': dataTestId,
 }: {
   left: EditorTab;
@@ -1701,8 +1831,13 @@ function FileCompareView({
   onChangeLeft: (value: string) => void;
   /** 右侧(目标文件)内容变化回调(写回对应 Tab) */
   onChangeRight: (value: string) => void;
+  /** 交换两侧(对比项左右 Tab id 互换) */
+  onSwap: () => void;
+  /** 导出统一格式补丁(.patch) */
+  onExportPatch: () => void;
   'data-testid'?: string;
 }): JSX.Element {
+  const { t } = useTranslation();
   return (
     <div data-testid={dataTestId} className="flex h-full min-h-0 w-full min-w-0 flex-col">
       <TextDiffView
@@ -1715,6 +1850,30 @@ function FileCompareView({
         originalLanguage={inferLanguageFromPath(left.path ?? left.title)}
         modifiedLanguage={inferLanguageFromPath(right.path ?? right.title)}
         folding
+        toolbarActions={
+          <>
+            <button
+              type="button"
+              data-testid={`${dataTestId}-swap-sides`}
+              title={t('tools.text_compare.swap_sides')}
+              aria-label={t('tools.text_compare.swap_sides')}
+              onClick={onSwap}
+              className="flex items-center rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ArrowLeftRight aria-hidden className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              data-testid={`${dataTestId}-export-patch`}
+              title={t('tools.text_compare.export_patch')}
+              aria-label={t('tools.text_compare.export_patch')}
+              onClick={onExportPatch}
+              className="flex items-center rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Save aria-hidden className="size-3.5" />
+            </button>
+          </>
+        }
         testIdPrefix={dataTestId ?? 'compare-view'}
       />
     </div>

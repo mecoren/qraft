@@ -125,6 +125,53 @@ describe('EditorTabsBar 对比差异 Tab', () => {
   });
 });
 
+describe('EditorTabsBar 溢出下拉列表', () => {
+  it('有 Tab 时渲染溢出按钮,点击展开后列出全部 Tab 与对比项', async () => {
+    setup();
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('tabs-overflow'));
+
+    expect(screen.getByTestId('tabs-overflow-menu')).toBeInTheDocument();
+    expect(screen.getByTestId('tabs-overflow-item-a.ts')).toBeInTheDocument();
+    expect(screen.getByTestId('tabs-overflow-item-b.ts')).toBeInTheDocument();
+    expect(screen.getByTestId('tabs-overflow-menu')).toHaveTextContent('a.ts ⟷ b.ts');
+  });
+
+  it('点击下拉条目激活对应 Tab 并关闭菜单', async () => {
+    const handlers = setup();
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('tabs-overflow'));
+    await user.click(screen.getByTestId('tabs-overflow-item-b.ts'));
+
+    expect(handlers.onSelect).toHaveBeenCalledWith('t2');
+  });
+
+  it('点击对比条目分发 onSelectCompare', async () => {
+    const handlers = setup();
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('tabs-overflow'));
+    await user.click(screen.getByTestId('tabs-overflow-compare-c1'));
+
+    expect(handlers.onSelectCompare).toHaveBeenCalledWith('c1');
+  });
+
+  it('dirty Tab 在下拉条目上显示未保存圆点', async () => {
+    const dirtyTabs: EditorTab[] = [{ ...tabs[0], content: 'modified' }];
+    setup({ tabs: dirtyTabs, compares: [] });
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('tabs-overflow'));
+
+    const item = screen.getByTestId('tabs-overflow-item-a.ts');
+    expect(item.querySelector('span[class*="rounded-full"]')).not.toBeNull();
+  });
+
+  it('无 Tab 且无对比项时不渲染溢出按钮', () => {
+    setup({ tabs: [], compares: [], activeTabId: null });
+
+    expect(screen.queryByTestId('tabs-overflow')).not.toBeInTheDocument();
+  });
+});
+
 describe('EditorTabsBar Tab 拖拽排序', () => {
   afterEach(() => {
     // 还原本 describe 内 spyOn 的 getBoundingClientRect

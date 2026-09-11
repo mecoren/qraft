@@ -17,10 +17,17 @@
  *   - 轨道 14px、滑块 10px(2px 内缩)、全圆角胶囊、--scrollbar-slider-* token
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { GitCompareArrows, Pin, X } from 'lucide-react';
+import { ChevronDown, GitCompareArrows, Pin, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { FileIcon } from './FileIcon';
 import { TabContextMenu } from './TabContextMenu';
 import { UnsavedPopover, type UnsavedMode } from './UnsavedPopover';
@@ -567,6 +574,70 @@ export function EditorTabsBar({
           )}
         </div>
       </ScrollArea>
+      {/* 溢出下拉(VSCode Tab 栏「⋯」菜单):Tab 多到滚动后快速定位。
+       * 列出全部普通 Tab 与对比项(固定区在前,与 Tab 栏视觉顺序一致),
+       * 点击条目激活对应 Tab / 对比并关闭菜单。无任何条目时禁用。 */}
+      {(sortedTabs.length > 0 || compares.length > 0) && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild disabled={sortedTabs.length === 0 && compares.length === 0}>
+            <button
+              type="button"
+              data-testid={`${dataTestId}-overflow`}
+              aria-label={t('tools.text_editor.tab_overflow_aria')}
+              title={t('tools.text_editor.tab_overflow_title')}
+              className="flex h-7 w-7 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+            >
+              <ChevronDown aria-hidden className="size-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            side="bottom"
+            className="max-h-72 w-56"
+            data-testid={`${dataTestId}-overflow-menu`}
+          >
+            {sortedTabs.map((tab) => (
+              <DropdownMenuItem
+                key={tab.id}
+                onSelect={() => onSelect(tab.id)}
+                data-testid={`${dataTestId}-overflow-item-${tab.title}`}
+                className="gap-2"
+              >
+                {tab.pinned ? (
+                  <Pin aria-hidden className="size-3.5 shrink-0 text-primary" />
+                ) : (
+                  <FileIcon path={tab.path} />
+                )}
+                <span className="min-w-0 flex-1 truncate">{tab.title}</span>
+                {tab.content !== tab.savedContent && (
+                  <span
+                    aria-label={t('tools.text_editor.unsaved_aria')}
+                    className="size-2 shrink-0 rounded-full bg-primary"
+                  />
+                )}
+              </DropdownMenuItem>
+            ))}
+            {compares.length > 0 && sortedTabs.length > 0 && <DropdownMenuSeparator />}
+            {compares.map((cp) => {
+              const left = tabs.find((t) => t.id === cp.leftTabId);
+              const right = tabs.find((t) => t.id === cp.rightTabId);
+              return (
+                <DropdownMenuItem
+                  key={cp.id}
+                  onSelect={() => onSelectCompare?.(cp.id)}
+                  data-testid={`${dataTestId}-overflow-compare-${cp.id}`}
+                  className="gap-2"
+                >
+                  <GitCompareArrows aria-hidden className="size-3.5 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">
+                    {`${left?.title ?? '?'} ⟷ ${right?.title ?? '?'}`}
+                  </span>
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   );
 }

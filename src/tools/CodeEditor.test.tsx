@@ -1105,6 +1105,73 @@ describe('CodeEditorTool 全局快捷键', () => {
     expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(t3.id);
   });
 
+  it('Alt+Left / Alt+Right 后退-前进编辑位置(跨 Tab 恢复)', async () => {
+    // 位置历史为会话级模块单例,用例前清空避免跨用例串扰
+    const { resetEditLocationHistory, recordEditLocation } =
+      await import('./code-editor-workspace/editLocationHistory');
+    resetEditLocationHistory();
+
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await clickToolbarItem('toolbar-new');
+    await clickToolbarItem('toolbar-new');
+    await waitForTabCount(2);
+    const [t1, t2] = useEditorWorkspaceStore.getState().workspace.tabs;
+
+    // 模拟两处历史位置:t1 第 10 行、t2 第 5 行(跨 Tab;真实来源是 Monaco
+    // onDidChangeCursorPosition → recordEditLocation,jsdom 无真实 Monaco)
+    act(() => {
+      recordEditLocation({ tabId: t1.id, line: 10, column: 1 });
+      recordEditLocation({ tabId: t2.id, line: 5, column: 3 });
+    });
+
+    // 当前激活 t2:后退 → 切回 t1(位置恢复经注册表,jsdom 下无编辑器
+    // 实例,恢复重试静默降级——但 Tab 切换先于位置恢复,可断言)
+    fireShortcut({ key: 'ArrowLeft', altKey: true });
+    await waitFor(() =>
+      expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(t1.id),
+    );
+
+    // 前进 → 回到 t2
+    fireShortcut({ key: 'ArrowRight', altKey: true });
+    await waitFor(() =>
+      expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(t2.id),
+    );
+
+    resetEditLocationHistory();
+  });
+
+  it('位置历史中已关闭的 Tab 被跳过,后退取下一条', async () => {
+    const { resetEditLocationHistory, recordEditLocation } =
+      await import('./code-editor-workspace/editLocationHistory');
+    resetEditLocationHistory();
+
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await clickToolbarItem('toolbar-new');
+    await clickToolbarItem('toolbar-new');
+    await clickToolbarItem('toolbar-new');
+    await waitForTabCount(3);
+    const [t1, t2, t3] = useEditorWorkspaceStore.getState().workspace.tabs;
+
+    act(() => {
+      recordEditLocation({ tabId: t1.id, line: 3, column: 1 });
+      recordEditLocation({ tabId: t2.id, line: 3, column: 1 });
+      recordEditLocation({ tabId: t3.id, line: 8, column: 1 });
+    });
+    // 关闭中间的 t2:后退时该条被丢弃,直接回到 t1
+    act(() => useEditorWorkspaceStore.getState().closeTab(t2.id));
+    // 激活 t3(关闭后激活态跳到相邻,保持非 t1 以观察切换)
+    act(() => useEditorWorkspaceStore.getState().switchTab(t3.id));
+
+    fireShortcut({ key: 'ArrowLeft', altKey: true });
+    await waitFor(() =>
+      expect(useEditorWorkspaceStore.getState().workspace.activeTabId).toBe(t1.id),
+    );
+
+    resetEditLocationHistory();
+  });
+
   it('Ctrl+B 切换编辑器左栏显隐(而非应用主侧栏)', async () => {
     renderTool();
     await screen.findByTestId('editor-empty');

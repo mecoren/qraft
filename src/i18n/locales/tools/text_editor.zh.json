@@ -30,6 +30,8 @@
   "tools.text_editor.unsaved_discard_all": "全部不保存",
   "tools.text_editor.open_editors": "打开的编辑器",
   "tools.text_editor.no_open_editors": "无打开的编辑器",
+  "tools.text_editor.tab_overflow_aria": "已打开的编辑器列表",
+  "tools.text_editor.tab_overflow_title": "显示全部已打开的编辑器",
   "tools.text_editor.close_tab_aria": "关闭 {{title}}",
   "tools.text_editor.close_compare_aria": "关闭对比 {{label}}",
   "tools.text_editor.dirty_badge": "{{num}} 个未保存",

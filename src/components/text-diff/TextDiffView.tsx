@@ -119,6 +119,12 @@ export interface TextDiffViewProps {
   leftChrome?: TextDiffSideChrome;
   /** 右(修改)侧文件级外观 */
   rightChrome?: TextDiffSideChrome;
+  /**
+   * 自定义工具栏动作区(渲染在修改侧标题旁的统计/导航区之后):
+   * 编辑器「文件对比」等宿主注入「交换两侧 / 导出补丁」按钮;
+   * 缺省不渲染。
+   */
+  toolbarActions?: React.ReactNode;
   /** 主区域搜索锚点(全局搜索定位用) */
   searchAnchor?: string;
   /** 左侧编辑器搜索锚点 */
@@ -249,6 +255,7 @@ export function TextDiffView({
   onCopyBlock,
   leftChrome,
   rightChrome,
+  toolbarActions,
   searchAnchor,
   leftSearchAnchor,
   rightSearchAnchor,
@@ -821,6 +828,7 @@ export function TextDiffView({
                   {diffNav}
                   {inlineToggle}
                   {syncScrollButton}
+                  {toolbarActions}
                 </span>
               }
               value={modified}
