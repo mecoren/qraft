@@ -15,8 +15,9 @@
  * - 点击转换按钮把 **输入** 的转换结果写入 **输出框**,输入保持原值不动;
  *   输出框的「作为输入」按钮可把输出回填到输入,实现多步流水线
  *   (escape → 回填 → 去空格,无需复制粘贴)。
- * - 配置行采用 `ConfigSection > ConfigRow(左 label/hint + 右 ButtonGroup 嵌套)`,
- *   与 SQL 格式化器保持一致;宽按钮组在控件列内自动换行,不挤压左侧提示。
+ * - 配置行用 `ConfigRow(左 caption 微标签 + 右按钮组嵌套)` 的 caption 模式:
+ *   左侧只留 96px 定宽小标签列标注分组意图,按钮组占满剩余宽度从左缘
+ *   起铺、组间流动换行,不浪费纵向空间;描述性 hint 收进标题行统一说明。
  */
 import { useCallback, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -872,14 +873,14 @@ function GroupFragment({
 /**
  * 文本处理工具主组件
  *
- * - 顶部"配置"区分两层:
- *   - 常驻条(默认可见):常用转换(转义/URL/Unicode/中文场景)+ 大小写
- *     与行重组核心,两排 ButtonGroup;右上角 ChevronsUpDown 图标切换进阶区;
- *   - 进阶区(点击图标展开):命名风格 / 行清理 / 排序变体 / 查找替换 /
- *     提取统计。展开区限高 `min(320px, 50vh)` 内部滚动——按钮再多也不
- *     挤压下方编辑器,收起即恢复全高编辑区。
- * - 每个配置行恢复「左提示 + 右控件」左右布局:label 列(图标 + 小标题
- *   + 一行 hint)居左,按钮组/输入控件居右;宽按钮组在控件列内自动换行。
+ * - 顶部"配置"区(hint 全部收进标题行,一次说明"写入输出框、输入不变"):
+ *   - 常驻条:转换 / 调整两行,每行「caption 微标签 + 按钮组流动铺开」;
+ *     按钮组不换行时整行单行高度(约 44px),两行约 100px,编辑器拿回主体高度;
+ *   - 进阶区(标题行图标切换):命名与行清理 / 查找替换 / 提取与统计三行,
+ *     同为 caption 微标签布局,限高 min(320px, 50vh) 内部滚动,不进一步压缩编辑器。
+ * - 配置行采用 ConfigRow 的 caption 模式:左侧 96px 定宽小标签列标注分组
+ *   意图,控件列占满剩余宽度从左缘起铺,组间 flex-wrap 流动换行——按钮
+ *   不再被挤进窄列反复折行,宽屏一行铺完、窄屏自然换行。
  * - 下方为左右两栏的输入/输出编辑器:输入框可编辑,转换按钮只
  *   把结果写入 **输出框**,输入保持原值不动;输出框的「作为输入」
  *   按钮把输出回填到输入,衔接多步流水线。
@@ -1046,6 +1047,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
       <ConfigSection
         searchAnchor="json_minifier:config"
         headerTestId="textproc-config-header"
+        headerHint={t('tools.json_minifier.section_hint')}
         headerAction={
           /* 进阶区切换按钮:标题行右侧;展开时图标转 ChevronsUp 语义收起 */
           <button
@@ -1055,7 +1057,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
             title={t('tools.json_minifier.more_toggle')}
             aria-label={t('tools.json_minifier.more_toggle')}
             onClick={() => setMoreOpen((v) => !v)}
-            className="flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {moreOpen ? (
               <ChevronsUp aria-hidden className="size-3.5" />
@@ -1065,15 +1067,15 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
           </button>
         }
       >
-        {/* 左侧 label 列带图标与一行描述,右侧按钮组换行铺开;
-            五行 labelClassName 统一 w-64 定宽——左侧描述列等宽对齐,
-            控件列起点随之对齐;描述完整单行显示 */}
+        {/* caption 微标签模式:左侧 96px 小标签列标注分组意图,按钮组占满
+            剩余宽度从左缘起铺、组间 flex-wrap 流动换行——省出旧 w-64 标签列
+            与逐行 hint 的纵向空间,按钮不再被挤进窄列折行 */}
         <ConfigRow
           icon={Wand2}
-          label={t('tools.json_minifier.row_transform')}
-          hint={t('tools.json_minifier.row_transform_hint')}
-          labelClassName="w-64 shrink-0"
+          caption={t('tools.json_minifier.row_transform')}
+          captionHint={t('tools.json_minifier.row_transform_hint')}
           searchAnchor="json_minifier:row1"
+          testId="textproc-row-transform"
         >
           {/* 外层 ButtonGroup 起容器作用 —— 仅作为 flex 父节点。组间距用与
               组件内置 `has-[...]:gap-2` 同为 :has 选择器的 `gap-x-3`(12px)/
@@ -1093,10 +1095,10 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
 
         <ConfigRow
           icon={CaseUpper}
-          label={t('tools.json_minifier.row_adjust')}
-          hint={t('tools.json_minifier.row_adjust_hint')}
-          labelClassName="w-64 shrink-0"
+          caption={t('tools.json_minifier.row_adjust')}
+          captionHint={t('tools.json_minifier.row_adjust_hint')}
           searchAnchor="json_minifier:row2"
+          testId="textproc-row-adjust"
         >
           <ButtonGroup
             aria-label={t('tools.json_minifier.group_aria_row2')}
@@ -1109,19 +1111,19 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
           </ButtonGroup>
         </ConfigRow>
 
-        {/* 进阶配置区:默认折叠;展开时限高 min(240px, 40vh) 内部滚动,
+        {/* 进阶配置区:默认折叠;展开时限高 min(320px, 50vh) 内部滚动,
             按钮再多也不进一步压缩编辑器 */}
         {moreOpen && (
           <div
             data-testid="textproc-more-config"
-            className="max-h-[min(240px,40vh)] divide-y divide-border overflow-y-auto"
+            className="max-h-[min(320px,50vh)] divide-y divide-border overflow-y-auto"
           >
             <ConfigRow
               icon={Type}
-              label={t('tools.json_minifier.row_advanced')}
-              hint={t('tools.json_minifier.row_advanced_hint')}
-              labelClassName="w-64 shrink-0"
+              caption={t('tools.json_minifier.row_advanced')}
+              captionHint={t('tools.json_minifier.row_advanced_hint')}
               searchAnchor="json_minifier:row3"
+              testId="textproc-row-advanced"
             >
               <ButtonGroup
                 aria-label={t('tools.json_minifier.group_aria_row3')}
@@ -1136,10 +1138,10 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
 
             <ConfigRow
               icon={Search}
-              label={t('tools.json_minifier.row_find_replace')}
-              hint={t('tools.json_minifier.row_find_replace_hint')}
-              labelClassName="w-64 shrink-0"
+              caption={t('tools.json_minifier.row_find_replace')}
+              captionHint={t('tools.json_minifier.row_find_replace_hint')}
               searchAnchor="json_minifier:row4"
+              testId="textproc-row-find-replace"
             >
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
                 <Input
@@ -1194,10 +1196,10 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
 
             <ConfigRow
               icon={ScanSearch}
-              label={t('tools.json_minifier.row_extract')}
-              hint={t('tools.json_minifier.row_extract_hint')}
-              labelClassName="w-64 shrink-0"
+              caption={t('tools.json_minifier.row_extract')}
+              captionHint={t('tools.json_minifier.row_extract_hint')}
               searchAnchor="json_minifier:row5"
+              testId="textproc-row-extract"
             >
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
                 <Select value={extractId} onValueChange={(v) => setExtractId(v as ExtractPresetId)}>

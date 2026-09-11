@@ -328,9 +328,10 @@ describe('TextProcessor component', () => {
     expect(screen.queryByTestId('textproc-btn-camelCase')).not.toBeInTheDocument();
     expect(screen.getByTestId('textproc-btn-escape')).toBeInTheDocument();
 
-    // 切换图标位于首行紧凑标题行:标题「配置」居左 + 图标居右
+    // 切换图标位于首行紧凑标题行:标题「配置」+ 分组说明 hint 居左 + 图标居右
     const header = screen.getByTestId('textproc-config-header');
     expect(header).toHaveTextContent('配置');
+    expect(header).toHaveTextContent('写入输出框');
     expect(header).toContainElement(screen.getByTestId('textproc-more-toggle'));
 
     // 点击右上角切换图标 → 展开区出现,进阶按钮可见
@@ -343,6 +344,50 @@ describe('TextProcessor component', () => {
     // 再次点击 → 折叠回去
     fireEvent.click(screen.getByTestId('textproc-more-toggle'));
     expect(screen.queryByTestId('textproc-more-config')).not.toBeInTheDocument();
+  });
+
+  it('renders config rows in caption mode: 96px-ish label column then control flow', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    // caption 微标签模式:每行左侧小标签列 + 控件列占满剩余宽度(从左缘起铺)
+    const row = screen.getByTestId('textproc-row-transform');
+    expect(row).toHaveTextContent('转换');
+    expect(row).toContainElement(screen.getByTestId('textproc-button-group-row1'));
+    // 控件列不应再右对齐(label 模式的 justify-end)
+    const controls = row.children[1] as HTMLElement;
+    expect(controls.className).toContain('justify-start');
+    // 五行微标签齐全:转换 / 调整 常驻,命名与行清理 / 查找替换 / 提取与统计 进阶
+    expect(screen.getByTestId('textproc-row-adjust')).toHaveTextContent('调整');
+    fireEvent.click(screen.getByTestId('textproc-more-toggle'));
+    expect(screen.getByTestId('textproc-row-advanced')).toHaveTextContent('命名与行清理');
+    expect(screen.getByTestId('textproc-row-find-replace')).toHaveTextContent('查找替换');
+    expect(screen.getByTestId('textproc-row-extract')).toHaveTextContent('提取与统计');
+  });
+
+  it('shows a hover hint (title) on each caption label explaining the row', () => {
+    render(<TextProcessor toolId="json_minifier" metadata={null as never} />);
+    // caption 微标签收窄后行级说明进 title 悬浮提示:悬浮左侧标签即可看到该行说明
+    const rowTransform = screen.getByTestId('textproc-row-transform');
+    const captionTransform = within(rowTransform).getByText('转换');
+    expect(captionTransform).toHaveAttribute('title', '点击按钮把转换结果写入输出框,输入不变');
+    expect(captionTransform).toHaveAccessibleName('点击按钮把转换结果写入输出框,输入不变');
+
+    const rowAdjust = screen.getByTestId('textproc-row-adjust');
+    expect(within(rowAdjust).getByText('调整')).toHaveAttribute(
+      'title',
+      '大小写与行级重排,写入输出框',
+    );
+
+    // 进阶区三行同理,展开后可见
+    fireEvent.click(screen.getByTestId('textproc-more-toggle'));
+    expect(
+      within(screen.getByTestId('textproc-row-advanced')).getByText('命名与行清理'),
+    ).toHaveAttribute('title', '命名风格、行清理与排序变体');
+    expect(
+      within(screen.getByTestId('textproc-row-find-replace')).getByText('查找替换'),
+    ).toHaveAttribute('title', '支持正则与 $1 捕获组引用');
+    expect(
+      within(screen.getByTestId('textproc-row-extract')).getByText('提取与统计'),
+    ).toHaveAttribute('title', '按预设提取 URL / 邮箱 / IP 等,或统计词频');
   });
 
   it('groups related transforms together (same group) and separates different ones', () => {

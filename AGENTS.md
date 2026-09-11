@@ -158,6 +158,7 @@ cargo test
 - 非编辑器面板(预览 / 参数摘要 / 大字号结果等)做成与 CodeEditor 同构的「编辑框」:标题栏 `flex h-[26px] min-w-0 items-center justify-between gap-x-2 border-b border-input px-2`,标题 `pl-1 text-xs font-medium text-foreground` + truncate;动作区只放纯文字/图标按钮(图标 size-3.5 + text-xs),不用 Button 组件;底部状态栏可按需用 `border-t border-input px-2 py-0.5 text-xs tabular-nums text-muted-foreground`。
 - 满高预览区不要嵌 Radix ScrollArea(其 viewport 的 table 包裹会打断高度链),用普通 `div.min-h-0 flex-1 overflow-auto` + flex 居中。
 - 模式/方向切换照 Base64Codec 的 ConfigRow 分段控件,忌通栏 Tab 条与自创标题栏样式。
+- ConfigRow 的 caption 微标签(96px 定宽小标签列)放不下行级说明:该行描述统一经 `captionHint` 传 i18n 文案,渲染为标签文本上的原生 `title`——浮层样式由全局 title 接管层(`global-title-tooltip`,main.tsx 挂载)统一渲染,勿自引 Radix Tooltip 或塞回 hint 行。title 挂可见文本而非外层容器,悬停空白不弹。
 
 **测试**
 

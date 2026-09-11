@@ -38,6 +38,7 @@
   "tools.json_minifier.row_advanced_hint": "Naming styles, line cleanup and sort variants",
   "tools.json_minifier.row_find_replace": "Find & replace",
   "tools.json_minifier.row_find_replace_hint": "Regex with $1 capture-group references supported",
+  "tools.json_minifier.section_hint": "Click a transform to write the result to the output; the input stays intact and the output can be fed back",
   "tools.json_minifier.find_placeholder": "Find (regex supported)",
   "tools.json_minifier.replace_placeholder": "Replace with ($1 for groups)",
   "tools.json_minifier.btn_replace": "Replace",

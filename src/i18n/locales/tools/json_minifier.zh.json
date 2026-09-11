@@ -38,6 +38,7 @@
   "tools.json_minifier.row_advanced_hint": "命名风格、行清理与排序变体",
   "tools.json_minifier.row_find_replace": "查找替换",
   "tools.json_minifier.row_find_replace_hint": "支持正则与 $1 捕获组引用",
+  "tools.json_minifier.section_hint": "点击转换把结果写入输出框,输入保持不变;输出可回填为输入",
   "tools.json_minifier.find_placeholder": "查找(支持正则)",
   "tools.json_minifier.replace_placeholder": "替换为($1 引用捕获组)",
   "tools.json_minifier.btn_replace": "替换",
