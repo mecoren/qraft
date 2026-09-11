@@ -280,6 +280,96 @@ pub async fn fs_read_dir_inner(
     Ok(CommandResponse::ok(entries))
 }
 
+// ============ 文件树操作(新建 / 重命名 / 删除;VSCode 资源管理器对齐) ============
+
+/// 在文件树中新建一个条目(文件或目录)
+///
+/// 目标已存在时返回 `AppError::AlreadyExists`(`ERR_ALREADY_EXISTS`),
+/// 前端据此提示重名冲突——绝不静默覆盖既有内容。
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 目标已存在时返回 `AppError::AlreadyExists`(`ERR_ALREADY_EXISTS`)
+/// - 父目录不存在 / 创建失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+pub async fn fs_create_entry_inner(
+    path: &str,
+    is_dir: bool,
+    authorized: &AuthorizedPaths,
+) -> Result<CommandResponse<String>, AppError> {
+    validate_path(path, authorized)?;
+    if tokio::fs::symlink_metadata(path).await.is_ok() {
+        return Err(AppError::AlreadyExists(path.to_string()));
+    }
+    if is_dir {
+        tokio::fs::create_dir(path).await.map_err(AppError::from)?;
+    } else {
+        // create_new 语义:仅当不存在时创建,与先查后建的窗口期竞态也安全
+        tokio::fs::File::create_new(path)
+            .await
+            .map_err(AppError::from)?;
+    }
+    Ok(CommandResponse::ok(path.to_string()))
+}
+
+/// 重命名 / 移动文件树条目(同目录改名或授权子树内移动)
+///
+/// `new_path` 与 `old_path` 都必须在授权范围内(重命名不得把条目移出沙箱);
+/// 目标已存在时返回 `AppError::AlreadyExists`,不覆盖。
+///
+/// # Errors
+///
+/// - 任一路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 目标已存在时返回 `AppError::AlreadyExists`(`ERR_ALREADY_EXISTS`)
+/// - 源不存在 / 跨盘符等系统拒绝时返回 `AppError::Io`(`ERR_FILE_IO`)
+pub async fn fs_rename_entry_inner(
+    old_path: &str,
+    new_path: &str,
+    authorized: &AuthorizedPaths,
+) -> Result<CommandResponse<String>, AppError> {
+    validate_path(old_path, authorized)?;
+    validate_path(new_path, authorized)?;
+    if tokio::fs::symlink_metadata(new_path).await.is_ok() {
+        return Err(AppError::AlreadyExists(new_path.to_string()));
+    }
+    tokio::fs::rename(old_path, new_path)
+        .await
+        .map_err(AppError::from)?;
+    Ok(CommandResponse::ok(new_path.to_string()))
+}
+
+/// 删除文件树条目(文件或**空目录**,非递归)
+///
+/// 目录非空时返回 `AppError::Unsupported`(`ERR_TREE_DIR_NOT_EMPTY` 由前端文案
+/// 提示)——递归删除一旦误触影响面过大,工具箱不做回收站,先以最小权限对齐
+/// 「删文件」的最常见诉求;非空目录请用户在系统资源管理器处理。
+///
+/// # Errors
+///
+/// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 目录非空时返回 `AppError::Unsupported`(`ERR_FILE_UNSUPPORTED`)
+/// - 条目不存在 / 删除被系统拒绝时返回 `AppError::Io`(`ERR_FILE_IO`)
+pub async fn fs_delete_entry_inner(
+    path: &str,
+    authorized: &AuthorizedPaths,
+) -> Result<CommandResponse<()>, AppError> {
+    validate_path(path, authorized)?;
+    let meta = tokio::fs::symlink_metadata(path)
+        .await
+        .map_err(AppError::from)?;
+    if meta.is_dir() {
+        // read_dir 有条目即非空(无需逐条枚举完)
+        let mut rd = tokio::fs::read_dir(path).await.map_err(AppError::from)?;
+        if rd.next_entry().await.map_err(AppError::from)?.is_some() {
+            return Err(AppError::Unsupported("directory not empty".into()));
+        }
+        tokio::fs::remove_dir(path).await.map_err(AppError::from)?;
+    } else {
+        tokio::fs::remove_file(path).await.map_err(AppError::from)?;
+    }
+    Ok(CommandResponse::ok(()))
+}
+
 // ============ 文件编码(编辑器编码切换;纯逻辑见 media::text_encoding)============
 
 use crate::media::text_encoding::{
@@ -795,6 +885,47 @@ pub async fn fs_read_dir(
     authorized: tauri::State<'_, AuthorizedPaths>,
 ) -> Result<CommandResponse<Vec<DirEntryInfo>>, AppError> {
     fs_read_dir_inner(&path, &authorized).await
+}
+
+/// 在文件树中新建文件或目录(目标已存在时报 `ERR_ALREADY_EXISTS`)
+///
+/// # Errors
+///
+/// 见 `fs_create_entry_inner`
+#[tauri::command]
+pub async fn fs_create_entry(
+    path: String,
+    is_dir: bool,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<String>, AppError> {
+    fs_create_entry_inner(&path, is_dir, &authorized).await
+}
+
+/// 重命名 / 移动文件树条目(两个路径都必须在授权范围内)
+///
+/// # Errors
+///
+/// 见 `fs_rename_entry_inner`
+#[tauri::command]
+pub async fn fs_rename_entry(
+    old_path: String,
+    new_path: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<String>, AppError> {
+    fs_rename_entry_inner(&old_path, &new_path, &authorized).await
+}
+
+/// 删除文件或空目录(非递归;目录非空时报 `ERR_FILE_UNSUPPORTED`)
+///
+/// # Errors
+///
+/// 见 `fs_delete_entry_inner`
+#[tauri::command]
+pub async fn fs_delete_entry(
+    path: String,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<()>, AppError> {
+    fs_delete_entry_inner(&path, &authorized).await
 }
 
 /// 拖放条目类型

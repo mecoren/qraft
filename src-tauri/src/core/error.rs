@@ -119,6 +119,11 @@ pub enum AppError {
     #[error("forbidden: {0}")]
     Forbidden(String),
 
+    /// 目标文件/目录已存在。文件树「新建 / 重命名」命中时,前端据此提示
+    /// 重名冲突而非通用 IO 失败(用户可改名后重试,不应覆盖既有内容)。
+    #[error("already exists: {0}")]
+    AlreadyExists(String),
+
     #[error("internal error: {0}")]
     Internal(anyhow::Error),
 
@@ -143,6 +148,7 @@ impl AppError {
             Self::FileTooLarge { .. } => "ERR_FILE_TOO_LARGE",
             Self::FileModified { .. } => "ERR_FILE_MODIFIED",
             Self::Permission(_) | Self::Forbidden(_) => "ERR_PERMISSION_DENIED",
+            Self::AlreadyExists(_) => "ERR_ALREADY_EXISTS",
             Self::Internal(_) | Self::Unknown(_) => "ERR_INTERNAL",
         }
     }
@@ -197,6 +203,7 @@ impl Serialize for AppError {
             | Self::Permission(s)
             | Self::Forbidden(s)
             | Self::Unsupported(s)
+            | Self::AlreadyExists(s)
             | Self::Unknown(s) => {
                 map.serialize_entry("detail", s)?;
             }

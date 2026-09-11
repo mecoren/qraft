@@ -36,6 +36,13 @@ import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { TextDiffView } from '@/components/text-diff/TextDiffView';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { RenameDialog } from '@/components/RenameDialog';
 import {
   registerActiveEditor,
@@ -79,17 +86,21 @@ import {
   OPEN_REASON_BINARY,
   OPEN_REASON_TOO_LARGE,
   clearFileHistory,
+  createTreeEntry,
+  deleteTreeEntry,
   forceOpenFile,
   listFileHistory,
   openTextFileDialog,
   openFolderDialog,
   readFileHistorySnapshot,
   readTextFileEncoded,
+  renameTreeEntry,
   revealInExplorer,
   saveToPathEncoded,
   saveWithDialog,
   saveWithDialogEncoded,
   windowCloseReady,
+  type DirEntry,
   type OpenFileFailure,
 } from './fileOps';
 import { fileMtimeMs } from './fileOps';
@@ -780,6 +791,134 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     },
     [t],
   );
+
+  // —— 文件树三操作(新建 / 重命名 / 删除;右键菜单发起)——
+
+  /** 树操作缓存刷新信号:任一操作落盘成功后递增,FolderTreeSection 清缓存重载 */
+  const [treeRefreshKey, setTreeRefreshKey] = useState(0);
+  /**
+   * 树操作名称输入对话框(null = 关闭)。
+   * - mode='create':dirPath 为目标目录,isDir 区分文件/文件夹,初始值空
+   * - mode='rename':oldPath 为被重命名条目,初始值为当前名
+   */
+  const [treeOp, setTreeOp] = useState<
+    | { mode: 'create'; dirPath: string; isDir: boolean }
+    | { mode: 'rename'; oldPath: string; name: string; isDir: boolean }
+    | null
+  >(null);
+  /** 删除确认对话框目标(null = 关闭;树删除影响磁盘,一律确认) */
+  const [treeDelete, setTreeDelete] = useState<DirEntry | null>(null);
+
+  const refreshTree = useCallback(() => {
+    setTreeRefreshKey((k) => k + 1);
+  }, []);
+
+  /** 统一错误提示:重名冲突给专门文案,其余透传 CommandError message */
+  const reportTreeOpError = useCallback(
+    (e: unknown, kind: 'create' | 'rename' | 'delete') => {
+      if (e instanceof CommandError && e.code === 'ERR_ALREADY_EXISTS') {
+        toast.error(t('tools.text_editor.tree_err_exists'));
+        return;
+      }
+      if (
+        e instanceof CommandError &&
+        e.code === 'ERR_FILE_UNSUPPORTED' &&
+        String(e.message).includes('not empty')
+      ) {
+        toast.error(t('tools.text_editor.tree_err_dir_not_empty'));
+        return;
+      }
+      const key =
+        kind === 'create'
+          ? 'tools.text_editor.tree_err_create'
+          : kind === 'rename'
+            ? 'tools.text_editor.tree_err_rename'
+            : 'tools.text_editor.tree_err_delete';
+      toast.error(e instanceof Error ? e.message : t(key));
+    },
+    [t],
+  );
+
+  /** 创建条目(名称对话框确认后):拼路径 → IPC → 展开父目录并刷新树 */
+  const handleTreeCreate = useCallback(
+    (name: string) => {
+      const op = treeOp;
+      setTreeOp(null);
+      if (op?.mode !== 'create') return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      const sep = op.dirPath.includes('\\') && !op.dirPath.includes('/') ? '\\' : '/';
+      const target = `${op.dirPath}${sep}${trimmed}`;
+      void createTreeEntry(target, op.isDir)
+        .then(() => {
+          // 父目录若未展开则展开(新条目立即可见),再刷新缓存
+          useEditorWorkspaceStore.getState().toggleDirExpanded(op.dirPath);
+          refreshTree();
+          toast.success(
+            op.isDir
+              ? t('tools.text_editor.tree_created_folder', { name: trimmed })
+              : t('tools.text_editor.tree_created_file', { name: trimmed }),
+          );
+        })
+        .catch((e) => reportTreeOpError(e, 'create'));
+    },
+    [treeOp, refreshTree, reportTreeOpError, t],
+  );
+
+  /** 重命名条目(名称对话框确认后):拼新路径 → IPC → Tab 路径重定向 + 刷新树 */
+  const handleTreeRename = useCallback(
+    (name: string) => {
+      const op = treeOp;
+      setTreeOp(null);
+      if (op?.mode !== 'rename') return;
+      const trimmed = name.trim();
+      if (!trimmed || trimmed === op.name) return;
+      const sep = op.oldPath.includes('\\') && !op.oldPath.includes('/') ? '\\' : '/';
+      const parent = op.oldPath.slice(0, op.oldPath.lastIndexOf(sep));
+      const newPath = `${parent}${sep}${trimmed}`;
+      void renameTreeEntry(op.oldPath, newPath)
+        .then(() => {
+          // 已打开 Tab 的路径随迁移(目录重命名时子树内全部 Tab),
+          // 内容与 dirty 状态原样保留
+          useEditorWorkspaceStore.getState().retargetTabPath(op.oldPath, newPath);
+          refreshTree();
+          toast.success(t('tools.text_editor.tree_renamed', { name: trimmed }));
+        })
+        .catch((e) => reportTreeOpError(e, 'rename'));
+    },
+    [treeOp, refreshTree, reportTreeOpError, t],
+  );
+
+  /** 确认删除(对话框确认后):IPC → 关联 Tab/展开状态清理 + 刷新树 */
+  const handleTreeDeleteConfirmed = useCallback(() => {
+    const entry = treeDelete;
+    setTreeDelete(null);
+    if (!entry) return;
+    void deleteTreeEntry(entry.path)
+      .then(() => {
+        const store = useEditorWorkspaceStore.getState();
+        if (entry.isDir) {
+          // 子树内 Tab 关闭(数量提示);展开状态清理;工作区引用的对比项不动
+          const closed = store.closeTabsUnderPath(entry.path);
+          store.pruneExpandedDirs(entry.path);
+          if (closed > 0) {
+            toast.success(
+              t('tools.text_editor.tree_deleted_dir_tabs', {
+                name: entry.name,
+                count: closed,
+              }),
+            );
+          } else {
+            toast.success(t('tools.text_editor.tree_deleted', { name: entry.name }));
+          }
+        } else {
+          store.closeTabByPath(entry.path);
+          toast.success(t('tools.text_editor.tree_deleted', { name: entry.name }));
+        }
+        refreshTree();
+      })
+      .catch((e) => reportTreeOpError(e, 'delete'));
+  }, [treeDelete, refreshTree, reportTreeOpError, t]);
 
   // —— 保存冲突三选(磁盘文件已被外部修改)——
 
@@ -1572,6 +1711,31 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               }
               onCloseFolder={(rootPath) => useEditorWorkspaceStore.getState().closeFolder(rootPath)}
               onOpenTreeFile={(path) => void handleOpenTreeFile(path)}
+              // 文件树右键三操作:新建 / 重命名 / 删除(树内右键菜单发起,
+              // handler 在工作台内做 IPC + Tab/展开状态同步 + 树刷新)
+              treeRefreshKey={treeRefreshKey}
+              onCreateTreeEntry={(dirPath, isDir) => setTreeOp({ mode: 'create', dirPath, isDir })}
+              onRenameTreeEntry={(entry) =>
+                setTreeOp({
+                  mode: 'rename',
+                  oldPath: entry.path,
+                  name: entry.name,
+                  isDir: entry.isDir,
+                })
+              }
+              onDeleteTreeEntry={(entry) => setTreeDelete(entry)}
+              onRevealTreeEntry={(entry) => {
+                void revealInExplorer(entry.path).catch((e) => {
+                  toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_reveal'));
+                });
+              }}
+              onCopyTreeEntryPath={(entry) => {
+                void writeClipboardText(entry.path).then((ok) => {
+                  if (ok)
+                    toast.success(t('tools.text_editor.toast_path_copied', { path: entry.path }));
+                  else toast.error(t('tools.text_editor.err_copy_path'));
+                });
+              }}
               onSelect={handleSelectTab}
               onSelectMany={handleSelectMany}
               onCompareSelected={handleCompareSelected}
@@ -1754,6 +1918,79 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
             onCancel={() => setRenaming(null)}
             data-testid="tab-rename-dialog"
           />
+        )}
+
+        {/* 文件树操作名称输入(新建文件/文件夹、重命名;复用 RenameDialog 交互) */}
+        {treeOp?.mode === 'create' && (
+          <RenameDialog
+            open
+            title={
+              treeOp.isDir
+                ? t('tools.text_editor.tree_new_folder')
+                : t('tools.text_editor.tree_new_file')
+            }
+            placeholder={
+              treeOp.isDir
+                ? t('tools.text_editor.tree_name_placeholder_folder')
+                : t('tools.text_editor.tree_name_placeholder_file')
+            }
+            onConfirm={handleTreeCreate}
+            onCancel={() => setTreeOp(null)}
+            data-testid="tree-create-dialog"
+          />
+        )}
+        {treeOp?.mode === 'rename' && (
+          <RenameDialog
+            open
+            title={t('tools.text_editor.rename')}
+            initialValue={treeOp.name}
+            onConfirm={handleTreeRename}
+            onCancel={() => setTreeOp(null)}
+            data-testid="tree-rename-dialog"
+          />
+        )}
+
+        {/* 文件树删除确认:影响磁盘且无回收站兜底,一律确认 */}
+        {treeDelete && (
+          <Dialog
+            open
+            onOpenChange={(next) => {
+              if (!next) setTreeDelete(null);
+            }}
+          >
+            <DialogContent
+              data-testid="tree-delete-dialog"
+              className="max-w-sm gap-4 border border-border bg-background p-5 shadow-lg"
+            >
+              <DialogHeader>
+                <DialogTitle>{t('tools.text_editor.tree_delete_confirm_title')}</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                {treeDelete.isDir
+                  ? t('tools.text_editor.tree_delete_confirm_dir', { name: treeDelete.name })
+                  : t('tools.text_editor.tree_delete_confirm_file', { name: treeDelete.name })}
+              </p>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTreeDelete(null)}
+                >
+                  {t('tools.text_editor.tree_delete_cancel')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  data-testid="tree-delete-confirm"
+                  onClick={handleTreeDeleteConfirmed}
+                >
+                  {t('tools.text_editor.tree_delete_confirm')}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
 
         {/* 保存冲突三选(磁盘文件已被外部修改):覆盖 / 对比 / 重新加载 */}

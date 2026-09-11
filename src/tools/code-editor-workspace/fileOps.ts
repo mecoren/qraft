@@ -141,6 +141,33 @@ export async function readDirectory(path: string): Promise<DirEntry[]> {
   return invokeCommand<DirEntry[]>('fs_read_dir', { path });
 }
 
+/**
+ * 文件树新建条目(VSCode 资源管理器「新建文件 / 新建文件夹」)。
+ * 目标已存在时后端抛 CommandError(code=`ERR_ALREADY_EXISTS`),
+ * 不覆盖既有内容;返回创建后的完整路径。
+ */
+export async function createTreeEntry(path: string, isDir: boolean): Promise<string> {
+  return invokeCommand<string>('fs_create_entry', { path, isDir });
+}
+
+/**
+ * 文件树重命名(同目录改名或授权子树内移动)。
+ * 新旧路径都必须在授权范围内;目标已存在时抛 `ERR_ALREADY_EXISTS`。
+ * 返回重命名后的完整路径。
+ */
+export async function renameTreeEntry(oldPath: string, newPath: string): Promise<string> {
+  return invokeCommand<string>('fs_rename_entry', { oldPath, newPath });
+}
+
+/**
+ * 删除文件树条目(文件或**空目录**,非递归)。
+ * 目录非空时抛 CommandError(code=`ERR_FILE_UNSUPPORTED`,detail 含
+ * "directory not empty"),提示用户在系统资源管理器处理。
+ */
+export async function deleteTreeEntry(path: string): Promise<void> {
+  await invokeCommand<unknown>('fs_delete_entry', { path });
+}
+
 /** 读取文件的 mtime(epoch 毫秒);供保存前刷新乐观校验基准 */
 export async function fileMtimeMs(path: string): Promise<number> {
   return invokeCommand<number>('fs_file_mtime', { path });

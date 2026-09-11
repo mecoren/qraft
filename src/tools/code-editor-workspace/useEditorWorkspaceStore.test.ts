@@ -1326,3 +1326,97 @@ describe('useEditorWorkspaceStore.openLargeFile', () => {
     expect(tab.largeFileProgress).toBeUndefined();
   });
 });
+
+describe('useEditorWorkspaceStore 文件树三操作配套 action', () => {
+  /** 构造带两个已打开文件的 workspace(一个在 src 子树内) */
+  function seedTreeWorkspace() {
+    useEditorWorkspaceStore.setState({
+      ready: true,
+      workspace: {
+        tabs: [
+          {
+            id: 't1',
+            title: 'main.rs',
+            path: 'C:\\proj\\src\\main.rs',
+            language: 'rust',
+            content: 'fn main() {}',
+            savedContent: 'fn main() {}',
+            pinned: false,
+          },
+          {
+            id: 't2',
+            title: 'readme.md',
+            path: 'C:\\proj\\readme.md',
+            language: 'markdown',
+            content: '# hi',
+            savedContent: '',
+            pinned: false,
+          },
+        ],
+        activeTabId: 't1',
+        leftSidebarVisible: true,
+        sidebarWidth: 288,
+        folders: [{ rootPath: 'C:\\proj' }],
+        expandedDirs: ['C:\\proj', 'C:\\proj\\src'],
+      },
+      recentlyClosed: [],
+    });
+  }
+
+  it('retargetTabPath:目录重命名迁移子树内 Tab,子树外不动', () => {
+    seedTreeWorkspace();
+    const s = useEditorWorkspaceStore.getState();
+    s.retargetTabPath('C:\\proj\\src', 'C:\\proj\\core');
+
+    const tabs = useEditorWorkspaceStore.getState().workspace.tabs;
+    expect(tabs[0].path).toBe('C:\\proj\\core\\main.rs');
+    expect(tabs[0].title).toBe('main.rs');
+    // 语言按新路径重新推断(rust 扩展名不变仍为 rust)
+    expect(tabs[0].language).toBe('rust');
+    // 子树外 Tab 与 dirty 状态不受影响
+    expect(tabs[1].path).toBe('C:\\proj\\readme.md');
+    expect(tabs[1].content).toBe('# hi');
+    expect(tabs[1].savedContent).toBe('');
+  });
+
+  it('retargetTabPath:单文件重命名(精确路径)', () => {
+    seedTreeWorkspace();
+    useEditorWorkspaceStore
+      .getState()
+      .retargetTabPath('C:\\proj\\readme.md', 'C:\\proj\\README.md');
+    const tabs = useEditorWorkspaceStore.getState().workspace.tabs;
+    expect(tabs[1].path).toBe('C:\\proj\\README.md');
+    expect(tabs[1].title).toBe('README.md');
+  });
+
+  it('closeTabsUnderPath:关闭子树内全部 Tab 并返回数量,误关可从最近关闭栈找回', () => {
+    seedTreeWorkspace();
+    const s = useEditorWorkspaceStore.getState();
+    const closed = s.closeTabsUnderPath('C:\\proj\\src');
+    expect(closed).toBe(1);
+
+    const state = useEditorWorkspaceStore.getState();
+    // 子树外 Tab 保留;激活项回落到剩余 Tab
+    expect(state.workspace.tabs).toHaveLength(1);
+    expect(state.workspace.tabs[0].id).toBe('t2');
+    expect(state.workspace.activeTabId).toBe('t2');
+    // 被关 Tab 的草稿进最近关闭栈
+    expect(state.recentlyClosed).toHaveLength(1);
+    expect(state.recentlyClosed[0].tab.id).toBe('t1');
+  });
+
+  it('pruneExpandedDirs:清理子树内展开状态,子树外保留', () => {
+    seedTreeWorkspace();
+    useEditorWorkspaceStore.getState().pruneExpandedDirs('C:\\proj\\src');
+    const { expandedDirs } = useEditorWorkspaceStore.getState().workspace;
+    expect(expandedDirs).toEqual(['C:\\proj']);
+  });
+
+  it('closeTabByPath:关闭绑定到指定路径的 Tab', () => {
+    seedTreeWorkspace();
+    useEditorWorkspaceStore.getState().closeTabByPath('C:\\proj\\readme.md');
+    const tabs = useEditorWorkspaceStore.getState().workspace.tabs;
+    expect(tabs.some((t) => t.id === 't2')).toBe(false);
+    expect(tabs).toHaveLength(1);
+  });
+});

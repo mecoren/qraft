@@ -28,6 +28,13 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import { FileIcon } from './FileIcon';
 import { readDirectory, type DirEntry } from './fileOps';
 import type { WorkspaceFolder } from './schema';
@@ -49,12 +56,32 @@ export interface FolderTreeSectionProps {
    * (max-h-64 封顶),把空间让给下方分组。
    */
   fillHeight?: boolean;
+  /**
+   * 缓存刷新信号(单调递增计数)。「新建 / 重命名 / 删除」落盘成功后由上层
+   * 递增本值,本组件据此清空子项缓存并按 expandedDirs 重新拉取——树操作后
+   * 无需整组件重挂载。变化即清空(不比对具体数值)。
+   */
+  refreshKey?: number;
   /** 切换目录展开/折叠 */
   onToggleDir?: (dirPath: string) => void;
   /** 关闭某个根文件夹 */
   onCloseFolder?: (rootPath: string) => void;
   /** 点击文件行请求打开(上层负责读取校验与报错) */
   onOpenFile?: (path: string) => void;
+  /**
+   * 右键菜单:在指定目录下新建条目(isDir 区分文件/文件夹)。
+   * 上层负责 IPC、名称输入对话框、冲突报错与成功后递增 refreshKey;
+   * 缺省则菜单不渲染树操作组。
+   */
+  onCreateEntry?: (dirPath: string, isDir: boolean) => void;
+  /** 右键菜单:重命名条目(文件或目录);缺省则不渲染该项 */
+  onRenameEntry?: (entry: DirEntry) => void;
+  /** 右键菜单:删除条目(文件或空目录);缺省则不渲染该项 */
+  onDeleteEntry?: (entry: DirEntry) => void;
+  /** 右键菜单:在文件资源管理器中显示;缺省则不渲染该项 */
+  onRevealEntry?: (entry: DirEntry) => void;
+  /** 右键菜单:复制完整路径;缺省则不渲染该项 */
+  onCopyEntryPath?: (entry: DirEntry) => void;
   /** 测试定位用 */
   'data-testid'?: string;
 }
@@ -64,33 +91,62 @@ export function FolderTreeSection({
   expandedDirs,
   activeTabPath = null,
   fillHeight = false,
+  refreshKey = 0,
   onToggleDir,
   onCloseFolder,
   onOpenFile,
+  onCreateEntry,
+  onRenameEntry,
+  onDeleteEntry,
+  onRevealEntry,
+  onCopyEntryPath,
   'data-testid': dataTestId,
 }: FolderTreeSectionProps): JSX.Element | null {
   const { t } = useTranslation();
   /** 整个「文件夹」分组是否折叠(独立会话状态,不落盘) */
   const [collapsed, setCollapsed] = useState(false);
-  /** 已加载目录的子项缓存(dirPath → 排序后的条目) */
-  const [childrenMap, setChildrenMap] = useState<Record<string, DirEntry[]>>({});
+  /**
+   * 子项缓存版本号:树操作落盘成功后随 refreshKey 推进,旧版本缓存在
+   * 渲染期被视为不存在(等价清空),而 loadedRef 同步按版本重置——
+   * 避免「effect 里同步 setState」(lint error)同时保证展开集合立即重载
+   */
+  const cacheVersion = Math.max(refreshKey, 0);
+  /** 各版本的已加载目录子项缓存(version → dirPath → 排序后的条目);渲染读当前版本 */
+  const [childrenMapByVersion, setChildrenMapByVersion] = useState<
+    Record<number, Record<string, DirEntry[]>>
+  >({});
   /** 加载中的目录(dirPath → true),驱动「加载中…」占位 */
   const [loadingDirs, setLoadingDirs] = useState<Record<string, boolean>>({});
+  const childrenMap = childrenMapByVersion[cacheVersion] ?? {};
   /**
    * 「已发起过加载」标记(同步 ref,供并发去重):
    * 与 childrenMap 分离的原因是失败重试需要能从标记中摘除而保留旧缓存。
+   * 版本推进时整体重置(旧版本缓存作废,树操作后的重载不受去重拦截)。
    */
   const loadedRef = useRef<Set<string>>(new Set());
+  /** 当前去重标记所属的缓存版本(lazy 重置:无需独立 effect) */
+  const loadedVersionRef = useRef(0);
 
   /** 懒加载一个目录的子项;已在缓存/加载中时跳过 */
   const loadChildren = useCallback(
-    async (dirPath: string): Promise<void> => {
+    async (dirPath: string, version: number): Promise<void> => {
+      // 去重标记所属版本落后时先整体重置(树操作刷新后的首批加载):
+      // 放在函数内而非渲染期改 ref,满足 hooks 规范;版本一致时零开销
+      if (loadedVersionRef.current !== version) {
+        loadedVersionRef.current = version;
+        loadedRef.current = new Set();
+      }
       if (loadedRef.current.has(dirPath)) return;
       loadedRef.current.add(dirPath);
       setLoadingDirs((prev) => ({ ...prev, [dirPath]: true }));
       try {
         const entries = await readDirectory(dirPath);
-        setChildrenMap((prev) => ({ ...prev, [dirPath]: entries }));
+        // 只写入发起时的版本:refreshKey 已推进的迟到响应丢弃,
+        // 避免旧数据覆盖树操作后的新拉取
+        setChildrenMapByVersion((prev) => {
+          if (version !== loadedVersionRef.current) return prev;
+          return { ...prev, [version]: { ...(prev[version] ?? {}), [dirPath]: entries } };
+        });
       } catch (e) {
         // 清除标记允许下次展开重试;提示具体原因(未授权/不存在等)
         loadedRef.current.delete(dirPath);
@@ -108,15 +164,70 @@ export function FolderTreeSection({
   );
 
   // 所有处于展开状态的目录确保子项已加载:
-  // 覆盖挂载还原(重启后 expandedDirs 持久化恢复)与用户展开两个来源
+  // 覆盖挂载还原(重启后 expandedDirs 持久化恢复)、用户展开与树操作刷新
+  // (refreshKey 推进时旧版本缓存读取为空、loadedRef 随版本在 loadChildren
+  // 入口重置,展开集合立即重载)三个来源。expandedDirs/refreshKey 任一变化
+  // 都重跑此 effect 是预期行为:去重由 loadChildren 内部承担,不会重复请求
   useEffect(() => {
     for (const dir of expandedDirs) {
-      if (!loadedRef.current.has(dir)) void loadChildren(dir);
+      void loadChildren(dir, cacheVersion);
     }
-  }, [expandedDirs, loadChildren]);
+  }, [expandedDirs, refreshKey, cacheVersion, loadChildren]);
 
   // 无打开文件夹时不渲染任何内容(避免空分组头占位)
   if (folders.length === 0) return null;
+
+  /**
+   * 树行右键菜单(对齐 VSCode 资源管理器):
+   * - 目录行:新建文件 / 新建文件夹 / 重命名 / 删除 / 资源管理器 / 复制路径
+   * - 文件行:重命名 / 删除 / 资源管理器 / 复制路径
+   * 未提供相应回调的项不渲染(能力缺失时不显示死菜单)。
+   */
+  const renderTreeContextMenu = (entry: DirEntry): JSX.Element => (
+    <ContextMenuContent
+      className="w-48"
+      data-testid={dataTestId ? `${dataTestId}-ctx-menu` : undefined}
+    >
+      {entry.isDir && onCreateEntry && (
+        <>
+          <ContextMenuItem
+            onSelect={() => onCreateEntry(entry.path, false)}
+            data-testid="ctx-tree-new-file"
+          >
+            {t('tools.text_editor.tree_new_file')}
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => onCreateEntry(entry.path, true)}
+            data-testid="ctx-tree-new-folder"
+          >
+            {t('tools.text_editor.tree_new_folder')}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+        </>
+      )}
+      {onRenameEntry && (
+        <ContextMenuItem onSelect={() => onRenameEntry(entry)} data-testid="ctx-tree-rename">
+          {t('tools.text_editor.rename')}
+        </ContextMenuItem>
+      )}
+      {onDeleteEntry && (
+        <ContextMenuItem onSelect={() => onDeleteEntry(entry)} data-testid="ctx-tree-delete">
+          {t('tools.text_editor.tree_delete')}
+        </ContextMenuItem>
+      )}
+      {(onRevealEntry || onCopyEntryPath) && <ContextMenuSeparator />}
+      {onRevealEntry && (
+        <ContextMenuItem onSelect={() => onRevealEntry(entry)} data-testid="ctx-tree-reveal">
+          {t('tools.text_editor.reveal_in_explorer')}
+        </ContextMenuItem>
+      )}
+      {onCopyEntryPath && (
+        <ContextMenuItem onSelect={() => onCopyEntryPath(entry)} data-testid="ctx-tree-copy-path">
+          {t('tools.text_editor.copy_path')}
+        </ContextMenuItem>
+      )}
+    </ContextMenuContent>
+  );
 
   /** 渲染某个已展开目录的子节点列表(递归) */
   const renderChildren = (dirPath: string, depth: number): JSX.Element[] => {
@@ -149,7 +260,7 @@ export function FolderTreeSection({
     );
   };
 
-  /** 目录行(含根与子目录):chevron + 图标 + 名称,点击切换展开 */
+  /** 目录行(含根与子目录):chevron + 图标 + 名称,点击切换展开;右键弹树操作菜单 */
   const renderDirRow = (entry: DirEntry, depth: number): JSX.Element => {
     const isRoot = folders.some((f) => f.rootPath === entry.path);
     const expanded = expandedDirs.includes(entry.path);
@@ -159,7 +270,7 @@ export function FolderTreeSection({
           ?.rootPath.split(/[\\/]/)
           .pop() ?? entry.name)
       : entry.name;
-    return (
+    const row = (
       <button
         type="button"
         data-testid={`${dataTestId}-node-${entry.name}`}
@@ -199,13 +310,23 @@ export function FolderTreeSection({
         )}
       </button>
     );
+    // 右键菜单:全部树操作就绪(任一回调提供)才包 ContextMenu,保持 DOM 简洁
+    const menuReady =
+      onCreateEntry || onRenameEntry || onDeleteEntry || onRevealEntry || onCopyEntryPath;
+    if (!menuReady) return row;
+    return (
+      <ContextMenu>
+        <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+        {renderTreeContextMenu(entry)}
+      </ContextMenu>
+    );
   };
 
-  /** 文件行:占位槽(对齐目录文字)+ 文件图标 + 名称,点击请求打开。
+  /** 文件行:占位槽(对齐目录文字)+ 文件图标 + 名称,点击请求打开;右键弹树操作菜单。
    * 不做任何「可否打开」预判或剔除:不支持文件同样显示,由上层报错。 */
   const renderFileRow = (entry: DirEntry, depth: number): JSX.Element => {
     const active = activeTabPath === entry.path;
-    return (
+    const row = (
       <button
         type="button"
         data-testid={`${dataTestId}-node-${entry.name}`}
@@ -226,6 +347,14 @@ export function FolderTreeSection({
         <FileIcon path={entry.path} />
         <span className="min-w-0 truncate">{entry.name}</span>
       </button>
+    );
+    const menuReady = onRenameEntry || onDeleteEntry || onRevealEntry || onCopyEntryPath;
+    if (!menuReady) return row;
+    return (
+      <ContextMenu>
+        <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+        {renderTreeContextMenu(entry)}
+      </ContextMenu>
     );
   };
 

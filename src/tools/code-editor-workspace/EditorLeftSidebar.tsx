@@ -44,6 +44,7 @@ import { UnsavedPopover, type UnsavedMode } from './UnsavedPopover';
 import { dirNameFromPath } from './languageMap';
 import { FolderTreeSection } from './FolderTreeSection';
 import type { ComparePair, EditorTab, WorkspaceFolder } from './schema';
+import type { DirEntry } from './fileOps';
 
 export interface EditorLeftSidebarProps {
   tabs: readonly EditorTab[];
@@ -65,6 +66,18 @@ export interface EditorLeftSidebarProps {
   onCloseFolder?: (rootPath: string) => void;
   /** 点击文件夹树中的文件请求打开(上层读取校验,不支持时弹错且不剔除节点) */
   onOpenTreeFile?: (path: string) => void;
+  /** 树操作缓存刷新信号(FolderTreeSection 透传;树操作落盘成功后递增) */
+  treeRefreshKey?: number;
+  /** 树右键菜单:在目录下新建文件(isDir=false)/新建文件夹(isDir=true) */
+  onCreateTreeEntry?: (dirPath: string, isDir: boolean) => void;
+  /** 树右键菜单:重命名条目(文件或目录) */
+  onRenameTreeEntry?: (entry: DirEntry) => void;
+  /** 树右键菜单:删除条目(文件或空目录) */
+  onDeleteTreeEntry?: (entry: DirEntry) => void;
+  /** 树右键菜单:在文件资源管理器中显示 */
+  onRevealTreeEntry?: (entry: DirEntry) => void;
+  /** 树右键菜单:复制完整路径 */
+  onCopyTreeEntryPath?: (entry: DirEntry) => void;
   onSelect: (id: string) => void;
   /** 单击/Ctrl+点击选中处理:additive=true 表示追加切换(Ctrl/Cmd),否则单选 */
   onSelectMany?: (id: string, additive: boolean) => void;
@@ -143,6 +156,12 @@ export function EditorLeftSidebar({
   onToggleDir,
   onCloseFolder,
   onOpenTreeFile,
+  treeRefreshKey,
+  onCreateTreeEntry,
+  onRenameTreeEntry,
+  onDeleteTreeEntry,
+  onRevealTreeEntry,
+  onCopyTreeEntryPath,
   onSelect,
   onSelectMany,
   onCompareSelected,
@@ -660,9 +679,15 @@ export function EditorLeftSidebar({
         expandedDirs={expandedDirs}
         activeTabPath={tabs.find((t) => t.id === activeTabId)?.path ?? null}
         fillHeight={compares.length === 0}
+        refreshKey={treeRefreshKey}
         onToggleDir={onToggleDir}
         onCloseFolder={onCloseFolder}
         onOpenFile={onOpenTreeFile}
+        onCreateEntry={onCreateTreeEntry}
+        onRenameEntry={onRenameTreeEntry}
+        onDeleteEntry={onDeleteTreeEntry}
+        onRevealEntry={onRevealTreeEntry}
+        onCopyEntryPath={onCopyTreeEntryPath}
         data-testid={`${dataTestId}-folder-tree`}
       />
 

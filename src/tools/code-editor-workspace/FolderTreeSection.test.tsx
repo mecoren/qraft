@@ -217,3 +217,128 @@ describe('FolderTreeSection 高度策略(fillHeight)', () => {
     expect(scroll.className).not.toContain('max-h-64');
   });
 });
+
+describe('FolderTreeSection 右键菜单与树操作刷新', () => {
+  it('右键目录行弹出菜单:新建文件/新建文件夹/重命名/删除/资源管理器/复制路径', async () => {
+    readDirectoryMock.mockResolvedValue(ROOT_CHILDREN);
+    const user = userEvent.setup();
+    renderTree({
+      expandedDirs: ['C:\\proj'],
+      onCreateEntry: vi.fn(),
+      onRenameEntry: vi.fn(),
+      onDeleteEntry: vi.fn(),
+      onRevealEntry: vi.fn(),
+      onCopyEntryPath: vi.fn(),
+    });
+    await waitFor(() => expect(screen.getByText('src')).toBeInTheDocument());
+
+    await user.pointer([
+      { keys: '[MouseRight>]', target: screen.getByTestId('sidebar-folder-tree-node-src') },
+      { keys: '[/MouseRight]' },
+    ]);
+
+    // 目录行菜单含新建两项 + 通用四项
+    expect(screen.getByTestId('ctx-tree-new-file')).toBeInTheDocument();
+    expect(screen.getByTestId('ctx-tree-new-folder')).toBeInTheDocument();
+    expect(screen.getByTestId('ctx-tree-rename')).toBeInTheDocument();
+    expect(screen.getByTestId('ctx-tree-delete')).toBeInTheDocument();
+    expect(screen.getByTestId('ctx-tree-reveal')).toBeInTheDocument();
+    expect(screen.getByTestId('ctx-tree-copy-path')).toBeInTheDocument();
+  });
+
+  it('右键文件行菜单不含新建项(仅树操作回调提供时)', async () => {
+    readDirectoryMock.mockResolvedValue(ROOT_CHILDREN);
+    const user = userEvent.setup();
+    renderTree({
+      expandedDirs: ['C:\\proj'],
+      onRenameEntry: vi.fn(),
+      onDeleteEntry: vi.fn(),
+    });
+    await waitFor(() => expect(screen.getByText('README.md')).toBeInTheDocument());
+
+    await user.pointer([
+      {
+        keys: '[MouseRight>]',
+        target: screen.getByTestId('sidebar-folder-tree-node-README.md'),
+      },
+      { keys: '[/MouseRight]' },
+    ]);
+
+    expect(screen.queryByTestId('ctx-tree-new-file')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ctx-tree-new-folder')).not.toBeInTheDocument();
+    expect(screen.getByTestId('ctx-tree-rename')).toBeInTheDocument();
+    expect(screen.getByTestId('ctx-tree-delete')).toBeInTheDocument();
+  });
+
+  it('菜单项回调携带目标条目(新建传目录 + isDir,重命名/删除传条目)', async () => {
+    readDirectoryMock.mockResolvedValue(ROOT_CHILDREN);
+    const onCreateEntry = vi.fn();
+    const onRenameEntry = vi.fn();
+    const onDeleteEntry = vi.fn();
+    const user = userEvent.setup();
+    renderTree({
+      expandedDirs: ['C:\\proj'],
+      onCreateEntry,
+      onRenameEntry,
+      onDeleteEntry,
+    });
+    await waitFor(() => expect(screen.getByText('README.md')).toBeInTheDocument());
+
+    // 文件行右键 → 重命名
+    await user.pointer([
+      {
+        keys: '[MouseRight>]',
+        target: screen.getByTestId('sidebar-folder-tree-node-README.md'),
+      },
+      { keys: '[/MouseRight]' },
+    ]);
+    await user.click(screen.getByTestId('ctx-tree-rename'));
+    expect(onRenameEntry).toHaveBeenCalledWith(ROOT_CHILDREN[1]);
+
+    // 目录行右键 → 新建文件
+    await user.pointer([
+      { keys: '[MouseRight>]', target: screen.getByTestId('sidebar-folder-tree-node-src') },
+      { keys: '[/MouseRight]' },
+    ]);
+    await user.click(screen.getByTestId('ctx-tree-new-file'));
+    expect(onCreateEntry).toHaveBeenCalledWith('C:\\proj\\src', false);
+
+    // 目录行右键 → 删除
+    await user.pointer([
+      { keys: '[MouseRight>]', target: screen.getByTestId('sidebar-folder-tree-node-src') },
+      { keys: '[/MouseRight]' },
+    ]);
+    await user.click(screen.getByTestId('ctx-tree-delete'));
+    expect(onDeleteEntry).toHaveBeenCalledWith(ROOT_CHILDREN[0]);
+  });
+
+  it('refreshKey 递增清空子项缓存并重新拉取(树操作后无需重挂载)', async () => {
+    readDirectoryMock.mockResolvedValue(ROOT_CHILDREN);
+    const { rerender } = renderTree({ expandedDirs: ['C:\\proj'] });
+    await waitFor(() => expect(screen.getByText('src')).toBeInTheDocument());
+    expect(readDirectoryMock).toHaveBeenCalledTimes(1);
+
+    // 模拟树操作落盘成功:refreshKey 0 → 1
+    readDirectoryMock.mockResolvedValue([
+      { name: 'src', path: 'C:\\proj\\src', isDir: true },
+      { name: 'new-file.txt', path: 'C:\\proj\\new-file.txt', isDir: false },
+      { name: 'README.md', path: 'C:\\proj\\README.md', isDir: false },
+    ]);
+    const merged = { ...baseProps(), expandedDirs: ['C:\\proj'], refreshKey: 1 };
+    rerender(<FolderTreeSection {...merged} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('new-file.txt')).toBeInTheDocument();
+    });
+    expect(readDirectoryMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('未提供树操作回调时行不包右键菜单(无死菜单)', async () => {
+    readDirectoryMock.mockResolvedValue(ROOT_CHILDREN);
+    renderTree({ expandedDirs: ['C:\\proj'] });
+    await waitFor(() => expect(screen.getByText('src')).toBeInTheDocument());
+
+    // 无回调渲染的行是裸 button,无 ContextMenu 包装(portal 不存在)
+    expect(document.querySelector('[data-radix-popper-content-wrapper]')).toBeNull();
+  });
+});

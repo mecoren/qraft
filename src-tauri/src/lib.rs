@@ -70,12 +70,13 @@ pub fn run() -> anyhow::Result<()> {
     use crate::commands::config::{config_get, config_get_all, config_reset, config_set};
     use crate::commands::font::list_system_fonts;
     use crate::commands::fs::{
-        AuthorizedPaths, fs_authorize_dropped_paths, fs_file_history_clear, fs_file_history_get,
-        fs_file_history_list, fs_file_mtime, fs_open_dialog, fs_open_folder_dialog,
-        fs_open_office_dialog, fs_open_pdf_dialog, fs_read_dir, fs_read_file, fs_read_office,
-        fs_read_pdf, fs_read_pdf_chunk, fs_read_pdf_info, fs_read_text_file_encoded,
-        fs_reveal_in_explorer, fs_save_bytes, fs_save_bytes_to_path, fs_save_text_file_encoded,
-        fs_write_file, fs_write_file_encoded,
+        AuthorizedPaths, fs_authorize_dropped_paths, fs_create_entry, fs_delete_entry,
+        fs_file_history_clear, fs_file_history_get, fs_file_history_list, fs_file_mtime,
+        fs_open_dialog, fs_open_folder_dialog, fs_open_office_dialog, fs_open_pdf_dialog,
+        fs_read_dir, fs_read_file, fs_read_office, fs_read_pdf, fs_read_pdf_chunk,
+        fs_read_pdf_info, fs_read_text_file_encoded, fs_rename_entry, fs_reveal_in_explorer,
+        fs_save_bytes, fs_save_bytes_to_path, fs_save_text_file_encoded, fs_write_file,
+        fs_write_file_encoded,
     };
     use crate::commands::fs_large_file::{
         fs_large_file_info, fs_large_file_search, fs_read_file_lines,
@@ -265,6 +266,9 @@ pub fn run() -> anyhow::Result<()> {
             fs_open_dialog,
             fs_open_folder_dialog,
             fs_read_dir,
+            fs_create_entry,
+            fs_rename_entry,
+            fs_delete_entry,
             fs_read_text_file_encoded,
             fs_write_file_encoded,
             fs_file_history_list,

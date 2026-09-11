@@ -353,6 +353,21 @@ interface WorkspaceState {
    * 让 Monaco 高亮与文件类型保持同步;覆盖保存保留当前语言。
    */
   markSaved: (id: string, path: string) => void;
+  /**
+   * 文件树重命名后的 Tab 路径重定向:内容与 dirty 状态原样保留,
+   * 仅改 path/title 并按新路径重新推断语言(自动检测模式下)。
+   * oldPath 前缀匹配(目录重命名时子树内全部 Tab 随之迁移)。
+   */
+  retargetTabPath: (oldPath: string, newPath: string) => void;
+  /**
+   * 关闭路径位于指定目录子树内的全部 Tab(文件树删除目录后调用)。
+   * 返回被关闭的 Tab 数量,供调用方提示。
+   */
+  closeTabsUnderPath: (dirPath: string) => number;
+  /** 关闭绑定到指定路径的 Tab(文件树删除单个文件后调用) */
+  closeTabByPath: (path: string) => void;
+  /** 清理指定目录子树内的展开状态(文件树删除/重命名目录后调用) */
+  pruneExpandedDirs: (dirPath: string) => void;
   /** 切换左栏显隐 */
   toggleLeftSidebar: () => void;
   /** 显式设置左栏可见性(拖拽收起/展开时同步) */
@@ -835,6 +850,57 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
       };
     });
     set({ workspace: { ...workspace, tabs }, userTouched: true });
+  },
+
+  retargetTabPath: (oldPath, newPath) => {
+    const { workspace } = get();
+    const tabs = workspace.tabs.map((t) => {
+      // 仅重定向位于 oldPath 子树内的 Tab:目录重命名时其子文件一并迁移;
+      // 分隔符感知替换,避免「dir」误匹配「dir2」
+      if (!t.path || !isUnderDir(t.path, oldPath)) return t;
+      const nextPath = t.path === oldPath ? newPath : newPath + t.path.slice(oldPath.length);
+      return {
+        ...t,
+        path: nextPath,
+        title: fileNameFromPath(nextPath),
+        language: (t.languageAuto ?? true) ? inferLanguageFromPath(nextPath) : t.language,
+      };
+    });
+    set({ workspace: { ...workspace, tabs }, userTouched: true });
+  },
+
+  closeTabsUnderPath: (dirPath) => {
+    const { workspace } = get();
+    const close = new Set(
+      workspace.tabs.filter((t) => t.path && isUnderDir(t.path, dirPath)).map((t) => t.id),
+    );
+    if (close.size === 0) return 0;
+    const closed = workspace.tabs.filter((t) => close.has(t.id));
+    // 最近关闭栈:快照入栈(Ctrl+Shift+T 可找回误关的未保存草稿)
+    let recentlyClosed = get().recentlyClosed;
+    for (const tab of closed) {
+      if (!tab.largeFile && !tab.pinned) recentlyClosed = pushRecentlyClosed(recentlyClosed, tab);
+    }
+    const tabs = workspace.tabs.filter((t) => !close.has(t.id));
+    const activeTabId = close.has(workspace.activeTabId ?? '')
+      ? (tabs.find((t) => t.pinned)?.id ?? tabs[0]?.id ?? null)
+      : workspace.activeTabId;
+    set({ workspace: { ...workspace, tabs, activeTabId }, recentlyClosed, userTouched: true });
+    return close.size;
+  },
+
+  closeTabByPath: (path) => {
+    const { workspace } = get();
+    const target = workspace.tabs.find((t) => t.path === path);
+    if (!target) return;
+    get().closeTab(target.id);
+  },
+
+  pruneExpandedDirs: (dirPath) => {
+    const { workspace } = get();
+    const expandedDirs = workspace.expandedDirs.filter((d) => !isUnderDir(d, dirPath));
+    if (expandedDirs.length === workspace.expandedDirs.length) return;
+    set({ workspace: { ...workspace, expandedDirs }, userTouched: true });
   },
 
   toggleLeftSidebar: () => {
