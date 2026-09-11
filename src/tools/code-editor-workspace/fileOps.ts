@@ -263,17 +263,20 @@ export interface LargeFileSearchProgressPayload {
 
 /**
  * 大文件流式全文搜索(只读视图 Ctrl+F 入口):
- * 大小写不敏感子串匹配,命中数达上限(服务端钳制)即停并在 truncated 标记。
+ * `caseSensitive` 决定匹配口径(默认 false 不敏感,与编辑器跨文件搜索一致),
+ * 命中数达上限(服务端钳制)即停并在 truncated 标记。
  * 扫描期间经 `app:large-file-search-progress` 事件上报进度。
  */
 export async function largeFileSearch(
   path: string,
   needle: string,
+  caseSensitive = false,
   maxHits?: number,
 ): Promise<LargeFileSearchResult> {
   return invokeCommand<LargeFileSearchResult>('fs_large_file_search', {
     path,
     needle,
+    caseSensitive,
     maxHits: maxHits ?? null,
   });
 }

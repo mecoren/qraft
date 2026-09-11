@@ -101,7 +101,8 @@ pub async fn fs_read_file_lines(
 
 /// 大文件流式全文搜索(只读视图 Ctrl+F 入口)
 ///
-/// 大小写不敏感子串匹配;命中数达 `maxHits`(钳制上限 `MAX_HITS_CAP`)即停
+/// 子串匹配,`case_sensitive` 决定大小写口径(默认 false 不敏感,与编辑器
+/// 跨文件搜索一致);命中数达 `maxHits`(钳制上限 `MAX_HITS_CAP`)即停
 /// 并在 `truncated` 标记,防止失控扫描。扫描期间经
 /// `app:large-file-search-progress` 事件上报进度
 /// (载荷 `{ path, scanned, total }`),前端展示搜索进度态。
@@ -115,6 +116,7 @@ pub async fn fs_large_file_search(
     app: tauri::AppHandle,
     path: String,
     needle: String,
+    case_sensitive: Option<bool>,
     max_hits: Option<usize>,
     authorized: tauri::State<'_, AuthorizedPaths>,
 ) -> Result<CommandResponse<LargeFileSearchResult>, AppError> {
@@ -125,11 +127,13 @@ pub async fn fs_large_file_search(
     }
     // 命中上限钳制:防前端误传超大值导致失控扫描
     let max_hits = max_hits.unwrap_or(100).clamp(1, MAX_HITS_CAP);
+    let case_sensitive = case_sensitive.unwrap_or(false);
     let path_for_progress = path.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
         search_large_file(
             &path,
             &needle,
+            case_sensitive,
             max_hits,
             &move |scanned: u64, total: u64| {
                 let payload = serde_json::json!({

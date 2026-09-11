@@ -28,7 +28,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "bench": "vitest bench"
   },
   "dependencies": {
     "@e965/xlsx": "^0.20.3",

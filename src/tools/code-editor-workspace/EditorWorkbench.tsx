@@ -290,6 +290,36 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const activeTab = workspace.tabs.find((t) => t.id === workspace.activeTabId) ?? null;
   const activeEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
+  // —— 外部修改激活轮询(P1 轻方案)——
+  // 激活 Tab 切换时,对「绑定磁盘路径且记录了 mtime 基准」的 Tab 做一次
+  // 轻量 mtime 比对:磁盘已被外部程序改写时 toast 提示(每 Tab 会话内只提示
+  // 一次)。不做定时轮询/自动弹窗——保存路径已有 ERR_FILE_MODIFIED 三选兜底,
+  // 这里只是把「保存时才发现」提前为「切回 Tab 即知晓」,不打断用户。
+  const mtimeNotifiedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!ready || !activeTab) return;
+    const { path, openedMtimeMs, largeFile } = activeTab;
+    // 大文件 Tab 只读;无路径/无基准(旧数据兼容)时无从比较
+    if (!path || openedMtimeMs === undefined || largeFile) return;
+    // 同一 Tab 一次会话只提示一次(用户已知悉,重复提示只是噪音)
+    const key = `${path}:${openedMtimeMs}`;
+    if (mtimeNotifiedRef.current.has(key)) return;
+    mtimeNotifiedRef.current.add(key);
+    let cancelled = false;
+    void fileMtimeMs(path)
+      .then((current) => {
+        if (cancelled) return;
+        if (current === openedMtimeMs) return;
+        toast.warning(t('tools.text_editor.external_modified_hint', { title: activeTab.title }));
+      })
+      .catch(() => {
+        // mtime 读取失败(文件被移动/删除等):静默,保存时的错误处理会接住
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, activeTab, t]);
+
   // 大文件 Tab:激活时自动触发行索引扫描(进度事件订阅在 hook 内)
   useLargeFileScan(activeTab);
 

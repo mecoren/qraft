@@ -689,10 +689,11 @@ const SEARCH_PREVIEW_MAX_BYTES: u64 = 512 * 1024;
 
 /// 大文件流式全文搜索(同步核心;IPC 层用 `spawn_blocking` 包装)
 ///
-/// 大小写不敏感的子串匹配;逐单元(UnitReader,正确处理 UTF-16 码元与
-/// 跨块边界)拼行,完整行解码后判定命中——行级解码保证多字节(GBK/
-/// UTF-8 中文)needle 不错位。达到 `max_hits` 即停(truncated=true),
-/// 扫描全程按 `PROGRESS_REPORT_BYTES` 节奏上报进度,完成必报一次。
+/// 子串匹配,大小写敏感性由 `case_sensitive` 决定(默认口径不敏感,与编辑器
+/// 跨文件搜索一致);逐单元(UnitReader,正确处理 UTF-16 码元与跨块边界)拼行,
+/// 完整行解码后判定命中——行级解码保证多字节(GBK/UTF-8 中文)needle 不错位。
+/// 达到 `max_hits` 即停(truncated=true),扫描全程按 `PROGRESS_REPORT_BYTES`
+/// 节奏上报进度,完成必报一次。
 ///
 /// # Errors
 ///
@@ -700,6 +701,7 @@ const SEARCH_PREVIEW_MAX_BYTES: u64 = 512 * 1024;
 pub fn search_large_file(
     path: &str,
     needle: &str,
+    case_sensitive: bool,
     max_hits: usize,
     on_progress: &dyn Fn(u64, u64),
 ) -> Result<LargeFileSearchResult, AppError> {
@@ -713,8 +715,13 @@ pub fn search_large_file(
     }
     let enc = detect_large_file_encoding(&head);
 
-    let needle_lower = needle.to_lowercase();
-    if needle_lower.is_empty() {
+    // 大小写不敏感口径在比较前统一小写;敏感口径原文比较(保留原语义)
+    let needle_cmp = if case_sensitive {
+        needle.to_string()
+    } else {
+        needle.to_lowercase()
+    };
+    if needle_cmp.is_empty() {
         return Ok(LargeFileSearchResult {
             hits: Vec::new(),
             truncated: false,
@@ -739,10 +746,14 @@ pub fn search_large_file(
         let unit_len = len_as_usize(len);
         let is_eol = reader.is_eol(unit);
         if is_eol {
-            // 行完成:解码后做大小写不敏感匹配(emit_line 会剥离行尾字节,
-            // 因此这里先克隆再 emit,或按 emit 语义手动剥离后匹配)
+            // 行完成:解码后按口径匹配(不敏感统一小写;敏感原文比较)
             let line_text = decode_line_for_search(&current, &enc);
-            if line_text.to_lowercase().contains(&needle_lower) {
+            let line_cmp = if case_sensitive {
+                line_text.clone()
+            } else {
+                line_text.to_lowercase()
+            };
+            if line_cmp.contains(&needle_cmp) {
                 hits.push(SearchHit {
                     line,
                     preview: truncate_preview(&line_text),
@@ -778,7 +789,12 @@ pub fn search_large_file(
     // 末尾残行(EOF 无换行):同样参与匹配
     if !truncated && !current.is_empty() {
         let line_text = decode_line_for_search(&current, &enc);
-        if line_text.to_lowercase().contains(&needle_lower) && hits.len() < max_hits {
+        let line_cmp = if case_sensitive {
+            line_text.clone()
+        } else {
+            line_text.to_lowercase()
+        };
+        if line_cmp.contains(&needle_cmp) && hits.len() < max_hits {
             hits.push(SearchHit {
                 line,
                 preview: truncate_preview(&line_text),
@@ -917,8 +933,8 @@ mod tests {
         let path = dir.join("qraft_search_basic.txt");
         std::fs::write(&path, "alpha\nBravo target\ncharlie\nTARGET again\nend\n").expect("write");
 
-        let result =
-            search_large_file(path.to_str().unwrap(), "target", 100, &|_, _| {}).expect("search");
+        let result = search_large_file(path.to_str().unwrap(), "target", false, 100, &|_, _| {})
+            .expect("search");
         // 大小写不敏感:两处命中(Bravo target / TARGET again)
         assert_eq!(result.hits.len(), 2);
         assert_eq!(result.hits[0].line, 2);
@@ -930,12 +946,40 @@ mod tests {
     }
 
     #[test]
+    fn search_case_sensitive_matches_exact_case_only() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_search_case.txt");
+        std::fs::write(&path, "alpha\nBravo target\ncharlie\nTARGET again\nend\n").expect("write");
+
+        // 敏感口径:仅大小写完全一致的行命中
+        let exact = search_large_file(path.to_str().unwrap(), "TARGET", true, 100, &|_, _| {})
+            .expect("search");
+        assert_eq!(exact.hits.len(), 1);
+        assert_eq!(exact.hits[0].line, 4);
+
+        let mixed = search_large_file(path.to_str().unwrap(), "Target", true, 100, &|_, _| {})
+            .expect("search");
+        assert!(mixed.hits.is_empty());
+
+        // 中文(无大小写概念)不受口径影响
+        let path2 = dir.join("qraft_search_case_cjk.txt");
+        std::fs::write(&path2, "中文目标行\n").expect("write");
+        let cjk = search_large_file(path2.to_str().unwrap(), "目标", true, 10, &|_, _| {})
+            .expect("search");
+        assert_eq!(cjk.hits.len(), 1);
+
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&path2);
+    }
+
+    #[test]
     fn search_respects_max_hits_cap() {
         let dir = std::env::temp_dir();
         let path = dir.join("qraft_search_cap.txt");
         std::fs::write(&path, "x\nx\nx\nx\nx\nx\n").expect("write");
 
-        let result = search_large_file(path.to_str().unwrap(), "x", 3, &|_, _| {}).expect("search");
+        let result =
+            search_large_file(path.to_str().unwrap(), "x", false, 3, &|_, _| {}).expect("search");
         assert_eq!(result.hits.len(), 3);
         // 达到上限即停:truncated 标记提示前端「截断展示」
         assert!(result.truncated);
@@ -950,10 +994,16 @@ mod tests {
         std::fs::write(&path, "needle\nrest\n").expect("write");
 
         let calls = Cell::new(0u32);
-        let result = search_large_file(path.to_str().unwrap(), "needle", 10, &|scanned, total| {
-            assert!(scanned <= total);
-            calls.set(calls.get() + 1);
-        })
+        let result = search_large_file(
+            path.to_str().unwrap(),
+            "needle",
+            false,
+            10,
+            &|scanned, total| {
+                assert!(scanned <= total);
+                calls.set(calls.get() + 1);
+            },
+        )
         .expect("search");
         assert_eq!(result.hits.len(), 1);
         assert_eq!(result.hits[0].line, 1);
@@ -972,8 +1022,8 @@ mod tests {
         let line = format!("{}\n", "目标内容在这里".repeat(100));
         std::fs::write(&path, format!("{line}其他行\n{line}")).expect("write");
 
-        let result =
-            search_large_file(path.to_str().unwrap(), "内容", 10, &|_, _| {}).expect("search");
+        let result = search_large_file(path.to_str().unwrap(), "内容", false, 10, &|_, _| {})
+            .expect("search");
         assert_eq!(result.hits.len(), 2);
 
         let _ = std::fs::remove_file(&path);
@@ -985,8 +1035,8 @@ mod tests {
         let path = dir.join("qraft_search_absent.txt");
         std::fs::write(&path, "nothing relevant\nhere\n").expect("write");
 
-        let result =
-            search_large_file(path.to_str().unwrap(), "zebra", 10, &|_, _| {}).expect("search");
+        let result = search_large_file(path.to_str().unwrap(), "zebra", false, 10, &|_, _| {})
+            .expect("search");
         assert!(result.hits.is_empty());
         assert!(!result.truncated);
 

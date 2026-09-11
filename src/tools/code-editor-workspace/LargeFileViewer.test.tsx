@@ -345,4 +345,30 @@ describe('LargeFileViewer 全文搜索', () => {
     const after = invokeMock.mock.calls.filter((c) => c[0] === 'fs_large_file_search').length;
     expect(after).toBe(before);
   });
+  it('大小写开关:默认不敏感传 caseSensitive=false,切换后按敏感口径重跑', async () => {
+    setupReady();
+    const input = screen.getByTestId('lv-search-input');
+    fireEvent.change(input, { target: { value: 'ERROR' } });
+    fireEvent.submit(input.closest('form') ?? input);
+
+    // 默认口径:caseSensitive=false(与编辑器跨文件搜索一致)
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        'fs_large_file_search',
+        expect.objectContaining({ needle: 'ERROR', caseSensitive: false }),
+      ),
+    );
+
+    // 切换 Aa → 立即按敏感口径重跑当前查询
+    const caseBtn = screen.getByTestId('lv-search-case');
+    expect(caseBtn.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(caseBtn);
+    expect(caseBtn.getAttribute('aria-pressed')).toBe('true');
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        'fs_large_file_search',
+        expect.objectContaining({ needle: 'ERROR', caseSensitive: true }),
+      ),
+    );
+  });
 });

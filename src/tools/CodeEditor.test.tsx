@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // CodeEditor 内嵌 Monaco,jsdom 无法加载,替换为 textarea 替身。
 // 暴露 value / onChange / title / language / minimap / fixedTheme / statusBarRight / sizeBytes,
@@ -124,7 +124,7 @@ vi.mock('./code-editor-workspace/fileOps', () => ({
 
 // mock sonner,避免 toast 在 jsdom 中产生副作用
 vi.mock('sonner', () => ({
-  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
 // MarkdownPreviewPane 依赖 markdown Worker,jsdom 无法加载;
@@ -1444,5 +1444,86 @@ describe('CodeEditorTool 菜单快捷键标签', () => {
     const item = await screen.findByTestId('toolbar-new');
     expect(item).not.toHaveTextContent('Ctrl+N');
     expect(item).not.toHaveTextContent('Ctrl+Alt+N');
+  });
+});
+
+describe('外部修改激活轮询(mtime 比对提前提示)', () => {
+  it('激活 Tab 的磁盘 mtime 与基准不一致时 toast.warning 提示(一次)', async () => {
+    const { fileMtimeMs } = await import('./code-editor-workspace/fileOps');
+    const { toast } = await import('sonner');
+    const mtimeMock = fileMtimeMs as unknown as Mock;
+
+    useEditorWorkspaceStore.setState({
+      workspace: {
+        ...DEFAULT_WORKSPACE,
+        tabs: [
+          {
+            id: 'tab-m1',
+            title: 'watched.txt',
+            path: 'C:\proj\watched.txt',
+            language: 'plaintext',
+            content: 'v1',
+            savedContent: 'v1',
+            pinned: false,
+            openedMtimeMs: 1000,
+          },
+        ],
+        activeTabId: 'tab-m1',
+      },
+      ready: true,
+      userTouched: true,
+      recentlyClosed: [],
+    });
+
+    // 磁盘 mtime = 5000(≠ 基准 1000):外部已修改
+    mtimeMock.mockResolvedValue(5000);
+    renderTool();
+
+    await waitFor(() => {
+      expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('watched.txt'));
+    });
+    // 会话内去重:再切回该 Tab 不重复提示(无第二次调用)
+    const calls = (toast.warning as Mock).mock.calls.length;
+    expect(calls).toBe(1);
+
+    cleanup();
+  });
+
+  it('mtime 一致时静默(无提示);大文件/无基准 Tab 跳过比对', async () => {
+    const { fileMtimeMs } = await import('./code-editor-workspace/fileOps');
+    const { toast } = await import('sonner');
+    const mtimeMock = fileMtimeMs as unknown as Mock;
+    mtimeMock.mockClear();
+
+    useEditorWorkspaceStore.setState({
+      workspace: {
+        ...DEFAULT_WORKSPACE,
+        tabs: [
+          {
+            id: 'tab-ok',
+            title: 'fresh.txt',
+            path: 'C:\proj\fresh.txt',
+            language: 'plaintext',
+            content: 'v1',
+            savedContent: 'v1',
+            pinned: false,
+            openedMtimeMs: 4242,
+          },
+        ],
+        activeTabId: 'tab-ok',
+      },
+      ready: true,
+      userTouched: true,
+      recentlyClosed: [],
+    });
+
+    mtimeMock.mockResolvedValue(4242);
+    renderTool();
+    await waitFor(() => {
+      expect(mtimeMock).toHaveBeenCalled();
+    });
+    expect(toast.warning).not.toHaveBeenCalled();
+
+    cleanup();
   });
 });

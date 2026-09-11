@@ -21,7 +21,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Search } from 'lucide-react';
+import { CaseSensitive, Search } from 'lucide-react';
 import { writeClipboardText } from '@/lib/clipboard';
 import { formatBytes } from '@/lib/file-utils';
 import { TEXT_ENCODINGS } from '@/lib/text-encodings';
@@ -302,6 +302,8 @@ export function LargeFileViewer({
   const [searching, setSearching] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchProgress, setSearchProgress] = useState<number | null>(null);
+  /** 搜索区分大小写开关(默认不敏感,与编辑器跨文件搜索一致) */
+  const [searchCaseSensitive, setSearchCaseSensitive] = useState(false);
   /** 搜索请求代次:仅最新请求的结果生效(快速连续搜索防竞态串台) */
   const searchSeqRef = useRef(0);
 
@@ -336,7 +338,7 @@ export function LargeFileViewer({
       setSearching(true);
       setSearchProgress(0);
       setSearchOpen(true);
-      void largeFileSearch(tab.path, query)
+      void largeFileSearch(tab.path, query, searchCaseSensitive)
         .then((result) => {
           if (seq !== searchSeqRef.current) return; // 过期响应丢弃
           setSearchResult(result);
@@ -352,8 +354,34 @@ export function LargeFileViewer({
           }
         });
     },
-    [searchQuery, tab.path, t],
+    [searchQuery, searchCaseSensitive, tab.path, t],
   );
+
+  /** 切换大小写口径后立即按新口径重跑一次(有查询时) */
+  const toggleSearchCase = useCallback(() => {
+    const next = !searchCaseSensitive;
+    setSearchCaseSensitive(next);
+    const query = searchQuery.trim();
+    if (!query || !tab.path) return;
+    const seq = ++searchSeqRef.current;
+    setSearching(true);
+    setSearchProgress(0);
+    void largeFileSearch(tab.path, query, next)
+      .then((result) => {
+        if (seq !== searchSeqRef.current) return;
+        setSearchResult(result);
+      })
+      .catch((err) => {
+        if (seq !== searchSeqRef.current) return;
+        toast.error(err instanceof Error ? err.message : t('tools.text_editor.err_open_file'));
+      })
+      .finally(() => {
+        if (seq === searchSeqRef.current) {
+          setSearching(false);
+          setSearchProgress(null);
+        }
+      });
+  }, [searchQuery, searchCaseSensitive, tab.path, t]);
 
   // —— 状态层 ——
   if (error) {
@@ -430,6 +458,22 @@ export function LargeFileViewer({
               data-testid={dataTestId ? `${dataTestId}-search-input` : 'large-file-search-input'}
               className="h-[22px] w-40 rounded-sm border border-input bg-background pl-6 pr-1.5 text-xs outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-ring"
             />
+            {/* 大小写口径切换(Aa):激活=区分大小写;切换即按新口径重跑 */}
+            <button
+              type="button"
+              aria-pressed={searchCaseSensitive}
+              title={t('tools.text_editor.large_search_case_title')}
+              aria-label={t('tools.text_editor.large_search_case_title')}
+              data-testid={dataTestId ? `${dataTestId}-search-case` : 'large-file-search-case'}
+              onClick={toggleSearchCase}
+              className={`ml-0.5 flex h-[22px] w-6 shrink-0 items-center justify-center rounded-sm text-[11px] font-semibold transition-colors ${
+                searchCaseSensitive
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <CaseSensitive aria-hidden className="size-3.5" />
+            </button>
             {/* 命中计数徽章:搜索完成后展示;扫描中显示进度 */}
             {searching && searchProgress !== null && (
               <span
