@@ -41,6 +41,31 @@ pub struct UserConfig {
 pub struct EditorConfig {
     #[serde(default)]
     pub naming_convention: NamingConventionConfig,
+    #[serde(default)]
+    pub display: EditorDisplayConfig,
+}
+
+/// 编辑器展示配置(键名与前端 `types/config.ts` 的 `EditorDisplayConfig` 严格一致)
+///
+/// 布尔项是 Monaco 展示开关的自然映射,字段与前端一一对应,不接受合并或位压缩
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(clippy::struct_excessive_bools)]
+pub struct EditorDisplayConfig {
+    #[serde(default)]
+    pub bracket_pair_colorization: bool,
+    #[serde(default)]
+    pub sticky_scroll: bool,
+    #[serde(default)]
+    pub indentation_guides: bool,
+    #[serde(default)]
+    pub word_wrap: bool,
+    #[serde(default)]
+    pub minimap: bool,
+    #[serde(default)]
+    pub font_size: u32,
+    #[serde(default)]
+    pub tab_size: u32,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -397,5 +422,72 @@ mod tests {
         // 文件应可读且为有效 JSON
         let val = store.get("general.font_size").await.unwrap().unwrap();
         assert!(val.is_number());
+    }
+
+    #[tokio::test]
+    async fn test_editor_display_roundtrip() {
+        let (_tmp, path) = temp_config_path();
+        let store = JsonConfigStore::new(path);
+        // camelCase 键名与前端 setConfig('editor.display.xxx') 严格一致,
+        // 反序列化回 UserConfig 后不能被 serde 静默丢弃
+        store
+            .set(
+                "editor.display",
+                json!({
+                    "bracketPairColorization": false,
+                    "stickyScroll": true,
+                    "indentationGuides": false,
+                    "wordWrap": false,
+                    "minimap": false,
+                    "fontSize": 16,
+                    "tabSize": 4
+                }),
+            )
+            .await
+            .unwrap();
+        let config = store.get_all().await.unwrap();
+        let display = &config.editor.display;
+        assert!(!display.bracket_pair_colorization);
+        assert!(display.sticky_scroll);
+        assert!(!display.indentation_guides);
+        assert!(!display.word_wrap);
+        assert!(!display.minimap);
+        assert_eq!(display.font_size, 16);
+        assert_eq!(display.tab_size, 4);
+        // 单字段路径写入同样存活
+        store
+            .set("editor.display.fontSize", json!(20))
+            .await
+            .unwrap();
+        assert_eq!(store.get_all().await.unwrap().editor.display.font_size, 20);
+    }
+
+    #[tokio::test]
+    async fn test_legacy_config_without_editor_display() {
+        let (_tmp, path) = temp_config_path();
+        // 模拟旧版本持久化数据:editor 只有 namingConvention,无 display
+        std::fs::write(
+            &path,
+            json!({
+                "version": 1,
+                "editor": {
+                    "namingConvention": { "enabled": ["snake_case"], "order": ["snake_case"] }
+                }
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let store = JsonConfigStore::new(path);
+        // 旧数据读取不 panic;新写入 display 正常合并,不影响既有 namingConvention
+        store
+            .set("editor.display.minimap", json!(false))
+            .await
+            .unwrap();
+        let config = store.get_all().await.unwrap();
+        assert!(!config.editor.display.minimap);
+        assert_eq!(
+            config.editor.naming_convention.enabled,
+            vec!["snake_case".to_string()]
+        );
     }
 }

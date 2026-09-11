@@ -41,6 +41,7 @@ import { readFileAsText, formatBytes } from '@/lib/file-utils';
 import { openExternal } from '@/lib/open-external';
 import { TEXT_ENCODINGS, type TextEncodingOption } from '@/lib/text-encodings';
 import { useEditorFontSize } from '@/hooks/useEditorFontSize';
+import { useEditorDisplay } from '@/hooks/useEditorDisplay';
 import { defineThemeFor, defineVsCodeTheme, getThemeName, useMonacoTheme } from './monaco-theme';
 import {
   MonacoContextMenu,
@@ -442,6 +443,11 @@ export function CodeEditor({
   // options 对象随渲染重建,@monaco-editor/react 检测到变化后会自动
   // updateOptions 热更新已挂载实例,无需重挂载编辑器
   const editorFontSize = useEditorFontSize();
+  // 编辑器展示配置(设置 → 文本编辑器):括号着色 / 吸顶滚动 / 缩进参考线 /
+  // 字号 / 缩进宽度;全部字段已归一化为有效值,缺省与历史硬编码观感一致
+  const display = useEditorDisplay();
+  // 字号优先级:设置中编辑器字号(独立值)> 字号档位换算(跟随全局缩放)
+  const monacoFontSize = display.fontSize ?? editorFontSize.fontSize;
 
   // 总行数(转到行/列弹窗的范围提示与夹取);getLineCount 为 O(1),
   // 渲染期直接读取(渲染随 value 变化触发,无需 useMemo 缓存)
@@ -928,7 +934,7 @@ export function CodeEditor({
             fontFamily:
               "var(--app-mono-font-family, 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace)",
             fontLigatures: true,
-            fontSize: editorFontSize.fontSize,
+            fontSize: monacoFontSize,
             lineHeight: editorFontSize.lineHeight,
             lineNumbers: lineNumbers ? 'on' : 'off',
             glyphMargin: false,
@@ -939,7 +945,8 @@ export function CodeEditor({
             automaticLayout: true,
             // 自动换行:默认开启,可经右键菜单「自动换行」按当前编辑器切换
             wordWrap: wordWrapOn ? 'on' : 'off',
-            tabSize: 2,
+            // 缩进宽度:设置 → 文本编辑器(新建 model 的默认缩进)
+            tabSize: display.tabSize,
             // 当前行高亮:'all' 覆盖整行(含 gutter),类似 VS Code。
             // 背景色使用柔和浅灰(#f3f3f3 / #2f2f2f,见 defineThemeFor),
             // 边框为全透明,视觉温和不刺眼。
@@ -959,11 +966,11 @@ export function CodeEditor({
               useShadows: false,
             },
             guides: {
-              indentation: true,
-              highlightActiveIndentation: true,
+              indentation: display.indentationGuides,
+              highlightActiveIndentation: display.indentationGuides,
             },
-            stickyScroll: { enabled: true },
-            bracketPairColorization: { enabled: true },
+            stickyScroll: { enabled: display.stickyScroll },
+            bracketPairColorization: { enabled: display.bracketPairColorization },
             roundedSelection: true,
             // 默认 0 隐藏右缘标尺;文本比较等场景经 prop 开启以显示差异刻度
             overviewRulerLanes,

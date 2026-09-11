@@ -38,6 +38,7 @@ function normalizeConfig(raw: UserConfig): UserConfig {
     editor: {
       ...DEFAULT_EDITOR_CONFIG,
       ...(raw.editor ?? {}),
+      display: { ...DEFAULT_EDITOR_CONFIG.display, ...(raw.editor?.display ?? {}) },
       namingConvention: {
         ...DEFAULT_EDITOR_CONFIG.namingConvention,
         ...(raw.editor?.namingConvention ?? {}),
@@ -118,6 +119,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         favorites: [...(current.favorites ?? [])],
         editor: {
           ...current.editor,
+          display: { ...current.editor?.display },
           namingConvention: { ...current.editor?.namingConvention },
         },
       };
@@ -161,6 +163,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       favorites: [...(current.favorites ?? [])],
       editor: {
         ...current.editor,
+        display: { ...current.editor?.display },
         namingConvention: { ...current.editor?.namingConvention },
       },
     };

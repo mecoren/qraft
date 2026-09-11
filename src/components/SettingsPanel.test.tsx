@@ -119,6 +119,53 @@ describe('SettingsPanel', () => {
     const configSetCalls = invokeMock.mock.calls.filter((c) => c[0] === 'config_set');
     expect(configSetCalls).toHaveLength(0);
   });
+
+  it('编辑器展示区:渲染默认开关值,切换即 config_set editor.display 路径', async () => {
+    const user = userEvent.setup();
+    invokeMock.mockImplementation((cmd: string) =>
+      cmd === 'list_system_fonts'
+        ? Promise.resolve([])
+        : Promise.resolve({ success: true, data: true }),
+    );
+    render(<SettingsPanel />);
+    // 默认值(无 display 配置)下开关全开
+    const minimapSwitch = screen.getByRole('switch', { name: /缩略图/ });
+    expect(minimapSwitch).toBeChecked();
+    expect(screen.getByRole('switch', { name: /括号配对着色/ })).toBeChecked();
+    expect(screen.getByRole('switch', { name: /自动换行/ })).toBeChecked();
+    // 字号档位展示默认 13px
+    expect(screen.getByText('13 px')).toBeInTheDocument();
+    // 切换缩略图开关 → 持久化 editor.display.minimap=false
+    await user.click(minimapSwitch);
+    expect(invokeMock).toHaveBeenCalledWith(
+      'config_set',
+      expect.objectContaining({ key: 'editor.display.minimap', value: false }),
+    );
+  });
+
+  it('编辑器展示区:持久化值渲染为关(旧配置无 display 也不回退错乱)', () => {
+    invokeMock.mockImplementation((cmd: string) =>
+      cmd === 'list_system_fonts'
+        ? Promise.resolve([])
+        : Promise.resolve({ success: true, data: true }),
+    );
+    useConfigStore.setState({
+      config: {
+        ...DEFAULT_USER_CONFIG,
+        editor: {
+          ...DEFAULT_USER_CONFIG.editor,
+          display: { ...DEFAULT_USER_CONFIG.editor?.display, minimap: false, fontSize: 16 },
+        },
+      },
+      loading: false,
+      error: null,
+    });
+    render(<SettingsPanel />);
+    expect(screen.getByRole('switch', { name: /缩略图/ })).not.toBeChecked();
+    expect(screen.getByText('16 px')).toBeInTheDocument();
+    // 其余未写字段仍为默认开
+    expect(screen.getByRole('switch', { name: /吸顶滚动/ })).toBeChecked();
+  });
 });
 
 describe('UpdateSection 检查更新错误提示', () => {

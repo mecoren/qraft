@@ -19,9 +19,47 @@ export interface NamingConventionConfig {
   order: NamingConventionId[];
 }
 
+/**
+ * 编辑器展示配置(Monaco options 的持久化映射)。
+ *
+ * 全部字段可选 + 前端 normalize 兜底默认值:旧版本持久化数据无这些字段,
+ * 缺省时消费方回退到 DEFAULT_EDITOR_CONFIG(保持与历史行为一致的观感)。
+ * 白名单同步:Rust store/config.rs EditorConfig(serde rename_all=camelCase),
+ * 新增键必须两端同步,否则 config_set 反序列化时被静默丢弃。
+ */
+export interface EditorDisplayConfig {
+  /** 括号配对着色,默认 true */
+  bracketPairColorization?: boolean;
+  /** 吸顶滚动(sticky scroll),默认 true */
+  stickyScroll?: boolean;
+  /** 缩进参考线,默认 true */
+  indentationGuides?: boolean;
+  /** 新建 Tab 默认自动换行(已开 Tab 的右键切换不受影响),默认 true */
+  wordWrap?: boolean;
+  /** 编辑器缩略图(minimap),默认 true(超大内容 Tab 由工作台强制关闭) */
+  minimap?: boolean;
+  /** 编辑器字号(px,Monaco 绝对 px 布局不随 rem 缩放),默认 13 */
+  fontSize?: number;
+  /** 缩进宽度(tabSize),默认 2 */
+  tabSize?: number;
+}
+
 export interface EditorConfig {
   namingConvention: NamingConventionConfig;
+  /** 常量里恒有值;类型上可选是历史 config.json 无此字段的兼容 */
+  display?: EditorDisplayConfig;
 }
+
+/** 默认展示配置的字面量(DEFAULT_EDITOR_CONFIG.display 的 Non-null 视图) */
+export const DEFAULT_EDITOR_DISPLAY: Required<EditorDisplayConfig> = {
+  bracketPairColorization: true,
+  stickyScroll: true,
+  indentationGuides: true,
+  wordWrap: true,
+  minimap: true,
+  fontSize: 13,
+  tabSize: 2,
+};
 
 /** 快捷键绑定,与 15-ui-design-system.md §3.6 一一对应 */
 export interface ShortcutBinding {
@@ -145,6 +183,8 @@ export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
       'Camel Case',
     ],
   },
+  // 展示项默认值与 CodeEditor 历史硬编码值一致:升级后无配置数据时观感不变
+  display: DEFAULT_EDITOR_DISPLAY,
 };
 
 export const DEFAULT_USER_CONFIG: UserConfig = {

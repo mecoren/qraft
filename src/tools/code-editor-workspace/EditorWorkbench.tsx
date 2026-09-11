@@ -48,6 +48,7 @@ import { registerMonacoInstance, disposeModel } from './editorModelRegistry';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
 import { useShortcut } from '@/hooks/useShortcut';
+import { useEditorDisplay } from '@/hooks/useEditorDisplay';
 import { useConfigStore } from '@/store/configStore';
 import { DEFAULT_SHORTCUTS, type ShortcutKey } from '@/types/config';
 import { listen, safeInvoke, CommandError } from '@/lib/ipc';
@@ -155,6 +156,9 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const workspace = useEditorWorkspaceStore((s) => s.workspace);
   const ready = useEditorWorkspaceStore((s) => s.ready);
   const hydrate = useEditorWorkspaceStore((s) => s.hydrate);
+  // 编辑器展示设置:当前仅消费 minimap 全局开关(bracket/sticky/guides 等
+  // 由 CodeEditor 内部直接订阅)
+  const display = useEditorDisplay();
   /** 未保存确认状态(null = 关闭);batchAction 记录批量关闭意图,
    * source 记录发起区域(确认 Popover 锚定在对应区域的条目上) */
   const [unsaved, setUnsaved] = useState<{
@@ -1509,9 +1513,10 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       }}
       // 右键菜单按页面定制:命名风格切换 / 大小写转换(作用于当前编辑器选区)
       contextMenuSections={editorMenuSections}
-      // 缩略图:超大内容(如强制打开的二进制转储)下 minimap 渲染开销
-      // 显著且无导航价值,直接关闭(普通文件保持开启)
-      minimap={(activeTab.content?.length ?? 0) <= MINIMAP_DISABLE_CONTENT_CHARS}
+      // 缩略图:全局设置(设置 → 文本编辑器)默认开关,叠加超大内容防护——
+      // 超大 Tab(如强制打开的二进制转储)下 minimap 渲染开销显著且无导航
+      // 价值,无视设置直接关闭
+      minimap={(activeTab.content?.length ?? 0) <= MINIMAP_DISABLE_CONTENT_CHARS && display.minimap}
       onMount={handleEditorMount}
       // 右上角 Markdown 视图切换(编辑/分屏/预览),仅 md 文档渲染
       actions={mdViewActions}

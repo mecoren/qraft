@@ -15,6 +15,8 @@
  */
 import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
+import { useConfigStore } from '@/store/configStore';
+import { normalizeEditorDisplay } from '@/hooks/useEditorDisplay';
 import type { EditorLanguage } from '@/components/ui/code-editor';
 import {
   DEFAULT_WORKSPACE,
@@ -515,6 +517,8 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   newBlankTab: () => {
     const { workspace } = get();
+    // 新建 Tab 的自动换行默认值继承全局设置(设置 → 文本编辑器 → 自动换行);
+    // 用户对单个 Tab 的右键切换覆盖该默认,不影响后续新建
     const tab: EditorTab = {
       id: createId(),
       title: `untitled-${nextUntitledNumber(workspace.tabs)}`,
@@ -524,6 +528,7 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
       content: '',
       savedContent: '',
       pinned: false,
+      wordWrap: normalizeEditorDisplay(useConfigStore.getState().config?.editor?.display).wordWrap,
     };
     set({
       workspace: {

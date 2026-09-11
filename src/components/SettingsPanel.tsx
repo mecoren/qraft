@@ -63,7 +63,29 @@ import { listSystemFonts, type FontInfo } from '@/lib/fonts';
 import { buildFontFamilyOptions, type FontFamilyOption } from '@/lib/fontFamilies';
 import { cn } from '@/lib/utils';
 import { NAMING_CONVENTIONS, type NamingConventionId } from '@/lib/naming-convention';
-import { DEFAULT_EDITOR_CONFIG, DEFAULT_USER_CONFIG } from '@/types/config';
+import { normalizeEditorDisplay } from '@/hooks/useEditorDisplay';
+import {
+  DEFAULT_EDITOR_CONFIG,
+  DEFAULT_USER_CONFIG,
+  type EditorDisplayConfig,
+} from '@/types/config';
+
+/** 编辑器展示配置中布尔开关类字段(Switch 行渲染) */
+const DISPLAY_SWITCH_KEYS = [
+  'bracketPairColorization',
+  'stickyScroll',
+  'indentationGuides',
+  'wordWrap',
+  'minimap',
+] as const satisfies ReadonlyArray<keyof EditorDisplayConfig>;
+
+type EditorDisplayKey = (typeof DISPLAY_SWITCH_KEYS)[number] | 'fontSize' | 'tabSize';
+
+/** 编辑器字号可选档位(px;Monaco 绝对 px 布局) */
+const EDITOR_FONT_SIZE_CHOICES = [12, 13, 14, 16, 18, 20] as const;
+
+/** 编辑器缩进宽度可选档位 */
+const EDITOR_TAB_SIZE_CHOICES = [2, 4, 8] as const;
 
 const SHORTCUT_KEYS: Array<{
   key: keyof ShortcutBinding;
@@ -1051,13 +1073,22 @@ export function ShortcutSection(): JSX.Element {
 }
 
 /**
- * 文本编辑器区块：字符命名转换的启用项与循环顺序。
+ * 文本编辑器区块：编辑器展示配置 + 字符命名转换的启用项与循环顺序。
  */
 export function EditorSection(): JSX.Element {
   const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const setConfig = useConfigStore((s) => s.setConfig);
   const naming = config?.editor?.namingConvention;
+  const display = normalizeEditorDisplay(config?.editor?.display);
+
+  const toggleDisplay = async (key: EditorDisplayKey, value: boolean) => {
+    await setConfig(`editor.display.${key}`, value);
+  };
+
+  const chooseDisplayValue = async (key: EditorDisplayKey, value: number) => {
+    await setConfig(`editor.display.${key}`, value);
+  };
   const enabled = new Set(
     naming?.enabled?.length ? naming.enabled : DEFAULT_EDITOR_CONFIG.namingConvention.enabled,
   );
@@ -1091,6 +1122,83 @@ export function EditorSection(): JSX.Element {
         <CardDescription>{t('settings.editor_desc')}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
+        {/* —— 编辑器展示配置 —— */}
+        <div className="flex flex-col gap-3" data-search-anchor="settings:editor:display">
+          <Label className="text-sm font-medium">{t('settings.editor_display_label')}</Label>
+          <div className="flex flex-col gap-2">
+            {DISPLAY_SWITCH_KEYS.map((key) => (
+              <div
+                key={key}
+                className="flex items-start justify-between gap-4 rounded-lg border px-3 py-2"
+              >
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <Label htmlFor={`editor-display-${key}`}>{t(`settings.editor_${key}`)}</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t(`settings.editor_${key}_hint`)}
+                  </p>
+                </div>
+                <Switch
+                  id={`editor-display-${key}`}
+                  checked={display[key]}
+                  onCheckedChange={(v) => void toggleDisplay(key, v)}
+                />
+              </div>
+            ))}
+            {/* 编辑器字号(px 档位):Monaco 不随 rem 缩放,提供独立绝对值档位 */}
+            <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <Label htmlFor="editor-display-fontSize">{t('settings.editor_fontSize')}</Label>
+                <p className="text-xs text-muted-foreground">
+                  {t('settings.editor_fontSize_hint')}
+                </p>
+              </div>
+              <Select
+                value={String(display.fontSize)}
+                onValueChange={(v) => void chooseDisplayValue('fontSize', Number(v))}
+              >
+                <SelectTrigger
+                  id="editor-display-fontSize"
+                  className="h-8 w-24 shrink-0 text-sm tabular-nums"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EDITOR_FONT_SIZE_CHOICES.map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size} px
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* 缩进宽度(新建 Tab / 新 model 的默认 tabSize) */}
+            <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <Label htmlFor="editor-display-tabSize">{t('settings.editor_tabSize')}</Label>
+                <p className="text-xs text-muted-foreground">{t('settings.editor_tabSize_hint')}</p>
+              </div>
+              <Select
+                value={String(display.tabSize)}
+                onValueChange={(v) => void chooseDisplayValue('tabSize', Number(v))}
+              >
+                <SelectTrigger
+                  id="editor-display-tabSize"
+                  className="h-8 w-24 shrink-0 text-sm tabular-nums"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EDITOR_TAB_SIZE_CHOICES.map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-col gap-3" data-search-anchor="settings:editor:enabled_styles">
           <Label className="text-sm font-medium">{t('settings.editor_enabled_label')}</Label>
           <div className="grid grid-cols-2 gap-3">
