@@ -117,7 +117,6 @@ export function OtpGenerator({ toolId }: ToolProps): JSX.Element {
             onChange={(e) => setSecret(e.target.value)}
             autoComplete="off"
             spellCheck={false}
-            className="font-mono"
           />
         </ConfigRow>
         <ConfigRow

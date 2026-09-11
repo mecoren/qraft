@@ -146,6 +146,9 @@ cargo test
 - Tailwind v4 CSS-first:配置、主题变量、语义 token 全在 `src/styles/globals.css`(OKLCH + `data-palette`),没有 tailwind.config。
 - 优先用 `components/ui/` 的 shadcn 风格原语;className 合并统一用 `cn()`(`@/lib/utils`);图标用 lucide-react。
 - HTML 内容渲染前必须经 DOMPurify sanitize。
+- **字体分工**(跟随「设置 → 字体」的两族 token):
+  - 输入框、Select、开关等**非编辑器控件一律用 UI 字体**(默认继承,不要加 `font-mono`,密钥 / secret / 字母表这类"内容像代码"的输入框也不例外);
+  - `font-mono` / `code` / `pre` **仅限代码与等宽内容场景**:编辑器(Monaco、行号编辑器)、代码片段、快捷键 kbd、哈希 / 时间戳 / IP / 编码结果等技术性只读展示。
 
 **工具主区左右分栏标准**(全仓库统一布局契约,新工具一律遵守)
 

@@ -91,7 +91,7 @@ export function NanoidGenerator({ toolId }: ToolProps): JSX.Element {
             onChange={(e) => setAlphabet(e.target.value)}
             spellCheck={false}
             autoComplete="off"
-            className="w-72 font-mono"
+            className="w-72"
           />
         </ConfigRow>
       </ConfigSection>

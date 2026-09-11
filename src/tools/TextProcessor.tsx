@@ -1146,7 +1146,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
                   value={findText}
                   onChange={(e) => setFindText(e.target.value)}
                   placeholder={t('tools.json_minifier.find_placeholder')}
-                  className="h-7 w-44 font-mono text-xs"
+                  className="h-7 w-44 text-xs"
                   data-testid="textproc-find-input"
                 />
                 <span aria-hidden className="text-xs text-muted-foreground">
@@ -1156,7 +1156,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
                   value={replaceText}
                   onChange={(e) => setReplaceText(e.target.value)}
                   placeholder={t('tools.json_minifier.replace_placeholder')}
-                  className="h-7 w-44 font-mono text-xs"
+                  className="h-7 w-44 text-xs"
                   data-testid="textproc-replace-input"
                 />
                 <Button
@@ -1264,7 +1264,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
                   value={prefix}
                   onChange={(e) => setPrefix(e.target.value)}
                   placeholder={t('tools.json_minifier.prefix_placeholder')}
-                  className="h-7 w-24 font-mono text-xs"
+                  className="h-7 w-24 text-xs"
                   data-testid="textproc-prefix-input"
                 />
                 <Button

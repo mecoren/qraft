@@ -140,7 +140,6 @@ export function AesCrypto({ toolId }: ToolProps): JSX.Element {
             onChange={(e) => setKeyInput(e.target.value)}
             autoComplete="off"
             spellCheck={false}
-            className="font-mono"
           />
         </ConfigRow>
       </ConfigSection>
