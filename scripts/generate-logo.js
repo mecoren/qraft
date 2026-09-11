@@ -36,10 +36,7 @@ for (const { name, svg, png, size } of sources) {
   const outPath = path.join(root, png ? 'assets' : 'public', png ?? 'favicon.png');
   const source = fs.readFileSync(svgPath, 'utf8');
 
-  await sharp(Buffer.from(source))
-    .resize(size, size)
-    .png()
-    .toFile(outPath);
+  await sharp(Buffer.from(source)).resize(size, size).png().toFile(outPath);
 
   console.log(`generated ${outPath} (${size}x${size})`);
 }

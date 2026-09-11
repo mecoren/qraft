@@ -271,9 +271,7 @@ async function main() {
   const codiconCss = path.join(CODICON_DEST, 'codicon.css');
   const codiconTtf = path.join(CODICON_DEST, 'codicon.ttf');
   if (!existsSync(codiconCss) || !existsSync(codiconTtf)) {
-    throw new Error(
-      `codicon 资源拷贝不完整: ${codiconCss} / ${codiconTtf} 缺失`,
-    );
+    throw new Error(`codicon 资源拷贝不完整: ${codiconCss} / ${codiconTtf} 缺失`);
   }
 
   // 裁剪不可达产物(见 trimUnreachable 注释):旧版 language/**、聚合入口、非中文 locale 等

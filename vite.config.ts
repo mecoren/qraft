@@ -37,8 +37,8 @@ function copyPdfRuntimeAssets() {
 //   保留端口区间内(本机实测排除 1330-1429,listen 报 EACCES),故改用 14200;
 //   需与 src-tauri/tauri.conf.json 的 devUrl / devCsp 保持一致
 // - envPrefix 包含 TAURI_ENV_ 前缀变量
-  // - build.target 适配三平台 WebView(Chrome 100 / Safari 14)
-  //   注:Safari 14 起支持 BigInt,进制转换器等工具依赖 BigInt 做任意精度运算,故不低于 14
+// - build.target 适配三平台 WebView(Chrome 100 / Safari 14)
+//   注:Safari 14 起支持 BigInt,进制转换器等工具依赖 BigInt 做任意精度运算,故不低于 14
 // - Tailwind v4 通过 @tailwindcss/vite 插件接入,CSS 内 @import "tailwindcss" 即可
 export default defineConfig({
   plugins: [react(), tailwindcss(), copyPdfRuntimeAssets()],

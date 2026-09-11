@@ -41,10 +41,7 @@ async function main() {
   await copyDir(cmapsSrc, path.join(DEST, 'cmaps'));
 
   // 核验:关键字体必须存在,否则视为拷贝失败
-  for (const rel of [
-    'standard_fonts/FoxitSerif.pfb',
-    'cmaps/Adobe-Japan1-UCS2.bcmap',
-  ]) {
+  for (const rel of ['standard_fonts/FoxitSerif.pfb', 'cmaps/Adobe-Japan1-UCS2.bcmap']) {
     if (!existsSync(path.join(DEST, rel))) {
       throw new Error(`拷贝完成但缺少关键资源: ${rel}`);
     }
