@@ -50,8 +50,12 @@ try {
     Write-Host ('冷启动(到主窗口): {0} ms' -f $sw.ElapsedMilliseconds)
   }
 
-  Write-Host ('== 内存({0} 次采样 / {1}ms)==' -f $Samples, $IntervalMs)
+  Write-Host ('== 内存 + 空闲 CPU({0} 次采样 / {1}ms)==' -f $Samples, $IntervalMs)
   $peak = [uint64]0
+  # CPU 口径:两次采样 TotalProcessorTime 之差 / 墙钟间隔 = 空闲 CPU 占比。
+  # 主进程空闲应接近 0(事件循环+心跳);WebView2 渲染/JS 进程以参考值列出。
+  $cpuPrev = $proc.TotalProcessorTime
+  $wallPrev = [System.Diagnostics.Stopwatch]::StartNew()
   for ($i = 1; $i -le $Samples; $i++) {
     Start-Sleep -Milliseconds $IntervalMs
     $proc.Refresh()
@@ -61,6 +65,14 @@ try {
   }
   Write-Host ('主进程峰值 WorkingSet: {0:N1} MB' -f ($peak / 1MB))
 
+  # 空闲 CPU:采样窗口内的平均占用(单核百分比;多核机器满载 = 100 x 核数)
+  $cpuNow = $proc.TotalProcessorTime
+  $cpuPct = 0.0
+  if ($wallPrev.ElapsedMilliseconds -gt 0) {
+    $cpuPct = ($cpuNow - $cpuPrev).TotalMilliseconds / $wallPrev.ElapsedMilliseconds * 100
+  }
+  Write-Host ('主进程空闲 CPU 占用: {0:N2} % (单核口径)' -f $cpuPct)
+
   # WebView2 子进程按「晚于主进程启动」归因(参考值,不作为达标口径)
   $startAt = $proc.StartTime
   Start-Sleep -Milliseconds 500
@@ -68,7 +80,13 @@ try {
     Where-Object { $_.StartTime -ge $startAt })
   $childSum = ($children | Measure-Object -Property WorkingSet64 -Sum).Sum
   if ($null -eq $childSum) { $childSum = [uint64]0 }
-  Write-Host ('WebView2 子进程(参考值): {0} 个,合计 {1:N1} MB' -f $children.Count, ($childSum / 1MB))
+  # TimeSpan 不能直接 Measure-Object -Sum:逐进程取 TotalMilliseconds 求和
+  $childCpuMs = 0.0
+  foreach ($c in $children) {
+    $childCpuMs += $c.TotalProcessorTime.TotalMilliseconds
+  }
+  Write-Host ('WebView2 子进程(参考值): {0} 个,合计 {1:N1} MB,累计 CPU {2:N2}s' -f `
+    $children.Count, ($childSum / 1MB), ($childCpuMs / 1000))
 }
 finally {
   if (-not $proc.HasExited) {
