@@ -190,4 +190,15 @@ describe('FolderAnalyzer orchestration', () => {
       changeLocale('zh-CN');
     }
   });
+
+  it('非 Tauri 环境(浏览器 dev)挂载不崩溃:跳过 webview 拖放订阅', () => {
+    // jsdom 无 __TAURI_INTERNALS__ → isTauriRuntime()=false → 不触达
+    // getCurrentWebview(浏览器环境该调用会抛 metadata undefined,曾把
+    // 顶层 ErrorBoundary 打崩)。回归:本用例过去在纯浏览器必崩,
+    // 守卫后组件在无 Tauri 运行时也能正常渲染完整工具区。
+    expect((window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__).toBeUndefined();
+    renderTool();
+    expect(screen.getByTestId('analyzer-mode-scan')).toBeInTheDocument();
+    expect(screen.getByTestId('analyzer-pick-folder')).toBeInTheDocument();
+  });
 });

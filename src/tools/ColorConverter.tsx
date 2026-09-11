@@ -26,6 +26,7 @@ import {
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { invokeCommand } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import type { ToolProps } from './registry';
@@ -232,64 +233,72 @@ export function ColorConverter({ toolId }: ToolProps): JSX.Element {
           </div>
         )}
 
-        {/* 结果区:左预览/取值 + 右输出编辑器;锚点保持 color_converter:result */}
-        <div
-          className="grid min-h-0 flex-1 grid-cols-2 gap-3"
+        {/* 结果区:左预览/取值 + 右输出编辑器;分栏走 ResizablePanelGroup
+         * (仓库布局契约:编辑器 + 非编辑器面板的双栏形态,可拖分隔条调比例);
+         * 锚点保持 color_converter:result */}
+        <ResizablePanelGroup
+          orientation="horizontal"
+          className="min-h-0 flex-1"
           data-testid="output"
           data-search-anchor="color_converter:result"
         >
-          <div className="flex min-h-0 flex-col gap-3">
-            <div className="rounded-md border border-border bg-card p-3">
-              <div className="text-xs font-semibold text-muted-foreground">
-                {t('tools.color_converter.preview')}
-              </div>
-              {/* 色样:透明部分露出棋盘格 */}
-              <div
-                className="mt-2 h-16 rounded-md border"
-                style={{ ...CHECKERBOARD, backgroundColor: extra?.hex }}
-                aria-label={
-                  extra
-                    ? t('tools.color_converter.color_sample', { value: extra.hex })
-                    : t('tools.color_converter.no_color_sample')
-                }
-              />
-              {/* 明暗梯度 */}
-              {extra && (
+          <ResizablePanel defaultSize="50" minSize="25" className="min-h-0 min-w-0">
+            <div className="flex h-full min-h-0 flex-col gap-3 border-r border-border pr-3">
+              <div className="rounded-md border border-border bg-card p-3">
+                <div className="text-xs font-semibold text-muted-foreground">
+                  {t('tools.color_converter.preview')}
+                </div>
+                {/* 色样:透明部分露出棋盘格 */}
                 <div
-                  className="mt-2 flex h-6 overflow-hidden rounded-md border"
-                  data-testid="color-shades"
-                >
-                  {scale.map((c, i) => (
-                    // eslint-disable-next-line react-x/no-array-index-key -- 纯展示色阶条,色值可重复故需 index 参与键
-                    <div key={`${c}-${i}`} className="flex-1" style={{ backgroundColor: c }} />
+                  className="mt-2 h-16 rounded-md border"
+                  style={{ ...CHECKERBOARD, backgroundColor: extra?.hex }}
+                  aria-label={
+                    extra
+                      ? t('tools.color_converter.color_sample', { value: extra.hex })
+                      : t('tools.color_converter.no_color_sample')
+                  }
+                />
+                {/* 明暗梯度 */}
+                {extra && (
+                  <div
+                    className="mt-2 flex h-6 overflow-hidden rounded-md border"
+                    data-testid="color-shades"
+                  >
+                    {scale.map((c, i) => (
+                      // eslint-disable-next-line react-x/no-array-index-key -- 纯展示色阶条,色值可重复故需 index 参与键
+                      <div key={`${c}-${i}`} className="flex-1" style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border bg-card p-3 text-sm">
+                <div className="grid grid-cols-[60px_1fr auto] gap-x-3 gap-y-2">
+                  {valueRows.map((row) => (
+                    <ColorRow key={row.label} {...row} />
                   ))}
                 </div>
-              )}
-            </div>
-            <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border bg-card p-3 text-sm">
-              <div className="grid grid-cols-[60px_1fr_auto] gap-x-3 gap-y-2">
-                {valueRows.map((row) => (
-                  <ColorRow key={row.label} {...row} />
-                ))}
               </div>
             </div>
-          </div>
-          <CodeEditor
-            readOnly
-            title={t('tools.color_converter.result_title')}
-            language="plaintext"
-            value={visibleOutput?.text ?? ''}
-            placeholder={t('tools.color_converter.output_placeholder')}
-            className="min-h-0"
-            data-testid="output-editor"
-            searchAnchor="color_converter:output"
-            actions={
-              visibleOutput?.text ? (
-                <CopyAction text={visibleOutput.text} testId="output-copy" />
-              ) : undefined
-            }
-          />
-        </div>
+          </ResizablePanel>
+          <ResizableHandle />
+          <ResizablePanel defaultSize="50" minSize="25" className="min-h-0 min-w-0">
+            <CodeEditor
+              readOnly
+              title={t('tools.color_converter.result_title')}
+              language="plaintext"
+              value={visibleOutput?.text ?? ''}
+              placeholder={t('tools.color_converter.output_placeholder')}
+              className="h-full rounded-none border-0"
+              data-testid="output-editor"
+              searchAnchor="color_converter:output"
+              actions={
+                visibleOutput?.text ? (
+                  <CopyAction text={visibleOutput.text} testId="output-copy" />
+                ) : undefined
+              }
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
     </div>
   );

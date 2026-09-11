@@ -17,6 +17,7 @@ import { SearchResultsPanel } from './folder-analyzer/SearchResultsPanel';
 import { FileInspectPanel } from './folder-analyzer/FileInspectPanel';
 import { pickFolder, pickFilePath, routeDropped } from './folder-analyzer/analyzerApi';
 import { useAnalyzerTask } from './folder-analyzer/useAnalyzerTask';
+import { isTauriRuntime } from '@/lib/popout-window';
 import type {
   AnalyzerMode,
   FileInspectReport,
@@ -45,8 +46,12 @@ export function FolderAnalyzer(_props: ToolProps) {
     [run],
   );
 
-  // Tauri 拦截了 HTML5 drop,必须用 webview 级拖放事件拿真实路径
+  // Tauri 拦截了 HTML5 drop,必须用 webview 级拖放事件拿真实路径。
+  // 纯浏览器环境(无 __TAURI_INTERNALS__)跳过订阅:getCurrentWebview 在
+  // 无 Tauri 运行时下读取 window.__TAURI_INTERNALS__ 元数据即抛错,会把
+  // 整个工具面板打进顶层 ErrorBoundary(浏览器 dev 页面直接崩溃)。
   useEffect(() => {
+    if (!isTauriRuntime()) return;
     let dispose: (() => void) | null = null;
     let alive = true;
     void getCurrentWebview()

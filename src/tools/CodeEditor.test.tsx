@@ -1460,7 +1460,7 @@ describe('外部修改激活轮询(mtime 比对提前提示)', () => {
           {
             id: 'tab-m1',
             title: 'watched.txt',
-            path: 'C:\proj\watched.txt',
+            path: 'C:\\proj\\watched.txt',
             language: 'plaintext',
             content: 'v1',
             savedContent: 'v1',
@@ -1502,7 +1502,7 @@ describe('外部修改激活轮询(mtime 比对提前提示)', () => {
           {
             id: 'tab-ok',
             title: 'fresh.txt',
-            path: 'C:\proj\fresh.txt',
+            path: 'C:\\proj\\fresh.txt',
             language: 'plaintext',
             content: 'v1',
             savedContent: 'v1',
