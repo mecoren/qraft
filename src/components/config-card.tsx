@@ -75,6 +75,7 @@ export function ConfigRow({
   hint,
   children,
   className,
+  labelClassName,
   searchAnchor,
 }: {
   icon?: LucideIcon;
@@ -83,35 +84,46 @@ export function ConfigRow({
   hint?: string;
   children?: ReactNode;
   className?: string;
+  /**
+   * 追加到 label 列的类,用于同一工具内多行 label 定宽对齐(如 w-64)。
+   * 传入时默认的 `flex-1` 会被去掉(flex-1 的简写 `flex:1 1 0%` 在 utilities
+   * 顺序上压过 shrink-0 / flex-none,无法靠叠类覆盖),宽度语义由所传类接管。
+   */
+  labelClassName?: string;
   /** 全局搜索锚点(完整值 `${toolId}:${key}`),用于搜索跳转定位高亮 */
   searchAnchor?: string;
 }): JSX.Element {
-  // 左右布局的防压零宽契约:
-  // - label 列 w-fit + shrink-0(不参与压缩),max-w-40 + truncate 兜住
-  //   超长文案;控件再多也压不瘪左侧提示(曾因 flex-1 被压成 0 宽逐字竖排);
-  // - 控件列 flex-1 + flex-wrap:超出横向空间自动换行,而不挤压 label。
-  //   换行后行高自然增高,后续行由 ConfigSection 的 divide-y 分隔。
-  // - 控件列 justify-end:窄控件(Select / Switch 等)沿右侧对齐,
-  //   与 label 之间由 flex-1 的空隙自然隔开,是仓库既有的视觉基准。
+  // 左右布局的弹性契约(参照 ListComparer 的「左描述右控件」形态):
+  // - label 列默认 flex-1(吃剩余宽度,描述消息完整显示、自动换行),min-w-56(224px)
+  //   是防压零宽下限——控件再多也压不瘪左侧描述(曾被压成 0 宽逐字竖排);
+  // - labelClassName 提供时去掉 flex-1:label 列宽随控件量浮动(满宽按钮行被
+  //   压到下限、稀疏控件行反而更宽),要五行左侧等宽对齐就传定宽类(如 w-64);
+  // - 控件列 basis-auto + 允许收缩:空间不足时先向 label 借宽,借到下限后
+  //   改由控件列内部 flex-wrap 换行,行高自然增高,divide-y 照常分隔;
+  // - 控件列 justify-end:窄控件(Select / Switch)沿右缘对齐,与 label 之间
+  //   由弹性空隙自然隔开;宽按钮组占满列后从左缘起铺,换行后排首对齐。
   return (
     <div
-      className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5', className)}
+      className={cn('flex items-center gap-x-4 gap-y-2 px-4 py-2.5', className)}
       data-search-anchor={searchAnchor}
     >
       {label !== undefined ? (
-        <div className="flex w-fit max-w-40 shrink-0 items-center gap-2">
+        <div
+          className={cn(
+            labelClassName
+              ? 'flex min-w-0 items-center gap-2'
+              : 'flex min-w-56 flex-1 items-center gap-2',
+            labelClassName,
+          )}
+        >
           {Icon ? <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : null}
           <div className="min-w-0">
-            <div className="truncate text-body-sm">{label}</div>
-            {hint ? (
-              <div className="truncate text-xs text-muted-foreground" title={hint}>
-                {hint}
-              </div>
-            ) : null}
+            <div className="text-body-sm">{label}</div>
+            {hint ? <div className="text-xs text-muted-foreground">{hint}</div> : null}
           </div>
         </div>
       ) : null}
-      <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">{children}</div>
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">{children}</div>
     </div>
   );
 }

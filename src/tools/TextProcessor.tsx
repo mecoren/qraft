@@ -1065,12 +1065,14 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
           </button>
         }
       >
-        {/* 左侧 label 列带图标与一行提示,右侧按钮组换行铺开;
-            ConfigRow 防压零宽契约(label 列 shrink-0)保证按钮再宽也不挤瘪提示 */}
+        {/* 左侧 label 列带图标与一行描述,右侧按钮组换行铺开;
+            五行 labelClassName 统一 w-64 定宽——左侧描述列等宽对齐,
+            控件列起点随之对齐;描述完整单行显示 */}
         <ConfigRow
           icon={Wand2}
           label={t('tools.json_minifier.row_transform')}
           hint={t('tools.json_minifier.row_transform_hint')}
+          labelClassName="w-64 shrink-0"
           searchAnchor="json_minifier:row1"
         >
           {/* 外层 ButtonGroup 起容器作用 —— 仅作为 flex 父节点。组间距用与
@@ -1093,6 +1095,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
           icon={CaseUpper}
           label={t('tools.json_minifier.row_adjust')}
           hint={t('tools.json_minifier.row_adjust_hint')}
+          labelClassName="w-64 shrink-0"
           searchAnchor="json_minifier:row2"
         >
           <ButtonGroup
@@ -1117,6 +1120,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
               icon={Type}
               label={t('tools.json_minifier.row_advanced')}
               hint={t('tools.json_minifier.row_advanced_hint')}
+              labelClassName="w-64 shrink-0"
               searchAnchor="json_minifier:row3"
             >
               <ButtonGroup
@@ -1134,6 +1138,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
               icon={Search}
               label={t('tools.json_minifier.row_find_replace')}
               hint={t('tools.json_minifier.row_find_replace_hint')}
+              labelClassName="w-64 shrink-0"
               searchAnchor="json_minifier:row4"
             >
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
@@ -1191,6 +1196,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
               icon={ScanSearch}
               label={t('tools.json_minifier.row_extract')}
               hint={t('tools.json_minifier.row_extract_hint')}
+              labelClassName="w-64 shrink-0"
               searchAnchor="json_minifier:row5"
             >
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
