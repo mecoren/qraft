@@ -29,14 +29,18 @@ import {
   CaseSensitive,
   Regex,
   WholeWord,
+  Replace,
+  ReplaceAll,
   type LucideIcon,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { QuickPickDialog, type QuickPickGroup, type QuickPickItem } from '@/components/ui/command';
 import { searchIndex, type SearchEntry, type SearchEntryKind } from '@/lib/search-index';
 import {
   MATCH_BATCH_SIZE,
   compileMatcher,
   isRegexQueryValid,
+  replaceInContent,
   searchTabsText,
   type TextSearchOptions,
 } from '@/lib/editor-text-search';
@@ -168,6 +172,11 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
   // 文本模式匹配选项(仅语义开关,重置查询/切模式时一并复位,对齐 VSCode)
   const [matchOptions, setMatchOptions] = useState<TextSearchOptions>({});
   const listFooterRef = useRef<HTMLButtonElement>(null);
+  // —— 跨文件查找替换(VSCode「在文件中替换」)——
+  /** 替换栏是否展开(文本模式专属;展开显示替换输入框与替换动作) */
+  const [replaceOpen, setReplaceOpen] = useState(false);
+  /** 替换文本(空串 = 替换为空;正则模式支持 $1 反向引用) */
+  const [replacement, setReplacement] = useState('');
 
   // 文本编辑工作区已打开文件
   const tabs = useEditorWorkspaceStore((s) => s.workspace.tabs);
@@ -201,13 +210,15 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
     [tabGroups],
   );
 
-  /** 切换模式时清空查询与匹配选项,避免跨模式残留 */
+  /** 切换模式时清空查询/匹配选项/替换栏,避免跨模式残留 */
   const switchMode = (next: SearchMode) => {
     setMode(next);
     setQuery('');
     setDebounced('');
     setLoadedMatchCount(MATCH_BATCH_SIZE);
     setMatchOptions({});
+    setReplaceOpen(false);
+    setReplacement('');
   };
 
   const handleSelect = (entry: SearchEntry) => {
@@ -228,6 +239,49 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
       textSearchOptions: matchOptions,
     });
     onOpenChange(false);
+  };
+
+  // —— 跨文件替换:作用于已打开 Tab 的内容(setTabContent 标 dirty,
+  // 用户经保存流程落盘——替换只改内存,不直接写文件,可 Ctrl+Z 撤销)——
+
+  /** 对单个 tab 执行替换并写回 store;无命中/无变化返回 0 */
+  const applyReplaceToTab = (tabId: string): number => {
+    const store = useEditorWorkspaceStore.getState();
+    const tab = store.workspace.tabs.find((tb) => tb.id === tabId);
+    // 大文件 Tab 只读不可编辑;untitled 纯内存 Tab 同样可替换
+    if (!tab || tab.largeFile) return 0;
+    const result = replaceInContent(tab.content, debounced, replacement, matchOptions);
+    if (!result || result.replacements === 0 || result.content === tab.content) return 0;
+    store.setTabContent(tabId, result.content);
+    return result.replacements;
+  };
+
+  /** 替换单个文件(分组标题按钮):toast 报告替换次数 */
+  const handleReplaceFile = (tabId: string, tabTitle: string) => {
+    const count = applyReplaceToTab(tabId);
+    if (count > 0) {
+      toast.success(t('chrome.search_dialog.replace_file_done', { title: tabTitle, count }));
+    } else {
+      toast.info(t('chrome.search_dialog.replace_file_none', { title: tabTitle }));
+    }
+  };
+
+  /** 全部替换(替换栏按钮):遍历全部命中分组,累计替换数;toast 汇总 */
+  const handleReplaceAll = () => {
+    let files = 0;
+    let count = 0;
+    for (const group of tabGroups) {
+      const n = applyReplaceToTab(group.tabId);
+      if (n > 0) {
+        files++;
+        count += n;
+      }
+    }
+    if (count > 0) {
+      toast.success(t('chrome.search_dialog.replace_all_done', { files, count }));
+    } else {
+      toast.info(t('chrome.search_dialog.replace_all_none'));
+    }
   };
 
   const handleLoadMore = () => {
@@ -267,7 +321,23 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
         key: g.tabId,
         heading: (
           <span className="flex w-full items-center justify-between gap-2">
-            <span className="truncate">{g.tabTitle}</span>
+            <span className="min-w-0 flex-1 truncate">{g.tabTitle}</span>
+            {/* 替换栏展开时:分组标题右侧显示「替换该文件」按钮(仅替换该 tab) */}
+            {replaceOpen && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleReplaceFile(g.tabId, g.tabTitle);
+                }}
+                title={t('chrome.search_dialog.replace_file_title', { title: g.tabTitle })}
+                aria-label={t('chrome.search_dialog.replace_file_title', { title: g.tabTitle })}
+                data-testid={`search-replace-file-${g.tabId}`}
+                className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <Replace aria-hidden className="size-3" strokeWidth={ICON_STROKE_WIDTH} />
+              </button>
+            )}
             <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
               {g.truncated
                 ? t('chrome.search_dialog.lines_progress', {
@@ -294,7 +364,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
     }
     return featureGroups;
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-x/exhaustive-deps
-  }, [mode, tabGroups, featureGroups, debounced, t]);
+  }, [mode, tabGroups, featureGroups, debounced, t, replaceOpen, replacement, matchOptions]);
 
   const emptyNode = (() => {
     if (mode === 'text') {
@@ -360,11 +430,31 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
             ? t('chrome.search_dialog.aria_text')
             : t('chrome.search_dialog.aria_global'),
       }}
-      /* 文本模式:输入框尾随三枚匹配选项切换钮(Aa 大小写/整词/正则),
+      /* 文本模式:输入框尾随「替换」展开钮 + 三枚匹配选项切换钮(Aa 大小写/整词/正则),
        * 激活态 accent 色直观指示当前口径;仅文本模式显示 */
       inputTrailing={
         mode === 'text' ? (
           <div className="ml-2 flex shrink-0 items-center gap-0.5">
+            {/* 替换栏展开/收起(VSCode 同款心智:点箭头展开替换输入框) */}
+            <button
+              type="button"
+              aria-pressed={replaceOpen}
+              aria-label={t('chrome.search_dialog.toggle_replace')}
+              title={t('chrome.search_dialog.toggle_replace')}
+              data-testid="search-toggle-replace"
+              onClick={() => setReplaceOpen((v) => !v)}
+              className={`flex size-7 items-center justify-center rounded-md transition-colors ${
+                replaceOpen
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <Replace
+                aria-hidden
+                className={`size-3.5 transition-transform ${replaceOpen ? '' : 'scale-y-[-1]'}`}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+            </button>
             {MATCH_TOGGLES.map(({ key, labelKey, icon: Icon }) => {
               const active = matchOptions[key] === true;
               // 正则激活且当前查询非法:图标描红,提示用户正则写错了
@@ -393,6 +483,41 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps): JSX.Ele
       groups={groups}
       empty={emptyNode}
       preserveSelectionOnChange={mode === 'text'}
+      /* 替换栏(文本模式 + 替换展开时):替换输入框 + 全部替换按钮。
+       * 用 hint 槽渲染在搜索框与结果列表之间(VSCode「在文件中替换」布局) */
+      hint={
+        mode === 'text' && replaceOpen ? (
+          <div data-testid="search-replace-bar" className="flex w-full items-center gap-2 py-1.5">
+            <Replace
+              aria-hidden
+              className="size-3.5 shrink-0 text-muted-foreground"
+              strokeWidth={ICON_STROKE_WIDTH}
+            />
+            <input
+              value={replacement}
+              onChange={(e) => setReplacement(e.target.value)}
+              placeholder={t('chrome.search_dialog.replace_placeholder')}
+              aria-label={t('chrome.search_dialog.replace_placeholder')}
+              data-testid="search-replace-input"
+              /* 阻断 cmdk 键盘导航接管输入框内的方向键(Esc 仍冒泡关闭弹窗) */
+              onKeyDown={(e) => e.stopPropagation()}
+              className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 font-mono text-xs outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-ring"
+            />
+            <button
+              type="button"
+              onClick={handleReplaceAll}
+              disabled={tabGroups.length === 0}
+              title={t('chrome.search_dialog.replace_all_title')}
+              aria-label={t('chrome.search_dialog.replace_all_title')}
+              data-testid="search-replace-all"
+              className="flex h-8 shrink-0 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ReplaceAll aria-hidden className="size-3.5" strokeWidth={ICON_STROKE_WIDTH} />
+              {t('chrome.search_dialog.replace_all')}
+            </button>
+          </div>
+        ) : undefined
+      }
       listFooter={
         mode === 'text' && tabGroups.some((g) => g.truncated) ? (
           <button

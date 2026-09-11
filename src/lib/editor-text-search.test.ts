@@ -6,6 +6,7 @@ import {
   searchTabsText,
   findMatchRangesInContent,
   isRegexQueryValid,
+  replaceInContent,
   MATCH_BATCH_SIZE,
   MAX_LINE_PREVIEW_CHARS,
   MAX_HIGHLIGHT_RANGES,
@@ -317,5 +318,58 @@ describe('isRegexQueryValid(正则合法性,UI 空态区分)', () => {
     expect(isRegexQueryValid('[unclosed', { regex: true })).toBe(false);
     expect(isRegexQueryValid('trailing\\', { regex: true })).toBe(false);
     expect(isRegexQueryValid('(', { regex: true, caseSensitive: true })).toBe(false);
+  });
+});
+
+describe('replaceInContent(跨文件查找替换)', () => {
+  it('普通子串替换:一行内多处全部替换并计数', () => {
+    const r = replaceInContent('foo bar foo\nbaz foo', 'foo', 'qux');
+    expect(r?.content).toBe('qux bar qux\nbaz qux');
+    expect(r?.replacements).toBe(3);
+  });
+
+  it('大小写口径:默认不敏感(foo 匹配 FOO),caseSensitive 只匹配原样', () => {
+    const ci = replaceInContent('FOO bar', 'foo', 'x');
+    expect(ci?.content).toBe('x bar');
+    expect(ci?.replacements).toBe(1);
+
+    const cs = replaceInContent('FOO bar foo', 'foo', 'x', { caseSensitive: true });
+    expect(cs?.content).toBe('FOO bar x');
+    expect(cs?.replacements).toBe(1);
+  });
+
+  it('整词口径:wholeWord 排除词内命中', () => {
+    const r = replaceInContent('foo food fool', 'foo', 'X', { wholeWord: true });
+    expect(r?.content).toBe('X food fool');
+    expect(r?.replacements).toBe(1);
+  });
+
+  it('正则替换:支持 $1 反向引用', () => {
+    const r = replaceInContent('v1 v10', 'v(\\d+)', 'V$1!', { regex: true });
+    expect(r?.content).toBe('V1! V10!');
+    expect(r?.replacements).toBe(2);
+  });
+
+  it('空查询/无匹配返回 null 或 0 次(调用方跳过写回)', () => {
+    expect(replaceInContent('abc', '', 'x')).toBeNull();
+    const r = replaceInContent('abc', 'zzz', 'x');
+    expect(r?.content).toBe('abc');
+    expect(r?.replacements).toBe(0);
+  });
+
+  it('替换为空串 = 删除匹配片段', () => {
+    const r = replaceInContent('a-b-c', '-', '');
+    expect(r?.content).toBe('abc');
+    expect(r?.replacements).toBe(2);
+  });
+
+  it('与 searchTabsText 同口径:命中数一致(替换处数 = 命中处数)', () => {
+    const content = 'Alpha beta ALPHA\nalpha';
+    const tab = makeTab({ id: 't1', content });
+    const group = searchTabsText([tab], 'alpha', 100);
+    // 命中行数:2(两行都含 alpha,不敏感)
+    expect(group[0]?.count).toBe(2);
+    const r = replaceInContent(content, 'alpha', 'x');
+    expect(r?.replacements).toBe(3);
   });
 });

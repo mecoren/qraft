@@ -241,7 +241,16 @@
       "no_matches": "未找到匹配「{{query}}」的内容",
       "invalid_regex": "正则表达式无效,请检查语法",
       "too_many_hits": "命中结果过多,仅显示部分匹配行",
-      "load_more_count": "点击加载后续 {{count}} 行"
+      "load_more_count": "点击加载后续 {{count}} 行",
+      "toggle_replace": "展开/收起替换",
+      "replace_placeholder": "替换为…(正则模式支持 $1 反向引用)",
+      "replace_all": "全部替换",
+      "replace_all_title": "替换所有已打开文件中的匹配内容",
+      "replace_file_title": "替换「{{title}}」中的匹配内容",
+      "replace_all_done": "已在 {{files}} 个文件中替换 {{count}} 处(未保存,可 Ctrl+Z 撤销)",
+      "replace_all_none": "没有可替换的匹配内容",
+      "replace_file_done": "已在「{{title}}」中替换 {{count}} 处(未保存,可 Ctrl+Z 撤销)",
+      "replace_file_none": "「{{title}}」中没有可替换的匹配内容"
     },
     "command_footer": {
       "navigate": "导航",

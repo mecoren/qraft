@@ -452,3 +452,59 @@ describe('SearchDialog 正则模式非法输入提示', () => {
     });
   }, 20000);
 });
+
+describe('SearchDialog 跨文件查找替换', () => {
+  it('展开替换栏:输入替换文本,分组标题出现替换按钮,全部替换写回 store', async () => {
+    setTabs([makeTab('tab-a', 'notes.txt', 'foo bar foo')]);
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), 'foo');
+    // 初始不渲染替换栏;展开替换栏(先展开,分组标题按钮随 replaceOpen 出现)
+    expect(screen.queryByTestId('search-replace-bar')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('search-toggle-replace'));
+    expect(screen.getByTestId('search-replace-input')).toBeInTheDocument();
+    // 防抖后出现命中分组 + 「替换该文件」按钮
+    await waitFor(() => {
+      expect(screen.getByTestId('search-replace-file-tab-a')).toBeInTheDocument();
+    });
+    // 输入替换文本 → 全部替换
+    await user.type(screen.getByTestId('search-replace-input'), 'qux');
+    await user.click(screen.getByTestId('search-replace-all'));
+    // 内容写回 store(setTabContent,标 dirty)
+    await waitFor(() => {
+      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === 'tab-a');
+      expect(tab?.content).toBe('qux bar qux');
+      // dirty:content 与 savedContent 分离(替换只改内存,经保存落盘)
+      expect(tab?.savedContent).toBe('foo bar foo');
+    });
+  }, 20000);
+
+  it('替换单个文件:分组标题按钮只改该 Tab,其余不动', async () => {
+    setTabs([makeTab('tab-a', 'a.txt', 'foo here'), makeTab('tab-b', 'b.txt', 'foo there')]);
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    await user.type(screen.getByPlaceholderText(/搜索编辑器文本/), 'foo');
+    await user.click(screen.getByTestId('search-toggle-replace'));
+    await user.type(screen.getByTestId('search-replace-input'), 'X');
+    await waitFor(() => {
+      expect(screen.getByTestId('search-replace-file-tab-a')).toBeInTheDocument();
+    });
+    await user.click(screen.getByTestId('search-replace-file-tab-a'));
+    await waitFor(() => {
+      const state = useEditorWorkspaceStore.getState().workspace.tabs;
+      expect(state.find((t) => t.id === 'tab-a')?.content).toBe('X here');
+      expect(state.find((t) => t.id === 'tab-b')?.content).toBe('foo there');
+    });
+  }, 20000);
+
+  it('切换到功能模式时替换栏收起(跨模式残留清理)', async () => {
+    setTabs([makeTab('tab-a', 'notes.txt', 'foo bar')]);
+    const user = userEvent.setup();
+    render(<SearchDialog open onOpenChange={() => {}} />);
+    await user.click(screen.getByTestId('search-toggle-replace'));
+    expect(screen.getByTestId('search-replace-bar')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '功能' }));
+    // 切模式清空查询与替换栏
+    expect(screen.queryByTestId('search-replace-bar')).not.toBeInTheDocument();
+  });
+});

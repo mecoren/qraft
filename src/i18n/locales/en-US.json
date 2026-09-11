@@ -241,7 +241,16 @@
       "no_matches": "No matches for \"{{query}}\"",
       "invalid_regex": "Invalid regular expression; check the syntax",
       "too_many_hits": "Too many matches; showing a partial result set",
-      "load_more_count": "Load the next {{count}} lines"
+      "load_more_count": "Load the next {{count}} lines",
+      "toggle_replace": "Toggle replace",
+      "replace_placeholder": "Replace with... (regex mode supports $1 backrefs)",
+      "replace_all": "Replace all",
+      "replace_all_title": "Replace matches in all opened files",
+      "replace_file_title": "Replace matches in \"{{title}}\"",
+      "replace_all_done": "Replaced {{count}} occurrence(s) in {{files}} file(s) (unsaved; Ctrl+Z to undo)",
+      "replace_all_none": "Nothing to replace",
+      "replace_file_done": "Replaced {{count}} occurrence(s) in \"{{title}}\" (unsaved; Ctrl+Z to undo)",
+      "replace_file_none": "No replaceable matches in \"{{title}}\""
     },
     "command_footer": {
       "navigate": "Navigate",

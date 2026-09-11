@@ -222,6 +222,62 @@ function buildTextMatch(
 }
 
 /**
+ * 替换结果:一次「查找替换」的产物(供跨文件替换写入与预览)
+ */
+export interface ReplaceResult {
+  /** 替换后的完整内容(无匹配时与原文相同) */
+  content: string;
+  /** 替换发生次数(按命中片段计,一行内多处各计 1) */
+  replacements: number;
+}
+
+/**
+ * 在单个 tab 的全文中执行「查找替换」并返回新内容。
+ * 匹配口径与 searchTabsText 完全一致(compileMatcher 同源);
+ * 正则模式支持 $1/$2… 反向引用(与 VSCode 一致,走原生 replace 语义)。
+ * 无命中返回原文(调用方据此跳过写回,避免无谓 dirty)。
+ * 大文件 Tab(largeFile)不可编辑,由调用方过滤。
+ */
+export function replaceInContent(
+  content: string,
+  query: string,
+  replacement: string,
+  options?: TextSearchOptions,
+): ReplaceResult | null {
+  const matcher = compileMatcher(query, options);
+  if (!matcher) return null;
+  let replacements = 0;
+  const replaced = content
+    .split('\n')
+    .map((line) => {
+      const hits = matcher(line);
+      if (hits.length === 0) return line;
+      replacements += hits.length;
+      if (options?.regex) {
+        // 正则:原生 replace 保留捕获组反向引用($1 等)
+        const q = query.trim();
+        try {
+          const re = new RegExp(
+            q,
+            `g${options.caseSensitive ? '' : 'i'}${options.wholeWord ? '' : ''}`,
+          );
+          return line.replace(re, replacement);
+        } catch {
+          return line;
+        }
+      }
+      // 普通模式:按命中区间从后往前替换(避免偏移漂移),replacement 原样插入
+      let out = line;
+      for (let i = hits.length - 1; i >= 0; i--) {
+        out = out.slice(0, hits[i].start) + replacement + out.slice(hits[i].end);
+      }
+      return out;
+    })
+    .join('\n');
+  return { content: replaced, replacements };
+}
+
+/**
  * 在已打开文件(tabs)中搜索文本,返回按 tab 分组的结果。
  * 空 query / 空 tabs 返回 [];保持 tabs 原始顺序。
  * options 决定匹配口径(默认大小写不敏感子串,与历史行为一致);
