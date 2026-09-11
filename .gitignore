@@ -52,6 +52,7 @@ pnpm-debug.log*
 temp-*
 temp-*/
 vitest-result.json
+vitest-check.json
 
 # Testing
 coverage/
