@@ -22,6 +22,7 @@ import {
   Binary,
   FileDown,
   FolderOpen,
+  LocateFixed,
   Play,
   Save,
 } from 'lucide-react';
@@ -41,7 +42,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { invokeCommand } from '@/lib/ipc';
+import { CommandError, invokeCommand } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import { useToolHandoff } from '@/hooks/useToolHandoff';
@@ -57,6 +58,37 @@ import {
   type Direction,
 } from './base64-utils';
 
+/**
+ * 从后端错误消息中提取原始输入偏移标记(Rust 侧 format_decode_error 附上的
+ * `[offset=N]`,N 为原始输入字节偏移);无标记返回 null(长度/padding 类错误)。
+ */
+function extractErrorOffset(message: string): number | null {
+  const m = message.match(/\[offset=(\d+)\]/);
+  return m ? Number(m[1]) : null;
+}
+
+/** 偏移(0-based 字节)→ 行列(1-based);与 json-diagnostics 同构的换算 */
+function offsetToLineColumn(text: string, offset: number): { line: number; column: number } {
+  const safeOffset = Math.max(0, Math.min(offset, text.length));
+  let line = 1;
+  let column = 1;
+  for (let i = 0; i < safeOffset; i++) {
+    if (text.charCodeAt(i) === 10) {
+      line += 1;
+      column = 1;
+    } else {
+      column += 1;
+    }
+  }
+  return { line, column };
+}
+
+/** 文本执行错误的结构化定位:有 offset 标记时 chip 可画波浪线跳转 */
+interface DecodeError {
+  message: string;
+  offset: number | null;
+}
+
 /** 将 base64 字符串解码为二进制字节数组(用于构造 Blob 预览) */
 function base64ToUint8Array(b64: string): Uint8Array {
   const clean = b64.replace(/\s+/g, '');
@@ -67,6 +99,7 @@ function base64ToUint8Array(b64: string): Uint8Array {
   return bytes;
 }
 import type { OutputMeta, ToolOutput } from '@/types/tool';
+import type { editor } from 'monaco-editor';
 import type { ToolProps } from './registry';
 
 /** MIME → 文件扩展名(解码二进制另存为时使用) */
@@ -213,18 +246,12 @@ function FileDropzone({
   );
 }
 
-/** 按模式渲染预览主体 */
-function PreviewBody({
-  modeId,
-  url,
-  result,
-}: {
-  modeId: string;
-  url: string;
-  result: BinaryResult;
-}): JSX.Element {
+/** 按嗅探 MIME 渲染预览主体(而非用户所选模式:选「图片」但粘贴了 PDF 的 base64
+ *  时,后端嗅探出的 application/pdf 才是事实,按它分发避免裂图/塌缩) */
+function PreviewBody({ url, result }: { url: string; result: BinaryResult }): JSX.Element {
   const { t } = useTranslation();
-  if (modeId === 'image') {
+  const { mime } = result;
+  if (mime.startsWith('image/')) {
     return (
       <img
         src={url || undefined}
@@ -234,10 +261,10 @@ function PreviewBody({
       />
     );
   }
-  if (modeId === 'audio') {
+  if (mime.startsWith('audio/')) {
     return <audio controls src={url || undefined} data-testid="b64-preview" className="w-full" />;
   }
-  if (modeId === 'video') {
+  if (mime.startsWith('video/')) {
     return (
       <video
         controls
@@ -247,7 +274,7 @@ function PreviewBody({
       />
     );
   }
-  if (modeId === 'pdf') {
+  if (mime === 'application/pdf') {
     return (
       <iframe
         title={t('tools.base64_codec.pdf_preview_title')}
@@ -275,7 +302,7 @@ function PreviewBody({
   );
 }
 
-/** 文件类解码:预览区(图片 / 音频 / 视频 / PDF / 下载卡片)+ 另存为 */
+/** 文件类解码:预览区(按嗅探 MIME 分发:图片 / 音频 / 视频 / PDF / 下载卡片)+ 另存为 */
 function BinaryPreview({
   mode,
   result,
@@ -288,6 +315,7 @@ function BinaryPreview({
   onSave: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  // mode 仅用于空态 hint;预览形态由嗅探 MIME 决定,与所选模式解耦
   // 使用 Blob URL 而非 data: URL:大文件时 data URL 比二进制体积大 ~33%
   // 且常驻内存;Blob URL 零额外拷贝,并在组件卸载/结果变更时释放,降低内存占用。
   const [objectUrl, setObjectUrl] = useState('');
@@ -331,7 +359,7 @@ function BinaryPreview({
           ) : !result ? (
             <p className="text-xs text-muted-foreground">{t(mode.hintKey)}</p>
           ) : (
-            <PreviewBody modeId={mode.id} url={objectUrl} result={result} />
+            <PreviewBody url={objectUrl} result={result} />
           )}
         </div>
       </div>
@@ -351,12 +379,25 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
   const [urlSafe, setUrlSafe] = useState(false);
   const [hexCase, setHexCase] = useState<'lower' | 'upper'>('lower');
   const [includeDataUrl, setIncludeDataUrl] = useState(true);
+  /** 严格模式:关闭宽松解码(剔空白/补 padding/字母表嗅探),保持 RFC 4648 校验 */
+  const [strict, setStrict] = useState(false);
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
   const [binary, setBinary] = useState<BinaryResult | null>(null);
   const [binaryError, setBinaryError] = useState<string | null>(null);
+  /** 最近一次文本执行错误的结构化定位;仅解码方向且消息带 offset 标记时非空 */
+  const [decodeError, setDecodeError] = useState<DecodeError | null>(null);
+  /** 后端 warning alerts(如宽松回退 Latin-1 提示);成功时清空 */
+  const [warnings, setWarnings] = useState<string[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 递增请求序号:方向/模式切换或手动执行时使旧的异步请求结果失效,避免竞态写入 */
   const requestSeqRef = useRef(0);
+  /** 输入 Monaco 编辑器实例与 monaco 命名空间:错误定位 chip 点击时
+   * setModelMarkers 画波浪线并跳转;由 CodeEditor onMount 注入。
+   * jsdom shim 渲染为 textarea,onMount 不触发,调用处已判空。 */
+  const inputEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
+  /** 组件根 DOM:错误定位在无 Monaco 实例的环境下(shim)经根查输入 textarea */
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const isTextMode = mode.kind === 'text';
   const isFileEncode = direction === 'encode' && mode.kind === 'file';
@@ -370,6 +411,8 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
     setBinary(null);
     setBinaryError(null);
     setFileInfo(null);
+    setDecodeError(null);
+    setWarnings([]);
   }, []);
 
   const handleDirectionChange = useCallback(
@@ -389,7 +432,8 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
     [resetWorkspace],
   );
 
-  /** 文本类模式执行(编码 / 解码),错误写入输出框 */
+  /** 文本类模式执行(编码 / 解码),错误写入输出框;解码错误带 offset 标记时
+   *  记录结构化定位供 chip 跳转,成功时清空 chip 与宽松回退 warnings */
   const runTextExecute = useCallback(
     async (auto = false) => {
       if (debounceRef.current) {
@@ -406,6 +450,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
           url_safe: urlSafe,
         };
         if (direction === 'decode' && modeId === 'hex') params.hex_case = hexCase;
+        params.strict = strict;
         const result = await invokeCommand<ToolOutput>('tool_execute', {
           toolId,
           input: { text, params },
@@ -414,15 +459,81 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
         if (seq !== requestSeqRef.current) return;
         setOutput(result.text ?? '');
         setMeta(result.meta ?? null);
+        setDecodeError(null);
+        setWarnings((result.alerts ?? []).map((a) => a.message));
       } catch (e) {
         if (seq !== requestSeqRef.current) return;
-        setOutput(formatError(e, t('tools.base64_codec.error_execute_prefix')));
+        const message = formatError(e, t('tools.base64_codec.error_execute_prefix'));
+        setOutput(message);
         setMeta(null);
+        setWarnings([]);
+        // 错误定位:仅解码方向做偏移提取(编码错误无输入偏移语义)
+        if (direction === 'decode') {
+          const offset = e instanceof CommandError ? extractErrorOffset(e.message) : null;
+          setDecodeError({ message, offset });
+        } else {
+          setDecodeError(null);
+        }
       } finally {
         if (seq === requestSeqRef.current && !auto) setLoading(false);
       }
     },
-    [toolId, text, direction, modeId, mode, urlSafe, hexCase, t],
+    [toolId, text, direction, modeId, mode, urlSafe, hexCase, strict, t],
+  );
+
+  /** 清除输入侧错误波浪线(输入变化时旧定位已失效) */
+  useEffect(() => {
+    const ed = inputEditorRef.current;
+    const monaco = monacoRef.current;
+    if (!ed || !monaco) return;
+    const model = ed.getModel();
+    if (!model) return;
+    if (!decodeError?.offset) {
+      monaco.editor.setModelMarkers(model, 'base64-codec', []);
+      return;
+    }
+    const disposable = ed.onMouseDown(() => {
+      monaco.editor.setModelMarkers(model, 'base64-codec', []);
+    });
+    return () => disposable.dispose();
+  }, [decodeError]);
+
+  /**
+   * 点击错误定位 chip:把 `[offset=N]` 换算为输入编辑器行列,画 Monaco 波浪线
+   * 并跳转。jsdom 下 Monaco 是 textarea shim(editor 实例不可用):把跳转目标
+   * 记到 shim 的 DOM 属性上,真实浏览器走 Monaco API,两条路径互不干扰。
+   */
+  const gotoErrorLocation = useCallback(
+    (offset: number) => {
+      const { line, column } = offsetToLineColumn(text, offset);
+      const ed = inputEditorRef.current;
+      const monaco = monacoRef.current;
+      if (!ed || !monaco) {
+        // 测试环境 shim:从组件根查 input 容器内的 textarea,记录跳转意图
+        const root = rootRef.current;
+        const shim = root?.querySelector('[data-testid="input"] textarea') as
+          (HTMLTextAreaElement & { __lastGoto?: { line: number; column: number } }) | null;
+        if (shim) shim.__lastGoto = { line, column };
+        return;
+      }
+      const model = ed.getModel();
+      if (!model) return;
+      const startCol = Math.min(column, model.getLineMaxColumn(line));
+      monaco.editor.setModelMarkers(model, 'base64-codec', [
+        {
+          message: decodeError?.message ?? '',
+          severity: monaco.MarkerSeverity.Error,
+          startLineNumber: line,
+          startColumn: startCol,
+          endLineNumber: line,
+          endColumn: Math.max(startCol + 1, model.getLineMaxColumn(line) + 1),
+        },
+      ]);
+      ed.setPosition({ lineNumber: line, column: startCol });
+      ed.revealLineInCenter(line);
+      ed.focus();
+    },
+    [text, decodeError],
   );
 
   /** 文件类解码:调用 Rust 校验 base64 并嗅探 MIME,返回 extra 供前端预览 */
@@ -440,7 +551,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
           toolId,
           input: {
             text,
-            params: { action: 'decode', mode: 'binary', url_safe: urlSafe },
+            params: { action: 'decode', mode: 'binary', url_safe: urlSafe, strict },
           },
         });
         if (seq !== requestSeqRef.current) return;
@@ -466,7 +577,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
         if (seq === requestSeqRef.current && !auto) setLoading(false);
       }
     },
-    [toolId, text, urlSafe, t],
+    [toolId, text, urlSafe, strict, t],
   );
 
   // 全局快捷键契约:text 模式执行编码/解码,file 解码执行二进制解析,
@@ -492,10 +603,12 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
     if (!isTextMode) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!text.trim()) {
-      // 空输入:清空输出(定时器回调内 setState,避免 effect 同步 setState 触发级联渲染)
+      // 空输入:清空输出与错误定位(定时器回调内 setState,避免 effect 同步 setState 触发级联渲染)
       debounceRef.current = setTimeout(() => {
         setOutput('');
         setMeta(null);
+        setDecodeError(null);
+        setWarnings([]);
       }, 0);
       return;
     }
@@ -516,6 +629,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
       debounceRef.current = setTimeout(() => {
         setBinary(null);
         setBinaryError(null);
+        setDecodeError(null);
       }, 0);
       return;
     }
@@ -577,6 +691,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
   return (
     // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与双栏工作区收进同一卡片
     <div
+      ref={rootRef}
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="base64-codec"
     >
@@ -643,6 +758,25 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
               <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
             </>
           )}
+          {direction === 'decode' && mode.kind === 'text' && (
+            <>
+              <Label
+                htmlFor="b64-strict"
+                className="text-xs"
+                title={t('tools.base64_codec.strict_hint')}
+              >
+                {t('tools.base64_codec.strict_label')}
+              </Label>
+              <Switch
+                id="b64-strict"
+                aria-label={t('tools.base64_codec.strict_aria')}
+                title={t('tools.base64_codec.strict_hint')}
+                checked={strict}
+                onCheckedChange={setStrict}
+              />
+              <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+            </>
+          )}
           <Select value={mode.id} onValueChange={handleModeChange}>
             <SelectTrigger data-testid="b64-mode" className="w-36">
               <SelectValue />
@@ -677,16 +811,46 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
               className="h-full rounded-none border-0 border-r"
               data-testid="input"
               searchAnchor="base64_codec:input"
+              // 错误定位:接入 Monaco 实例与 monaco 命名空间,供 setModelMarkers
+              // 波浪线 + 跳转;jsdom shim 下 onMount 不触发,调用处已判空
+              onMount={(editorInstance, monaco) => {
+                inputEditorRef.current = editorInstance;
+                monacoRef.current = monaco as typeof import('monaco-editor');
+              }}
               actions={
                 isTextMode ? (
-                  <HeaderAction
-                    testId="btn-execute"
-                    onClick={() => void runTextExecute(false)}
-                    disabled={executeDisabled}
-                  >
-                    <Play aria-hidden className="size-3.5" />
-                    {loading ? t('tools.base64_codec.executing') : t('tools.base64_codec.execute')}
-                  </HeaderAction>
+                  <>
+                    <HeaderAction
+                      testId="btn-execute"
+                      onClick={() => void runTextExecute(false)}
+                      disabled={executeDisabled}
+                    >
+                      <Play aria-hidden className="size-3.5" />
+                      {loading
+                        ? t('tools.base64_codec.executing')
+                        : t('tools.base64_codec.execute')}
+                    </HeaderAction>
+                    {/* —— 解码错误定位:点击画波浪线并跳转出错位置 —— */}
+                    {decodeError?.offset != null && (
+                      <button
+                        type="button"
+                        data-testid="error-location"
+                        onClick={() => gotoErrorLocation(decodeError.offset!)}
+                        title={t('tools.base64_codec.error_goto_title')}
+                        // 与 HeaderAction 同款样式(muted 前景 + hover 反色),
+                        // 仅文字用 destructive 强调色区分报错语义(同 JsonFormatter chip)
+                        className="flex h-[26px] min-w-0 max-w-44 items-center gap-1 rounded px-1 text-xs text-destructive transition-colors hover:bg-accent hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <LocateFixed aria-hidden className="size-3.5 shrink-0" />
+                        <span className="shrink-0 tabular-nums">
+                          {(() => {
+                            const { line, column } = offsetToLineColumn(text, decodeError.offset!);
+                            return `L${line}:C${column}`;
+                          })()}
+                        </span>
+                      </button>
+                    )}
+                  </>
                 ) : undefined
               }
             />
@@ -715,6 +879,16 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
               searchAnchor="base64_codec:output"
               actions={
                 <>
+                  {warnings.map((w) => (
+                    <span
+                      key={w}
+                      data-testid="output-warning"
+                      className="max-w-40 truncate text-xs text-amber-600 dark:text-amber-400"
+                      title={w}
+                    >
+                      ⚠ {w}
+                    </span>
+                  ))}
                   {meta && (
                     <span className="text-xs text-muted-foreground">
                       {t('tools.base64_codec.bytes_unit', {

@@ -79,7 +79,10 @@ describe('Base64Codec 统一转换工具', () => {
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
         toolId: 'base64_codec',
-        input: { text: 'aGVsbG8=', params: { action: 'decode', mode: 'text', url_safe: false } },
+        input: {
+          text: 'aGVsbG8=',
+          params: { action: 'decode', mode: 'text', url_safe: false, strict: false },
+        },
       });
     });
     expect(outputEditor().value).toBe('hello');
@@ -101,7 +104,10 @@ describe('Base64Codec 统一转换工具', () => {
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
         toolId: 'base64_codec',
-        input: { text: 'hello', params: { action: 'encode', mode: 'text', url_safe: false } },
+        input: {
+          text: 'hello',
+          params: { action: 'encode', mode: 'text', url_safe: false, strict: false },
+        },
       });
     });
   });
@@ -128,7 +134,7 @@ describe('Base64Codec 统一转换工具', () => {
         toolId: 'base64_codec',
         input: {
           text: '48656c6c6f',
-          params: { action: 'encode', mode: 'hex', url_safe: false },
+          params: { action: 'encode', mode: 'hex', url_safe: false, strict: false },
         },
       });
     });
@@ -157,7 +163,13 @@ describe('Base64Codec 统一转换工具', () => {
         toolId: 'base64_codec',
         input: {
           text: 'aGVsbG8=',
-          params: { action: 'decode', mode: 'hex', hex_case: 'upper', url_safe: false },
+          params: {
+            action: 'decode',
+            mode: 'hex',
+            hex_case: 'upper',
+            url_safe: false,
+            strict: false,
+          },
         },
       });
     });
@@ -245,7 +257,7 @@ describe('Base64Codec 统一转换工具', () => {
         toolId: 'base64_codec',
         input: {
           text: 'iVBORw0KGgo=',
-          params: { action: 'decode', mode: 'binary', url_safe: false },
+          params: { action: 'decode', mode: 'binary', url_safe: false, strict: false },
         },
       });
     });
@@ -350,7 +362,10 @@ describe('Base64Codec 统一转换工具', () => {
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
         toolId: 'base64_codec',
-        input: { text: 'aGVsbG8=', params: { action: 'decode', mode: 'ascii', url_safe: false } },
+        input: {
+          text: 'aGVsbG8=',
+          params: { action: 'decode', mode: 'ascii', url_safe: false, strict: false },
+        },
       });
     });
   });
@@ -375,7 +390,7 @@ describe('Base64Codec 统一转换工具', () => {
         toolId: 'base64_codec',
         input: {
           text: 'iVBORw0KGgo=',
-          params: { action: 'decode', mode: 'binary', url_safe: false },
+          params: { action: 'decode', mode: 'binary', url_safe: false, strict: false },
         },
       });
     });
@@ -390,9 +405,153 @@ describe('Base64Codec 统一转换工具', () => {
         toolId: 'base64_codec',
         input: {
           text: 'iVBORw0KGgo=',
-          params: { action: 'decode', mode: 'binary', url_safe: false },
+          params: { action: 'decode', mode: 'binary', url_safe: false, strict: false },
         },
       });
     });
+  });
+
+  // —— 严格模式 / 错误定位 chip / MIME 分发 / 宽松回退提示 ——
+
+  it('passes strict param when strict switch is on', async () => {
+    const { invokeCommand } = await import('@/lib/ipc');
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: 'hello',
+      extra: null,
+      meta: null,
+      alerts: [],
+    });
+
+    renderTool();
+    // 默认解码方向 + text 模式,打开严格开关
+    fireEvent.click(screen.getByRole('switch', { name: /严格模式/i }));
+    fireEvent.change(inputEditor(), { target: { value: 'aGVsbG8=' } });
+
+    await waitFor(() => {
+      expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
+        toolId: 'base64_codec',
+        input: {
+          text: 'aGVsbG8=',
+          params: { action: 'decode', mode: 'text', url_safe: false, strict: true },
+        },
+      });
+    });
+  });
+
+  it('does not show strict switch in encode direction', () => {
+    renderTool();
+    clickTab(/编码/i);
+    expect(screen.queryByRole('switch', { name: /严格模式/i })).toBeNull();
+  });
+
+  it('renders error location chip with L:C when decode error carries offset', async () => {
+    const { invokeCommand, CommandError } = await import('@/lib/ipc');
+    // 8 个空白后跟非法字符 '!':Rust 侧回映原始偏移 [offset=8]
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new CommandError('ERR_PARSE_FAILED', 'invalid base64 symbol 0x21 at index 0 [offset=8]'),
+    );
+
+    renderTool();
+    fireEvent.change(inputEditor(), { target: { value: '        !abc' } });
+
+    const chip = await screen.findByTestId('error-location');
+    // 偏移 8 在单行输入内 → L1:C9(1-based 列)
+    expect(chip.textContent).toContain('L1:C9');
+
+    // 点击 chip:jsdom shim 下跳转意图记录到 textarea.__lastGoto
+    fireEvent.click(chip);
+    const shim = screen.getByTestId('input').querySelector('textarea') as
+      (HTMLTextAreaElement & { __lastGoto?: { line: number; column: number } }) | null;
+    expect(shim?.__lastGoto).toEqual({ line: 1, column: 9 });
+  });
+
+  it('renders no error chip when error lacks offset marker', async () => {
+    const { invokeCommand, CommandError } = await import('@/lib/ipc');
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new CommandError('ERR_PARSE_FAILED', 'invalid base64 length 5'),
+    );
+
+    renderTool();
+    fireEvent.change(inputEditor(), { target: { value: 'aGVsb' } });
+
+    // 长度类错误无 offset 标记,不渲染 chip
+    await waitFor(() => {
+      expect(outputEditor().value).toContain('invalid base64 length');
+    });
+    expect(screen.queryByTestId('error-location')).toBeNull();
+  });
+
+  it('shows warning alert when backend falls back to latin-1', async () => {
+    const { invokeCommand } = await import('@/lib/ipc');
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: 'é',
+      extra: null,
+      meta: null,
+      alerts: [
+        {
+          level: 'warning',
+          message: 'decoded bytes are not valid utf8; displayed as latin-1',
+        },
+      ],
+    });
+
+    renderTool();
+    fireEvent.change(inputEditor(), { target: { value: '6Q==' } });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('output-warning').textContent).toContain('utf8');
+    });
+    expect(screen.queryByTestId('error-location')).toBeNull();
+  });
+
+  it('previews by sniffed mime instead of selected mode', async () => {
+    // 选「图片」模式但后端嗅探出 PDF:应渲染 PDF iframe 而非 <img>
+    const { invokeCommand } = await import('@/lib/ipc');
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: '',
+      extra: { base64: 'JVBERi0=', mime: 'application/pdf', bytes: 5 },
+      meta: null,
+      alerts: [],
+    });
+
+    renderTool();
+    clickTab(/解码/i);
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(await screen.findByRole('option', { name: '图片' }));
+    fireEvent.change(inputEditor(), { target: { value: 'JVBERi0=' } });
+
+    await waitFor(() => {
+      expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
+        toolId: 'base64_codec',
+        input: {
+          text: 'JVBERi0=',
+          params: { action: 'decode', mode: 'binary', url_safe: false, strict: false },
+        },
+      });
+    });
+    const preview = await screen.findByTestId('b64-preview');
+    // PDF 嗅探结果应渲染 iframe(而非裂开的 img)
+    expect(preview.tagName).toBe('IFRAME');
+  });
+
+  it('falls back to download card for unknown sniffed mime', async () => {
+    // 选「音频」模式但嗅探为 octet-stream:渲染下载卡片(含 mime 徽标)
+    const { invokeCommand } = await import('@/lib/ipc');
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: '',
+      extra: { base64: 'aGVsbG8=', mime: 'application/octet-stream', bytes: 5 },
+      meta: null,
+      alerts: [],
+    });
+
+    renderTool();
+    clickTab(/解码/i);
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(await screen.findByRole('option', { name: '音频' }));
+    fireEvent.change(inputEditor(), { target: { value: 'aGVsbG8=' } });
+
+    const preview = await screen.findByTestId('b64-preview');
+    expect(preview.textContent).toContain('decoded.bin');
+    expect(preview.textContent).toContain('application/octet-stream');
   });
 });
