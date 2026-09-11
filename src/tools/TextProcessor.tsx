@@ -1026,7 +1026,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
               title={label}
               aria-label={label}
               data-testid={`textproc-btn-${id}`}
-              className="gap-1.5"
+              className="gap-1.5 px-3.5"
             >
               <Icon aria-hidden className="size-3.5" />
               {label}
@@ -1073,17 +1073,15 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
           hint={t('tools.json_minifier.row_transform_hint')}
           searchAnchor="json_minifier:row1"
         >
-          {/* 外层 ButtonGroup 起容器作用 —— 仅作为 flex 父节点,
-              配合 `has-[>[data-slot=button-group]]:gap-2` 自动在子组之间
-              生成间距,而无需由使用者手动添加 className。
-              整体可访问性名称在按钮组集合层面给出。
-              使用 `flex-wrap + w-full` 覆盖默认的 `w-fit`,让子组(每个内层
-              ButtonGroup)在横向放不下时自动换行到第二排;`gap-y-2` 为换行后
-              的垂直间距,与组内 `gap-2` 视觉一致。 */}
+          {/* 外层 ButtonGroup 起容器作用 —— 仅作为 flex 父节点。组间距用与
+              组件内置 `has-[...]:gap-2` 同为 :has 选择器的 `gap-x-3`(12px)/
+              `gap-y-2.5`(10px) 压过它——普通 gap-x/y 的 specificity 更低,
+              会被简写 gap(8px) 整体盖掉;`flex-wrap + w-full` 覆盖默认
+              `w-fit`,子组横向放不下时自动换行。 */}
           <ButtonGroup
             aria-label={t('tools.json_minifier.group_aria_row1')}
             data-testid="textproc-button-group-row1"
-            className="w-full flex-wrap gap-y-2"
+            className="w-full flex-wrap has-[>[data-slot=button-group]]:gap-x-3 has-[>[data-slot=button-group]]:gap-y-2.5"
           >
             {FIRST_ROW_GROUPS.map((ids) => (
               <GroupFragment key={ids.join('-')} ids={ids} renderGroup={renderGroup} />
@@ -1100,7 +1098,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
           <ButtonGroup
             aria-label={t('tools.json_minifier.group_aria_row2')}
             data-testid="textproc-button-group-row2"
-            className="w-full flex-wrap gap-y-2"
+            className="w-full flex-wrap has-[>[data-slot=button-group]]:gap-x-3 has-[>[data-slot=button-group]]:gap-y-2.5"
           >
             {SECOND_ROW_GROUPS.map((ids) => (
               <GroupFragment key={ids.join('-')} ids={ids} renderGroup={renderGroup} />
@@ -1124,7 +1122,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
               <ButtonGroup
                 aria-label={t('tools.json_minifier.group_aria_row3')}
                 data-testid="textproc-button-group-row3"
-                className="w-full flex-wrap gap-y-2"
+                className="w-full flex-wrap has-[>[data-slot=button-group]]:gap-x-3 has-[>[data-slot=button-group]]:gap-y-2.5"
               >
                 {THIRD_ROW_GROUPS.map((ids) => (
                   <GroupFragment key={ids.join('-')} ids={ids} renderGroup={renderGroup} />
@@ -1138,7 +1136,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
               hint={t('tools.json_minifier.row_find_replace_hint')}
               searchAnchor="json_minifier:row4"
             >
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
                 <Input
                   value={findText}
                   onChange={(e) => setFindText(e.target.value)}
@@ -1163,7 +1161,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
                   disabled={!input || !findText}
                   onClick={handleFindReplace}
                   data-testid="textproc-btn-find-replace"
-                  className="gap-1"
+                  className="gap-1 px-3.5"
                 >
                   <Replace aria-hidden className="size-3.5" />
                   {t('tools.json_minifier.btn_replace')}
@@ -1195,7 +1193,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
               hint={t('tools.json_minifier.row_extract_hint')}
               searchAnchor="json_minifier:row5"
             >
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
                 <Select value={extractId} onValueChange={(v) => setExtractId(v as ExtractPresetId)}>
                   <SelectTrigger
                     className="h-7 w-32 text-xs"
@@ -1219,7 +1217,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
                   disabled={!input}
                   onClick={handleExtract}
                   data-testid="textproc-btn-extract"
-                  className="gap-1"
+                  className="gap-1 px-3.5"
                 >
                   <ScanSearch aria-hidden className="size-3.5" />
                   {t('tools.json_minifier.btn_extract')}
@@ -1231,13 +1229,12 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
                   disabled={!input}
                   onClick={handleWordFrequency}
                   data-testid="textproc-btn-wordfreq"
-                  className="gap-1"
+                  className="gap-1 px-3.5"
                 >
                   <BarChart3 aria-hidden className="size-3.5" />
                   {t('tools.json_minifier.btn_wordfreq')}
                 </Button>
 
-                <span aria-hidden className="h-4 w-px bg-border" />
                 <Input
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
@@ -1252,7 +1249,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
                   disabled={!input || !keyword}
                   onClick={handleRemoveLinesContaining}
                   data-testid="textproc-btn-removeLinesContaining"
-                  className="gap-1"
+                  className="gap-1 px-3.5"
                 >
                   <Eraser aria-hidden className="size-3.5" />
                   {t('tools.json_minifier.btn_remove_containing')}
@@ -1271,7 +1268,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
                   disabled={!input || !prefix}
                   onClick={handleAddPrefixSuffix}
                   data-testid="textproc-btn-addPrefixSuffix"
-                  className="gap-1"
+                  className="gap-1 px-3.5"
                 >
                   <Replace aria-hidden className="size-3.5" />
                   {t('tools.json_minifier.btn_add_prefix')}
@@ -1283,7 +1280,7 @@ export function TextProcessor({ toolId }: ToolProps): JSX.Element {
                   disabled={!input}
                   onClick={handleNumberLines}
                   data-testid="textproc-btn-numberLines"
-                  className="gap-1"
+                  className="gap-1 px-3.5"
                 >
                   <ListOrdered aria-hidden className="size-3.5" />
                   {t('tools.json_minifier.btn_number_lines')}
