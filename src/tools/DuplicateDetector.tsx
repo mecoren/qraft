@@ -18,7 +18,7 @@
 
 import { useDeferredValue, useMemo, useRef, useState, type JSX } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ClipboardCopy, ListChecks } from 'lucide-react';
+import { ClipboardCopy, Download, ListChecks } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   Select,
@@ -32,6 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CodeEditor } from '@/components/ui/code-editor';
+import { downloadTsv } from '@/lib/file-utils';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { toast } from 'sonner';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
@@ -306,6 +307,22 @@ export function DuplicateDetector({ toolId }: ToolProps): JSX.Element {
     void copyTextWithFeedback(tableText);
   };
 
+  /** 导出结果为 TSV 文件(UTF-8 BOM 前置,Excel 双击打开不乱码) */
+  const handleExportTsv = (): void => {
+    if (!tableText) {
+      toast.info(t('tools.duplicate_detector.toast_nothing_to_copy'));
+      return;
+    }
+    // 表头与表格两列对齐(值 / 数量);值内含制表符或换行的极端行由 BOM 文件
+    // 语义兜底 —— 导出为原始值,消费方按列数解析
+    const header = [
+      t('tools.duplicate_detector.col_value'),
+      t('tools.duplicate_detector.col_count'),
+    ].join('\t');
+    downloadTsv('duplicates.tsv', `${header}\n${tableText}`);
+    toast.success(t('tools.duplicate_detector.export_done'));
+  };
+
   return (
     // 外层 shell 卡片(对齐 JsonFormatter 基准):扁平配置区 + 双栏工作区收进同一卡片
     <div
@@ -425,6 +442,19 @@ export function DuplicateDetector({ toolId }: ToolProps): JSX.Element {
             >
               <ClipboardCopy aria-hidden className="size-3.5" />
               {t('tools.duplicate_detector.copy_btn')}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleExportTsv}
+              disabled={tableRows.length === 0}
+              data-testid="dd-export"
+              title={t('tools.duplicate_detector.export_tsv')}
+              aria-label={t('tools.duplicate_detector.export_tsv')}
+            >
+              <Download aria-hidden className="size-3.5" />
+              {t('tools.duplicate_detector.export_btn')}
             </Button>
           </div>
         </div>

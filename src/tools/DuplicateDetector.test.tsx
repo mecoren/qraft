@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 
@@ -23,6 +23,15 @@ vi.mock('@/components/ui/resizable', () => ({
   ),
   ResizableHandle: () => <div data-testid="resizable-handle" />,
 }));
+
+// downloadTsv 走浏览器 <a download> 机制,jsdom 无法验证落盘;mock 后断言调用参数
+vi.mock('@/lib/file-utils', () => ({
+  downloadTsv: vi.fn(),
+}));
+
+import { downloadTsv } from '@/lib/file-utils';
+
+const downloadTsvMock = vi.mocked(downloadTsv);
 
 const inputValueOf = (testId: string): string =>
   (screen.getByTestId(testId).querySelector('textarea') as HTMLTextAreaElement).value;
@@ -142,6 +151,10 @@ describe('DuplicateDetector utilities', () => {
 });
 
 describe('DuplicateDetector component', () => {
+  beforeEach(() => {
+    downloadTsvMock.mockClear();
+  });
+
   it('渲染输入、表格区域与去重按钮', () => {
     render(<DuplicateDetector toolId="duplicate_detector" metadata={null as never} />);
     expect(screen.getByTestId('dd-input')).toBeInTheDocument();
@@ -289,5 +302,31 @@ describe('DuplicateDetector component', () => {
     expect(toolbar.querySelector('[data-testid="dd-stat-unique-toggle"]')).toBeTruthy();
     expect(toolbar.querySelector('[data-testid="dd-undup"]')).toBeTruthy();
     expect(toolbar.querySelector('[data-testid="dd-copy"]')).toBeTruthy();
+    expect(toolbar.querySelector('[data-testid="dd-export"]')).toBeTruthy();
+  });
+
+  it('导出 TSV:表头 + 数据行经 downloadTsv 落文件(带 BOM 由 file-utils 保证)', () => {
+    render(<DuplicateDetector toolId="duplicate_detector" metadata={null as never} />);
+    setTextarea('dd-input', 'a\nb\nc\nb\na\nb');
+
+    fireEvent.click(screen.getByTestId('dd-export'));
+
+    expect(downloadTsvMock).toHaveBeenCalledTimes(1);
+    const [filename, content] = downloadTsvMock.mock.calls[0];
+    expect(filename).toBe('duplicates.tsv');
+    // 表头(值/数量)+ 全部数据行(默认统计开启,含数量=1 的行)
+    expect(content).toContain('值\t数量');
+    expect(content).toContain('a\t2');
+    expect(content).toContain('b\t3');
+    expect(content).toContain('c\t1');
+    // 行顺序:首现顺序 a → b → c
+    expect(content.indexOf('a\t2')).toBeLessThan(content.indexOf('b\t3'));
+    expect(content.indexOf('b\t3')).toBeLessThan(content.indexOf('c\t1'));
+  });
+
+  it('空结果时导出按钮禁用(不发空文件)', () => {
+    render(<DuplicateDetector toolId="duplicate_detector" metadata={null as never} />);
+    expect(screen.getByTestId('dd-export')).toBeDisabled();
+    expect(downloadTsvMock).not.toHaveBeenCalled();
   });
 });
