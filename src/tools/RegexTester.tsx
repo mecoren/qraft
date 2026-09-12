@@ -55,6 +55,7 @@ import { cn } from '@/lib/utils';
 import type { ToolProps } from './registry';
 import { ExplainPanel } from './regex-lab/explain-panel';
 import { QuickReferencePanel } from './regex-lab/quick-reference-panel';
+import { TemplatesPanel } from './regex-lab/templates-panel';
 import { MatchInfoPanel } from './regex-lab/match-info-panel';
 import type {
   CodegenLanguage,
@@ -199,6 +200,20 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
 
   // —— 模式页签切换 ——
   const setMode = (m: RegexMode) => patch({ mode: m });
+
+  // —— 右栏下部「参考 | 模板」子页签:模板整条应用(pattern/flags/样本一并写入)——
+  const [rightTab, setRightTab] = useState<'reference' | 'templates'>('reference');
+  const applyTemplate = useCallback(
+    (tpl: { pattern: string; flags: string; sample: string }) => {
+      patch({
+        pattern: tpl.pattern,
+        flags: tpl.flags,
+        // 样本一并写入:用户点击即见实时命中效果;空样本保留现有文本
+        ...(tpl.sample ? { testText: tpl.sample } : {}),
+      });
+    },
+    [patch],
+  );
 
   // —— 快速参考插入:写到 pattern 输入框光标处(而非简单追加)——
   const patternInputRef = useRef<HTMLInputElement | null>(null);
@@ -494,8 +509,51 @@ export function RegexTester({ toolId }: ToolProps): JSX.Element {
                 onHoverSpan={onExplainHover}
               />
             </ScrollArea>
-            <div className="min-h-0 flex-1 border-t border-border">
-              <QuickReferencePanel onInsert={insertToPattern} />
+            {/* —— 下部:快速参考 / 常用模板 双页签 —— */}
+            <div className="flex min-h-0 flex-1 flex-col border-t border-border">
+              <div
+                className="flex h-[26px] shrink-0 items-center gap-0.5 border-b border-input px-1.5"
+                role="tablist"
+                aria-label={t('tools.regex_tester.reference_tabs_aria')}
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={rightTab === 'reference'}
+                  data-testid="right-tab-reference"
+                  data-active={rightTab === 'reference'}
+                  onClick={() => setRightTab('reference')}
+                  className={cn(
+                    'flex h-full items-center rounded-t px-2.5 text-xs transition-colors',
+                    rightTab === 'reference'
+                      ? 'border-b-2 border-primary font-medium text-foreground'
+                      : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {t('tools.regex_tester.quick_reference')}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={rightTab === 'templates'}
+                  data-testid="right-tab-templates"
+                  data-active={rightTab === 'templates'}
+                  onClick={() => setRightTab('templates')}
+                  className={cn(
+                    'flex h-full items-center rounded-t px-2.5 text-xs transition-colors',
+                    rightTab === 'templates'
+                      ? 'border-b-2 border-primary font-medium text-foreground'
+                      : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {t('tools.regex_tester.templates_title')}
+                </button>
+              </div>
+              {rightTab === 'reference' ? (
+                <QuickReferencePanel onInsert={insertToPattern} />
+              ) : (
+                <TemplatesPanel onApply={applyTemplate} />
+              )}
             </div>
           </div>
         </ResizablePanel>

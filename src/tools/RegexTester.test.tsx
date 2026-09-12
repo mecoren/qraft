@@ -435,4 +435,91 @@ describe('RegexTester(Regex Lab 工作区)', () => {
     expect(parsed.pattern).toBe('\\d{4}');
     expect(parsed.flags).toContain('i');
   });
+
+  // ============================================================
+  // 常用模板库(右栏「参考 | 模板」双页签)
+  // ============================================================
+
+  it('右栏模板页签:默认显示快速参考,切换后渲染分类与模板', () => {
+    render(<RegexTester toolId="regex_tester" metadata={null as never} />);
+    // 默认快速参考可见,模板面板未挂载
+    expect(screen.getByTestId('quick-reference')).toBeInTheDocument();
+    expect(screen.queryByTestId('regex-templates')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('right-tab-templates'));
+    expect(screen.getByTestId('regex-templates')).toBeInTheDocument();
+    // 五个分类标题齐备(与 JSON 单一数据源同步)
+    expect(screen.getByTestId('tpl-category-web')).toBeInTheDocument();
+    expect(screen.getByTestId('tpl-category-datetime')).toBeInTheDocument();
+    expect(screen.getByTestId('tpl-category-number')).toBeInTheDocument();
+    expect(screen.getByTestId('tpl-category-text')).toBeInTheDocument();
+    expect(screen.getByTestId('tpl-category-code')).toBeInTheDocument();
+    // 模板条目按数据源渲染(取一个代表:url)
+    expect(screen.getByTestId('tpl-apply-url')).toBeInTheDocument();
+  });
+
+  it('点击模板整条应用:pattern + flags + 样本文本一并写入工作区', async () => {
+    const { invokeCommand } = await import('@/lib/ipc');
+    (invokeCommand as unknown as Mock).mockResolvedValue(okOutput());
+
+    render(<RegexTester toolId="regex_tester" metadata={null as never} />);
+    fireEvent.click(screen.getByTestId('right-tab-templates'));
+    fireEvent.click(screen.getByTestId('tpl-apply-email'));
+
+    // pattern / flags / 样本文本全部就位
+    expect((screen.getByTestId('pattern') as HTMLInputElement).value).toBe(
+      '[\\w.+-]+@[\\w-]+\\.[\\w.]+',
+    );
+    expect(screen.getByTestId('flags-bar').textContent).toContain('i');
+    expect((screen.getByTestId('input-textarea') as HTMLTextAreaElement).value).toContain(
+      'alice@example.com',
+    );
+
+    await settleLive();
+    await waitFor(() => {
+      expect(invokeCommand).toHaveBeenCalledWith('regex_live', {
+        input: {
+          pattern: '[\\w.+-]+@[\\w-]+\\.[\\w.]+',
+          flags: 'gi',
+          testText: expect.stringContaining('alice@example.com'),
+          substitution: '',
+        },
+      });
+    });
+  });
+
+  it('模板搜索过滤:按说明关键字与空态', () => {
+    render(<RegexTester toolId="regex_tester" metadata={null as never} />);
+    fireEvent.click(screen.getByTestId('right-tab-templates'));
+
+    const search = screen.getByTestId('templates-search');
+    // 按 pattern 内容过滤:搜 "ipv4" 只留 IPv4 模板所在分类
+    fireEvent.change(search, { target: { value: 'ipv4' } });
+    expect(screen.getByTestId('tpl-category-web')).toBeInTheDocument();
+    expect(screen.queryByTestId('tpl-category-datetime')).not.toBeInTheDocument();
+
+    // 按中文说明过滤:搜「注释」命中 code 分类两个注释模板
+    fireEvent.change(search, { target: { value: '注释' } });
+    expect(screen.getByTestId('tpl-apply-comment_line')).toBeInTheDocument();
+    expect(screen.getByTestId('tpl-apply-comment_block')).toBeInTheDocument();
+    expect(screen.queryByTestId('tpl-apply-url')).not.toBeInTheDocument();
+
+    // 搜不存在的词 → 空态
+    fireEvent.change(search, { target: { value: 'zzz不存在' } });
+    expect(screen.getByText(/没有匹配的模板/)).toBeInTheDocument();
+  });
+
+  it('模板分类可折叠(搜索态下强制展开)', () => {
+    render(<RegexTester toolId="regex_tester" metadata={null as never} />);
+    fireEvent.click(screen.getByTestId('right-tab-templates'));
+
+    fireEvent.click(screen.getByTestId('tpl-category-web'));
+    // 折叠后该分类模板不再渲染
+    expect(screen.queryByTestId('tpl-apply-url')).not.toBeInTheDocument();
+    // 其他分类不受影响
+    expect(screen.getByTestId('tpl-apply-cjk')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('tpl-category-web'));
+    expect(screen.getByTestId('tpl-apply-url')).toBeInTheDocument();
+  });
 });

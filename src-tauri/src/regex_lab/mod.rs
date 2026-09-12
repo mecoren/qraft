@@ -183,8 +183,8 @@ pub struct FlagSet {
 }
 
 impl FlagSet {
-    /// 应用到 RegexBuilder
-    fn apply(self, builder: &mut regex::RegexBuilder) {
+    /// 应用到 RegexBuilder(公开给集成测试:模板库守卫须与工具执行同一条编译链)
+    pub fn apply(self, builder: &mut regex::RegexBuilder) {
         builder
             .case_insensitive(self.case_insensitive)
             .multi_line(self.multi_line)
