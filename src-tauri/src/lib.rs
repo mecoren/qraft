@@ -15,6 +15,16 @@
 // 在生产代码中仍按 Cargo.toml 中 lints.clippy 配置保持 warn 级别。
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+// 全局分配器:mimalloc(PRD 18 性能 P1)。工具引擎以 serde_json/文本处理为主,
+// 短生命周期小对象分配密集,mimalloc 的 thread-local free-list 对该负载收益明确;
+// A/B 实测(2026-09-12,scripts/perf-baseline.ps1)冷启动/空闲 CPU 与系统分配器
+// 持平,代价 +2.8MB 常驻(free-list 预热池),远低于 PRD 150MB 内存预算,故保留。
+// 仅主二进制启用;cargo test/bench 二进制保持系统分配器,避免测试环境引入额外
+// 变量;`no-mimalloc` feature 供 A/B 回归口径复测。
+#[cfg(all(not(test), not(feature = "no-mimalloc"), target_os = "windows"))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 pub mod core;
 pub mod media;
 pub mod net;
