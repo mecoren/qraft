@@ -2,6 +2,7 @@
   "tools.qrcode_tool.error_image_load": "图片加载失败",
   "tools.qrcode_tool.error_canvas": "Canvas 不可用",
   "tools.qrcode_tool.error_not_found": "未识别到二维码",
+  "tools.qrcode_tool.generate_failed": "生成失败,内容可能超出二维码容量上限",
   "tools.qrcode_tool.tab_generate": "生成二维码",
   "tools.qrcode_tool.tab_scan": "读取二维码",
   "tools.qrcode_tool.label_mode": "模式",

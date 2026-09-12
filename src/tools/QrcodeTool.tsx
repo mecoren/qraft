@@ -17,6 +17,7 @@ import { CodeEditor } from '@/components/ui/code-editor';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CopyAction } from '@/components/copy-action';
+import { SendToMenu } from '@/components/send-to-menu';
 import { downloadBlob, downloadText, readFileAsDataUrl } from '@/lib/file-utils';
 import { t } from '@/i18n';
 import type { ToolProps } from './registry';
@@ -40,11 +41,14 @@ async function decodeQrFromDataUrl(dataUrl: string): Promise<string> {
   return code.data;
 }
 
-export function QrcodeTool(_props: ToolProps): JSX.Element {
+export function QrcodeTool({ toolId }: ToolProps): JSX.Element {
   const { t } = useTranslation();
   // —— 生成 ——
   const [text, setText] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
+  // 生成失败原因(超 QR 容量上限 ~2953 字节等):非空时预览区显示失败占位,
+  // 与「尚未输入」的空态提示区分,不再静默吞掉 reject
+  const [generateError, setGenerateError] = useState<string | null>(null);
   // —— 读取 ——
   const [decoded, setDecoded] = useState('');
   const [scanPreview, setScanPreview] = useState('');
@@ -58,22 +62,40 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
     const mySeq = ++seqRef.current;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      // 空文本直接生成空串(走 catch 分支返回空),所有 setState 放在异步回调内,
-      // 避免在 effect 同步体内 setState 触发的级联渲染 lint 错误。
-      const target = text.trim() ? text : '';
-      void QRCode.toDataURL(target, { width: 280, margin: 2 }).then(
+      // 空文本不是错误:直接回到「未输入」空态,不发 toDataURL
+      // (qrcode 库对空串 reject "No input text",那是空态不是失败)。
+      // 所有 setState 放在异步回调内,避免 effect 同步体内 setState 的 lint 错误。
+      if (!text.trim()) {
+        if (seqRef.current === mySeq) {
+          setQrDataUrl('');
+          setGenerateError(null);
+        }
+        return;
+      }
+      void QRCode.toDataURL(text, { width: 280, margin: 2 }).then(
         (url) => {
-          if (seqRef.current === mySeq) setQrDataUrl(url);
+          if (seqRef.current !== mySeq) return;
+          setQrDataUrl(url);
+          setGenerateError(null);
         },
-        () => {
-          if (seqRef.current === mySeq) setQrDataUrl('');
+        (e: unknown) => {
+          if (seqRef.current !== mySeq) return;
+          setQrDataUrl('');
+          // reject 原因是 Error(qrcode 库容量溢出)或 string(toDataURL 底层):
+          // 提炼为可读文案展示在预览区,与「未输入」空态区分
+          const message = e instanceof Error ? e.message : String(e ?? '');
+          setGenerateError(
+            message
+              ? `${t('tools.qrcode_tool.generate_failed')}: ${message}`
+              : t('tools.qrcode_tool.generate_failed'),
+          );
         },
       );
     }, 400);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [text]);
+  }, [text, t]);
 
   const exportPng = useCallback(async () => {
     if (!text.trim()) return;
@@ -202,7 +224,15 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
                   </span>
                 </div>
                 <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-b-md p-4">
-                  {qrDataUrl ? (
+                  {generateError ? (
+                    <div
+                      role="alert"
+                      data-testid="qr-generate-error"
+                      className="max-w-sm rounded-md border border-destructive bg-destructive/10 p-3 text-xs text-destructive"
+                    >
+                      {generateError}
+                    </div>
+                  ) : qrDataUrl ? (
                     <img
                       src={qrDataUrl}
                       alt={t('tools.qrcode_tool.preview_alt')}
@@ -300,7 +330,14 @@ export function QrcodeTool(_props: ToolProps): JSX.Element {
                 data-testid="qr-decoded"
                 className="h-full rounded-none border-0 border-l"
                 searchAnchor="qrcode_tool:output"
-                actions={<CopyAction text={decoded} testId="qr-copy" />}
+                actions={
+                  <>
+                    <CopyAction text={decoded} testId="qr-copy" />
+                    {decoded && (
+                      <SendToMenu text={decoded} currentToolId={toolId} testId="qr-send" />
+                    )}
+                  </>
+                }
               />
             </ResizablePanel>
           </ResizablePanelGroup>

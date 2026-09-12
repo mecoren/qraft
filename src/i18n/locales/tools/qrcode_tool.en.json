@@ -2,6 +2,7 @@
   "tools.qrcode_tool.error_image_load": "Failed to load image",
   "tools.qrcode_tool.error_canvas": "Canvas is unavailable",
   "tools.qrcode_tool.error_not_found": "No QR code detected",
+  "tools.qrcode_tool.generate_failed": "Generation failed; the content may exceed QR capacity",
   "tools.qrcode_tool.tab_generate": "Generate QR Code",
   "tools.qrcode_tool.tab_scan": "Read QR Code",
   "tools.qrcode_tool.label_mode": "Mode",
