@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, FileImage, FolderOpen, Maximize2, X } from 'lucide-react';
+import { Download, FileImage, FolderOpen, Layers, Maximize2, Play, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ import { Switch } from '@/components/ui/switch';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { downloadBlob, formatBytes, readFileAsDataUrl } from '@/lib/file-utils';
+import { batchSummary, makeBatchItems, runBatch, type BatchItem } from './image-batch';
 import type { ToolProps } from './registry';
 
 type TargetFormat = 'image/png' | 'image/jpeg' | 'image/webp';
@@ -50,6 +51,13 @@ interface LoadedImage {
   height: number;
 }
 
+/** 批量项的产物描述(格式与输出尺寸) */
+interface BatchResultMeta {
+  format: string;
+  w: number;
+  h: number;
+}
+
 /** 常用背景色预设(十六进制不含 #) */
 const BG_PRESETS = ['ffffff', '000000', '0f172a'] as const;
 
@@ -71,7 +79,27 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
     h: number;
   } | null>(null);
   const [converting, setConverting] = useState(false);
+  /** 批量队列(≥2 文件进入批量模式;单文件走既有实时预览路径) */
+  const [batch, setBatch] = useState<BatchItem<BatchResultMeta>[]>([]);
+  const [batchRunning, setBatchRunning] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  /** 批量模式开关:队列非空即批量(单项队列也允许,便于统一导出) */
+  const batchMode = batch.length > 0;
+
+  const resetSingle = useCallback(() => {
+    setImage(null);
+    setPreview(null);
+  }, []);
+
+  const enterBatch = useCallback(
+    (files: readonly File[]) => {
+      const items = makeBatchItems<BatchResultMeta>(files);
+      setBatch(items);
+      resetSingle();
+    },
+    [resetSingle],
+  );
 
   const loadFile = useCallback(
     async (file: File) => {
@@ -97,11 +125,26 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
         });
         setExactWidth('');
         setScalePercent(100);
+        setBatch([]);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : String(e));
       }
     },
     [t],
+  );
+
+  /** 入口统一分流:多文件进批量队列,单文件走实时预览 */
+  const intake = useCallback(
+    (files: readonly File[]) => {
+      const images = files.filter((f) => f.type.startsWith('image/'));
+      if (images.length === 0) {
+        toast.error(t('tools.image_converter.only_image_files'));
+        return;
+      }
+      if (images.length === 1) void loadFile(images[0]!);
+      else enterBatch(images);
+    },
+    [enterBatch, loadFile, t],
   );
 
   /** 计算输出尺寸:精确宽优先(锁定纵横比),否则百分比缩放 */
@@ -204,14 +247,87 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
     );
   }, [preview, image, format, targetSize, t]);
 
+  /** 单项批量执行:File → 解码 → 按当前参数 canvas 重编码 → 可下载产物 */
+  const runBatchItem = useCallback(
+    async (item: BatchItem<BatchResultMeta>) => {
+      const dataUrl = await readFileAsDataUrl(item.file);
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error(t('tools.image_converter.error_decode')));
+        img.src = dataUrl;
+      });
+      // 输出尺寸:精确宽优先,否则百分比(与单文件口径一致)
+      let w = Math.max(1, Math.round((img.naturalWidth * scalePercent) / 100));
+      let h = Math.max(1, Math.round((img.naturalHeight * scalePercent) / 100));
+      if (exactWidth && Number(exactWidth) > 0) {
+        w = Math.round(Number(exactWidth));
+        h = Math.max(1, Math.round((w / img.naturalWidth) * img.naturalHeight));
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error(t('tools.image_converter.error_canvas'));
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      const needsBg = format === 'image/jpeg' || (format === 'image/webp' && useBg);
+      if (needsBg) {
+        ctx.fillStyle = `#${/^[\da-f]{6}$/i.test(bgColor) ? bgColor : 'ffffff'}`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const outUrl = canvas.toDataURL(format, quality / 100);
+      const blob = await (await fetch(outUrl)).blob();
+      const base = item.file.name.replace(/\.[^.]+$/, '') || 'image';
+      const suffix = w !== img.naturalWidth || h !== img.naturalHeight ? `-${w}x${h}` : '';
+      const filename = `${base}${suffix}.${EXT[format]}`;
+      const download = () => downloadBlob(filename, blob);
+      return {
+        outputBytes: blob.size,
+        download,
+        result: { format: FORMAT_LABEL[format], w, h },
+      };
+    },
+    [bgColor, exactWidth, format, quality, scalePercent, t, useBg],
+  );
+
+  /** 批量执行入口(runBatch 串行推进;失败项标红不中断) */
+  const onRunBatch = useCallback(async () => {
+    if (batchRunning || batch.length === 0) return;
+    setBatchRunning(true);
+    try {
+      const out = await runBatch(batch, {
+        run: runBatchItem,
+        onUpdate: setBatch,
+        shouldStop: () => false,
+      });
+      const s = batchSummary(out);
+      if (s.error > 0) {
+        toast.warning(t('tools.image_converter.batch_partial', { done: s.done, error: s.error }));
+      } else {
+        toast.success(t('tools.image_converter.batch_done', { count: s.done }));
+      }
+    } finally {
+      setBatchRunning(false);
+    }
+  }, [batch, batchRunning, runBatchItem, t]);
+
+  /** 全部下载:逐项触发浏览器下载(同源文件名不冲突时浏览器自动去重) */
+  const onDownloadAll = useCallback(() => {
+    for (const item of batch) {
+      if (item.status === 'done' && item.download) item.download();
+    }
+  }, [batch]);
+
   const onDrop = useCallback(
     (e: DragEvent) => {
       e.preventDefault();
       setDragOver(false);
-      const file = e.dataTransfer.files[0];
-      if (file) void loadFile(file);
+      const files = [...(e.dataTransfer.files ?? [])];
+      if (files.length > 0) intake(files);
     },
-    [loadFile],
+    [intake],
   );
 
   return (
@@ -362,38 +478,75 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
               <FolderOpen aria-hidden className="size-3.5" />{' '}
               {t('tools.image_converter.choose_image')}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              data-testid="ic-clear"
-              disabled={!image}
-              onClick={() => {
-                setImage(null);
-                setPreview(null);
-              }}
-            >
-              <X aria-hidden className="size-3.5" /> {t('tools.image_converter.clear')}
-            </Button>
-            <Button
-              size="sm"
-              data-testid="ic-download"
-              disabled={!preview}
-              onClick={() => void download()}
-            >
-              <Download aria-hidden className="size-3.5" />{' '}
-              {t('tools.image_converter.convert_export')}
-            </Button>
+            {batchMode ? (
+              <>
+                <Button
+                  size="sm"
+                  data-testid="ic-batch-run"
+                  disabled={batchRunning || batch.every((i) => i.status !== 'pending')}
+                  onClick={() => void onRunBatch()}
+                >
+                  <Play aria-hidden className="size-3.5" />
+                  {batchRunning
+                    ? t('tools.image_converter.batch_running')
+                    : t('tools.image_converter.batch_run')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="ic-batch-download-all"
+                  disabled={!batch.some((i) => i.status === 'done')}
+                  onClick={onDownloadAll}
+                >
+                  <Download aria-hidden className="size-3.5" />
+                  {t('tools.image_converter.batch_download_all')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  data-testid="ic-batch-clear"
+                  onClick={() => setBatch([])}
+                >
+                  <X aria-hidden className="size-3.5" /> {t('tools.image_converter.clear')}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  data-testid="ic-clear"
+                  disabled={!image}
+                  onClick={() => {
+                    setImage(null);
+                    setPreview(null);
+                  }}
+                >
+                  <X aria-hidden className="size-3.5" /> {t('tools.image_converter.clear')}
+                </Button>
+                <Button
+                  size="sm"
+                  data-testid="ic-download"
+                  disabled={!preview}
+                  onClick={() => void download()}
+                >
+                  <Download aria-hidden className="size-3.5" />{' '}
+                  {t('tools.image_converter.convert_export')}
+                </Button>
+              </>
+            )}
           </div>
         </div>
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
+          multiple
           className="hidden"
           data-testid="ic-file"
           onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void loadFile(file);
+            const files = [...(e.target.files ?? [])];
+            if (files.length > 0) intake(files);
             e.target.value = '';
           }}
         />
@@ -410,7 +563,66 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
           } transition-colors`}
         >
           <div className="flex h-full min-h-full flex-col items-center justify-center gap-2 p-4">
-            {image ? (
+            {batchMode ? (
+              <>
+                <div className="flex w-full max-w-2xl items-center gap-2 text-xs text-muted-foreground">
+                  <Layers aria-hidden className="size-3.5" />
+                  <span data-testid="ic-batch-summary">
+                    {t('tools.image_converter.batch_summary', {
+                      count: batch.length,
+                      done: batchSummary(batch).done,
+                    })}
+                    {batchSummary(batch).totalSaved > 0 &&
+                      ` · ${t('tools.image_converter.batch_saved', {
+                        size: formatBytes(batchSummary(batch).totalSaved),
+                      })}`}
+                  </span>
+                </div>
+                <ul
+                  className="w-full max-w-2xl space-y-1 overflow-auto"
+                  data-testid="ic-batch-list"
+                >
+                  {batch.map((item) => (
+                    <li
+                      key={item.id}
+                      data-testid="ic-batch-item"
+                      className="flex items-center gap-2 rounded border border-border px-2 py-1 text-xs"
+                    >
+                      <span className="min-w-0 flex-1 truncate" title={item.file.name}>
+                        {item.file.name}
+                      </span>
+                      <span className="shrink-0 text-muted-foreground tabular-nums">
+                        {formatBytes(item.inputBytes)}
+                      </span>
+                      {item.status === 'done' && item.outputBytes !== null && (
+                        <span className="shrink-0 font-medium text-primary tabular-nums">
+                          {formatBytes(item.outputBytes)}
+                        </span>
+                      )}
+                      {item.status === 'error' && (
+                        <span
+                          className="max-w-40 shrink-0 truncate text-destructive"
+                          title={item.error ?? ''}
+                          data-testid="ic-batch-item-error"
+                        >
+                          {t('tools.image_converter.batch_item_failed')}
+                        </span>
+                      )}
+                      {item.status === 'done' && item.download && (
+                        <button
+                          type="button"
+                          className="shrink-0 text-muted-foreground hover:text-foreground"
+                          onClick={item.download}
+                          title={t('tools.image_converter.batch_download_one')}
+                        >
+                          <Download aria-hidden className="size-3.5" />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : image ? (
               <>
                 <img
                   src={image.dataUrl}

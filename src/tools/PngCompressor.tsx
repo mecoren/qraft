@@ -9,7 +9,7 @@
  */
 import { useCallback, useRef, useState, type DragEvent, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, FileImage, FolderOpen, X } from 'lucide-react';
+import { Download, FileImage, FolderOpen, Layers, Play, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +24,7 @@ import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { base64ToBytes, downloadBlob, formatBytes, readFileAsDataUrl } from '@/lib/file-utils';
 import { invokeCommand } from '@/lib/ipc';
+import { batchSummary, makeBatchItems, runBatch, type BatchItem } from './image-batch';
 import type { ToolProps } from './registry';
 
 interface PngCompressResult {
@@ -61,11 +62,21 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<PngCompressResult | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  /** 批量队列(≥2 文件进入批量模式;PNG 校验同单文件) */
+  const [batch, setBatch] = useState<BatchItem<null>[]>([]);
+  const [batchRunning, setBatchRunning] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const batchMode = batch.length > 0;
+
+  /** PNG 校验(单/批量共用):MIME 或扩展名任一命中即接受 */
+  const isPng = useCallback((file: File): boolean => {
+    return !file.type || file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
+  }, []);
 
   const loadFile = useCallback(
     async (file: File) => {
-      if (file.type && file.type !== 'image/png' && !file.name.toLowerCase().endsWith('.png')) {
+      if (!isPng(file)) {
         toast.error(t('tools.png_compressor.only_png_files'));
         return;
       }
@@ -73,11 +84,30 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
         const dataUrl = await readFileAsDataUrl(file);
         setImage({ name: file.name, size: file.size, dataUrl });
         setResult(null);
+        setBatch([]);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : String(e));
       }
     },
-    [t],
+    [isPng, t],
+  );
+
+  /** 入口分流:多文件入批量队列,单文件走既有对比预览 */
+  const intake = useCallback(
+    (files: readonly File[]) => {
+      const pngs = files.filter(isPng);
+      if (pngs.length === 0) {
+        toast.error(t('tools.png_compressor.only_png_files'));
+        return;
+      }
+      if (pngs.length === 1) void loadFile(pngs[0]!);
+      else {
+        setBatch(makeBatchItems<null>(pngs));
+        setImage(null);
+        setResult(null);
+      }
+    },
+    [isPng, loadFile, t],
   );
 
   const compress = useCallback(async () => {
@@ -122,14 +152,67 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
     downloadBlob(outName, blob);
   }, [result, image, lossless]);
 
+  /** 批量单项:读文件 → png_compress(与单文件同参数)→ 产物下载 */
+  const runBatchItem = useCallback(
+    async (item: BatchItem<null>) => {
+      const dataUrl = await readFileAsDataUrl(item.file);
+      const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+      const res = await invokeCommand<PngCompressResult>('png_compress', {
+        base64,
+        params: {
+          lossless,
+          level: lossless ? Number(level) : undefined,
+          colors: lossless ? undefined : Number(colors),
+          dither: lossless ? undefined : dither,
+        },
+      });
+      const outName = item.file.name.replace(/\.png$/i, '') + (lossless ? '.min.png' : '.q.png');
+      const download = () => {
+        const bytes = base64ToBytes(res.base64);
+        downloadBlob(
+          outName,
+          new Blob([bytes.slice().buffer as ArrayBuffer], { type: 'image/png' }),
+        );
+      };
+      return { outputBytes: res.outputBytes, download, result: null };
+    },
+    [colors, dither, level, lossless],
+  );
+
+  const onRunBatch = useCallback(async () => {
+    if (batchRunning || batch.length === 0) return;
+    setBatchRunning(true);
+    try {
+      const out = await runBatch(batch, {
+        run: runBatchItem,
+        onUpdate: setBatch,
+        shouldStop: () => false,
+      });
+      const s = batchSummary(out);
+      if (s.error > 0) {
+        toast.warning(t('tools.png_compressor.batch_partial', { done: s.done, error: s.error }));
+      } else {
+        toast.success(t('tools.png_compressor.batch_done', { count: s.done }));
+      }
+    } finally {
+      setBatchRunning(false);
+    }
+  }, [batch, batchRunning, runBatchItem, t]);
+
+  const onDownloadAll = useCallback(() => {
+    for (const item of batch) {
+      if (item.status === 'done' && item.download) item.download();
+    }
+  }, [batch]);
+
   const onDrop = useCallback(
     (e: DragEvent) => {
       e.preventDefault();
       setDragOver(false);
-      const file = e.dataTransfer.files[0];
-      if (file) void loadFile(file);
+      const files = [...(e.dataTransfer.files ?? [])];
+      if (files.length > 0) intake(files);
     },
-    [loadFile],
+    [intake],
   );
 
   /** 压缩节省百分比(负数表示变大) */
@@ -227,38 +310,77 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
             >
               <FolderOpen aria-hidden className="size-3.5" /> {t('tools.png_compressor.choose_png')}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              data-testid="pc-clear"
-              disabled={!image}
-              onClick={() => {
-                setImage(null);
-                setResult(null);
-              }}
-            >
-              <X aria-hidden className="size-3.5" /> {t('tools.png_compressor.clear')}
-            </Button>
-            <Button
-              size="sm"
-              data-testid="pc-compress"
-              disabled={!image || busy}
-              onClick={() => void compress()}
-            >
-              <Download aria-hidden className="size-3.5" />
-              {busy ? t('tools.png_compressor.compressing') : t('tools.png_compressor.compress')}
-            </Button>
+            {batchMode ? (
+              <>
+                <Button
+                  size="sm"
+                  data-testid="pc-batch-run"
+                  disabled={batchRunning || batch.every((i) => i.status !== 'pending')}
+                  onClick={() => void onRunBatch()}
+                >
+                  <Play aria-hidden className="size-3.5" />
+                  {batchRunning
+                    ? t('tools.png_compressor.batch_running')
+                    : t('tools.png_compressor.batch_run')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="pc-batch-download-all"
+                  disabled={!batch.some((i) => i.status === 'done')}
+                  onClick={onDownloadAll}
+                >
+                  <Download aria-hidden className="size-3.5" />
+                  {t('tools.png_compressor.batch_download_all')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  data-testid="pc-batch-clear"
+                  onClick={() => setBatch([])}
+                >
+                  <X aria-hidden className="size-3.5" /> {t('tools.png_compressor.clear')}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  data-testid="pc-clear"
+                  disabled={!image}
+                  onClick={() => {
+                    setImage(null);
+                    setResult(null);
+                  }}
+                >
+                  <X aria-hidden className="size-3.5" /> {t('tools.png_compressor.clear')}
+                </Button>
+                <Button
+                  size="sm"
+                  data-testid="pc-compress"
+                  disabled={!image || busy}
+                  onClick={() => void compress()}
+                >
+                  <Download aria-hidden className="size-3.5" />
+                  {busy
+                    ? t('tools.png_compressor.compressing')
+                    : t('tools.png_compressor.compress')}
+                </Button>
+              </>
+            )}
           </div>
         </div>
         <input
           ref={fileRef}
           type="file"
           accept="image/png,.png"
+          multiple
           className="hidden"
           data-testid="pc-file"
           onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void loadFile(file);
+            const files = [...(e.target.files ?? [])];
+            if (files.length > 0) intake(files);
             e.target.value = '';
           }}
         />
@@ -275,7 +397,66 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
           } transition-colors`}
         >
           <div className="flex h-full min-h-full flex-col items-center justify-center gap-2 p-4">
-            {image ? (
+            {batchMode ? (
+              <>
+                <div className="flex w-full max-w-2xl items-center gap-2 text-xs text-muted-foreground">
+                  <Layers aria-hidden className="size-3.5" />
+                  <span data-testid="pc-batch-summary">
+                    {t('tools.png_compressor.batch_summary', {
+                      count: batch.length,
+                      done: batchSummary(batch).done,
+                    })}
+                    {batchSummary(batch).totalSaved > 0 &&
+                      ` · ${t('tools.png_compressor.batch_saved', {
+                        size: formatBytes(batchSummary(batch).totalSaved),
+                      })}`}
+                  </span>
+                </div>
+                <ul
+                  className="w-full max-w-2xl space-y-1 overflow-auto"
+                  data-testid="pc-batch-list"
+                >
+                  {batch.map((item) => (
+                    <li
+                      key={item.id}
+                      data-testid="pc-batch-item"
+                      className="flex items-center gap-2 rounded border border-border px-2 py-1 text-xs"
+                    >
+                      <span className="min-w-0 flex-1 truncate" title={item.file.name}>
+                        {item.file.name}
+                      </span>
+                      <span className="shrink-0 text-muted-foreground tabular-nums">
+                        {formatBytes(item.inputBytes)}
+                      </span>
+                      {item.status === 'done' && item.outputBytes !== null && (
+                        <span className="shrink-0 font-medium text-primary tabular-nums">
+                          {formatBytes(item.outputBytes)}
+                        </span>
+                      )}
+                      {item.status === 'error' && (
+                        <span
+                          className="max-w-40 shrink-0 truncate text-destructive"
+                          title={item.error ?? ''}
+                          data-testid="pc-batch-item-error"
+                        >
+                          {t('tools.png_compressor.batch_item_failed')}
+                        </span>
+                      )}
+                      {item.status === 'done' && item.download && (
+                        <button
+                          type="button"
+                          className="shrink-0 text-muted-foreground hover:text-foreground"
+                          onClick={item.download}
+                          title={t('tools.png_compressor.batch_download_one')}
+                        >
+                          <Download aria-hidden className="size-3.5" />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : image ? (
               <>
                 {/* 原始 / 压缩后并排对比 */}
                 <div className="grid w-full max-w-2xl grid-cols-2 gap-3">

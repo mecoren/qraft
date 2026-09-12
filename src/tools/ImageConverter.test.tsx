@@ -123,6 +123,43 @@ describe('ImageConverter', () => {
       { timeout: 3000 },
     );
   });
+
+  it('多文件进入批量模式:队列列表 + 批量执行产出 done 项', async () => {
+    render(<ImageConverter toolId="image_converter" metadata={null as never} />);
+    const input = screen.getByTestId('ic-file') as HTMLInputElement;
+    const files = [
+      new File([new Uint8Array(10)], 'a.png', { type: 'image/png' }),
+      new File([new Uint8Array(20)], 'b.png', { type: 'image/png' }),
+    ];
+    fireEvent.change(input, { target: { files } });
+
+    // 队列列表渲染,单图预览不再显示
+    await waitFor(() => {
+      expect(screen.getByTestId('ic-batch-list')).toBeInTheDocument();
+    });
+    expect(screen.getAllByTestId('ic-batch-item')).toHaveLength(2);
+    expect(screen.queryByTestId('ic-preview')).not.toBeInTheDocument();
+
+    // 批量执行:完成后 summary 计数到位(2 张已完成)
+    fireEvent.click(screen.getByTestId('ic-batch-run'));
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('ic-batch-summary')).toHaveTextContent(/2/);
+      },
+      { timeout: 3000 },
+    );
+  });
+
+  it('单文件保持既有实时预览路径(不进批量)', async () => {
+    render(<ImageConverter toolId="image_converter" metadata={null as never} />);
+    const input = screen.getByTestId('ic-file') as HTMLInputElement;
+    const file = new File([new Uint8Array(10)], 'solo.png', { type: 'image/png' });
+    fireEvent.change(input, { target: { files: [file] } });
+    await waitFor(() => {
+      expect(screen.getByTestId('ic-preview')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('ic-batch-list')).not.toBeInTheDocument();
+  });
 });
 
 // 恢复被覆盖的原型(避免影响其他用例)

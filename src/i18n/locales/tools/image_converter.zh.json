@@ -21,5 +21,14 @@
   "tools.image_converter.choose_image": "选择图片",
   "tools.image_converter.clear": "清除",
   "tools.image_converter.convert_export": "转换并导出",
-  "tools.image_converter.dropzone_hint": "拖放图片到此处,或点击「选择图片」"
+  "tools.image_converter.dropzone_hint": "拖放图片到此处(可多选批量),或点击「选择图片」",
+  "tools.image_converter.batch_run": "批量转换",
+  "tools.image_converter.batch_running": "转换中…",
+  "tools.image_converter.batch_download_all": "全部下载",
+  "tools.image_converter.batch_download_one": "下载此项",
+  "tools.image_converter.batch_done": "批量转换完成({{count}} 项)",
+  "tools.image_converter.batch_partial": "{{done}} 项成功,{{error}} 项失败",
+  "tools.image_converter.batch_item_failed": "失败",
+  "tools.image_converter.batch_summary": "{{count}} 张 · 已完成 {{done}}",
+  "tools.image_converter.batch_saved": "共省 {{size}}"
 }

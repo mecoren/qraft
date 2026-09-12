@@ -30,5 +30,14 @@
   "tools.png_compressor.duration_ms": "耗时 {{ms}}ms",
   "tools.png_compressor.color_unit": "色",
   "tools.png_compressor.save_result": "保存压缩结果",
-  "tools.png_compressor.dropzone_hint": "拖放 PNG 到此处,或点击「选择 PNG」"
+  "tools.png_compressor.dropzone_hint": "拖放 PNG 到此处,或点击「选择 PNG」",
+  "tools.png_compressor.batch_run": "批量压缩",
+  "tools.png_compressor.batch_running": "压缩中…",
+  "tools.png_compressor.batch_download_all": "全部下载",
+  "tools.png_compressor.batch_download_one": "下载此项",
+  "tools.png_compressor.batch_done": "批量压缩完成({{count}} 项)",
+  "tools.png_compressor.batch_partial": "{{done}} 项成功,{{error}} 项失败",
+  "tools.png_compressor.batch_item_failed": "失败",
+  "tools.png_compressor.batch_summary": "{{count}} 张 · 已完成 {{done}}",
+  "tools.png_compressor.batch_saved": "共省 {{size}}"
 }

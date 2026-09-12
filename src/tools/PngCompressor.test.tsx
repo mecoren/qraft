@@ -124,4 +124,49 @@ describe('PngCompressor', () => {
     });
     expect(screen.queryByTestId('pc-compressed-preview')).not.toBeInTheDocument();
   });
+
+  it('多文件进入批量模式:串行压缩,summary 计数与节省显示', async () => {
+    pngCompressMock.mockResolvedValue({
+      base64: 'AAAA',
+      // inputBytes/outputBytes 是 mock 返回;节省按队列的 file.size(4B)与 outputBytes 计
+      inputBytes: 1000,
+      outputBytes: 2,
+      colorsUsed: null,
+      durationMs: 5,
+    });
+    render(<PngCompressor toolId="png_compressor" metadata={null as never} />);
+    const input = screen.getByTestId('pc-file') as HTMLInputElement;
+    const files = [
+      new File([new Uint8Array(4)], 'a.png', { type: 'image/png' }),
+      new File([new Uint8Array(4)], 'b.png', { type: 'image/png' }),
+    ];
+    fireEvent.change(input, { target: { files } });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pc-batch-list')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('pc-compress')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('pc-batch-run'));
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('pc-batch-summary')).toHaveTextContent(/2/);
+        // file.size 4B → output 2B,两项共省 4B
+        expect(screen.getByTestId('pc-batch-summary')).toHaveTextContent(/4 B/);
+      },
+      { timeout: 3000 },
+    );
+    expect(pngCompressMock).toHaveBeenCalledTimes(2);
+    // 全部下载按钮可用
+    expect(screen.getByTestId('pc-batch-download-all')).toBeEnabled();
+  });
+
+  it('批量中单文件路径不变:单 PNG 走对比预览', async () => {
+    render(<PngCompressor toolId="png_compressor" metadata={null as never} />);
+    const input = screen.getByTestId('pc-file') as HTMLInputElement;
+    const png = new File([new Uint8Array(4)], 'solo.png', { type: 'image/png' });
+    fireEvent.change(input, { target: { files: [png] } });
+    await waitFor(() => expect(screen.getByTestId('pc-compress')).toBeEnabled());
+    expect(screen.queryByTestId('pc-batch-list')).not.toBeInTheDocument();
+  });
 });

@@ -30,5 +30,14 @@
   "tools.png_compressor.duration_ms": "Took {{ms}}ms",
   "tools.png_compressor.color_unit": "colors",
   "tools.png_compressor.save_result": "Save Result",
-  "tools.png_compressor.dropzone_hint": "Drop a PNG here, or click \"Choose PNG\""
+  "tools.png_compressor.dropzone_hint": "Drop a PNG here, or click \"Choose PNG\"",
+  "tools.png_compressor.batch_run": "Compress all",
+  "tools.png_compressor.batch_running": "Compressing…",
+  "tools.png_compressor.batch_download_all": "Download all",
+  "tools.png_compressor.batch_download_one": "Download this item",
+  "tools.png_compressor.batch_done": "Batch compression done ({{count}} items)",
+  "tools.png_compressor.batch_partial": "{{done}} succeeded, {{error}} failed",
+  "tools.png_compressor.batch_item_failed": "Failed",
+  "tools.png_compressor.batch_summary": "{{count}} images · {{done}} done",
+  "tools.png_compressor.batch_saved": "saved {{size}} in total"
 }

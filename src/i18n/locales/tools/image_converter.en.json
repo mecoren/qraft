@@ -21,5 +21,14 @@
   "tools.image_converter.choose_image": "Choose Image",
   "tools.image_converter.clear": "Clear",
   "tools.image_converter.convert_export": "Convert & Export",
-  "tools.image_converter.dropzone_hint": "Drop an image here, or click \"Choose Image\""
+  "tools.image_converter.dropzone_hint": "Drop images here (multiple for batch), or click \"Choose Image\"",
+  "tools.image_converter.batch_run": "Convert all",
+  "tools.image_converter.batch_running": "Converting…",
+  "tools.image_converter.batch_download_all": "Download all",
+  "tools.image_converter.batch_download_one": "Download this item",
+  "tools.image_converter.batch_done": "Batch conversion done ({{count}} items)",
+  "tools.image_converter.batch_partial": "{{done}} succeeded, {{error}} failed",
+  "tools.image_converter.batch_item_failed": "Failed",
+  "tools.image_converter.batch_summary": "{{count}} images · {{done}} done",
+  "tools.image_converter.batch_saved": "saved {{size}} in total"
 }
