@@ -1,7 +1,7 @@
 ---
 title: 已知问题与技术债务
-version: v1.0
-last_updated: 2026-07-29
+version: v1.1
+last_updated: 2026-09-12
 author: [wait]
 audience: 一年经验的开发者
 ---
@@ -90,11 +90,11 @@ audience: 一年经验的开发者
 
 | 项 | 当前状态 | 目标 | 优先级 |
 |----|----------|------|--------|
-| 内存分配器 | 系统 malloc | mimalloc | P1 |
+| ~~内存分配器~~ | ✅ 已切换 mimalloc(2026-09-12,主二进制 Windows 目标;A/B 实测冷启动/空闲 CPU 持平,常驻 +2.8MB;`no-mimalloc` feature 供回归复测) | — | 已完成 |
 | 内存配额机制 | 无强制限制 | 工具内存配额 | P2 |
-| IPC 性能基准 | 未测量 | 1MB 输入 <50ms | P1 |
+| ~~IPC 性能基准~~ | ✅ 已建立(2026-09-12,`cargo bench --bench ipc_tool_path`:1MB 全路径 17.9–28.8ms < 50ms 达标;bench exe 需 comctl32 v6 manifest,见 `src-tauri/build.rs`) | — | 已完成 |
 | Linux WebView 性能 | WebKitGTK 较慢 | 接近 Windows | P2 |
-| Rust 编译时间 | 较慢（debug） | <30s 增量编译 | P1 |
+| Rust 编译时间 | 较慢(debug) | <30s 增量编译 | P1 |
 
 #### 工程化待优化
 
@@ -113,7 +113,7 @@ audience: 一年经验的开发者
 | ~~亮色主题~~ | ✅ 已实现(daylight 主题) | — | 已完成 |
 | ~~自定义强调色~~ | ✅ 已实现(用户可选 HEX 色) | — | 已完成 |
 | UI Token 全量化 | ✅ 已实现(字号/间距/动画/Monaco 主题色 token 化) | — | 已于 v0.1 完成 |
-| 命令面板模糊搜索 | 简单 includes | fuse.js 模糊匹配 | P1 |
+| ~~命令面板模糊搜索~~ | ✅ 已实现(2026-09-12,自实现子序列打分替代 fuse.js 方案:子串优先档 + 缩写子序列兜档 + 相关度排序,命令面板/侧栏目录/全局搜索三处同口径;落地口径与原计划 fuse.js 的差异见 `src/lib/fuzzy-match.ts` 头注) | — | 已完成 |
 | 工具收藏分组 | 平铺 | 多级分组 | P2 |
 
 ### 3.3 风险清单
