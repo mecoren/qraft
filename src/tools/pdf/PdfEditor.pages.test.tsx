@@ -2,7 +2,6 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { PdfEditorTool } from './PdfEditor';
 import { usePdfDocsStore } from './pdfDocsStore';
-import type { ToolProps } from '../registry';
 import type { ToolMetadata } from '@/types/tool';
 
 /**
@@ -19,7 +18,7 @@ const metadata = {
 } as unknown as ToolMetadata;
 
 function renderTool(): void {
-  render(<PdfEditorTool toolId="pdf_editor" metadata={metadata} {...({} as ToolProps)} />);
+  render(<PdfEditorTool toolId="pdf_editor" metadata={metadata} />);
 }
 
 function resetStore(): void {

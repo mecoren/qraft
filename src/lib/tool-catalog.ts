@@ -35,6 +35,7 @@ import {
   FolderOpen,
   Hash,
   Image,
+  Video,
   KeyRound,
   ListChecks,
   Network,
@@ -409,6 +410,14 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     icon: Image,
     keywords: ['png', 'compress', '压缩', '图片优化', 'oxipng', 'pngquant'],
   },
+  {
+    id: 'video_to_gif',
+    name: '视频转 GIF',
+    description: '把视频片段转为 GIF:片段起止、帧率、宽度可调,本地编码不上传',
+    category: 'graphic',
+    icon: Video,
+    keywords: ['video', 'gif', '视频', '转换', '动图', 'webm', 'mp4'],
+  },
 
   // —— 文本处理 ——
   {
@@ -705,6 +714,10 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
     description: 'Simulate color blindness on images or screenshots',
   },
   image_converter: { name: 'Image Converter', description: 'Lossless image format conversion' },
+  video_to_gif: {
+    name: 'Video to GIF',
+    description: 'Convert a video clip to GIF with configurable range, FPS and width; fully local',
+  },
   png_compressor: {
     name: 'PNG Compressor',
     description:

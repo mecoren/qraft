@@ -514,6 +514,26 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       keywords: ['选择图片', '拖放', '清除', '转换', '导出', '下载'],
     },
   ],
+  video_to_gif: [
+    {
+      key: 'config',
+      title: { zh: '转换配置', en: 'Conversion options' },
+      description: {
+        zh: '片段起止时间、帧率与输出宽度',
+        en: 'Clip range, frame rate and output width',
+      },
+      keywords: ['视频', 'gif', '帧率', 'fps', '宽度', '片段', '起止'],
+    },
+    {
+      key: 'workbench',
+      title: { zh: '视频与结果', en: 'Video & result' },
+      description: {
+        zh: '选择或拖放视频,抽帧转换并预览下载 GIF',
+        en: 'Pick or drop a video; extract frames and preview/download the GIF',
+      },
+      keywords: ['选择视频', '拖放', '抽帧', '预览', '下载 gif'],
+    },
+  ],
   png_compressor: [
     {
       key: 'config',

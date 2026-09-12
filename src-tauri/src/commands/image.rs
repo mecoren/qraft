@@ -7,6 +7,7 @@
 
 use base64::Engine as _;
 
+use crate::media::gif::{GifEncodeInput, GifEncodeResult, encode_gif_inner};
 use crate::media::png::{PngCompressParams, PngCompressResult, compress_inner};
 use crate::shell::AppError;
 use crate::shell::response::CommandResponse;
@@ -26,6 +27,21 @@ pub async fn png_compress(
         .decode(base64.trim())
         .map_err(|e| AppError::Unknown(format!("invalid base64: {e}")))?;
     let result = tokio::task::spawn_blocking(move || compress_inner(&bytes, &params))
+        .await
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("join error: {e}")))??;
+    Ok(CommandResponse::ok(result))
+}
+
+/// GIF 编码(视频转 GIF 的编码侧;帧数据由前端抽好后整体过 IPC)
+///
+/// # Errors
+///
+/// - 帧为空 / 尺寸或帧数超限 / 帧长度不符时由核心返回对应错误
+#[tauri::command]
+pub async fn gif_encode(
+    input: GifEncodeInput,
+) -> Result<CommandResponse<GifEncodeResult>, AppError> {
+    let result = tokio::task::spawn_blocking(move || encode_gif_inner(&input))
         .await
         .map_err(|e| AppError::Internal(anyhow::anyhow!("join error: {e}")))??;
     Ok(CommandResponse::ok(result))
