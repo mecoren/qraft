@@ -470,7 +470,16 @@
       "computing": "Computing",
       "output_title": "Hash",
       "output_placeholder": "Click Compute in the left toolbar to generate a hash",
-      "bytes_unit": "{{count}} bytes · {{ms}}ms"
+      "bytes_unit": "{{count}} bytes · {{ms}}ms",
+      "label_mode": "Input type",
+      "mode_hint": "Hash text directly; files stream in 64KB chunks with constant memory",
+      "mode_text": "Text",
+      "mode_file": "File",
+      "file_title": "File hash",
+      "choose_file": "Choose file",
+      "dropzone_hint": "Drop a file here, or click Choose file in the top right",
+      "progress_aria": "Hashing progress",
+      "cancel": "Cancel"
     }
   }
 }

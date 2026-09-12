@@ -14,6 +14,7 @@ vi.mock('@/lib/ipc', () => {
   }
   return {
     invokeCommand: vi.fn(),
+    safeInvoke: vi.fn(async () => ({ ok: true, value: 'task-1' })),
     CommandError,
   };
 });
@@ -21,6 +22,14 @@ vi.mock('@/lib/ipc', () => {
 // 统一复制反馈经 sonner 弹出;组件测试不挂载 <Toaster>,改以 mock 断言文案
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
+}));
+
+// webview 拖放订阅 mock(FolderAnalyzer.test 同款;jsdom 无 __TAURI_INTERNALS__,
+// isTauriRuntime()=false 时不触达,该 mock 仅防御性存在)
+vi.mock('@tauri-apps/api/webview', () => ({
+  getCurrentWebview: () => ({
+    onDragDropEvent: vi.fn(async () => () => {}),
+  }),
 }));
 
 import { HashCalculator } from './HashCalculator';
@@ -183,5 +192,77 @@ describe('HashCalculator', () => {
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/^[0-9a-f]{64}$/));
     });
+  });
+
+  // —— 文件哈希模式(流式任务)——
+
+  /** radix Tabs 在 onMouseDown 时激活 tab,需用 mouseDown 而非 click(Base64Codec.test 同款) */
+  function switchToFileMode(): void {
+    fireEvent.mouseDown(screen.getByTestId('hash-mode-file'));
+  }
+
+  it('切到文件模式显示拖放区与选择按钮,默认不触发任何执行', () => {
+    const { invokeCommand } = { invokeCommand: undefined };
+    void invokeCommand;
+    render(<HashCalculator toolId="hash_calculator" metadata={null as never} />);
+
+    switchToFileMode();
+
+    expect(screen.getByTestId('hash-file-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('hash-dropzone')).toBeInTheDocument();
+    expect(screen.getByTestId('hash-open')).toBeInTheDocument();
+  });
+
+  it('选择文件后启动流式任务并展示进度与结果', async () => {
+    const { invokeCommand } = await import('@/lib/ipc');
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockImplementation((async (
+      cmd: string,
+    ) => {
+      if (cmd === 'fs_pick_file_path') {
+        return { path: 'C:/tmp/setup.exe', size: 10485760 };
+      }
+      if (cmd === 'tool_cancel') return true;
+      return HASH_OK;
+    }) as never);
+
+    render(<HashCalculator toolId="hash_calculator" metadata={null as never} />);
+    switchToFileMode();
+    fireEvent.click(screen.getByTestId('hash-open'));
+
+    // 启动流式任务:tool_execute_stream 携带路径 + 当前算法
+    await waitFor(() => {
+      expect(invokeCommand).toHaveBeenCalledWith('fs_pick_file_path', {});
+    });
+    const { safeInvoke } = await import('@/lib/ipc');
+    await waitFor(() => {
+      expect(safeInvoke).toHaveBeenCalledWith('tool_execute_stream', {
+        toolId: 'hash_calculator',
+        filePath: 'C:/tmp/setup.exe',
+        text: undefined,
+        params: { algorithm: 'sha256' },
+      });
+    });
+    // 文件信息区展示路径;任务 running 时显示进度与取消按钮
+    expect(await screen.findByTestId('hash-file-info')).toHaveTextContent('setup.exe');
+    expect(screen.getByTestId('hash-progress')).toBeInTheDocument();
+    expect(screen.getByTestId('hash-cancel')).toBeInTheDocument();
+  });
+
+  it('流式任务失败展示内联错误', async () => {
+    const { safeInvoke, invokeCommand } = await import('@/lib/ipc');
+    (safeInvoke as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false,
+      error: { code: 'ERR_PERMISSION_DENIED', message: 'path not authorized' },
+    });
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      path: 'C:/x.bin',
+      size: 1,
+    });
+
+    render(<HashCalculator toolId="hash_calculator" metadata={null as never} />);
+    switchToFileMode();
+    fireEvent.click(screen.getByTestId('hash-open'));
+
+    expect(await screen.findByTestId('hash-file-error')).toHaveTextContent('ERR_PERMISSION_DENIED');
   });
 });

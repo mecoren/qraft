@@ -152,12 +152,15 @@ impl StreamingTool for HashCalculator {
     fn execute_stream(
         &self,
         input: ToolInput,
-        _ctx: &ToolContext,
+        ctx: &ToolContext,
     ) -> BoxStream<'static, Result<StreamEvent, ToolError>> {
         let algorithm: String = input
             .param("algorithm")
             .unwrap_or_else(|_| "sha256".to_string());
         let file_path = input.file_path;
+        // BoxStream 要求 'static:取消令牌在 stream 构造前克隆移入,
+        // 不借用 ctx 引用(folder_analyzer 流式任务同款做法)
+        let cancel = ctx.cancel_token.clone();
 
         Box::pin(async_stream::stream! {
             let path = if let Some(p) = file_path.as_deref() { p.to_string() } else {
@@ -218,6 +221,12 @@ impl StreamingTool for HashCalculator {
             let mut buf = vec![0u8; 64 * 1024];
             let mut read_total: u64 = 0;
             loop {
+                // 用户取消:立即中止哈希(与 folder_analyzer 流式任务同口径,
+                // 每 64KB 块检查一次 token;Cancelled 走 tool_failed 事件)
+                if cancel.is_cancelled() {
+                    yield Err(ToolError::Cancelled);
+                    return;
+                }
                 let n = match file.read(&mut buf).await {
                     Ok(0) => break,
                     Ok(n) => n,

@@ -470,7 +470,16 @@
       "computing": "计算中",
       "output_title": "哈希值",
       "output_placeholder": "点击左栏工具栏「计算」生成哈希",
-      "bytes_unit": "{{count}} 字节 · {{ms}}ms"
+      "bytes_unit": "{{count}} 字节 · {{ms}}ms",
+      "label_mode": "输入类型",
+      "mode_hint": "文本直接计算;文件走流式读取,GB 级文件内存占用恒定",
+      "mode_text": "文本",
+      "mode_file": "文件",
+      "file_title": "文件哈希",
+      "choose_file": "选择文件",
+      "dropzone_hint": "拖放文件到此处,或点击右上「选择文件」",
+      "progress_aria": "哈希计算进度",
+      "cancel": "取消"
     }
   }
 }

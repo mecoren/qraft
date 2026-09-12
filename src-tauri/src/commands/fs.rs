@@ -873,6 +873,54 @@ pub async fn fs_open_folder_dialog(
     })))
 }
 
+/// 弹出「选择文件」对话框:只授权并返回路径元信息,不读内容
+///
+/// 供哈希计算等「消费原始字节、不需要文本解码」的工具使用;与
+/// `fs_open_dialog`(整读文本)和 `fs_open_pdf_dialog`(info+分块读)不同,
+/// 本命令对话框阶段零 IO,大文件是否读取、如何读取由调用方自行决定。
+/// 用户取消时返回 `Ok(CommandResponse::ok(None))`。
+///
+/// # Errors
+///
+/// - 对话框路径转换失败时返回 `AppError::Unknown`
+/// - 文件元数据读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+#[tauri::command]
+pub async fn fs_pick_file_path(
+    app: tauri::AppHandle,
+    authorized: tauri::State<'_, AuthorizedPaths>,
+) -> Result<CommandResponse<Option<PickedFileMeta>>, AppError> {
+    let Some(path) = app
+        .dialog()
+        .file()
+        .set_title("选择文件")
+        .blocking_pick_file()
+    else {
+        // 用户取消对话框:返回 None,前端据此静默处理(不视为错误)
+        return Ok(CommandResponse::ok(None));
+    };
+    let path_buf = path
+        .into_path()
+        .map_err(|e| AppError::Unknown(format!("pick file path invalid: {e}")))?;
+    let path_str = path_buf.to_string_lossy().into_owned();
+    authorized.authorize(&path_str);
+    let size = tokio::fs::metadata(&path_str)
+        .await
+        .map_err(AppError::from)?
+        .len();
+    Ok(CommandResponse::ok(Some(PickedFileMeta {
+        path: path_str,
+        size,
+    })))
+}
+
+/// `fs_pick_file_path` 返回的文件元信息(路径 + 大小)
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PickedFileMeta {
+    pub path: String,
+    pub size: u64,
+}
+
 /// 枚举指定目录的内容(必须在授权集合或其授权目录子树内)
 ///
 /// # Errors
