@@ -20,9 +20,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'rea
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
+  Combine,
+  Download,
+  FileOutput,
   FileText,
   FolderOpen,
   Highlighter,
+  Images,
   MessageSquare,
   Minus,
   Plus,
@@ -49,11 +53,18 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { cn } from '@/lib/utils';
+import { downloadBlob, formatBytes } from '@/lib/file-utils';
 import { fileNameFromPath } from '@/tools/code-editor-workspace/languageMap';
-import { formatBytes } from '@/lib/file-utils';
 import { CommandError } from '@/lib/ipc';
 import { usePdfDocsStore, type PdfDoc } from './pdfDocsStore';
 import { fetchPdfFile, openPdfDialog, savePdfBytes, savePdfWithDialog } from './pdfOps';
+import {
+  extractPagesAsImages,
+  formatPageList,
+  mergePdfs,
+  parsePageRange,
+  splitPages,
+} from './pdfPages';
 import {
   applyFormValues,
   extractFormFields,
@@ -373,6 +384,77 @@ function PdfWorkspace({
     [overlays, selectedOverlayId],
   );
 
+  // —— 页面操作(提取 / 转图片)——
+  const openPdfBytes = usePdfDocsStore((s) => s.openPdfBytes);
+  const [pageRange, setPageRange] = useState('');
+  const [imageFormat, setImageFormat] = useState<'png' | 'jpeg'>('png');
+  const [imageScale, setImageScale] = useState(2);
+  const [pagesBusy, setPagesBusy] = useState<'extract' | 'images' | null>(null);
+
+  /** 范围表达式 → 页号列表;空表达式视为全选(与 hint 文案一致) */
+  const resolvedPages = useMemo(() => {
+    if (pageCount === 0) return null;
+    if (!pageRange.trim()) return Array.from({ length: pageCount }, (_, i) => i + 1);
+    return parsePageRange(pageRange, pageCount);
+  }, [pageCount, pageRange]);
+
+  /** 提取选中页为新 PDF(新 Tab 承载,原 Tab 不动) */
+  const onExtractPages = useCallback(async () => {
+    if (pagesBusy || !docBase64 || !resolvedPages) return;
+    setPagesBusy('extract');
+    try {
+      const base64 = await splitPages(docBase64, resolvedPages);
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      openPdfBytes({
+        title: `${fileNameFromPath(doc.path ?? 'document.pdf').replace(/\.pdf$/i, '')}-${formatPageList(resolvedPages)}.pdf`,
+        base64,
+        size: bytes.length,
+      });
+      toast.success(t('tools.pdf_editor.pages_extract_done', { pages: resolvedPages.length }));
+    } catch (e) {
+      toast.error(
+        t('tools.pdf_editor.pages_op_failed', {
+          message: e instanceof Error ? e.message : String(e),
+        }),
+      );
+    } finally {
+      setPagesBusy(null);
+    }
+  }, [doc.path, docBase64, openPdfBytes, pagesBusy, resolvedPages, t]);
+
+  /** 选中页导出为图片(多张时逐张触发下载,文件名带页号) */
+  const onExportImages = useCallback(async () => {
+    if (pagesBusy || !docBase64 || !resolvedPages) return;
+    setPagesBusy('images');
+    try {
+      const results = await extractPagesAsImages(docBase64, {
+        pageNumbers: resolvedPages,
+        scale: imageScale,
+        format: imageFormat,
+      });
+      if (results.length === 0) {
+        toast.warning(t('tools.pdf_editor.pages_export_none'));
+        return;
+      }
+      const stem = fileNameFromPath(doc.path ?? 'document').replace(/\.pdf$/i, '');
+      for (const r of results) {
+        const blob = new Blob([r.bytes as BlobPart], {
+          type: r.format === 'png' ? 'image/png' : 'image/jpeg',
+        });
+        downloadBlob(`${stem}-p${r.pageNumber}.${r.format === 'png' ? 'png' : 'jpg'}`, blob);
+      }
+      toast.success(t('tools.pdf_editor.pages_export_done', { count: results.length }));
+    } catch (e) {
+      toast.error(
+        t('tools.pdf_editor.pages_op_failed', {
+          message: e instanceof Error ? e.message : String(e),
+        }),
+      );
+    } finally {
+      setPagesBusy(null);
+    }
+  }, [doc.path, docBase64, imageFormat, imageScale, pagesBusy, resolvedPages, t]);
+
   const modeTools: Array<{ id: typeof mode; icon: typeof Type; label: string }> = [
     { id: 'select', icon: FileText, label: t('tools.pdf_editor.mode_select') },
     { id: 'text', icon: Type, label: t('tools.pdf_editor.mode_text') },
@@ -622,6 +704,78 @@ function PdfWorkspace({
                       />
                     )}
                 </section>
+
+                {/* 页面操作面板:提取 / 转图片 */}
+                <section data-search-anchor="pdf_editor:pages">
+                  <h3 className="mb-2 flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+                    <FileOutput className="size-3.5" />
+                    {t('tools.pdf_editor.pages_section')}
+                    {pageCount > 0 && <span className="font-normal">({pageCount}P)</span>}
+                  </h3>
+                  <div className="space-y-2">
+                    <Input
+                      className="h-7 text-xs"
+                      placeholder={t('tools.pdf_editor.pages_extract_hint')}
+                      value={pageRange}
+                      onChange={(e) => setPageRange(e.target.value)}
+                      data-testid="pdf-page-range"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-full gap-1 px-2 text-xs"
+                      disabled={pagesBusy !== null || !resolvedPages}
+                      onClick={() => void onExtractPages()}
+                      data-testid="pdf-extract-pages"
+                    >
+                      <FileText aria-hidden className="size-3.5" />
+                      {t('tools.pdf_editor.pages_extract')}
+                    </Button>
+
+                    <div className="flex items-center gap-1 pt-1 text-xs text-muted-foreground">
+                      <Images aria-hidden className="size-3.5" />
+                      <span className="pl-0.5">{t('tools.pdf_editor.pages_to_images')}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={imageFormat}
+                        onValueChange={(v) => setImageFormat(v as 'png' | 'jpeg')}
+                      >
+                        <SelectTrigger className="h-7 w-20 text-xs" data-testid="pdf-image-format">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="png">PNG</SelectItem>
+                          <SelectItem value="jpeg">JPEG</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={String(imageScale)}
+                        onValueChange={(v) => setImageScale(Number(v))}
+                      >
+                        <SelectTrigger className="h-7 w-20 text-xs" data-testid="pdf-image-scale">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1×</SelectItem>
+                          <SelectItem value="2">2×</SelectItem>
+                          <SelectItem value="3">3×</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="ml-auto h-7 gap-1 px-2 text-xs"
+                        disabled={pagesBusy !== null || !resolvedPages}
+                        onClick={() => void onExportImages()}
+                        data-testid="pdf-export-images"
+                      >
+                        <Download aria-hidden className="size-3.5" />
+                        {t('tools.pdf_editor.pages_export_images')}
+                      </Button>
+                    </div>
+                  </div>
+                </section>
               </div>
             </ScrollArea>
           </ResizablePanel>
@@ -833,6 +987,38 @@ export function PdfEditorTool({ metadata }: ToolProps): JSX.Element {
   }, []);
 
   const activeDoc = docs.find((d) => d.id === activeDocId) ?? null;
+
+  /** 合并执行中(按钮禁用) */
+  const [merging, setMerging] = useState(false);
+
+  /**
+   * 合并全部打开的文档(Tab 顺序即合并顺序,结果以新 Tab 承载)。
+   * 页面操作产物(提取/合并)与原文件不互相覆盖:统一走无路径新 Tab。
+   */
+  const onMerge = useCallback(async () => {
+    if (merging) return;
+    if (docs.length < 2) {
+      toast.info(t('tools.pdf_editor.merge_need_two'));
+      return;
+    }
+    setMerging(true);
+    try {
+      const base64 = await mergePdfs(docs.map((d) => d.base64));
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      usePdfDocsStore.getState().openPdfBytes({
+        title: t('tools.pdf_editor.merge_title'),
+        base64,
+        size: bytes.length,
+      });
+      toast.success(t('tools.pdf_editor.merge_done', { count: docs.length }));
+    } catch (e) {
+      toast.error(
+        t('tools.pdf_editor.merge_failed', { message: e instanceof Error ? e.message : String(e) }),
+      );
+    } finally {
+      setMerging(false);
+    }
+  }, [docs, merging, t]);
 
   /** Tab 栏展示顺序(PDF 无固定语义,占位以对齐标准 Tab 栏的排序钩子) */
   const sortedDocs = useMemo(() => docs, [docs]);
@@ -1086,7 +1272,19 @@ export function PdfEditorTool({ metadata }: ToolProps): JSX.Element {
             })}
           </div>
         </ScrollArea>
-        {/* 「打开」按钮固定在滚动区外右端(对齐 VSCode):Tab 溢出滚动时始终可见可点 */}
+        {/* 「合并」按钮:把全部打开的 Tab 按 Tab 顺序合并为新文档;
+            打开按钮固定在滚动区外右端(对齐 VSCode):Tab 溢出滚动时始终可见可点 */}
+        <button
+          type="button"
+          data-testid="pdf-merge-all"
+          title={t('tools.pdf_editor.merge')}
+          aria-label={t('tools.pdf_editor.merge')}
+          onClick={() => void onMerge()}
+          disabled={merging || docs.length < 2}
+          className="flex size-7 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
+        >
+          <Combine aria-hidden className="size-3.5" />
+        </button>
         <button
           type="button"
           data-testid="pdf-open-more"

@@ -145,4 +145,25 @@ describe('pdfDocsStore', () => {
     expect(findDocByPath(docs, 'c:/docs/表单.PDF')).not.toBeNull();
     expect(findDocByPath(docs, 'C:\\other.pdf')).toBeNull();
   });
+
+  it('openPdfBytes 以无路径新 Tab 承载页面操作产物', () => {
+    usePdfDocsStore.getState().openPdfFromSystem({
+      path: 'C:\\a.pdf',
+      base64: 'A',
+      size: 1,
+    });
+    usePdfDocsStore.getState().openPdfBytes({
+      title: 'a-1-2.pdf',
+      base64: 'EXTRACTED',
+      size: 9,
+    });
+    const s = usePdfDocsStore.getState();
+    expect(s.docs).toHaveLength(2);
+    const extracted = s.docs[1]!;
+    expect(extracted.title).toBe('a-1-2.pdf');
+    expect(extracted.path).toBeNull();
+    expect(extracted.base64).toBe('EXTRACTED');
+    expect(extracted.dirty).toBe(false);
+    expect(s.activeDocId).toBe(extracted.id);
+  });
 });

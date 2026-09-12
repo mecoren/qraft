@@ -672,6 +672,15 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       keywords: ['标注', '批注', '高亮', '删除线', '便签', 'annotate'],
     },
     {
+      key: 'pages',
+      title: { zh: '页面操作', en: 'Page operations' },
+      description: {
+        zh: '按页码范围提取为新 PDF,或把页面导出为 PNG / JPEG 图片',
+        en: 'Extract a page range into a new PDF, or export pages as PNG / JPEG images',
+      },
+      keywords: ['提取', '拆分', '页面', '转图片', '导出', 'extract', 'split', 'images'],
+    },
+    {
       key: 'save',
       title: { zh: '保存', en: 'Save' },
       description: { zh: '覆盖写回与另存为', en: 'Overwrite save and save-as' },

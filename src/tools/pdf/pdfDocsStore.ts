@@ -44,6 +44,8 @@ interface PdfDocsState {
   openPdfFromSystem: (input: SystemOpenPdfInput) => void;
   /** 打开 PDF(对话框/工具内操作):同上,但语义来自用户主动操作 */
   openPdfFromUser: (input: Omit<SystemOpenPdfInput, 'path'> & { path: string | null }) => void;
+  /** 以内存字节新开 Tab(页面提取/合并的产物;无路径,保存走「另存为」) */
+  openPdfBytes: (input: { title: string; base64: string; size: number }) => void;
   /** 关闭文档,激活态自动跳到相邻 */
   closeDoc: (id: string) => void;
   /** 切换激活文档 */
@@ -139,6 +141,21 @@ export const usePdfDocsStore = create<PdfDocsState>((set, get) => ({
       id: createId(),
       title: titleFromPath(path, docs),
       path,
+      base64,
+      size,
+      dirty: false,
+    };
+    set((s) => ({
+      docs: [...s.docs, doc],
+      activeDocId: doc.id,
+    }));
+  },
+
+  openPdfBytes: ({ title, base64, size }) => {
+    const doc: PdfDoc = {
+      id: createId(),
+      title,
+      path: null,
       base64,
       size,
       dirty: false,
