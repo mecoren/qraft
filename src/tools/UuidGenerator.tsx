@@ -24,7 +24,9 @@ import {
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection, HeaderAction } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
+import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { invokeCommand } from '@/lib/ipc';
+import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import type { ToolProps } from './registry';
 import type { ToolOutput } from '@/types/tool';
 
@@ -47,7 +49,13 @@ export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
   async function handleGenerate() {
     setLoading(true);
     try {
-      const params: UuidParams = { version, count, uppercase, hyphens };
+      const params: UuidParams = {
+        version,
+        // 非法/越界数量按 1 兜底(UlidGenerator 同口径),不再把 0 发给后端报错
+        count: Math.floor(count) || 1,
+        uppercase,
+        hyphens,
+      };
       const result = await invokeCommand<ToolOutput>('tool_execute', {
         toolId,
         input: { text: undefined, params },
@@ -59,6 +67,12 @@ export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
       setLoading(false);
     }
   }
+
+  useToolShortcutActions(toolId, {
+    execute: loading ? undefined : () => void handleGenerate(),
+    clearInput: () => setOutput(''),
+    copyOutput: output ? () => void copyTextWithFeedback(output) : undefined,
+  });
 
   return (
     // 外层 shell 卡片(对齐 JsonFormatter / EditorWorkbench 基准):
@@ -138,5 +152,3 @@ export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
     </div>
   );
 }
-
-/** 把任意异常格式化为输出框可显示的错误文本(与其他新代工具一致) */

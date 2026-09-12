@@ -5,7 +5,22 @@ vi.mock('@/lib/ipc', () => ({
   invokeCommand: vi.fn(),
 }));
 
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
+}));
+
 import { UuidGenerator } from './UuidGenerator';
+import { clearInputAction, copyOutputAction, executeToolAction } from '@/lib/tool-actions';
+import { useShortcut } from '@/hooks/useShortcut';
+import { useToolStateStore } from '@/store/toolStateStore';
+
+/** 镜像 App.tsx 的快捷键接线(单测不挂载整个 App) */
+function ShortcutHarness(): null {
+  useShortcut('execute_tool', () => executeToolAction(), []);
+  useShortcut('clear_input', () => clearInputAction(), []);
+  useShortcut('copy_output', () => copyOutputAction(), []);
+  return null;
+}
 
 describe('UuidGenerator', () => {
   beforeEach(() => {
@@ -58,6 +73,52 @@ describe('UuidGenerator', () => {
       expect(output.value).toContain('uuid1');
       expect(output.value).toContain('uuid2');
       expect(output.value).toContain('uuid3');
+    });
+  });
+
+  it('清空数量输入后兜底为 1,不再把 0 发给后端报错', async () => {
+    const { invokeCommand } = await import('@/lib/ipc');
+    (invokeCommand as ReturnType<typeof vi.fn>).mockResolvedValue({ text: 'u' });
+
+    render(<UuidGenerator toolId="uuid_generator" metadata={null as never} />);
+    // 清空输入框:Number('')=NaN,旧实现把 NaN/0 直接发给后端触发 ERR_INVALID_INPUT
+    fireEvent.change(screen.getByRole('spinbutton', { name: /数量/ }), {
+      target: { value: '' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /生成/ }));
+
+    await waitFor(() => {
+      expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
+        toolId: 'uuid_generator',
+        input: {
+          text: undefined,
+          params: { version: 'v4', count: 1, uppercase: false, hyphens: true },
+        },
+      });
+    });
+  });
+
+  it('Ctrl+Enter 快捷键触发生成(接线回归)', async () => {
+    const { invokeCommand } = await import('@/lib/ipc');
+    (invokeCommand as ReturnType<typeof vi.fn>).mockResolvedValue({ text: 'u' });
+
+    useToolStateStore.setState({ currentToolId: 'uuid_generator' });
+    render(
+      <>
+        <ShortcutHarness />
+        <UuidGenerator toolId="uuid_generator" metadata={null as never} />
+      </>,
+    );
+    fireEvent.keyDown(window, { key: 'Enter', ctrlKey: true });
+
+    await waitFor(() => {
+      expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
+        toolId: 'uuid_generator',
+        input: {
+          text: undefined,
+          params: { version: 'v4', count: 1, uppercase: false, hyphens: true },
+        },
+      });
     });
   });
 });
