@@ -29,25 +29,44 @@ export interface PasswordOptions {
   excludeAmbiguous: boolean;
 }
 
-const AMBIGUOUS = new Set('Il1O0o`|');
+/**
+ * 易混淆字符集合。只收录各字符池中真实存在的字符:` 和 | 不在 SYMBOLS 池内,
+ * 声明它们只会让「排除易混淆」hint 误导用户(排除前后密码内容不变)。
+ */
+const AMBIGUOUS = new Set('Il1O0o');
 
-export function generatePassword(opts: PasswordOptions): string {
+/** 按选项计算过滤易混淆字符后的实际字符池(生成与熵计算共用同一来源) */
+function effectivePool(opts: PasswordOptions): string {
   let pool = '';
-  const groups: string[] = [];
   const addGroup = (chars: string): void => {
     const filtered = opts.excludeAmbiguous
       ? [...chars].filter((c) => !AMBIGUOUS.has(c)).join('')
       : chars;
-    if (filtered) {
-      pool += filtered;
-      groups.push(filtered);
-    }
+    pool += filtered;
   };
   if (opts.lower) addGroup(LOWER);
   if (opts.upper) addGroup(UPPER);
   if (opts.digits) addGroup(DIGITS);
   if (opts.symbols) addGroup(SYMBOLS);
+  return pool;
+}
+
+export function generatePassword(opts: PasswordOptions): string {
+  const pool = effectivePool(opts);
   if (!pool) throw new Error(t('tools.password_generator.error_no_char_type'));
+
+  // 前 groups.length 位保证每组至少一个字符:按组单独过滤后再切组
+  const groups: string[] = [];
+  const addGroup = (chars: string): void => {
+    const filtered = opts.excludeAmbiguous
+      ? [...chars].filter((c) => !AMBIGUOUS.has(c)).join('')
+      : chars;
+    if (filtered) groups.push(filtered);
+  };
+  if (opts.lower) addGroup(LOWER);
+  if (opts.upper) addGroup(UPPER);
+  if (opts.digits) addGroup(DIGITS);
+  if (opts.symbols) addGroup(SYMBOLS);
 
   const length = Math.min(Math.max(opts.length, 4), 256);
   const rand = new Uint32Array(length);
@@ -67,18 +86,18 @@ export function generatePassword(opts: PasswordOptions): string {
   return chars.join('');
 }
 
-/** 粗略强度:池大小与长度的信息熵(bit) */
+/**
+ * 粗略强度:池大小与长度的信息熵(bit)。
+ * 池大小取过滤易混淆后的实际字符池(effectivePool 同源),排除后池变小、
+ * 熵相应下调——旧实现按完整字符集计,熵被高估。
+ */
 export function passwordEntropy(opts: PasswordOptions): number {
-  let poolSize = 0;
-  if (opts.lower) poolSize += 26;
-  if (opts.upper) poolSize += 26;
-  if (opts.digits) poolSize += 10;
-  if (opts.symbols) poolSize += SYMBOLS.length;
+  const poolSize = effectivePool(opts).length;
   if (poolSize === 0) return 0;
   return Math.round(opts.length * Math.log2(poolSize));
 }
 
-/** 粗略强度:池大小与长度的信息熵(bit);label 为 i18n 键,渲染时经 t() 翻译 */
+/** 按熵值分档强度;label 为 i18n 键,渲染时经 t() 翻译 */
 function strengthLabel(entropy: number): { label: string; percent: number } {
   if (entropy >= 128)
     return { label: 'tools.password_generator.strength_very_strong', percent: 100 };
@@ -170,7 +189,7 @@ export function PasswordGenerator(_props: ToolProps): JSX.Element {
         <ConfigRow
           icon={TypeIcon}
           label={t('tools.password_generator.exclude_ambiguous')}
-          hint="I l 1 O 0 o | `"
+          hint="I l 1 O 0 o"
         >
           <Switch
             checked={excludeAmbiguous}
