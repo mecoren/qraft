@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { downloadText } from '@/lib/file-utils';
+import { downloadCsv, downloadText } from '@/lib/file-utils';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import { SendToMenu } from '@/components/send-to-menu';
@@ -92,7 +92,7 @@ export function JsonCsvConverter({ toolId }: ToolProps): JSX.Element {
   const download = (): void => {
     if (!output) return;
     if (direction === 'json_to_csv') {
-      downloadText('converted.csv', output, 'text/csv');
+      downloadCsv('converted.csv', output);
     } else {
       downloadText('converted.json', output, 'application/json');
     }

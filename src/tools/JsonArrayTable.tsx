@@ -12,7 +12,7 @@ import { ConfigRow, ConfigSection, HeaderAction } from '@/components/config-card
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
-import { downloadText } from '@/lib/file-utils';
+import { downloadCsv, downloadTsv } from '@/lib/file-utils';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import {
@@ -181,8 +181,7 @@ export function JsonArrayTable({ toolId }: ToolProps): JSX.Element {
                   testId="jat-csv"
                   disabled={!canExport}
                   onClick={() => {
-                    if (sorted)
-                      downloadText('table.csv', tableToDelimited(sorted, ','), 'text/csv');
+                    if (sorted) downloadCsv('table.csv', tableToDelimited(sorted, ','));
                   }}
                 >
                   <Download aria-hidden className="size-3.5" /> CSV
@@ -191,12 +190,7 @@ export function JsonArrayTable({ toolId }: ToolProps): JSX.Element {
                   testId="jat-tsv"
                   disabled={!canExport}
                   onClick={() => {
-                    if (sorted)
-                      downloadText(
-                        'table.tsv',
-                        tableToDelimited(sorted, '\t'),
-                        'text/tab-separated-values',
-                      );
+                    if (sorted) downloadTsv('table.tsv', tableToDelimited(sorted, '\t'));
                   }}
                 >
                   <Download aria-hidden className="size-3.5" /> TSV

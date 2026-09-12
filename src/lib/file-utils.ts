@@ -43,6 +43,24 @@ export function downloadText(filename: string, text: string, mime = 'text/plain'
   downloadBlob(filename, blob);
 }
 
+/**
+ * 触发下载一个 CSV 文本（UTF-8 BOM 前置）。
+ * Excel 双击打开无 BOM 的 UTF-8 CSV 时按 ANSI（GBK）解码，中文列必乱码；
+ * BOM（U+FEFF，即 UTF-8 的 EF BB BF）令其正确识别为 UTF-8。
+ */
+export function downloadCsv(filename: string, text: string): void {
+  const blob = new Blob(['\uFEFF', text], { type: 'text/csv;charset=utf-8' });
+  downloadBlob(filename, blob);
+}
+
+/**
+ * 触发下载一个 TSV 文本（UTF-8 BOM 前置，理由同 {@link downloadCsv}）。
+ */
+export function downloadTsv(filename: string, text: string): void {
+  const blob = new Blob(['\uFEFF', text], { type: 'text/tab-separated-values;charset=utf-8' });
+  downloadBlob(filename, blob);
+}
+
 /** 触发浏览器下载一�?Blob */
 export function downloadBlob(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
