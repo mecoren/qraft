@@ -8,5 +8,6 @@
   "tools.lorem_ipsum.count_aria": "Amount to generate",
   "tools.lorem_ipsum.label_start_with_lorem": "Start with \"Lorem ipsum\"",
   "tools.lorem_ipsum.start_with_lorem_aria": "Start with Lorem ipsum",
-  "tools.lorem_ipsum.output_title": "Generated Result"
+  "tools.lorem_ipsum.output_title": "Generated Result",
+  "tools.lorem_ipsum.regenerate": "Regenerate"
 }

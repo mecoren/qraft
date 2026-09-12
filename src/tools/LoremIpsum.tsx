@@ -2,9 +2,9 @@
  * 乱数假文生成器 —— 词/句/段三种粒度
  */
 
-import { useMemo, useState, type JSX } from 'react';
+import { useCallback, useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileText, ListOrdered, Pilcrow } from 'lucide-react';
+import { FileText, ListOrdered, Pilcrow, RefreshCw } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -81,10 +81,16 @@ export function LoremIpsum(_props: ToolProps): JSX.Element {
   const [granularity, setGranularity] = useState<Granularity>('paragraphs');
   const [count, setCount] = useState(3);
   const [startWithLorem, setStartWithLorem] = useState(true);
+  // 重新生成种子:useMemo 依赖它打破「输出只随配置变化」——同配置下点
+  // 「重新生成」也能得到新的随机文本(此前输出被配置 memo 锁死)
+  const [seed, setSeed] = useState(0);
 
   const output = useMemo(() => {
+    void seed;
     return generateLorem(granularity, count, startWithLorem);
-  }, [granularity, count, startWithLorem]);
+  }, [granularity, count, startWithLorem, seed]);
+
+  const regenerate = useCallback(() => setSeed((s) => s + 1), []);
 
   return (
     // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与输出编辑器收进同一卡片
@@ -113,13 +119,18 @@ export function LoremIpsum(_props: ToolProps): JSX.Element {
             </SelectContent>
           </Select>
         </ConfigRow>
-        <ConfigRow icon={ListOrdered} label={t('tools.lorem_ipsum.label_count')}>
+        <ConfigRow icon={ListOrdered} label={t('tools.lorem_ipsum.label_count')} hint="1 ~ 999">
           <Input
             type="number"
             min={1}
             max={999}
             value={count}
-            onChange={(e) => setCount(Number(e.target.value) || 1)}
+            onChange={(e) => {
+              // 钳制口径与 generateLorem 一致:输入越界值立即钳到 1..999,
+              // 框内显示值即实际生成量(此前可显示 5000 但生成恒为 999 条)
+              const n = Math.floor(Number(e.target.value)) || 1;
+              setCount(Math.min(999, Math.max(1, n)));
+            }}
             aria-label={t('tools.lorem_ipsum.count_aria')}
             data-testid="lorem-count"
             className="h-7 w-20 text-right text-body-sm"
@@ -143,7 +154,21 @@ export function LoremIpsum(_props: ToolProps): JSX.Element {
         data-testid="lorem-output"
         className="min-h-0 flex-1 rounded-none border-0"
         searchAnchor="lorem_ipsum:output"
-        actions={<CopyAction text={output} testId="lorem-copy" />}
+        actions={
+          <>
+            <button
+              type="button"
+              data-testid="lorem-regenerate"
+              title={t('tools.lorem_ipsum.regenerate')}
+              aria-label={t('tools.lorem_ipsum.regenerate')}
+              onClick={regenerate}
+              className="flex h-[26px] items-center gap-1 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <RefreshCw aria-hidden className="size-3.5" /> {t('tools.lorem_ipsum.regenerate')}
+            </button>
+            <CopyAction text={output} testId="lorem-copy" />
+          </>
+        }
       />
     </div>
   );
