@@ -43,6 +43,10 @@ describe('前端数据加工层基准(jsdom,相对回归基线)', () => {
     searchIndex('');
   });
 
+  bench('search-index 模糊查询(jsf 缩写全索引打分排序)', () => {
+    searchIndex('jsf');
+  });
+
   bench('compileMatcher 单行 600 次命中(大小写不敏感)', () => {
     const matcher = compileMatcher('value', {});
     matcher?.(bigLine);

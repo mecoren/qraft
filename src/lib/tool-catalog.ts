@@ -51,6 +51,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { getLocale } from '@/i18n';
+import { fuzzyScore, NO_MATCH } from './fuzzy-match';
 
 // ============================================================
 // 本地化基础(方案乙:就地双语字段)
@@ -801,22 +802,24 @@ export function getCatalogEntry(id: string): CatalogEntry | null {
 }
 
 /**
- * 按关键词过滤目录
+ * 按关键词模糊过滤目录(子串优先 + 缩写子序列,与命令面板/全局搜索同口径)
  *
- * 匹配字段:名称 / 描述 / 关键词;大小写不敏感。
- * 空查询返回原顺序全量。
+ * 匹配字段:名称 / 描述 / 关键词(zh+en+keywords 拼接);大小写不敏感,
+ * 命中按相关度降序。空查询返回原顺序全量。
  */
 export function searchCatalog(query: string): CatalogEntry[] {
   const q = query.trim().toLowerCase();
   if (!q) return [...TOOL_CATALOG];
-  return TOOL_CATALOG.filter(
-    (e) =>
-      e.name.zh.toLowerCase().includes(q) ||
-      e.name.en.toLowerCase().includes(q) ||
-      e.description.zh.toLowerCase().includes(q) ||
-      e.description.en.toLowerCase().includes(q) ||
-      e.keywords.some((k) => k.toLowerCase().includes(q)),
-  );
+  const scored: { entry: CatalogEntry; score: number }[] = [];
+  for (const e of TOOL_CATALOG) {
+    const target = [e.name.zh, e.name.en, e.description.zh, e.description.en, ...e.keywords].join(
+      ' ',
+    );
+    const s = fuzzyScore(q, target.toLowerCase());
+    if (s !== NO_MATCH) scored.push({ entry: e, score: s });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.map((s) => s.entry);
 }
 
 /** 按分类归集目录条目(保持 CATALOG_CATEGORIES 顺序) */

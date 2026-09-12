@@ -155,6 +155,46 @@ describe('searchIndex', () => {
   });
 });
 
+describe('模糊匹配(PRD 18 P1:命令面板 fuse.js → 自实现子序列打分)', () => {
+  it('缩写子序列命中:jsf 搜出 JSON 格式化器', () => {
+    expect(flatResults('jsf').some((e) => e.kind === 'tool' && e.title.includes('JSON'))).toBe(
+      true,
+    );
+  });
+
+  it('中英混排无空格命中:json格式化 搜出 JSON 格式化器', () => {
+    expect(
+      flatResults('json格式化').some((e) => e.kind === 'tool' && e.id === 'tool:json_formatter'),
+    ).toBe(true);
+  });
+
+  it('多词缩写命中工具区块:dtj 搜出 JSON 的 TypeScript 实体类区块', () => {
+    expect(
+      flatResults('dtj').some(
+        (e) => e.kind === 'tool-section' && e.target.toolId === 'json_formatter',
+      ),
+    ).toBe(true);
+  });
+
+  it('组内按相关度降序:完整子串条目排在缩写命中之前', () => {
+    const tools = searchIndex('cron').get('tool') ?? [];
+    // 「Cron 表达式解析器」标题含完整子串 cron,应排在子序列命中的条目之前
+    const cronIdx = tools.findIndex((e) => e.id === 'tool:cron_parser');
+    expect(cronIdx).toBeGreaterThanOrEqual(0);
+    for (let i = 0; i < cronIdx; i++) {
+      // 前面的条目要么也是子串命中(得分同档更高),要么不可能是纯子序列
+      // 弱于子串——具体断言:排在前面的条目得分对应目标含完整 'cron' 子串
+      expect(tools[i].matchText?.toLowerCase().includes('cron')).toBe(true);
+    }
+  });
+
+  it('空查询保持目录原顺序(全量浏览不受排序影响)', () => {
+    const tools = searchIndex('').get('tool') ?? [];
+    const catalogIds = TOOL_CATALOG.map((e) => `tool:${e.id}`);
+    expect(tools.map((e) => e.id)).toEqual(catalogIds);
+  });
+});
+
 describe('锚点一致性', () => {
   it('组件中的字面量搜索锚点均已声明(防止前缀错位/误标注)', () => {
     const declared = new Set(

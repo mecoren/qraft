@@ -1,5 +1,5 @@
 /**
- * 全局搜索索引 —— 静态构建 + 线性匹配
+ * 全局搜索索引 —— 静态构建 + 模糊匹配(fzf 风格)
  *
  * 条目来源:
  * - tool        : 由 TOOL_CATALOG 自动生成(工具名称/描述/关键词)
@@ -8,8 +8,9 @@
  * - setting-field: 设置各分区内的字段(可精确跳转定位)
  * - page        : 应用页面(欢迎/历史/管理扩展/设置/关于)
  *
- * searchIndex(query) 大小写不敏感匹配 title / description / keywords,
- * 按 SEARCH_ENTRY_KINDS 顺序分组返回;空查询返回全量。
+ * searchIndex(query) 大小写不敏感模糊匹配 title / description / keywords
+ * (子串包含优先,缩写子序列兜底,见 fuzzy-match),按 SEARCH_ENTRY_KINDS
+ * 顺序分组返回,组内按相关度降序;空查询返回全量(保持目录原顺序)。
  */
 
 import { TOOL_CATALOG, getCatalogEntry, getCategoryById, pickText } from '@/lib/tool-catalog';
@@ -21,6 +22,7 @@ import {
   PAGE_ENTRIES,
   type SettingsMenuId,
 } from './search-anchors';
+import { fuzzyScore, NO_MATCH } from './fuzzy-match';
 import type { AppView } from '@/store/uiStore';
 import type { TextSearchOptions } from './editor-text-search';
 
@@ -186,24 +188,50 @@ function buildAllEntries(): SearchEntry[] {
   return entries;
 }
 
-/** 判断条目是否命中查询(优先双语匹配域) */
-function matches(entry: SearchEntry, q: string): boolean {
-  if (entry.matchText && entry.matchText.toLowerCase().includes(q)) return true;
-  if (entry.title.toLowerCase().includes(q)) return true;
-  if (entry.description && entry.description.toLowerCase().includes(q)) return true;
-  return entry.keywords.some((k) => k.toLowerCase().includes(q));
+/**
+ * 计算条目对查询的模糊得分:matchText(双语 zh+en+keywords 拼接)是
+ * 首选匹配域,命中即返回;标题兜底(展示字段,随 locale 走,matchText
+ * 已覆盖双语场景,兜底仅防御性保留)。
+ */
+function scoreOf(entry: SearchEntry, q: string): number {
+  if (entry.matchText) {
+    const s = fuzzyScore(q, entry.matchText.toLowerCase());
+    if (s !== NO_MATCH) return s;
+  }
+  if (entry.title) {
+    const s = fuzzyScore(q, entry.title.toLowerCase());
+    if (s !== NO_MATCH) return s;
+  }
+  return NO_MATCH;
 }
 
 /**
- * 按查询返回分组搜索结果。
- * 空查询返回全量;无匹配时返回空 Map(不含空数组分组)。
+ * 按查询返回分组搜索结果(组内按模糊相关度降序)。
+ * 空查询返回全量(目录原顺序,便于浏览全部功能);
+ * 无匹配时返回空 Map(不含空数组分组)。
  */
 export function searchIndex(query: string): Map<SearchEntryKind, SearchEntry[]> {
   const q = query.trim().toLowerCase();
   const result = new Map<SearchEntryKind, SearchEntry[]>();
   for (const kind of SEARCH_ENTRY_KINDS) {
-    const hit = ALL_ENTRIES.filter((e) => e.kind === kind && (q === '' || matches(e, q)));
-    if (hit.length > 0) result.set(kind, hit);
+    if (q === '') {
+      const all = ALL_ENTRIES.filter((e) => e.kind === kind);
+      if (all.length > 0) result.set(kind, all);
+      continue;
+    }
+    const scored: { entry: SearchEntry; score: number }[] = [];
+    for (const e of ALL_ENTRIES) {
+      if (e.kind !== kind) continue;
+      const s = scoreOf(e, q);
+      if (s !== NO_MATCH) scored.push({ entry: e, score: s });
+    }
+    if (scored.length === 0) continue;
+    // 稳定排序:同分保持目录原顺序,组内相对顺序不因打分抖动
+    scored.sort((a, b) => b.score - a.score);
+    result.set(
+      kind,
+      scored.map((s) => s.entry),
+    );
   }
   return result;
 }

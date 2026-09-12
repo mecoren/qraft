@@ -64,6 +64,17 @@ describe('CommandPalette', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('缩写子序列命中:jsf 搜出 JSON 格式化器(fuzzy 升级主路径)', async () => {
+    const user = userEvent.setup();
+    render(<CommandPalette open={true} onOpenChange={() => {}} />);
+    await user.type(screen.getByRole('combobox'), 'jsf');
+    expect(screen.getByRole('option', { name: new RegExp(jf.name.zh, 'i') })).toBeInTheDocument();
+    // 完整子串命中的 cron 工具不会被缩写误伤(乱序子序列不命中)
+    expect(
+      screen.queryByRole('option', { name: new RegExp(cron.name.zh, 'i') }),
+    ).not.toBeInTheDocument();
+  });
+
   it('selecting a tool selects the tool and closes the palette', async () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();

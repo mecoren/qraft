@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type JSX, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type JSX, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { QuickPickDialog, type QuickPickGroup, type QuickPickItem } from '@/components/ui/command';
 import { History, Home, Settings, SquareArrowOutUpRight, Trash2 } from 'lucide-react';
@@ -7,6 +7,7 @@ import { useToolStateStore } from '@/store/toolStateStore';
 import { useUiStore } from '@/store/uiStore';
 import { isPopoutSupported, openToolInNewWindow } from '@/lib/popout-window';
 import { CATALOG_CATEGORIES, TOOL_CATALOG, pickText } from '@/lib/tool-catalog';
+import { fuzzyRank } from '@/lib/fuzzy-match';
 
 export interface CommandPaletteProps {
   open: boolean;
@@ -27,6 +28,10 @@ export function CommandPalette({
   const detected = useUiStore((s) => s.detectedTools);
   const currentToolId = useToolStateStore((s) => s.currentToolId);
   const { t } = useTranslation();
+  // 自管查询(shouldFilter=false,过滤由 fuzzyRank 接管:子串优先+缩写子序列)。
+  // 关闭态派生为空串:下次打开自然回到全量列表,免去 effect 里 setState(级联渲染)
+  const [queryRaw, setQueryRaw] = useState('');
+  const query = open ? queryRaw : '';
 
   useEffect(() => {
     if (!open) return;
@@ -66,6 +71,10 @@ export function CommandPalette({
       fn();
       onOpenChange(false);
     };
+    // 模糊过滤(value 拼接 zh+en+keywords,与子串时代口径一致)并按
+    // 相关度排序;剪贴板检测组不做过滤(应用启动时的推荐语义,非查询结果)
+    const rankItems = (items: QuickPickItem[]): QuickPickItem[] =>
+      fuzzyRank(items, query, (item) => item.value ?? item.key);
     const result: QuickPickGroup[] = [];
 
     // 剪贴板检测到的工具优先展示
@@ -88,24 +97,26 @@ export function CommandPalette({
       }
     }
 
-    // 全部工具
+    // 全部工具(模糊过滤 + 相关度排序)
     result.push({
       key: 'tools',
       heading: t('chrome.palette.group_tools'),
-      items: TOOL_CATALOG.map((entry) =>
-        toolItem(
-          entry,
-          '',
-          closeAfter(() => {
-            if (entry.special === 'settings') onOpenSettings?.();
-            else if (entry.special === 'extensions') useUiStore.getState().setView('extensions');
-            else openTool(entry.id);
-          }),
+      items: rankItems(
+        TOOL_CATALOG.map((entry) =>
+          toolItem(
+            entry,
+            '',
+            closeAfter(() => {
+              if (entry.special === 'settings') onOpenSettings?.();
+              else if (entry.special === 'extensions') useUiStore.getState().setView('extensions');
+              else openTool(entry.id);
+            }),
+          ),
         ),
       ),
     });
 
-    // 操作区
+    // 操作区(模糊过滤 + 相关度排序)
     const actions: QuickPickItem[] = [];
     if (currentToolId && isPopoutSupported(currentToolId)) {
       actions.push({
@@ -146,11 +157,15 @@ export function CommandPalette({
         onSelect: closeAfter(() => void clearHistory()),
       },
     );
-    result.push({ key: 'actions', heading: t('chrome.palette.group_actions'), items: actions });
+    result.push({
+      key: 'actions',
+      heading: t('chrome.palette.group_actions'),
+      items: rankItems(actions),
+    });
 
     return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-x/exhaustive-deps
-  }, [detected, currentToolId, onOpenChange, onOpenSettings, onOpenHistory, t]);
+  }, [detected, currentToolId, onOpenChange, onOpenSettings, onOpenHistory, t, query]);
 
   return (
     <QuickPickDialog
@@ -160,7 +175,9 @@ export function CommandPalette({
       description={t('chrome.palette.description')}
       placeholder={t('chrome.palette.placeholder')}
       hideCloseButton
-      shouldFilter
+      shouldFilter={false}
+      value={query}
+      onValueChange={setQueryRaw}
       groups={groups}
       empty={t('chrome.palette.no_match')}
       footerTestId="palette-footer"
