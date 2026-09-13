@@ -72,6 +72,7 @@ function looksLikeHash(text: string): boolean {
  */
 const PREMIUM_TOOLS = new Set([
   'certificate_decoder',
+  'public_key_decoder',
   'jwt_parser',
   'timestamp_converter',
   'hash_calculator',
@@ -86,6 +87,10 @@ export function detectClipboardTools(raw: string): DetectionResult[] {
   const results: DetectionResult[] = [];
   if (/^-----BEGIN CERTIFICATE-----/.test(text)) {
     results.push({ toolId: 'certificate_decoder', reason: 'chrome.detect.reason_pem' });
+  }
+  // 公钥/私钥 PEM(须在证书判断之后:BEGIN 词不同互不冲突,但保持语义分组清晰)
+  if (/^-----BEGIN (RSA )?(PUBLIC|PRIVATE) KEY-----/.test(text)) {
+    results.push({ toolId: 'public_key_decoder', reason: 'chrome.detect.reason_key_pem' });
   }
   if (looksLikeJwt(text))
     results.push({ toolId: 'jwt_parser', reason: 'chrome.detect.reason_jwt' });

@@ -110,6 +110,20 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       keywords: ['结果', '证书信息', 'x509'],
     },
   ],
+  public_key_decoder: [
+    {
+      key: 'input',
+      title: { zh: '输入密钥', en: 'Key input' },
+      description: { zh: 'PEM / Base64 DER 公钥或私钥', en: 'PEM / Base64 DER public or private key' },
+      keywords: ['pem', 'der', '公钥', '私钥'],
+    },
+    {
+      key: 'output',
+      title: { zh: '解析结果', en: 'Decoded result' },
+      description: { zh: '算法 / 位数 / 指纹', en: 'Algorithm / key size / fingerprint' },
+      keywords: ['结果', 'rsa', 'ec', 'ed25519', '指纹'],
+    },
+  ],
   gzip_codec: [
     {
       key: 'config',

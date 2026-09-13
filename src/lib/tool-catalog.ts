@@ -28,6 +28,7 @@ import {
   EyeOff,
   FileArchive,
   FileCode2,
+  FileKey,
   FileSliders,
   FileSpreadsheet,
   FileText,
@@ -179,6 +180,14 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'encoder',
     icon: Award,
     keywords: ['certificate', 'x509', 'pem', '证书', 'ssl'],
+  },
+  {
+    id: 'public_key_decoder',
+    name: '公钥解析器',
+    description: '解析 PEM 公钥/私钥的结构信息与指纹',
+    category: 'encoder',
+    icon: FileKey,
+    keywords: ['public key', 'private key', 'rsa', 'ec', 'ed25519', 'pem', '公钥', '私钥'],
   },
   {
     id: 'gzip_codec',
@@ -658,6 +667,10 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
   certificate_decoder: {
     name: 'Certificate Decoder',
     description: 'Decode an X.509 certificate',
+  },
+  public_key_decoder: {
+    name: 'Public Key Decoder',
+    description: 'Inspect PEM public/private keys with structure details and SHA-256 fingerprint',
   },
   gzip_codec: {
     name: 'GZip Compress / Decompress',

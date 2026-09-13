@@ -79,6 +79,9 @@ registerTool('regex_tester', () =>
 registerTool('certificate_decoder', () =>
   import('./CertificateDecoder').then((m) => ({ default: m.CertificateDecoder })),
 );
+registerTool('public_key_decoder', () =>
+  import('./PublicKeyDecoder').then((m) => ({ default: m.PublicKeyDecoder })),
+);
 registerTool('gzip_codec', () => import('./GzipCodec').then((m) => ({ default: m.GzipCodec })));
 registerTool('html_codec', () => import('./HtmlCodec').then((m) => ({ default: m.HtmlCodec })));
 registerTool('xml_xsd_tester', () =>

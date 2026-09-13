@@ -127,6 +127,7 @@
     },
     "detect": {
       "reason_pem": "PEM 证书",
+      "reason_key_pem": "公钥/私钥 PEM",
       "reason_jwt": "JWT 结构",
       "reason_json": "JSON 内容",
       "reason_base64": "Base64 编码",

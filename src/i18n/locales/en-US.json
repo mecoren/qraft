@@ -127,6 +127,7 @@
     },
     "detect": {
       "reason_pem": "PEM certificate",
+      "reason_key_pem": "Public/private key PEM",
       "reason_jwt": "JWT structure",
       "reason_json": "JSON content",
       "reason_base64": "Base64 data",
