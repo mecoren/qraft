@@ -130,7 +130,12 @@
       "reason_jwt": "JWT structure",
       "reason_json": "JSON content",
       "reason_base64": "Base64 data",
-      "reason_url_encoded": "URL-encoded fragment"
+      "reason_url_encoded": "URL-encoded fragment",
+      "reason_timestamp": "Unix timestamp",
+      "reason_hash": "Hash digest",
+      "reason_url": "URL link",
+      "bar_label": "Detected clipboard content:",
+      "bar_dismiss": "Dismiss"
     },
     "encoding": {
       "big5": "Big5 (Traditional Chinese)",

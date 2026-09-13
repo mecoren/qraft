@@ -28,6 +28,7 @@ import {
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { invokeCommand } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
+import { useToolHandoff } from '@/hooks/useToolHandoff';
 import type { ToolProps } from './registry';
 import type { ToolOutput } from '@/types/tool';
 
@@ -202,6 +203,9 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
   const tzOptions = useTimezoneOptions();
   // 防抖竞态防护:仅采纳最后一次请求的响应
   const requestSeq = useRef(0);
+
+  // Smart Detection / 「发送到…」接收端:预填时间戳文本(自动转换生效)
+  useToolHandoff(toolId, setText);
 
   const handleConvert = useCallback(
     async (input: string, tz: string) => {

@@ -14,6 +14,7 @@ import { CopyAction } from '@/components/copy-action';
 import { getLocale } from '@/i18n';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
+import { useToolHandoff } from '@/hooks/useToolHandoff';
 import { parseJwt, type ParsedJwt } from './jwt-utils';
 import type { ToolProps } from './registry';
 
@@ -76,6 +77,9 @@ export function JwtParser({ toolId }: ToolProps): JSX.Element {
     clearInput: () => setText(''),
     copyOutput: outputs ? () => void copyTextWithFeedback(outputs.payload) : undefined,
   });
+
+  // Smart Detection / 「发送到…」接收端:预填 token 文本
+  useToolHandoff(toolId, setText);
 
   const { meta } = state.parsed ?? {};
   const statusLabel = meta

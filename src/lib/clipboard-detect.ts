@@ -1,5 +1,5 @@
 /**
- * 剪贴板内容 → 建议工具 的本地启发式探测(Smart Detection 轻量版)。
+ * 剪贴板内容 → 建议工具 的本地启发式探测(Smart Detection)。
  * 纯函数、零网络、零副作用;仅在用户开启开关后被 App 层调用(见 App.tsx)。
  */
 export interface DetectionResult {
@@ -41,6 +41,42 @@ function isProbablyJson(text: string): boolean {
   }
 }
 
+/** 完整 http/https URL(单行、无空白;须带 host,避免把普通域名文本误判) */
+function looksLikeUrl(text: string): boolean {
+  if (/\s/.test(text)) return false;
+  try {
+    const url = new URL(text);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 纯数字时间戳:10 位秒级(2001-2286 年)或 13 位毫秒级(1971-5138 年)。
+ * 正则限定纯数字,天然排除十六进制哈希歧义。
+ */
+function looksLikeTimestamp(text: string): boolean {
+  return /^\d{10}$/.test(text) || /^\d{13}$/.test(text);
+}
+
+/** 十六进制哈希摘要:长度 ∈ {32,40,56,64,96,128}(MD5/SHA1/SHA224/SHA256/SHA384/SHA512) */
+function looksLikeHash(text: string): boolean {
+  if (!/^[0-9a-f]+$/i.test(text)) return false;
+  return [32, 40, 56, 64, 96, 128].includes(text.length);
+}
+
+/**
+ * 命中置信度:决定同一次探测多命中时的排序(PREMIUM 高置信,其余标准)。
+ * 高置信特征:单一格式、无歧义、整段内容就是该格式本身(PEM/JWT/时间戳/UUID/哈希)。
+ */
+const PREMIUM_TOOLS = new Set([
+  'certificate_decoder',
+  'jwt_parser',
+  'timestamp_converter',
+  'hash_calculator',
+]);
+
 /** 对剪贴板原文做类型探测,返回建议工具(置信度降序,至多 3 条) */
 export function detectClipboardTools(raw: string): DetectionResult[] {
   if (typeof raw !== 'string') return [];
@@ -53,11 +89,20 @@ export function detectClipboardTools(raw: string): DetectionResult[] {
   }
   if (looksLikeJwt(text))
     results.push({ toolId: 'jwt_parser', reason: 'chrome.detect.reason_jwt' });
+  if (looksLikeTimestamp(text))
+    results.push({ toolId: 'timestamp_converter', reason: 'chrome.detect.reason_timestamp' });
+  if (looksLikeHash(text))
+    results.push({ toolId: 'hash_calculator', reason: 'chrome.detect.reason_hash' });
+  if (looksLikeUrl(text))
+    results.push({ toolId: 'qrcode_tool', reason: 'chrome.detect.reason_url' });
   if (isProbablyJson(text))
     results.push({ toolId: 'json_formatter', reason: 'chrome.detect.reason_json' });
   if (looksLikeBase64(text))
     results.push({ toolId: 'base64_codec', reason: 'chrome.detect.reason_base64' });
   if (looksLikeUrlEncoded(text))
     results.push({ toolId: 'json_minifier', reason: 'chrome.detect.reason_url_encoded' });
-  return results.slice(0, MAX_RESULTS);
+
+  const premium = results.filter((r) => PREMIUM_TOOLS.has(r.toolId));
+  const standard = results.filter((r) => !PREMIUM_TOOLS.has(r.toolId));
+  return [...premium, ...standard].slice(0, MAX_RESULTS);
 }

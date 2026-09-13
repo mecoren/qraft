@@ -15,6 +15,7 @@ import { AlertCircle, ShieldCheck, ShieldX, Clock } from 'lucide-react';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { CopyAction } from '@/components/copy-action';
+import { useToolHandoff } from '@/hooks/useToolHandoff';
 import { getLocale } from '@/i18n';
 import {
   describeCertificate,
@@ -86,7 +87,7 @@ function SectionTitle({ children }: { children: string }): JSX.Element {
   return <h3 className="mb-1 mt-4 text-body-sm font-semibold first:mt-0">{children}</h3>;
 }
 
-export function CertificateDecoder(_props: ToolProps): JSX.Element {
+export function CertificateDecoder({ toolId }: ToolProps): JSX.Element {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [state, setState] = useState<ParsedState>({
@@ -95,6 +96,9 @@ export function CertificateDecoder(_props: ToolProps): JSX.Element {
     error: null,
     daysLeft: null,
   });
+
+  // Smart Detection / 「发送到…」接收端:预填 PEM 文本
+  useToolHandoff(toolId, setInput);
 
   useEffect(() => {
     let cancelled = false;

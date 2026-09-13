@@ -8,6 +8,7 @@ import { Titlebar } from '@/components/layout/Titlebar';
 import { CommandPalette } from '@/components/CommandPalette';
 import { SearchDialog } from '@/components/SearchDialog';
 import { ToolPanel } from '@/components/ToolPanel';
+import { ClipboardDetectBar } from '@/components/ClipboardDetectBar';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { AboutDialog } from '@/components/AboutDialog';
@@ -406,7 +407,7 @@ export function App(): JSX.Element {
     };
   }, []);
 
-  // —— Smart Detection(opt-in):窗口聚焦时本地探测剪贴板,结果进命令面板 ——
+  // —— Smart Detection(opt-in):窗口聚焦时本地探测剪贴板,结果进命令面板与提示条 ——
   // 安全不变量:smartDetectionEnabled 默认 false,关闭态全链路零剪贴板读取;
   // 仅桌面壳内生效(web 预览无 __TAURI_INTERNALS__ 时短路),探测纯本地、零网络。
   const smartDetectionEnabled = useUiStore((s) => s.smartDetectionEnabled);
@@ -416,7 +417,8 @@ export function App(): JSX.Element {
     const detect = (): void => {
       void readClipboardText().then((raw) => {
         if (cancelled) return;
-        useUiStore.getState().setDetectedTools(detectClipboardTools(raw ?? ''));
+        // 原文一并存入:提示条一键跳转时预填目标工具
+        useUiStore.getState().setDetectedTools(detectClipboardTools(raw ?? ''), raw ?? '');
       });
     };
     detect();
@@ -479,26 +481,31 @@ export function App(): JSX.Element {
           <Titlebar />
           <div className="flex min-h-0 flex-1">
             <Sidebar />
-            <main className="min-w-0 flex-1 bg-background-layer">
+            <main className="flex min-w-0 flex-1 flex-col bg-background-layer">
+              {/* Smart Detection 提示条:命中时占据主区顶部一行(所有视图共用),
+               * 关闭按钮置 detectDismissed,下次窗口聚焦重新探测时重置 */}
+              <ClipboardDetectBar />
               {/* settings 以弹窗形式悬浮展示,底层仍显示当前页。
                * 各页面常驻挂载,用 display:none 切换显隐:组件不卸载,DOM 与本地 state 保留,
                * 因此切换页面再回来时,工具输入/输出数据与滚动位置均不丢失。
                * 欢迎页激活条件:view=welcome,或 tool 视图下尚未选中工具 */}
               <div
                 className={cn(
-                  'h-full',
+                  'min-h-0 flex-1',
                   !(view === 'welcome' || (view === 'tool' && !currentToolId)) && 'hidden',
                 )}
               >
                 <WelcomePage />
               </div>
-              <div className={cn('h-full', !(view === 'tool' && currentToolId) && 'hidden')}>
+              <div
+                className={cn('min-h-0 flex-1', !(view === 'tool' && currentToolId) && 'hidden')}
+              >
                 <ToolPanel toolId={currentToolId ?? ''} />
               </div>
-              <div className={cn('h-full', view !== 'extensions' && 'hidden')}>
+              <div className={cn('min-h-0 flex-1', view !== 'extensions' && 'hidden')}>
                 <ExtensionsPage />
               </div>
-              <div className={cn('h-full', view !== 'history' && 'hidden')}>
+              <div className={cn('min-h-0 flex-1', view !== 'history' && 'hidden')}>
                 <HistoryPanel onSelect={handleSelectHistory} />
               </div>
             </main>

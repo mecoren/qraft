@@ -34,6 +34,10 @@ interface UiState {
   smartDetectionEnabled: boolean;
   /** 最近一次窗口聚焦的剪贴板探测结果(会话内,不持久化) */
   detectedTools: DetectionResult[];
+  /** 探测命中的剪贴板原文(供提示条一键跳转时预填目标工具;会话内,不持久化) */
+  detectedText: string;
+  /** 用户手动关闭提示条(下次窗口聚焦重新探测后重置) */
+  detectDismissed: boolean;
 
   setView: (view: AppView) => void;
   /** 打开工具:切换视图 + 选中工具 + 记录最近使用 */
@@ -42,7 +46,8 @@ interface UiState {
   goWelcome: () => void;
   toggleSidebar: () => void;
   toggleSmartDetection: () => void;
-  setDetectedTools: (results: DetectionResult[]) => void;
+  setDetectedTools: (results: DetectionResult[], text?: string) => void;
+  dismissDetect: () => void;
   toggleFavorite: (toolId: string) => void;
   /** 调整收藏夹顺序(相邻交换);工具未收藏或目标越界时保持原状 */
   moveFavorite: (toolId: string, direction: 'up' | 'down') => void;
@@ -62,6 +67,8 @@ export const useUiStore = create<UiState>()(
       expandedCategories: [],
       smartDetectionEnabled: false,
       detectedTools: [],
+      detectedText: '',
+      detectDismissed: false,
 
       setView: (view) => set({ view }),
 
@@ -82,7 +89,10 @@ export const useUiStore = create<UiState>()(
 
       toggleSmartDetection: () => set((s) => ({ smartDetectionEnabled: !s.smartDetectionEnabled })),
 
-      setDetectedTools: (results) => set({ detectedTools: results }),
+      setDetectedTools: (results, text) =>
+        set({ detectedTools: results, detectedText: text ?? '', detectDismissed: false }),
+
+      dismissDetect: () => set({ detectDismissed: true }),
 
       toggleFavorite: (toolId) =>
         set((s) => {

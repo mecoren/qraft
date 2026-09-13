@@ -130,7 +130,12 @@
       "reason_jwt": "JWT 结构",
       "reason_json": "JSON 内容",
       "reason_base64": "Base64 编码",
-      "reason_url_encoded": "URL 编码片段"
+      "reason_url_encoded": "URL 编码片段",
+      "reason_timestamp": "Unix 时间戳",
+      "reason_hash": "哈希摘要",
+      "reason_url": "URL 链接",
+      "bar_label": "检测到剪贴板内容:",
+      "bar_dismiss": "关闭提示"
     },
     "encoding": {
       "big5": "Big5 (繁体中文)",
