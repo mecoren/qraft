@@ -155,13 +155,13 @@ audience: 一年经验的开发者
 | DevToys 功能 | Qraft 状态 | Qraft 计划 |
 |--------------|------------|------------|
 | Smart Detection（剪贴板智能识别） | 无 | v1.0 实现 |
-| 文本对比（Diff） | 无 | v1.0 实现 |
-| YAML 格式化 | 无 | v2.0 实现 |
-| TOML 格式化 | 无 | v2.0 实现 |
-| SQL 格式化 | 无 | v2.0 实现 |
-| Markdown 预览 | 无 | v2.0 实现 |
-| QR 码生成 | 无 | v2.0 实现 |
-| 证书解析 | 无 | v2.0 实现 |
+| 文本对比（Diff） | ✅ 已实现（TextCompare，行级/行内 diff + 块拷贝） | — |
+| YAML 格式化 | ✅ 已实现（yaml_formatter，2026-09-13，Document 级往返保留注释/多文档） | — |
+| TOML 格式化 | 部分（JsonFormatter 可解析 TOML 输入并转换输出，无独立格式化器） | v2.0 评估 |
+| SQL 格式化 | ✅ 已实现（sql_formatter） | — |
+| Markdown 预览 | ✅ 已实现（markdown_preview） | — |
+| QR 码生成 | ✅ 已实现（qrcode_tool，生成与解码） | — |
+| 证书解析 | ✅ 已实现（certificate_decoder） | — |
 | 公钥解析 | 无 | v2.0 实现 |
 | Image Metadata | 无 | v2.0 实现 |
 | 多窗口独立工具 | 无 | v2.0 评估 |
