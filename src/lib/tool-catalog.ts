@@ -429,6 +429,15 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     keywords: ['png', 'compress', '压缩', '图片优化', 'oxipng', 'pngquant'],
   },
   {
+    id: 'image_metadata',
+    name: '图片元数据查看器',
+    description:
+      '查看图片容器元数据:PNG chunk / JPEG EXIF 相机字段 / WebP / GIF / BMP 头,纯本地解析',
+    category: 'graphic',
+    icon: Image,
+    keywords: ['image', 'metadata', 'exif', '元数据', '尺寸', '图片信息', 'chunk', '信息'],
+  },
+  {
     id: 'video_to_gif',
     name: '视频转 GIF',
     description: '把视频片段转为 GIF:片段起止、帧率、宽度可调,本地编码不上传',
@@ -748,6 +757,11 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
     name: 'PNG Compressor',
     description:
       'Compress PNG images: OxiPNG lossless optimization and palette-based lossy quantization (pngquant-style), with before/after size comparison',
+  },
+  image_metadata: {
+    name: 'Image Metadata Viewer',
+    description:
+      'Inspect image container metadata: PNG chunks, JPEG EXIF camera fields, WebP / GIF / BMP headers; fully local parsing',
   },
   text_compare: { name: 'Text Comparer', description: 'Compare two pieces of text' },
   markdown_preview: {

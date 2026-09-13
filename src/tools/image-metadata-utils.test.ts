@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  parseImageMetadata,
-  reportToText,
-  type ImageMetadataReport,
-} from './image-metadata-utils';
+import { parseImageMetadata, reportToText, type ImageMetadataReport } from './image-metadata-utils';
 
 /** base64 → Uint8Array 测试辅助 */
 function b64(s: string): Uint8Array {
@@ -143,12 +139,29 @@ describe('parseImageMetadata - JPEG', () => {
     // SOI + SOF0(2x2,3 分量)+ EOI 手构:SOF 数据 = 精度(1) + h(2) + w(2) + 分量数(1)
     // + 3×(id, sampling, quant)(9) = 15 字节,段长 = 2 + 15 = 17
     const b = new Uint8Array([
-      0xff, 0xd8, // SOI
-      0xff, 0xc0, 0x00, 0x11, // SOF0, len=17
-      8, 0x00, 0x02, 0x00, 0x02, // 精度 8, h=2, w=2
+      0xff,
+      0xd8, // SOI
+      0xff,
+      0xc0,
+      0x00,
+      0x11, // SOF0, len=17
+      8,
+      0x00,
+      0x02,
+      0x00,
+      0x02, // 精度 8, h=2, w=2
       0x03, // 3 分量
-      0x01, 0x22, 0x00, 0x02, 0x22, 0x01, 0x03, 0x22, 0x01, // 分量表
-      0xff, 0xd9, // EOI
+      0x01,
+      0x22,
+      0x00,
+      0x02,
+      0x22,
+      0x01,
+      0x03,
+      0x22,
+      0x01, // 分量表
+      0xff,
+      0xd9, // EOI
     ]);
     const r = parseImageMetadata(b);
     expect(r.error).toBeUndefined();

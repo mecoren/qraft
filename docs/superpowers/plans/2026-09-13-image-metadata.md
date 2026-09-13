@@ -19,20 +19,21 @@
 
 ## 夹具真值表(2026-09-13 一次性校准,测试断言直接引用)
 
-| 夹具 | 来源 | 关键真值 |
-|---|---|---|
-| PNG | Pillow RGBA8 + dpi=(72,72) | 300x200, bitDepth 8, colorType 6(RGBA), interlace 0, pHYs 2835px/m → 72 DPI, chunk 序列 IHDR/pHYs/IDAT/IEND |
-| JPEG(EXIF) | Pillow 640x480 纯色 | 640x480, APP0(JFIF)+APP1(EXIF) 并存;EXIF 端序 MM;Make=QraftCam, Model=QR-100, Orientation=6, DateTime=2026:09:13 10:00:00, ExposureTime=3500000/1000, FNumber=28/10, ISO=200, FocalLength=5000/1000, ExifVersion=0231 |
-| WebP lossy | Pillow q=80 | 320x200, VP8 chunk;尺寸 LE32: w=bits0-13, h=bits16-29(经验布局,Pillow 4 组尺寸交叉验证) |
-| WebP lossless | Pillow lossless | 320x200, VP8L chunk;sig 字节 0x2F + LE32(w14\|h14\|alpha1\|version3) |
-| GIF | Pillow | GIF87a, 320x200, flags 0x81(GCT=4 色), bgIndex 0, aspect 0 |
-| BMP | Pillow 24bpp | BITMAPINFOHEADER(40B), 320x200, 24bpp, fileSize 192054, dataOffset 54, 自底向上 |
+| 夹具          | 来源                       | 关键真值                                                                                                                                                                                                              |
+| ------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PNG           | Pillow RGBA8 + dpi=(72,72) | 300x200, bitDepth 8, colorType 6(RGBA), interlace 0, pHYs 2835px/m → 72 DPI, chunk 序列 IHDR/pHYs/IDAT/IEND                                                                                                           |
+| JPEG(EXIF)    | Pillow 640x480 纯色        | 640x480, APP0(JFIF)+APP1(EXIF) 并存;EXIF 端序 MM;Make=QraftCam, Model=QR-100, Orientation=6, DateTime=2026:09:13 10:00:00, ExposureTime=3500000/1000, FNumber=28/10, ISO=200, FocalLength=5000/1000, ExifVersion=0231 |
+| WebP lossy    | Pillow q=80                | 320x200, VP8 chunk;尺寸 LE32: w=bits0-13, h=bits16-29(经验布局,Pillow 4 组尺寸交叉验证)                                                                                                                               |
+| WebP lossless | Pillow lossless            | 320x200, VP8L chunk;sig 字节 0x2F + LE32(w14\|h14\|alpha1\|version3)                                                                                                                                                  |
+| GIF           | Pillow                     | GIF87a, 320x200, flags 0x81(GCT=4 色), bgIndex 0, aspect 0                                                                                                                                                            |
+| BMP           | Pillow 24bpp               | BITMAPINFOHEADER(40B), 320x200, 24bpp, fileSize 192054, dataOffset 54, 自底向上                                                                                                                                       |
 
 Pillow EXIF 怪癖(已知宽容项):RATIONAL 写成 type=4 LONG 对(cnt=2),值区为 [num, den];标准相机 EXIF 是 type=5。解析器两种都按 num/den 渲染。
 
 ## Task 1: 解析库 image-metadata-utils.ts(TDD)
 
 **Files:**
+
 - Create: `src/tools/image-metadata-utils.ts`
 - Test: `src/tools/image-metadata-utils.test.ts`
 
@@ -40,25 +41,34 @@ Pillow EXIF 怪癖(已知宽容项):RATIONAL 写成 type=4 LONG 对(cnt=2),值�
 
 ```ts
 export type ImageFormat = 'png' | 'jpeg' | 'webp' | 'gif' | 'bmp';
-export interface PngTextEntry { keyword: string; text: string; compressed?: boolean; language?: string }
-export interface ExifEntry { tag: string; name: string; value: string }   // name 为 i18n 键工具侧翻译或规范英文名
+export interface PngTextEntry {
+  keyword: string;
+  text: string;
+  compressed?: boolean;
+  language?: string;
+}
+export interface ExifEntry {
+  tag: string;
+  name: string;
+  value: string;
+} // name 为 i18n 键工具侧翻译或规范英文名
 export interface ImageMetadataReport {
   format: ImageFormat;
-  formatLabel: string;          // 'PNG' | 'JPEG' | 'WebP' | 'GIF' | 'BMP'
-  width: number | null;         // 横向主尺寸(像素)
+  formatLabel: string; // 'PNG' | 'JPEG' | 'WebP' | 'GIF' | 'BMP'
+  width: number | null; // 横向主尺寸(像素)
   height: number | null;
-  bitDepth: number | null;      // PNG 位深 / WebP 8 / BMP bpp / GIF 无
-  colorInfo: string | null;     // PNG 颜色类型名 / JPEG 分量数 / BMP 压缩名
-  interlaced: boolean | null;   // PNG/GIF
-  frameCount: number | null;    // GIF 多帧(webp 动画不做)
-  animate: boolean | null;     // GIF
+  bitDepth: number | null; // PNG 位深 / WebP 8 / BMP bpp / GIF 无
+  colorInfo: string | null; // PNG 颜色类型名 / JPEG 分量数 / BMP 压缩名
+  interlaced: boolean | null; // PNG/GIF
+  frameCount: number | null; // GIF 多帧(webp 动画不做)
+  animate: boolean | null; // GIF
   transparency: boolean | null; // PNG alpha / GIF 有透明
-  dpi: number | null;          // PNG pHYs / JPEG JFIF 密度
+  dpi: number | null; // PNG pHYs / JPEG JFIF 密度
   backgroundColor: string | null; // GIF 全局色板背景色 hex
-  exif: ExifEntry[];           // JPEG APP1 / WebP EXIF chunk
+  exif: ExifEntry[]; // JPEG APP1 / WebP EXIF chunk
   textEntries: PngTextEntry[]; // PNG tEXt/zTXt/iTXt
   pngChunks: { type: string; bytes: number }[]; // PNG chunk 清单
-  error?: string;              // 解析失败原因(非抛错)
+  error?: string; // 解析失败原因(非抛错)
 }
 export function parseImageMetadata(bytes: Uint8Array): ImageMetadataReport;
 ```
@@ -79,6 +89,7 @@ export function parseImageMetadata(bytes: Uint8Array): ImageMetadataReport;
 ## Task 2: ImageMetadata.tsx UI + 注册 + i18n
 
 **Files:**
+
 - Create: `src/tools/ImageMetadata.tsx`
 - Test: `src/tools/ImageMetadata.test.tsx`
 - Modify: `src/tools/registry.ts`(registerTool)
@@ -89,6 +100,7 @@ export function parseImageMetadata(bytes: Uint8Array): ImageMetadataReport;
 **Interfaces (Consumes):** Task 1 的 `parseImageMetadata` / `ImageMetadataReport`。
 
 **UI 契约:**
+
 - 外层 shell 卡片 + `ResizablePanelGroup orientation="horizontal"` 左右分栏(照 CertificateDecoder):
   - 左:非编辑器「预览框」——26px 标题栏(文件名+打开/清除动作)+ `div.min-h-0 flex-1 overflow-auto` flex 居中 `<img>`(dataUrl,CSP 安全)+ 空态 FileImage 图标提示;整面板支持拖放(dragOver 高亮);文件 input 隐藏 `accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.bmp"`
   - 右:26px 标题栏(「解析结果」+ 复制动作 CopyAction)+ 滚动区:文件信息段(名称/大小/格式徽标)→ 结构段(尺寸/位深/颜色/交错/DPI/透明/帧数,照 cert Field 行 w-40 label)→ EXIF 段(仅 JPEG/WebP 有,Field 行表)→ PNG 文本段 → chunk 清单表(仅 PNG,两列 type/bytes)→ 错误态 role=alert destructive 卡

@@ -114,7 +114,10 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
     {
       key: 'input',
       title: { zh: '输入密钥', en: 'Key input' },
-      description: { zh: 'PEM / Base64 DER 公钥或私钥', en: 'PEM / Base64 DER public or private key' },
+      description: {
+        zh: 'PEM / Base64 DER 公钥或私钥',
+        en: 'PEM / Base64 DER public or private key',
+      },
       keywords: ['pem', 'der', '公钥', '私钥'],
     },
     {
@@ -573,6 +576,26 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       title: { zh: '图片', en: 'Image' },
       description: { zh: '选择或拖放 PNG,压缩并导出', en: 'Pick or drop PNG; compress & export' },
       keywords: ['选择 png', '拖放', '压缩', '保存结果', '体积对比'],
+    },
+  ],
+  image_metadata: [
+    {
+      key: 'preview',
+      title: { zh: '图片预览', en: 'Image preview' },
+      description: {
+        zh: '选择或拖放图片,本地预览',
+        en: 'Pick or drop an image for local preview',
+      },
+      keywords: ['选择图片', '拖放', '预览', '图片'],
+    },
+    {
+      key: 'output',
+      title: { zh: '解析结果', en: 'Metadata result' },
+      description: {
+        zh: '尺寸 / 位深 / EXIF / 文本 chunk / chunk 清单',
+        en: 'Dimensions / bit depth / EXIF / text chunks / chunk list',
+      },
+      keywords: ['exif', '元数据', '尺寸', 'chunk', '相机', '信息', '结果'],
     },
   ],
   text_compare: [

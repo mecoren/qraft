@@ -15,6 +15,7 @@ const P0_TOOL_IDS = [
   'timestamp_converter',
   'color_converter',
   'regex_tester',
+  'image_metadata',
 ] as const;
 
 describe('P0 工具 UI 注册集成测试', () => {

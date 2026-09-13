@@ -124,6 +124,9 @@ registerTool('image_converter', () =>
 registerTool('png_compressor', () =>
   import('./PngCompressor').then((m) => ({ default: m.PngCompressor })),
 );
+registerTool('image_metadata', () =>
+  import('./ImageMetadata').then((m) => ({ default: m.ImageMetadata })),
+);
 registerTool('video_to_gif', () => import('./VideoToGif').then((m) => ({ default: m.VideoToGif })));
 registerTool('text_compare', () =>
   import('./TextCompare').then((m) => ({ default: m.TextCompare })),

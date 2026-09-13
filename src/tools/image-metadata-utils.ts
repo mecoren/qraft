@@ -150,11 +150,7 @@ export function parseImageMetadata(bytes: Uint8Array): ImageMetadataReport {
     return parsePng(bytes);
   }
   if (bytes[0] === 0xff && bytes[1] === 0xd8) return parseJpeg(bytes);
-  if (
-    ascii(bytes, 0, 4) === 'RIFF' &&
-    bytes.length >= 12 &&
-    ascii(bytes, 8, 12) === 'WEBP'
-  ) {
+  if (ascii(bytes, 0, 4) === 'RIFF' && bytes.length >= 12 && ascii(bytes, 8, 12) === 'WEBP') {
     return parseWebp(bytes);
   }
   if (ascii(bytes, 0, 6) === 'GIF87a' || ascii(bytes, 0, 6) === 'GIF89a') {
@@ -353,7 +349,8 @@ function parseTiff(tiff: Uint8Array): ExifEntry[] {
       }
       if (!name || cnt === 0) continue;
       const value = renderTiffValue(tiff, le, type, cnt, tag, eOff + 8);
-      if (value !== null) entries.push({ tag: `0x${tag.toString(16).padStart(4, '0')}`, name, value });
+      if (value !== null)
+        entries.push({ tag: `0x${tag.toString(16).padStart(4, '0')}`, name, value });
     }
     // 链式 IFD(同级下一目录):元数据场景一般不用,忽略
   };
@@ -436,7 +433,10 @@ function parseWebp(bytes: Uint8Array): ImageMetadataReport {
   report.formatLabel = 'WebP';
   report.exif = [];
   let pos = 12; // RIFF 头
-  const end = Math.min(bytes.length, 12 + ((bytes[4]! | (bytes[5]! << 8) | (bytes[6]! << 16) | (bytes[7]! << 24)) + 4));
+  const end = Math.min(
+    bytes.length,
+    12 + ((bytes[4]! | (bytes[5]! << 8) | (bytes[6]! << 16) | (bytes[7]! << 24)) + 4),
+  );
   let sawImageChunk = false;
   while (pos + 8 <= bytes.length && pos + 8 <= end + 7) {
     const fourcc = ascii(bytes, pos, pos + 4);
@@ -661,8 +661,7 @@ export function reportToText(
   if (report.bitDepth !== null) lines.push(renderField(f.bitDepth, String(report.bitDepth)));
   if (report.colorInfo) lines.push(renderField(f.color, report.colorInfo));
   if (report.dpi !== null) lines.push(renderField(f.dpi, String(report.dpi)));
-  if (report.interlaced !== null)
-    lines.push(renderField(f.interlaced, String(report.interlaced)));
+  if (report.interlaced !== null) lines.push(renderField(f.interlaced, String(report.interlaced)));
   if (report.transparency !== null)
     lines.push(renderField(f.transparency, String(report.transparency)));
   if (report.frameCount !== null) lines.push(renderField(f.frames, String(report.frameCount)));
