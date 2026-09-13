@@ -154,7 +154,7 @@ audience: 一年经验的开发者
 
 | DevToys 功能 | Qraft 状态 | Qraft 计划 |
 |--------------|------------|------------|
-| Smart Detection（剪贴板智能识别） | 无 | v1.0 实现 |
+| Smart Detection（剪贴板智能识别） | ✅ 已实现（2026-09-13：窗口聚焦本地探测 8 种格式 PEM/JWT/JSON/Base64/URL 编码/URL/时间戳/哈希，主区提示条一键跳转预填 + 命令面板组，设置可关，默认关零剪贴板读取） | — |
 | 文本对比（Diff） | ✅ 已实现（TextCompare，行级/行内 diff + 块拷贝） | — |
 | YAML 格式化 | ✅ 已实现（yaml_formatter，2026-09-13，Document 级往返保留注释/多文档） | — |
 | TOML 格式化 | 部分（JsonFormatter 可解析 TOML 输入并转换输出，无独立格式化器） | v2.0 评估 |
