@@ -163,7 +163,7 @@ audience: 一年经验的开发者
 | QR 码生成 | ✅ 已实现（qrcode_tool，生成与解码） | — |
 | 证书解析 | ✅ 已实现（certificate_decoder） | — |
 | 公钥解析 | ✅ 已实现（2026-09-13：public_key_decoder，RSA/EC/Ed25519 公私钥 PEM 本地解析，算法/位数/曲线/SPKI SHA-256 指纹，剪贴板嗅探联动） | — |
-| Image Metadata | 无 | v2.0 实现 |
+| Image Metadata | ✅ 已实现（2026-09-13：image_metadata，PNG chunk/文本条目、JPEG EXIF 相机字段（双端序 TIFF+SubIFD）、WebP VP8/VP8L/VP8X、GIF 帧数/背景色、BMP DIB 头，纯前端零 IPC 本地解析，拖放/选择/复制报告） | — |
 | 多窗口独立工具 | 无 | v2.0 评估 |
 | 工具收藏分组 | 简单 | v1.0 增强 |
 | 工具使用频率排序 | 无 | v1.0 评估 |
