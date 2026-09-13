@@ -1,0 +1,12 @@
+{
+  "tools.yaml_formatter.indent": "Indent",
+  "tools.yaml_formatter.indent_2": "2 spaces",
+  "tools.yaml_formatter.indent_4": "4 spaces",
+  "tools.yaml_formatter.indent_minify": "Minify",
+  "tools.yaml_formatter.sort_keys": "Sort keys",
+  "tools.yaml_formatter.sort_keys_hint": "Recursively sort all mapping keys in lexical order",
+  "tools.yaml_formatter.input_title": "Input",
+  "tools.yaml_formatter.output_title": "Output",
+  "tools.yaml_formatter.format_failed": "Format failed: {{message}}",
+  "tools.yaml_formatter.stats": "{{docs}} docs · {{keys}} keys · depth {{depth}}"
+}

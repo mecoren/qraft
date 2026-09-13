@@ -90,6 +90,9 @@ registerTool('sql_formatter', () =>
 registerTool('xml_formatter', () =>
   import('./XmlFormatter').then((m) => ({ default: m.XmlFormatter })),
 );
+registerTool('yaml_formatter', () =>
+  import('./YamlFormatter').then((m) => ({ default: m.YamlFormatter })),
+);
 registerTool('password_generator', () =>
   import('./PasswordGenerator').then((m) => ({ default: m.PasswordGenerator })),
 );

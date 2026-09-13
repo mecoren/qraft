@@ -28,6 +28,7 @@ import {
   EyeOff,
   FileArchive,
   FileCode2,
+  FileSliders,
   FileSpreadsheet,
   FileText,
   Fingerprint,
@@ -298,6 +299,14 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'formatter',
     icon: CodeXml,
     keywords: ['xml', 'format', 'beautify'],
+  },
+  {
+    id: 'yaml_formatter',
+    name: 'YAML 格式化器',
+    description: '格式化或压缩 YAML,保留注释与多文档结构',
+    category: 'formatter',
+    icon: FileSliders,
+    keywords: ['yaml', 'yml', 'format', 'beautify', '配置文件'],
   },
 
   // —— 生成器 ——
@@ -677,6 +686,10 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
   },
   sql_formatter: { name: 'SQL Formatter', description: 'Format SQL statements' },
   xml_formatter: { name: 'XML Formatter', description: 'Format or minify XML data' },
+  yaml_formatter: {
+    name: 'YAML Formatter',
+    description: 'Format or minify YAML, preserving comments and multi-document structure',
+  },
   hash_calculator: {
     name: 'Hash / Checksum Calculator',
     description: 'Compute hashes from text or binary data',

@@ -315,6 +315,16 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
     { key: 'input', title: T_INPUT, keywords: ['xml'] },
     { key: 'output', title: T_OUTPUT, keywords: ['结果'] },
   ],
+  yaml_formatter: [
+    {
+      key: 'config',
+      title: T_CONFIG,
+      description: { zh: '缩进与键排序', en: 'Indentation and key sorting' },
+      keywords: ['缩进', '键排序', '压缩'],
+    },
+    { key: 'input', title: T_INPUT, keywords: ['yaml', 'yml'] },
+    { key: 'output', title: T_OUTPUT, keywords: ['结果'] },
+  ],
   hash_calculator: [
     {
       key: 'config',
