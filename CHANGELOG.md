@@ -5,6 +5,40 @@ All notable changes to Qraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.8] - 2026-09-14
+
+### Added
+
+- 新增 TOML 格式化器(toml_formatter):Rust 侧 Taplo 引擎 Document 级往返,保留注释/数组换行/表头结构;缩进 2/4 空格、键值对齐、键排序;非法输入给出行列定位 chip 可一键跳转
+- 新增 YAML 格式化器(yaml_formatter):Document 级往返保留注释/锚点/块标量/多文档结构;缩进 2/4 空格、minify 单行压缩、递归键排序;错误行列定位 chip 与统计徽章
+- 新增图片元数据查看器(image_metadata):PNG/JPEG/WebP/GIF/BMP 五格式字节直读,EXIF 相机字段分组展示,左右分栏拖放预览,一键复制报告;纯前端本地解析零 IPC
+- 新增公钥解析器(public_key_decoder):RSA/EC/Ed25519 公私钥 PEM 本地解析,SPKI/PKCS#8/SEC1 三层 ASN.1 直解,展示算法/位数/曲线/模数与 SPKI SHA-256 指纹(与 openssl 口径一致);私钥不出本机
+- 新增视频转 GIF 工具(video_to_gif):时间轴片段截取、帧率与输出宽度可调,自研 GIF89a 编码器(中位切分调色板 + LZW,零新依赖)
+- 新增文本比较工具(text_compare):EOL 归一、差异导航 F7、行内差异与未变更区折叠、相似度统计、导出 .patch、WinMerge 式差异块逐块拷贝、忽略行尾空白与大小写选项、对齐式同步滚动;拖放填充与大文件防护
+- 剪贴板智能识别升级为 Smart Detection:嗅探 8 种格式(新增完整 URL→二维码、时间戳、hex 哈希摘要),无歧义格式置顶;主区顶部提示条一键跳转目标工具并预填剪贴板原文,证书/JWT/时间戳三工具已接接收端;默认关闭、关闭态零剪贴板读取不变
+- 文本编辑器四批次升级:
+  - 位置历史(Alt+方向键,时间-行距合并 + 跨 Tab 恢复)、文件对比交换/导出补丁接入工作台、Tab 栏溢出下拉
+  - 编辑器设置面:设置→文本编辑器新增「编辑器展示」区(括号着色/缩进参考线/缩略图/字号等 7 项热更新)
+  - 文件树右键新建/重命名/删除(AuthorizedPaths 沙箱校验、重名冲突不覆盖、子树内已开 Tab 自动重定向)
+  - 跨文件查找替换(正则 $1 反向引用,替换仅写内存经保存流程落盘可撤销);大文件搜索大小写口径切换;Tab 激活时外部修改轮询提示
+- 文本处理工具全面增强:查找替换/提取器(URL/邮箱/IP/日期预设)/词频统计、全角半角转换、行编号、自然排序等纯函数库(text-ops);列表比对器新增计数模式
+- 命令面板/侧栏/全局搜索升级 fzf 风格模糊匹配:子串优先档 + 缩写子序列兜底,`jsf` 这类缩写直达 JSON 格式化器;零新依赖,三处搜索同口径
+- PDF 编辑器页面级操作:页码范围提取为新 PDF、页面导出 PNG/JPEG、Tab 栏「合并全部」
+- 图片转换器与 PNG 压缩器支持多文件批量处理(共享队列/失败不中断/节省统计);哈希工具新增文件模式(流式分块 + 取消)
+- 正则工具常用模板库:24 模板 × 5 分类,前端面板与 Rust 集成测试共读单一 JSON 数据源
+- Base64 解码默认宽松化(剔空白/补 padding/嗅探字母表)并保留严格模式开关;重复行检测器支持 TSV 导出
+
+### Fixed
+
+- 六工具巡检修复:QR 码生成失败不再静默(超容量显式失败占位)、UUID 数量兜底与快捷键接线、密码熵计算与易混淆池同源、乱数假文重新生成按钮与数量钳制
+- FolderAnalyzer 纯浏览器环境挂载崩溃修复;颜色转换器结果区改可拖分栏
+- CSV/TSV 下载统一前置 UTF-8 BOM,Excel 双击打开中文不再乱码
+
+### Changed
+
+- 性能指标体系落地:criterion 引擎基准(小输入 23.6µs / 1MB 38.9ms)、IPC 执行路径基准(1MB 实测 17.9-28.8ms,两倍余量)、release 冷启动热缓存 164ms 与主进程 33MB 全部达标;主二进制接入 mimalloc 分配器;PRD 18 DevToys 差距表全部勾销收官
+- 输入框等非编辑器控件统一 UI 字体;ConfigRow 落地 caption 微标签与弹性布局契约
+
 ## [0.2.7] - 2026-09-10
 
 ### Added
@@ -190,6 +224,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tauri Updater 签名验证(ed25519)
 - MVP 阶段:Windows/macOS 使用占位签名(ad-hoc),正式发布需 EV 证书与 Apple Developer ID
 
+[0.2.8]: https://github.com/qraft/qraft/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/qraft/qraft/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/qraft/qraft/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/qraft/qraft/compare/v0.2.2...v0.2.5

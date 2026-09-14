@@ -15,6 +15,8 @@
  * v0.2.2 内容基于 git log(v0.2.0 标签之后至 2026-08-29)提炼,
  * v0.2.5 内容基于 git log 与工作区改动(v0.2.2 标签之后至 2026-09-03)提炼,
  * v0.2.6 内容基于 git log(v0.2.5 标签之后至 2026-09-07)提炼,
+ * v0.2.7 内容基于 git log(v0.2.6 标签之后至 2026-09-10)提炼(发版时仅入 CHANGELOG.md,此处 0.2.8 发版补记),
+ * v0.2.8 内容基于 git log(v0.2.7 标签之后至 2026-09-14)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -43,6 +45,166 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.2.8',
+    date: '2026-09-14',
+    summary: {
+      zh: 'DevToys 对标差距表收官:新增 TOML / YAML 格式化器、图片元数据查看器、公钥解析器、Smart Detection 与视频转 GIF,文本编辑器四批次升级与跨文件替换,文本比较工具落地,全库模糊搜索与性能基线达标',
+      en: 'DevToys parity table completed: new TOML and YAML formatters, image metadata viewer, public key decoder, Smart Detection and video-to-GIF; text editor upgraded in four batches with cross-file replace; text compare tool shipped; fuzzy search across the app and performance baselines met',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: '新增 TOML 格式化器(toml_formatter):Rust 侧 Taplo 引擎 Document 级往返,保留注释/数组换行/表头结构;缩进 2/4 空格、键值对齐、键排序,非法输入给出行列定位 chip 可一键跳转',
+          en: 'New TOML formatter (toml_formatter): Taplo-engine document round-trip on the Rust side preserving comments, array wrapping and table structure; 2/4-space indent, entry alignment and key sorting, with a line/column chip that jumps to the error',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '新增 YAML 格式化器(yaml_formatter):Document 级往返保留注释/锚点/块标量/多文档结构;缩进 2/4 空格、minify 单行压缩、递归键排序;错误行列定位 chip 与统计徽章(文档/键/深度)',
+          en: 'New YAML formatter (yaml_formatter): document round-trip preserving comments, anchors, block scalars and multi-document structure; 2/4-space indent, single-line minify and recursive key sorting; error line/column chips plus stats badges (documents/keys/depth)',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '新增图片元数据查看器(image_metadata):PNG/JPEG/WebP/GIF/BMP 五格式字节直读,EXIF 相机字段分组展示,左右分栏拖放预览,一键复制报告;纯前端本地解析零 IPC',
+          en: 'New image metadata viewer (image_metadata): byte-level parsing for PNG/JPEG/WebP/GIF/BMP, grouped EXIF camera fields, split-pane drop preview and one-click report copy; fully local parsing with zero IPC',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '新增公钥解析器(public_key_decoder):RSA/EC/Ed25519 公私钥 PEM 本地解析,SPKI/PKCS#8/SEC1 三层 ASN.1 直解,展示算法/位数/曲线/模数与 SPKI SHA-256 指纹(与 openssl 口径一致);剪贴板嗅探新增公钥/私钥 PEM 命中;私钥不出本机',
+          en: 'New public key decoder (public_key_decoder): local RSA/EC/Ed25519 PEM parsing with direct SPKI/PKCS#8/SEC1 ASN.1 decoding; shows algorithm, bit size, curve, modulus and SPKI SHA-256 fingerprint matching openssl; clipboard detection now recognizes public/private key PEM; private keys never leave the machine',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '剪贴板智能识别升级为 Smart Detection:嗅探 8 种格式(新增完整 URL→二维码、时间戳、hex 哈希摘要),无歧义格式置顶;主区顶部提示条一键跳转目标工具并预填剪贴板原文,证书/JWT/时间戳三工具已接接收端;默认关闭、关闭态零剪贴板读取不变',
+          en: 'Clipboard detection upgraded to Smart Detection: 8 sniffed formats (adding full URL, timestamps and hex digests) with unambiguous hits ranked first; a top banner jumps to the target tool with the clipboard text prefilled, with certificate/JWT/timestamp receivers wired; off by default and zero clipboard reads while off, unchanged',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '新增视频转 GIF 工具(video_to_gif):时间轴片段截取、帧率与输出宽度可调,自研 GIF89a 编码器(中位切分调色板 + LZW,零新依赖),Pillow 交叉验证像素吻合',
+          en: 'New video-to-GIF tool (video_to_gif): timeline range clipping with adjustable FPS and output width, powered by an in-house GIF89a encoder (median-cut palette + LZW, zero new dependencies), pixel-verified against Pillow',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '新增文本比较工具(text_compare):EOL 归一、差异导航 F7、行内差异与未变更区折叠、相似度统计、导出 .patch、WinMerge 式差异块逐块拷贝、忽略行尾空白与大小写选项、对齐式同步滚动;拖放填充与大文件防护',
+          en: 'New text compare tool (text_compare): EOL normalization, F7 diff navigation, inline diff with collapsed unchanged regions, similarity stats, .patch export, WinMerge-style block copy, ignore-trailing-whitespace and ignore-case options, and aligned sync scrolling; drag-drop fill with large-input guards',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '文本编辑器四批次升级:位置历史(Alt+方向键)、编辑器设置面(括号着色/缩进参考线/缩略图等 7 项热更新)、文件树右键新建/重命名/删除(沙箱校验+Tab 自动重定向)、跨文件查找替换(正则捕获组 $1 反向引用)、大文件搜索大小写口径切换与外部修改激活轮询',
+          en: 'Text editor upgraded in four batches: position history (Alt+arrows), a settings panel (bracket colorization, indent guides, minimap and more, hot-reloaded), tree context-menu create/rename/delete with sandboxing and tab retargeting, cross-file find & replace (regex $1 capture groups), plus large-file search case toggling and external-change polling on tab activation',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '文本处理工具全面增强:查找替换/提取器(URL/邮箱/IP/日期预设)/词频统计、全角半角转换、行编号、自然排序等纯函数库(text-ops);列表比对器新增计数模式;ConfigRow caption 微标签与弹性布局契约落地;输入框等非编辑器控件统一 UI 字体',
+          en: 'Text utilities overhauled: find & replace, extractors (URL/email/IP/date presets), word frequency, full/half-width conversion, line numbering and natural sort on a pure text-ops core; list comparer gained a counts mode; ConfigRow got caption micro-labels and a flexible layout contract; non-editor controls unified on the UI font',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '命令面板/侧栏/全局搜索升级 fzf 风格模糊匹配:子串优先档 + 缩写子序列兜底,jsf 这类缩写直达 JSON 格式化器;零新依赖,三处搜索同口径',
+          en: 'Command palette, sidebar and global search upgraded to fzf-style fuzzy matching: substring tier plus abbreviation-subsequence fallback, so "jsf" jumps straight to the JSON formatter; zero new dependencies with one shared ranking across all three surfaces',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: 'PDF 编辑器页面级操作:页码范围提取为新 PDF、页面导出 PNG/JPEG、Tab 栏「合并全部」;图片转换器与 PNG 压缩器支持多文件批量处理(共享队列/失败不中断/节省统计);哈希工具新增文件模式(流式分块 + 取消);CSV/TSV 下载统一 UTF-8 BOM,Excel 双击中文不乱码',
+          en: 'PDF editor page operations: range extraction to a new PDF, PNG/JPEG page export and "merge all" from the tab bar; image converter and PNG compressor gained multi-file batch mode (shared queue, fail-safe, savings stats); the hash tool added a file mode (streaming chunks + cancel); CSV/TSV downloads embed a UTF-8 BOM so Excel opens Chinese correctly',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '正则工具常用模板库:24 模板 × 5 分类(URL/时间/数字/文本/代码),前端面板与 Rust 集成测试共读单一 JSON 数据源;重复行检测器支持 TSV 导出;Base64 解码默认宽松化(剔空白/补 padding/嗅探字母表)并保留严格模式开关',
+          en: 'Regex tool template library: 24 templates in 5 categories (URL/time/number/text/code) from a single JSON source shared with Rust integration tests; duplicate-line detector gained TSV export; Base64 decode is lenient by default (strip whitespace, pad, sniff alphabet) with a strict-mode switch',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '六工具巡检修复:QR 码生成失败不再静默(超容量显式失败占位)、UUID 数量兜底与快捷键接线、密码熵计算与易混淆池同源、乱数假文重新生成按钮与数量钳制、HMAC 密钥提示清理;FolderAnalyzer 纯浏览器环境挂载崩溃修复;颜色转换器结果区改可拖分栏',
+          en: 'Six-tool sweep fixes: QR generation failures no longer silent (over-capacity shows an explicit failure state), UUID count fallback and shortcut wiring, password entropy aligned with the effective pool, lorem re-generate button with count clamping and HMAC hint cleanup; fixed FolderAnalyzer crash in plain browsers; color converter result pane became a resizable split',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '性能指标体系落地:criterion 引擎基准(小输入 23.6µs / 1MB 38.9ms)、IPC 执行路径基准(1MB 实测 17.9-28.8ms,两倍余量)、前端数据层 bench、release 冷启动热缓存 164ms 与主进程 33MB 全部达标;主二进制接入 mimalloc 分配器(A/B 实测空闲持平);PRD 18 DevToys 差距表全部勾销收官',
+          en: 'Performance metrics landed: criterion engine benchmarks (23.6µs small / 38.9ms 1MB), IPC path benchmarks (17.9-28.8ms at 1MB, 2x headroom), frontend data-layer benches, and release baselines all met (164ms warm start, 33MB main process); mimalloc allocator adopted for the main binary (A/B idle parity); the PRD 18 DevToys parity table is fully closed out',
+        },
+      },
+    ],
+  },
+  {
+    version: '0.2.7',
+    date: '2026-09-10',
+    summary: {
+      zh: '新增 NanoID/HMAC/OTP/AES 四个加密工具,Markdown 编辑器全量升级,文件本地历史与保存冲突防护,大文件流式搜索与 JSON 错误定位修复',
+      en: 'Four new crypto tools (NanoID/HMAC/OTP/AES), a full Markdown editor upgrade, file local history with save-conflict protection, large-file streaming search and JSON error location and fixes',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: '新增 4 个加密安全域工具:NanoID 生成器、HMAC 计算器、TOTP/HOTP 一次性密码(OTP)生成器、AES 加解密;左右分栏布局,RFC 官方测试向量保障正确性',
+          en: 'Four new crypto tools: NanoID generator, HMAC calculator, TOTP/HOTP one-time-password generator and AES encrypt/decrypt; split-pane layouts with RFC official test vectors guaranteeing correctness',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: 'Markdown 编辑器全量升级:聚焦模式、远程图片加载开关;GitHub 警报、==高亮==、Front Matter、emoji 短码扩展语法;本地图片资产系统(粘贴截图自动保存、mdasset: 引用解析);另存 Markdown、打印导出 PDF;双击预览跳转编辑器对应行',
+          en: 'Markdown editor fully upgraded: focus mode and a remote-image toggle; GitHub alerts, ==highlights==, front matter and emoji shortcodes; a local image asset system (pasted screenshots saved automatically with mdasset: references); save-as Markdown and print-to-PDF; double-clicking the preview jumps to the matching editor line',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '文件本地历史与保存冲突防护:覆盖保存前由 Rust 快照旧内容(每文件 20 版),Tab 右键「历史版本」支持对比当前/恢复/清空,清空二段确认、列表完整键盘操作;保存前 mtime 校验,文件被外部修改拒绝盲写,冲突弹覆盖/对比/重读三选',
+          en: 'File local history and save-conflict protection: Rust snapshots the previous content before overwrite-saves (20 versions per file); the tab "History" menu compares, restores or clears with a two-stage confirm and full keyboard support; a pre-save mtime check refuses blind writes when the file changed on disk, offering overwrite/compare/reload',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '文本编辑器升级:10GB+ 大文件流式全文搜索(Rust 跨块扫描、进度事件、命中计数、点击虚拟定位跳转);全局搜索补大小写/整词/正则三切换钮,正则实时纠错;Monaco model 池化(切 Tab 不重挂载,undo 栈与视图状态存活);菜单九键真绑定、Ctrl+Tab 标签导航、恢复关闭标签栈',
+          en: 'Text editor upgrades: 10GB+ streaming full-text search (Rust cross-chunk scanning, progress events, hit counts and click-to-jump); global search gained case/whole-word/regex toggles with live regex error checking; Monaco model pooling (no remount on tab switch, undo stacks and view state survive); true menu key bindings, Ctrl+Tab tab navigation and a closed-tab restore stack',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: 'JSON 格式化器四连增强:零依赖扫描器定位 11 类错误到行列(编辑器波浪线 + 跳转 chip,显式修复如实呈现报告);单遍历结构统计与大数字丢精度警示;转换菜单新增 CSV 输出(RFC 4180);树视图行内 JSONPath 复制与 URL/颜色/日期内容推断 chip',
+          en: 'JSON formatter four-part enhancement: a zero-dependency scanner pinpoints 11 error classes to line/column (editor squiggles plus jump chips, explicit fix buttons reporting exactly what changed); single-pass structure stats with big-number precision warnings; CSV output added to the convert menu (RFC 4180); inline JSONPath copy and URL/color/date inference chips in the tree view',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复 URL 解码把 query 段 + 误留为字面加号(按表单语义还原为空格);修复后端 JSON 键序重排(serde_json 启用 preserve_order 与前端一致);修复 JSON 显式修复后输入框报错残留与窄窗口标题栏按钮裁切;修复 WebView2 下标题栏动作区滚动条常驻',
+          en: 'Fixed URL decoding leaving a literal + in query strings (restored as spaces per form semantics); fixed backend JSON key reordering (serde_json preserve_order now matches the frontend); fixed leftover squiggles after explicit JSON repair and title-bar button clipping in narrow windows; fixed a persistent scrollbar in the title-bar action area under WebView2',
+        },
+      },
+    ],
+  },
   {
     version: '0.2.6',
     date: '2026-09-07',
