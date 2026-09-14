@@ -148,7 +148,8 @@ export type EditorLanguage =
   | 'pascal'
   | 'vb'
   | 'clojure'
-  | 'elixir';
+  | 'elixir'
+  | 'toml';
 
 export interface CodeEditorProps {
   /** 当前文本值 */

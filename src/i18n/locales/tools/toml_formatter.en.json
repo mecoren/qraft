@@ -1,0 +1,13 @@
+{
+  "tools.toml_formatter.indent": "Indent",
+  "tools.toml_formatter.indent_2": "2 spaces",
+  "tools.toml_formatter.indent_4": "4 spaces",
+  "tools.toml_formatter.align_entries": "Align entries",
+  "tools.toml_formatter.align_entries_hint": "Vertically align the = signs of consecutive entries",
+  "tools.toml_formatter.reorder_keys": "Sort keys",
+  "tools.toml_formatter.reorder_keys_hint": "Alphabetically reorder keys not separated by blank lines",
+  "tools.toml_formatter.input_title": "Input",
+  "tools.toml_formatter.output_title": "Output",
+  "tools.toml_formatter.format_failed": "Format failed",
+  "tools.toml_formatter.stats": "{{ms}} ms · in {{in}} B · out {{out}} B"
+}

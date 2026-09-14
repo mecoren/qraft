@@ -28,6 +28,7 @@ import {
   EyeOff,
   FileArchive,
   FileCode2,
+  FileCog,
   FileKey,
   FileSliders,
   FileSpreadsheet,
@@ -316,6 +317,15 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'formatter',
     icon: FileSliders,
     keywords: ['yaml', 'yml', 'format', 'beautify', '配置文件'],
+  },
+  {
+    id: 'toml_formatter',
+    name: 'TOML 格式化器',
+    description: '格式化 TOML,保留注释与结构(Taplo 引擎)',
+    category: 'formatter',
+    icon: FileCog,
+    keywords: ['toml', 'format', 'beautify', '配置文件'],
+    backendId: 'toml_formatter',
   },
 
   // —— 生成器 ——
@@ -711,6 +721,10 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
   yaml_formatter: {
     name: 'YAML Formatter',
     description: 'Format or minify YAML, preserving comments and multi-document structure',
+  },
+  toml_formatter: {
+    name: 'TOML Formatter',
+    description: 'Format TOML, preserving comments and structure (Taplo engine)',
   },
   hash_calculator: {
     name: 'Hash / Checksum Calculator',

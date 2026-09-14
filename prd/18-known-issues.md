@@ -157,7 +157,7 @@ audience: 一年经验的开发者
 | Smart Detection（剪贴板智能识别） | ✅ 已实现（2026-09-13：窗口聚焦本地探测 8 种格式 PEM/JWT/JSON/Base64/URL 编码/URL/时间戳/哈希，主区提示条一键跳转预填 + 命令面板组，设置可关，默认关零剪贴板读取） | — |
 | 文本对比（Diff） | ✅ 已实现（TextCompare，行级/行内 diff + 块拷贝） | — |
 | YAML 格式化 | ✅ 已实现（yaml_formatter，2026-09-13，Document 级往返保留注释/多文档） | — |
-| TOML 格式化 | 部分（JsonFormatter 可解析 TOML 输入并转换输出，无独立格式化器） | v2.0 评估 |
+| TOML 格式化 | ✅ 已实现（2026-09-14：toml_formatter，Rust 侧 taplo 引擎 Document 级往返保留注释/数组换行/表头结构，缩进 2/4 + 键值对齐 + 键排序，错误行列定位 chip） | — |
 | SQL 格式化 | ✅ 已实现（sql_formatter） | — |
 | Markdown 预览 | ✅ 已实现（markdown_preview） | — |
 | QR 码生成 | ✅ 已实现（qrcode_tool，生成与解码） | — |

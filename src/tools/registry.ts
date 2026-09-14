@@ -96,6 +96,9 @@ registerTool('xml_formatter', () =>
 registerTool('yaml_formatter', () =>
   import('./YamlFormatter').then((m) => ({ default: m.YamlFormatter })),
 );
+registerTool('toml_formatter', () =>
+  import('./TomlFormatter').then((m) => ({ default: m.TomlFormatter })),
+);
 registerTool('password_generator', () =>
   import('./PasswordGenerator').then((m) => ({ default: m.PasswordGenerator })),
 );

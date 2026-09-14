@@ -342,6 +342,19 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
     { key: 'input', title: T_INPUT, keywords: ['yaml', 'yml'] },
     { key: 'output', title: T_OUTPUT, keywords: ['结果'] },
   ],
+  toml_formatter: [
+    {
+      key: 'config',
+      title: T_CONFIG,
+      description: {
+        zh: '缩进、键值对齐与键排序',
+        en: 'Indentation, entry alignment and key sorting',
+      },
+      keywords: ['缩进', '对齐', '键排序'],
+    },
+    { key: 'input', title: T_INPUT, keywords: ['toml'] },
+    { key: 'output', title: T_OUTPUT, keywords: ['结果'] },
+  ],
   hash_calculator: [
     {
       key: 'config',

@@ -54,6 +54,7 @@ const LANGUAGE_ICON_NAMES: Readonly<Record<EditorLanguage, FileIconName>> = {
   vb: 'word',
   clojure: 'clojure',
   elixir: 'elixir',
+  toml: 'toml',
 };
 
 /** 获取语言对应的图标名 */

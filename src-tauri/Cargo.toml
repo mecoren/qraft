@@ -80,6 +80,7 @@ ureq = { version = "2", default-features = false, features = ["tls", "gzip", "js
 window-vibrancy = "0.8"
 regex-syntax = "0.8.11"
 mimalloc = "0.1.52"
+taplo = { version = "0.14.0", default-features = false }
 
 # Windows 平台:DirectWrite 系统字体枚举 + ShellExecuteW 打开默认文件管理器
 # + 注册表检测默认文件管理器(仅 Windows target 引入;
