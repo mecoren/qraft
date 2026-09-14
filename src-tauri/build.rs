@@ -1,5 +1,3 @@
-use std::path::Path;
-
 fn main() {
     // bench 二进制同样链接 commands 模块(tauri-plugin-dialog → rfd 的
     // common-controls-v6 会静态导入 comctl32 v6 的 TaskDialogIndirect),
@@ -9,6 +7,10 @@ fn main() {
     // benches/bench.manifest(仅声明 Common-Controls v6 依赖)。
     #[cfg(all(target_os = "windows", target_env = "msvc"))]
     {
+        // Path 仅此 Windows 分支使用;use 放块内避免在非 Windows 目标上
+        // 触发 unused import(CI Linux 以 -D warnings 编译 build script)。
+        use std::path::Path;
+
         let manifest = Path::new("benches/bench.manifest")
             .canonicalize()
             .map_or_else(
