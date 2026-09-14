@@ -10,7 +10,7 @@ Qraft 是本地优先(Local-first)的跨平台开发者工具箱(DevToys 类应�
 - **工具引擎纯函数约束**:Rust 工具的 `execute` 必须无状态,相同输入 + 相同 context 配置 → 相同输出;禁止在 `execute` 中调用 Tauri API,外部能力一律经 `ToolContext` 注入。
 - **toolId 三处一致**:UI 注册表(`src/tools/registry.ts`)、工具目录(`src/lib/tool-catalog.ts`)、后端工具的 `register_tool!` 宏,id 必须严格一致。toolId 同时是收藏/最近使用(localStorage)的持久化引用,**改名即破坏用户数据**,应新增 id 而非修改旧 id。
 - **双语同步**:zh-CN 为源语言,en-US 必须同步补齐,`src/en-locale-sweep.test.tsx` 会强制扫描英文缺失。
-- **版本单一来源**:版本号只在 `package.json` 维护,经 `scripts/bump-version.sh` 同步到 `src-tauri/Cargo.toml` 与 `src-tauri/tauri.conf.json`,不要手改后两处。
+- **版本单一来源**:版本号只在 `package.json` 维护,经 `scripts/bump-version.sh` 同步到 `src-tauri/Cargo.toml` 与 `src-tauri/tauri.conf.json`,不要手改后两处;「改版本号」请求按下方[版本发布流程](#版本发布流程改版本号时自动执行)全流程执行(脚本 + 双日志 + CI 绿),不是只改数字。
 - **已发布数据契约**:`config.json`(配置)、`history.jsonl`(历史)、localStorage(收藏/最近使用)的结构变更必须有兼容或迁移策略,不直接覆盖已发布格式。
 - **尊重 dirty worktree**:不要回滚或覆盖非本轮改动;需要动到已修改文件时先读清楚。
 - **提交信息**:单行 Conventional Commits + 中文描述,如 `feat(text-editor): …`、`fix(base64): …`。
@@ -109,6 +109,19 @@ cargo test
 
 - dev 端口为 **14200** 而非 Tauri 惯例的 1420(规避 Windows Hyper-V 保留端口段);改端口需同步 `tauri.conf.json` 的 `devUrl` 与 `devCsp`。
 - CI(`.github/workflows/ci.yml`)执行 cargo fmt --check、clippy -D warnings、cargo test --locked、prettier、eslint、typecheck、vitest;提交前本地跑通同等检查。
+
+## 版本发布流程(改版本号时自动执行)
+
+用户说「改版本号 / 升版本 / bump 到 X.Y.Z」时,按以下顺序完整执行,不要只改数字:
+
+1. **跑同步脚本**:`bash scripts/bump-version.sh X.Y.Z`。它会改 `package.json` 并同步 `src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`,随后跑 `cd src-tauri && cargo update -p qraft` 刷新 `Cargo.lock` 的 qraft 自身版本行(脚本不管 lock)。不要手改后两处版本号。
+2. **筛选提交写更新日志**:`git log <上一 tag>..HEAD --oneline`(如 `git log v0.2.7..HEAD`)提取该版本跨度内全部提交,**按功能合并提炼重要变更,忽略 docs/style/chore 及纯过程性提交**;版本边界以 tag 为准,不是日期。
+3. **两处更新日志都要写**(同一次提交改动):
+   - `CHANGELOG.md`(repo 级,Keep a Changelog 格式):新增 `## [X.Y.Z] - YYYY-MM-DD` 段,按 Added/Fixed/Changed 分组,并在文件尾追加 `[X.Y.Z]: …/compare/v<prev>...vX.Y.Z` 链接。
+   - `src/lib/changelog.ts`(应用内「关于→更新日志」数据源):在 `CHANGELOG_VERSIONS` 数组头部插入新 `VersionInfo`,summary + changes 双语(zh/en 成对);头部注释补一行「vX.Y.Z 内容基于 git log(v<prev> 标签之后至 YYYY-MM-DD)提炼」。两份内容同源,条目粒度可不同。
+4. **验证到 CI 等价全绿**:`pnpm prettier --check` + `pnpm lint` + `pnpm typecheck` + `pnpm test`,以及 `cd src-tauri && cargo fmt --check` + `cargo clippy --all-targets -- -D warnings` + `cargo test`。哪项红了修哪项,直到全绿。
+5. **不主动提交**:保持工作区状态交用户确认;用户说提交时按 `chore(build): bump version to X.Y.Z` 提交,tag 命名 `vX.Y.Z`。
+6. **历史教训**:0.2.7 发版时只写了 `CHANGELOG.md` 漏了 `changelog.ts`,应用内「关于」页至今缺失该版本——两份必须同步写。
 
 ## Rust 约定
 
