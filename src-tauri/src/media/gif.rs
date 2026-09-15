@@ -483,7 +483,7 @@ mod tests {
         // 首码为 clear(0x100,9bit LSB-first):首字节 = 低 8 位 = 0x00,
         // bit8 落在次字节最低位(后续码继续填充次字节高位,不逐位断言)
         assert_eq!(compressed[0], 0x00);
-        assert!(compressed[1] & 0x01 == 1);
+        assert_eq!(compressed[1] & 0x01, 1);
         assert!(compressed.len() < indices.len() / 4);
     }
 

@@ -71,12 +71,12 @@ async fn tree_ops_create_rename_delete_roundtrip() {
             .success
     );
     // 原路径已随 rename 失效:对其再操作报 IO 错误
-    assert!(
+    assert_eq!(
         fs_delete_entry_inner(&inner, &paths)
             .await
             .unwrap_err()
-            .code()
-            == "ERR_FILE_IO"
+            .code(),
+        "ERR_FILE_IO"
     );
     // rename 到已存在目标 → ERR_ALREADY_EXISTS
     for name in ["a.txt", "b.txt"] {
