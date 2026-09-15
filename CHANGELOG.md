@@ -5,6 +5,28 @@ All notable changes to Qraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-09-15
+
+### Added
+
+- Markdown 预览六批增强(渲染管线 + 预览交互):
+  - hljs 代码块 LRU 缓存(300 条 / 4MB,两阶段渲染 fast→complete 消除重复高亮开销)
+  - 图片尺寸语法 `![alt](src.png "=300x200")`(宽高可单边,尺寸段从 title 末尾剥离)+ DOMPurify 白名单放行 width / height
+  - 任务列表勾选写回源码(Typora 点击即勾选,精确替换对应源行 `[ ]`↔`[x]`)
+  - 拖拽图片文件到编辑器位图落盘并插入 mdasset:引用(Monaco 容器层截获)
+  - 预览区复制即 Markdown 源码(Typora 行为,选区 HTML 经 turndown 回转写入剪贴板)
+  - 图片 Ctrl+滚轮文内缩放(首次锚定 naturalWidth,等比 ±15% / 步,clamp 10%–600%)
+- ScrollArea 横向模式原生滚轮直通:Chrome 标签栏 / VSCode Tab 栏同款行为,纵向 delta 自动转横向滚动;无溢出不吞滚轮,已溢出时滚到两端也吞事件避免穿透到底下内容
+
+### Changed
+
+- Office Excel 工作表条从原生 overflow-x-auto 换成共享 ScrollArea 横向模式(悬浮细条 + 滚轮直通)
+
+### Fixed
+
+- 修复 SearchDialog 全量并行下「打开/输入时不自动高亮」测试 flaky(cmdk 内部 activeIndex 与 DOM 渲染顺序存在时序窗口,断言从 `selected === options[0]` 改为语义验证)
+- 修复 ToolPanel keepalive 测试全量并行超时(Monaco 懒加载串行 3 次在多 worker 抢 CPU 下超过 10s,放宽 LAZY_TIMEOUT 到 20s)
+
 ## [0.2.9] - 2026-09-15
 
 ### Added
@@ -242,6 +264,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tauri Updater 签名验证(ed25519)
 - MVP 阶段:Windows/macOS 使用占位签名(ad-hoc),正式发布需 EV 证书与 Apple Developer ID
 
+[0.3.0]: https://github.com/qraft/qraft/compare/v0.2.9...v0.3.0
 [0.2.9]: https://github.com/qraft/qraft/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/qraft/qraft/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/qraft/qraft/compare/v0.2.6...v0.2.7

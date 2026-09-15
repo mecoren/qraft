@@ -18,6 +18,7 @@
  * v0.2.7 内容基于 git log(v0.2.6 标签之后至 2026-09-10)提炼(发版时仅入 CHANGELOG.md,此处 0.2.8 发版补记),
  * v0.2.8 内容基于 git log(v0.2.7 标签之后至 2026-09-14)提炼,
  * v0.2.9 内容基于 git log 与工作区改动(v0.2.8 标签之后至 2026-09-15)提炼,
+ * v0.3.0 内容基于 git log 与工作区改动(v0.2.9 标签之后至 2026-09-15)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -46,6 +47,51 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.3.0',
+    date: '2026-09-15',
+    summary: {
+      zh: 'Markdown 预览六批增强:hljs 代码块 LRU 缓存、Typora 图片尺寸语法与 Ctrl+滚轮缩放、任务勾选写回源码、拖拽图片落盘插入 mdasset、预览区复制即 Markdown;ScrollArea 横向模式滚轮直通;Office Excel 工作表条改造',
+      en: 'Markdown preview six-pack: hljs code-block LRU cache, Typora image size syntax with Ctrl+wheel zoom, task-toggle writes source back, dragged images saved as mdasset, preview copy-as-markdown. ScrollArea horizontal wheel-passthrough. Office Excel sheet-strip overhaul',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: 'Markdown 预览渲染管线增强:hljs 代码块 LRU 缓存(300 条 / 4MB,两阶段渲染 fast→complete 消除重复高亮开销);图片尺寸语法 `![alt](src "=300x200")`(宽高可单边,尺寸段从 title 末尾剥离)+ DOMPurify 白名单放行 width / height;任务列表 checkbox 挂 data-md-task + data-task-line,点击勾选精确替换对应源行 `[ ]`↔`[x]`',
+          en: 'Markdown rendering pipeline: hljs code-block LRU cache (300 entries / 4MB, eliminates duplicate highlight work in fast→complete two-pass rendering); Typora image-size syntax `![alt](src "=300x200")` (single-side allowed, stripped from title) with DOMPurify whitelist for width/height; task checkboxes carry data-md-task + data-task-line so click replaces the source `[ ]`↔`[x]` exactly',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: 'Markdown 预览交互增强:拖拽图片文件到编辑器位图落盘资产目录并插入 mdasset:引用(Monaco 容器层截获);预览区复制即 Markdown 源码(Typora 行为,选区 HTML 经 turndown 回转写入剪贴板);图片 Ctrl+滚轮文内缩放(首次锚定 naturalWidth,等比 ±15% / 步,clamp 10%–600%)',
+          en: 'Markdown preview interactions: dropped image files are saved as assets and inserted as mdasset: references (Monaco container-layer interceptor); copy-as-markdown (Typora behaviour, selection HTML → turndown → clipboard plain text); Ctrl+wheel zooms images in-place (anchored to naturalWidth, ±15%/step, clamp 10–600%)',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: 'ScrollArea 横向模式原生滚轮直通:Chrome 标签栏 / VSCode Tab 栏同款行为,纵向 delta 自动转横向滚动;无溢出不吞滚轮,已溢出时滚到两端也吞事件避免穿透到底下内容',
+          en: 'ScrollArea horizontal wheel passthrough (Chrome tab / VSCode tab strip behaviour): vertical wheel delta converts to horizontal scroll; no interception when not overflowing; swallows at the ends to prevent event bleed-through',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: 'Office Excel 工作表条从原生 overflow-x-auto 换成共享 ScrollArea 横向模式(悬浮细条 + 滚轮直通)',
+          en: 'Office Excel sheet strip: replaced raw overflow-x-auto with shared ScrollArea horizontal mode (hover thumb + wheel passthrough)',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复 SearchDialog 全量并行下「打开/输入时不自动高亮」测试 flaky(cmdk 内部 activeIndex 与 DOM 渲染顺序存在时序窗口,断言从 `selected === options[0]` 改为语义验证);修复 ToolPanel keepalive 测试全量并行超时(Monaco 懒加载串行 3 次在多 worker 抢 CPU 下超过 10s,放宽 LAZY_TIMEOUT 到 20s)',
+          en: 'Fixed SearchDialog flaky test under full-parallel runs (cmdk activeIndex vs DOM order timing window; assertion changed from `selected === options[0]` to semantic verification). Fixed ToolPanel keepalive timeout (Monaco lazy-load serial ×3 exceeded 10s under worker CPU contention; LAZY_TIMEOUT raised to 20s)',
+        },
+      },
+    ],
+  },
   {
     version: '0.2.9',
     date: '2026-09-15',
