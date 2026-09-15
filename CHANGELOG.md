@@ -5,6 +5,24 @@ All notable changes to Qraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.9] - 2026-09-15
+
+### Added
+
+- Markdown 预览工具文件能力补全:左上角「文件」菜单(新建/打开/保存/另存为/关闭)+ Ctrl+O / Ctrl+S / Ctrl+Shift+S 快捷键;打开的文档绑定磁盘路径直接写回,保存带 mtime 乐观校验(外部修改时弹覆盖/对比/重读三选);拖放与系统关联打开的 .md 文档同样绑定路径;Tab 名展示文件名、未保存改动带 dirty 圆点;切回 Tab 时检测到外部修改提前 toast 提示;关闭有未保存改动的文档走三选确认
+- 工具级标题栏菜单系统(toolMenubarStore):工具可向标题栏注册自己的菜单(首个接入者 Markdown 预览「文件」菜单),keepalive 多工具并存时按激活归属正确展示/重放/清理
+- useToolShortcut 工具级快捷键守卫:keepalive 常驻工具的同类绑定不再互相误触,仅激活工具响应且非激活侧放行事件;文本编辑器与 Markdown 预览的 Ctrl+S 等编辑类快捷键接入
+
+### Changed
+
+- 内存优化批次:新增字节 + 条数双上限 LRU 缓存模块,Markdown 渲染链的 KaTeX 公式 / Mermaid SVG / 图片资产 data URL 三个缓存从「满额全清」改为逐条淘汰(热条目不再被全清丢掉,大图缓存受 32MB 字节上限约束);工具页 keepalive 容量改为加权 LRU(内嵌 Monaco 的重型工具占 2 名额,Monaco 实例总量减半);流式任务完结即释放累计 chunk(数十 MB 输出不再驻留)
+- mermaid 改官方分块入口按需加载:30+ 图表实现从 3.5MB 单包拆为按图种类的独立小 chunk,渲染哪种图才下载哪种实现,冷启动与首图渲染内存显著下降;空闲预取不再拉整包
+
+### Fixed
+
+- 修复 KaTeX 渲染输出配置拼写错误(htmlAndmathml → htmlAndMathml):此前配置从未生效,一直使用缺省输出模式
+- 修复版本发布脚本 bump-version.sh 在 Windows Git Bash 下多行内联 node -e 静默失效的问题(package.json / tauri.conf.json 不被更新),改写为临时 .cjs 脚本执行
+
 ## [0.2.8] - 2026-09-14
 
 ### Added
@@ -224,6 +242,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tauri Updater 签名验证(ed25519)
 - MVP 阶段:Windows/macOS 使用占位签名(ad-hoc),正式发布需 EV 证书与 Apple Developer ID
 
+[0.2.9]: https://github.com/qraft/qraft/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/qraft/qraft/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/qraft/qraft/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/qraft/qraft/compare/v0.2.5...v0.2.6

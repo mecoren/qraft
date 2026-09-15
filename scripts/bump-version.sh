@@ -27,21 +27,26 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-# 使用 Node 同步 package.json 与 tauri.conf.json(保证 JSON 语法正确)
-node -e "
-const fs=require('fs');
-const v=process.argv[1];
-const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
-const oldPkg=pkg.version;
-pkg.version=v;
-fs.writeFileSync('package.json', JSON.stringify(pkg,null,2)+'\n');
-const tc=JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8'));
-const oldTc=tc.version;
-tc.version=v;
-fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(tc,null,2)+'\n');
+# 使用 Node 同步 package.json 与 tauri.conf.json(保证 JSON 语法正确)。
+# 多行内联 node -e 在 Windows Git Bash 下会静默失效(退出码 0 但不执行,
+# 见 windows-shell-quirks 记忆),改写临时 .cjs 脚本执行后清理。
+BUMP_TMP="$(mktemp bump-XXXXXX.cjs)"
+trap 'rm -f "$BUMP_TMP"' EXIT
+cat > "$BUMP_TMP" << 'EOF'
+const fs = require('fs');
+const v = process.argv[2];
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+const oldPkg = pkg.version;
+pkg.version = v;
+fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+const tc = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+const oldTc = tc.version;
+tc.version = v;
+fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(tc, null, 2) + '\n');
 console.log('package.json:', oldPkg, '->', v);
 console.log('tauri.conf.json:', oldTc, '->', v);
-" "$NEW_VERSION"
+EOF
+node "$BUMP_TMP" "$NEW_VERSION"
 
 # Cargo.toml 用 awk 在 [package] 段内替换 version 字段,不影响 [dependencies] 中的版本
 OLD_CARGO=$(grep -E '^version\s*=' src-tauri/Cargo.toml | head -n 1 | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')

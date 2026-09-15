@@ -17,6 +17,7 @@
  * v0.2.6 内容基于 git log(v0.2.5 标签之后至 2026-09-07)提炼,
  * v0.2.7 内容基于 git log(v0.2.6 标签之后至 2026-09-10)提炼(发版时仅入 CHANGELOG.md,此处 0.2.8 发版补记),
  * v0.2.8 内容基于 git log(v0.2.7 标签之后至 2026-09-14)提炼,
+ * v0.2.9 内容基于 git log 与工作区改动(v0.2.8 标签之后至 2026-09-15)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -45,6 +46,58 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.2.9',
+    date: '2026-09-15',
+    summary: {
+      zh: 'Markdown 预览工具补全文件能力(文件菜单 / 保存 / 路径绑定 / 冲突三选),新增工具级标题栏菜单系统与快捷键归属守卫;内存优化批次:三缓存改双上限 LRU、keepalive 加权容量、流式 chunk 即时释放、mermaid 按图种类分块加载',
+      en: 'Markdown preview gains full file capabilities (file menu, save, path binding, conflict dialog); new tool-scoped menubar system and shortcut ownership guard. Memory pass: three caches move to dual-limit LRU, weighted keepalive capacity, streaming chunks released on completion, mermaid split into per-diagram chunks',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: 'Markdown 预览文件能力:左上角「文件」菜单(新建/打开/保存/另存为/关闭)+ Ctrl+O / Ctrl+S / Ctrl+Shift+S;打开的文档绑定磁盘路径直接写回,保存带 mtime 乐观校验(外部修改弹覆盖/对比/重读三选);拖放与系统关联打开的 .md 同样绑定路径;Tab 名展示文件名、未保存带 dirty 圆点;切回 Tab 检测外部修改提前提示',
+          en: 'Markdown preview file support: top-left File menu (new/open/save/save-as/close) with Ctrl+O / Ctrl+S / Ctrl+Shift+S; opened documents bind to disk paths and save in place with mtime optimistic check (conflict offers overwrite/compare/reload); drag-drop and system-open .md files bind paths too; tab shows filename with a dirty dot; switching back to a tab detects external modification early',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '工具级标题栏菜单系统:工具可向标题栏注册自己的菜单(首个接入:Markdown 预览「文件」菜单),keepalive 多工具并存时按激活归属正确展示/重放/清理',
+          en: 'Tool-scoped menubar system: tools can register their own menus into the titlebar (first consumer: Markdown preview File menu); under keepalive coexistence menus are shown/replayed/cleaned by the active tool',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: 'useToolShortcut 快捷键归属守卫:keepalive 常驻工具的同类绑定不再互相误触,仅激活工具响应且非激活侧放行事件;文本编辑器与 Markdown 预览的 Ctrl+S 等编辑类快捷键接入',
+          en: 'useToolShortcut ownership guard: same-key bindings of keepalive-resident tools no longer fire each other; only the active tool responds and inactive ones pass through; editor-style shortcuts like Ctrl+S adopted by text editor and Markdown preview',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '内存优化:新增字节 + 条数双上限 LRU 缓存模块,KaTeX 公式 / Mermaid SVG / 图片资产三个渲染缓存从「满额全清」改为逐条淘汰(热条目不再被全清丢掉,大图缓存受 32MB 字节上限约束);工具页 keepalive 容量改加权 LRU(内嵌 Monaco 的重型工具占 2 名额);流式任务完结即释放累计 chunk',
+          en: 'Memory pass: new dual-limit (bytes + entries) LRU cache module; the KaTeX/Mermaid/image render caches evict entry-by-entry instead of clearing wholesale, with hot entries surviving and image data URLs bounded by 32MB; keepalive capacity becomes weighted LRU (Monaco-heavy tools cost 2 slots); streaming tasks release accumulated chunks on completion',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: 'mermaid 改官方分块入口按需加载:30+ 图表实现从 3.5MB 单包拆为按图种类的独立小 chunk,渲染哪种图才下载哪种实现;空闲预取不再拉整包',
+          en: 'mermaid now uses the official chunked entry for on-demand loading: 30+ diagram implementations split from a 3.5MB bundle into small per-kind chunks, downloaded only when that diagram type renders; idle prefetch no longer pulls the whole package',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复 KaTeX 渲染输出配置拼写错误(htmlAndmathml → htmlAndMathml),此前配置从未生效;修复版本发布脚本在 Windows Git Bash 下多行内联 node -e 静默失效的问题',
+          en: 'Fix KaTeX output config typo (htmlAndmathml to htmlAndMathml) which had silently fallen back to defaults; fix the version bump script silently no-oping on Windows Git Bash due to multiline inline node -e',
+        },
+      },
+    ],
+  },
   {
     version: '0.2.8',
     date: '2026-09-14',
