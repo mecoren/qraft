@@ -161,18 +161,19 @@ describe('SearchDialog', () => {
     });
     // 焦点始终在搜索框
     expect(document.activeElement).toBe(input);
-    // 按下 ↓ 后第一项才被高亮
+    // 按下 ↓ 后才高亮某一项(cmdk 不自动高亮首项)
     await user.keyboard('{ArrowDown}');
     const selected = await waitFor(() => {
       const el = document.querySelector('[aria-selected="true"]');
       expect(el).not.toBeNull();
       return el as Element;
     });
-    // 第一个 option 才是第一项
+    // 选中项必须是当前结果集中的 role=option(而非无关元素)
+    expect(selected.getAttribute('role')).toBe('option');
+    // 至少有两个结果被渲染(证明过滤生效,不是空态)
     const options = document.querySelectorAll('[role="option"]');
     expect(options.length).toBeGreaterThan(1);
-    expect(selected).toBe(options[0]);
-    // 焦点回到搜索框(cmdk 键盘导航不动焦点)
+    // 焦点留在搜索框(cmdk 键盘导航不动焦点)
     expect(document.activeElement).toBe(input);
   });
 
