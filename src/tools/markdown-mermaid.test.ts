@@ -64,4 +64,39 @@ describe('markdown-mermaid 渲染缓存', () => {
     await rerenderMermaidIn(host, false);
     expect(render).toHaveBeenCalledTimes(2);
   });
+
+  it('超条数上限后逐条淘汰:最近命中的热条目仍在,仅最旧冷条目重渲染', async () => {
+    // svgCache 上限为 60 条:预填 60 张后访问首张(刷新位序),
+    // 再写入第 61 张 → 最旧的次新图被淘汰,被刷新过的首张命中缓存
+    const fill = Array.from({ length: 60 }, (_, i) => `fill-${i}`);
+    await renderMermaidIn(hostWithN(fill), false);
+    expect(render).toHaveBeenCalledTimes(60);
+
+    // 刷新 fill-0 的位序(模拟最近一次渲染仍包含该图)
+    await renderMermaidIn(hostWith('fill-0'), false);
+    expect(render).toHaveBeenCalledTimes(60); // 命中,未重渲染
+
+    // 第 61 张进缓存:最旧端 fill-1 被逐条挤掉,fill-0 因位序靠后存活
+    await renderMermaidIn(hostWith('graph NEW'), false);
+    expect(render).toHaveBeenCalledTimes(61);
+
+    const afterEvict = hostWithN(['fill-0', 'fill-1', 'graph NEW']);
+    await renderMermaidIn(afterEvict, false);
+    // fill-0 命中(位序刷新救回);fill-1 被淘汰重渲染;NEW 命中
+    expect(render).toHaveBeenCalledTimes(62); // 仅 fill-1 重跑
+    expect(afterEvict.querySelectorAll('.md-mermaid-rendered')).toHaveLength(3);
+  });
 });
+
+/** 构建含多个不同定义占位容器的宿主元素 */
+function hostWithN(defs: string[]): HTMLElement {
+  const host = document.createElement('div');
+  for (const def of defs) {
+    const encoded = encodeURIComponent(def);
+    host.insertAdjacentHTML(
+      'beforeend',
+      `<div class="md-mermaid" data-mermaid="${encoded}"><pre class="md-mermaid-src">${def}</pre></div>`,
+    );
+  }
+  return host;
+}

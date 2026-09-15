@@ -124,6 +124,12 @@ export interface CatalogEntry {
   special?: 'settings' | 'extensions';
   /** 弹出新窗口的首选尺寸(Tauri 逻辑像素);缺省用 900×640 默认值 */
   popoutSize?: { width: number; height: number };
+  /**
+   * 重型工具标记:内嵌 Monaco CodeEditor(实例数十 MB 级)的工具。
+   * keepalive 容量管理按 2 个名额计权(轻工具 1 个),约束长会话的 Monaco 实例
+   * 总量;由 build 脚本/评审对齐 CodeEditor 导入者清单,新增编辑器承载工具时须标。
+   */
+  heavy?: boolean;
 }
 
 /**
@@ -181,6 +187,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'encoder',
     icon: Award,
     keywords: ['certificate', 'x509', 'pem', '证书', 'ssl'],
+    heavy: true,
   },
   {
     id: 'public_key_decoder',
@@ -189,6 +196,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'encoder',
     icon: FileKey,
     keywords: ['public key', 'private key', 'rsa', 'ec', 'ed25519', 'pem', '公钥', '私钥'],
+    heavy: true,
   },
   {
     id: 'gzip_codec',
@@ -197,6 +205,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'encoder',
     icon: FileArchive,
     keywords: ['gzip', 'zip', '压缩', '解压'],
+    heavy: true,
   },
   {
     id: 'html_codec',
@@ -205,6 +214,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'encoder',
     icon: FileCode2,
     keywords: ['html', 'entity', '实体', '转义'],
+    heavy: true,
   },
   {
     id: 'jwt_parser',
@@ -214,6 +224,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     icon: Asterisk,
     keywords: ['jwt', 'token', '令牌'],
     backendId: 'jwt_parser',
+    heavy: true,
   },
   {
     id: 'basic_auth_generator',
@@ -222,6 +233,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'encoder',
     icon: KeyRound,
     keywords: ['basic auth', 'authorization', '认证', '请求头'],
+    heavy: true,
   },
   // —— 测试工具 ——
   {
@@ -232,6 +244,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     icon: Regex,
     keywords: ['regex', 'regexp', '正则'],
     backendId: 'regex_tester',
+    heavy: true,
   },
   {
     id: 'xml_xsd_tester',
@@ -240,6 +253,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'tester',
     icon: FileCode2,
     keywords: ['xml', 'xsd', 'schema', '校验'],
+    heavy: true,
   },
 
   // —— 格式化工具 ——
@@ -268,6 +282,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
       'url 参数',
     ],
     backendId: 'json_formatter',
+    heavy: true,
   },
   // 原 json_minifier 槽位已改造为纯前端文本处理工具(详见 TextProcessor.tsx)。
   // 仍保留原 id 以兼容历史收藏/最近使用(localStorage 中已存储该 id)。
@@ -293,6 +308,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
       '去重',
       '排序',
     ],
+    heavy: true,
   },
   {
     id: 'sql_formatter',
@@ -301,6 +317,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'formatter',
     icon: Database,
     keywords: ['sql', 'format', '数据库'],
+    heavy: true,
   },
   {
     id: 'xml_formatter',
@@ -309,6 +326,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'formatter',
     icon: CodeXml,
     keywords: ['xml', 'format', 'beautify'],
+    heavy: true,
   },
   {
     id: 'yaml_formatter',
@@ -317,6 +335,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'formatter',
     icon: FileSliders,
     keywords: ['yaml', 'yml', 'format', 'beautify', '配置文件'],
+    heavy: true,
   },
   {
     id: 'toml_formatter',
@@ -326,6 +345,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     icon: FileCog,
     keywords: ['toml', 'format', 'beautify', '配置文件'],
     backendId: 'toml_formatter',
+    heavy: true,
   },
 
   // —— 生成器 ——
@@ -337,6 +357,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     icon: Fingerprint,
     keywords: ['hash', 'md5', 'sha', 'checksum', '哈希', '校验'],
     backendId: 'hash_calculator',
+    heavy: true,
   },
   {
     id: 'lorem_ipsum',
@@ -345,6 +366,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'generator',
     icon: FileText,
     keywords: ['lorem', 'ipsum', '占位', '假文'],
+    heavy: true,
   },
   {
     id: 'password_generator',
@@ -353,6 +375,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'generator',
     icon: KeyRound,
     keywords: ['password', '密码', '随机'],
+    heavy: true,
   },
   {
     id: 'qrcode_tool',
@@ -361,6 +384,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'generator',
     icon: QrCode,
     keywords: ['qrcode', 'qr', '二维码'],
+    heavy: true,
   },
   {
     id: 'uuid_generator',
@@ -370,6 +394,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     icon: Hash,
     keywords: ['uuid', 'guid'],
     backendId: 'uuid_generator',
+    heavy: true,
   },
   {
     id: 'ulid_generator',
@@ -378,6 +403,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'generator',
     icon: Fingerprint,
     keywords: ['ulid', 'sortable id', '标识符', '有序 id'],
+    heavy: true,
   },
   {
     id: 'nanoid_generator',
@@ -386,6 +412,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'generator',
     icon: Fingerprint,
     keywords: ['nanoid', '标识符', '随机 id'],
+    heavy: true,
   },
   {
     id: 'hmac_generator',
@@ -394,6 +421,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'generator',
     icon: Hash,
     keywords: ['hmac', 'signature', '签名', '摘要'],
+    heavy: true,
   },
   {
     id: 'otp_generator',
@@ -410,6 +438,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'encoder',
     icon: KeyRound,
     keywords: ['aes', 'gcm', 'encrypt', 'decrypt', '加密', '解密', '对称加密'],
+    heavy: true,
   },
 
   // —— 图像处理 ——
@@ -474,6 +503,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     icon: FileText,
     keywords: ['markdown', 'md', '预览', '公式', 'katex', 'mermaid', '大纲', '导出 html'],
     popoutSize: { width: 1000, height: 720 },
+    heavy: true,
   },
   {
     id: 'list_comparer',
@@ -482,6 +512,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'text',
     icon: ListChecks,
     keywords: ['list', 'compare', '列表', '比对'],
+    heavy: true,
   },
   {
     id: 'duplicate_detector',
@@ -490,6 +521,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'text',
     icon: ListChecks,
     keywords: ['duplicate', 'dedupe', '去重', '重复行', 'unique', '重复'],
+    heavy: true,
   },
   {
     id: 'folder_analyzer',
@@ -521,6 +553,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
       '本地文件',
     ],
     popoutSize: { width: 1100, height: 720 },
+    heavy: true,
   },
   {
     id: 'pdf_editor',
@@ -595,6 +628,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'converter',
     icon: Table,
     keywords: ['csv', 'excel', '表格', 'tsv', '逗号分隔'],
+    heavy: true,
   },
   {
     id: 'ip_parser',
@@ -644,6 +678,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     category: 'converter',
     icon: Table,
     keywords: ['json', 'table', 'csv', 'tsv', '表格'],
+    heavy: true,
   },
   {
     id: 'color_converter',
@@ -653,6 +688,7 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     icon: Paintbrush,
     keywords: ['color', 'hex', 'rgb', 'hsl', '颜色'],
     backendId: 'color_converter',
+    heavy: true,
   },
 
   // —— 应用页面(展示在"所有工具"网格中) ——

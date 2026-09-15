@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import katex from 'katex';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildTocHtml, computeDocStats, renderMarkdown, slugifyText } from './markdown-render';
+import { clearKatexCache } from './markdown-core';
 
 describe('slugifyText', () => {
   it('保留中文并折叠空白为连字符', () => {
@@ -236,5 +238,34 @@ describe('computeDocStats', () => {
     expect(stats.words).toBe(0);
     expect(stats.readingMinutes).toBe(0);
     expect(stats.lines).toBe(1);
+  });
+});
+
+// ============================================================
+// KaTeX 公式缓存(LRU)
+// ============================================================
+
+describe('renderMarkdown:KaTeX 公式缓存(LRU)', () => {
+  beforeEach(() => {
+    clearKatexCache();
+  });
+
+  it('同一公式二次渲染命中缓存,不再调 renderToString', () => {
+    const spy = vi.spyOn(katex, 'renderToString');
+    const first = renderMarkdown('$E=mc^2$');
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    const second = renderMarkdown('$E=mc^2$');
+    expect(spy).toHaveBeenCalledTimes(1); // 命中缓存,未重渲染
+    expect(second.html).toBe(first.html);
+    spy.mockRestore();
+  });
+
+  it('同一 tex 的行内/块级视为不同缓存键', () => {
+    const spy = vi.spyOn(katex, 'renderToString');
+    renderMarkdown('$a+b$');
+    renderMarkdown('$$\na+b\n$$');
+    expect(spy).toHaveBeenCalledTimes(2);
+    spy.mockRestore();
   });
 });

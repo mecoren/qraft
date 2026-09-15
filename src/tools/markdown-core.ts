@@ -19,6 +19,7 @@ import {
   type TokenizerThis,
   type RendererThis,
 } from 'marked';
+import { LruCache } from '@/lib/lru-cache';
 import hljs from 'highlight.js/lib/core';
 import javascript from 'highlight.js/lib/languages/javascript';
 import typescript from 'highlight.js/lib/languages/typescript';
@@ -313,9 +314,15 @@ import katex from 'katex';
 /**
  * KaTeX 渲染结果缓存:同一公式在两阶段渲染的每轮全量解析中重复出现,
  * 以 tex 为键直接复用 HTML,消除重复 renderToString 开销。
+ * LRU 逐条淘汰(替代旧「满 400 条整体清空」——全清会让下一轮渲染
+ * 全量 miss,大文档公式回填出现卡顿尖峰)。
  */
-const katexCache = new Map<string, string>();
-const KATEX_CACHE_LIMIT = 400;
+const katexCache = new LruCache<string, string>({ maxEntries: 400, maxBytes: 4 * 1024 * 1024 });
+
+/** 清空公式缓存(测试用) */
+export function clearKatexCache(): void {
+  katexCache.clear();
+}
 
 function renderKatex(tex: string, displayMode: boolean): string {
   const cacheKey = `${displayMode ? 'B' : 'I'}:${tex}`;
@@ -328,7 +335,6 @@ function renderKatex(tex: string, displayMode: boolean): string {
       output: 'htmlAndMathml',
     });
     const html = `<span class="${displayMode ? 'md-math-block' : 'md-math-inline'}">${inner}</span>`;
-    if (katexCache.size >= KATEX_CACHE_LIMIT) katexCache.clear();
     katexCache.set(cacheKey, html);
     return html;
   } catch {

@@ -104,7 +104,8 @@ export const useToolStateStore = create<ToolState>((set) => ({
     set((s) => {
       const next = new Map(s.streamingTasks);
       const t = next.get(taskId);
-      if (t) next.set(taskId, { ...t, status: 'cancelled' });
+      // 取消同样终结任务,释放累计 chunk(与 completed/failed 同口径)
+      if (t) next.set(taskId, { ...t, status: 'cancelled', chunks: '' });
       return { streamingTasks: next };
     });
   },
@@ -155,7 +156,9 @@ export const useToolStateStore = create<ToolState>((set) => ({
       const next = new Map(s.streamingTasks);
       const existing = next.get(p.taskId);
       if (existing) {
-        next.set(p.taskId, { ...existing, status: 'completed', output: p.output });
+        // 完结即释放累计的 chunk 字符串:completed/failed 后再无消费者,
+        // 大文件流式任务的输出可达数十 MB,驻留会击穿长会话内存目标。
+        next.set(p.taskId, { ...existing, status: 'completed', output: p.output, chunks: '' });
       }
       return { streamingTasks: next };
     });
@@ -166,7 +169,8 @@ export const useToolStateStore = create<ToolState>((set) => ({
       const next = new Map(s.streamingTasks);
       const existing = next.get(p.taskId);
       if (existing) {
-        next.set(p.taskId, { ...existing, status: 'failed', error: p.error });
+        // 同 applyToolCompleted:失败任务的半成品 chunk 同样无消费者
+        next.set(p.taskId, { ...existing, status: 'failed', error: p.error, chunks: '' });
       }
       return { streamingTasks: next };
     });

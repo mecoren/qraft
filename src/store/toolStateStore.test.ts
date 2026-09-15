@@ -140,6 +140,30 @@ describe('streaming task lifecycle', () => {
     expect(t?.output?.text).toBe('done');
   });
 
+  it('任务完结(completed/failed/cancelled)即释放累计 chunks(内存契约)', async () => {
+    useToolStateStore.getState().applyToolProgress({ taskId: 't2', processed: 0, total: 1 });
+    useToolStateStore.getState().applyToolChunk({ taskId: 't2', text: 'x'.repeat(1024) });
+    useToolStateStore.getState().applyToolCompleted({ taskId: 't2', output: { text: 'done' } });
+    expect(useToolStateStore.getState().streamingTasks.get('t2')?.chunks).toBe('');
+
+    useToolStateStore.getState().applyToolProgress({ taskId: 't3', processed: 0, total: 1 });
+    useToolStateStore.getState().applyToolChunk({ taskId: 't3', text: 'y'.repeat(1024) });
+    useToolStateStore.getState().applyToolFailed({
+      taskId: 't3',
+      error: { code: 'ERR_INTERNAL', message: 'panic' },
+    });
+    expect(useToolStateStore.getState().streamingTasks.get('t3')?.chunks).toBe('');
+
+    invokeMock.mockResolvedValueOnce({
+      success: true,
+      data: true,
+    } satisfies CommandResponse<boolean>);
+    useToolStateStore.getState().applyToolProgress({ taskId: 't4', processed: 0, total: 1 });
+    useToolStateStore.getState().applyToolChunk({ taskId: 't4', text: 'z'.repeat(1024) });
+    await useToolStateStore.getState().cancelTask('t4');
+    expect(useToolStateStore.getState().streamingTasks.get('t4')?.chunks).toBe('');
+  });
+
   it('applyToolFailed sets status failed with error', () => {
     useToolStateStore.getState().applyToolProgress({
       taskId: 't1',

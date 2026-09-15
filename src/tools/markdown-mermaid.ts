@@ -13,6 +13,7 @@
  */
 
 import { t } from '@/i18n';
+import { LruCache } from '@/lib/lru-cache';
 
 type MermaidApi = {
   initialize: (config: Record<string, unknown>) => void;
@@ -26,9 +27,13 @@ let loadedTheme: 'dark' | 'default' | null = null;
  * 渲染结果缓存:键 = 图定义 + 主题。
  * 任一处编辑导致预览 HTML 整体重写时,未修改的图表可即时回填,
  * 避免每次输入停顿都对全部图表重跑 api.render(单图 50~200ms)。
+ * LRU 逐条淘汰 + 4MB 字节上限(单张复杂图 SVG 可达数百 KB,
+ * 旧「满 60 条全清」既丢热条目也不看字节总量)。
  */
-const svgCache = new Map<string, string>();
-const SVG_CACHE_LIMIT = 60;
+const svgCache = new LruCache<string, string>({
+  maxEntries: 60,
+  maxBytes: 4 * 1024 * 1024,
+});
 
 /** 清空渲染缓存(测试用) */
 export function clearMermaidSvgCache(): void {
@@ -112,7 +117,6 @@ export async function renderMermaidIn(root: HTMLElement, dark: boolean): Promise
     block.dataset.mdDone = 'true';
     try {
       const { svg } = await api.render(`qraft-mmd-${Date.now()}-${index}`, code);
-      if (svgCache.size >= SVG_CACHE_LIMIT) svgCache.clear();
       svgCache.set(key, svg);
       block.innerHTML = svg;
       block.classList.add('md-mermaid-rendered');

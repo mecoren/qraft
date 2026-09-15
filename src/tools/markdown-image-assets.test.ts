@@ -53,6 +53,31 @@ describe('resolveAssetImages', () => {
     const out = await resolveAssetImages('<img src="mdasset:img-missing.png">');
     expect(out).toContain('data-md-blocked-src="mdasset:img-missing.png"');
   });
+
+  it('缓存为 LRU 淘汰而非全清:超限后最近条目仍在,冷条目被逐条挤掉', async () => {
+    // 缓存上限为条数 120:预填 120 张后写入新图,最旧条目被淘汰、
+    // 其余条目保留(旧全清实现会让全部图片在下一轮渲染重新读盘)
+    const total = 120;
+    const refs = Array.from({ length: total }, (_, i) => `img-${i}.png`);
+    const html = `<p>${refs.map((name) => `<img src="mdasset:${name}">`).join('')}</p>`;
+    invokeMock.mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+      const name = String(args?.name ?? '');
+      return cmd === 'md_read_image_asset'
+        ? { ok: true, value: `${name}-B64` }
+        : { ok: true, value: '' };
+    });
+
+    await resolveAssetImages(html);
+    expect(invokeMock).toHaveBeenCalledTimes(total);
+
+    // 第 121 张进缓存后,最旧的 img-0 被淘汰,其余 119 张 + 新图全部命中
+    const second = await resolveAssetImages(
+      `<img src="mdasset:img-0.png"><img src="mdasset:img-119.png"><img src="mdasset:img-NEW.png">`,
+    );
+    expect(invokeMock).toHaveBeenCalledTimes(total + 1); // 仅 img-0 与 img-NEW 真正读盘
+    expect(second).toContain(`data:image/png;base64,img-NEW.png-B64`);
+    expect(second).toContain('data:image/png;base64,img-119.png-B64');
+  });
 });
 
 describe('savePastedImage', () => {

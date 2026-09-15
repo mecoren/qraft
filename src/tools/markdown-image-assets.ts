@@ -12,10 +12,18 @@
  */
 
 import { safeInvoke } from '@/lib/ipc';
+import { LruCache } from '@/lib/lru-cache';
 
-/** data URL 内存缓存:资产名 → data URL(会话级,图片不重复读盘) */
-const assetCache = new Map<string, string>();
-const ASSET_CACHE_LIMIT = 120;
+/**
+ * data URL 内存缓存:资产名 → data URL(会话级,图片不重复读盘)。
+ * 双上限 LRU:条数 120 / 字节 32MB——旧「满 120 条全清」不看字节,
+ * 一张 5MB 截图的 base64 就占 ~6.7MB,十几张大图可无界吃内存;
+ * 全清还会让下一次渲染把全部图片重新读盘+重编码。
+ */
+const assetCache = new LruCache<string, string>({
+  maxEntries: 120,
+  maxBytes: 32 * 1024 * 1024,
+});
 
 /** 文件类型 → 扩展名白名单(与 Rust 侧 ALLOWED_EXTS 对齐) */
 const IMAGE_EXT_BY_TYPE: Readonly<Record<string, string>> = {
@@ -92,7 +100,6 @@ export async function resolveAssetImages(html: string): Promise<string> {
         if (res.ok && res.value) {
           const ext = name.split('.').pop() ?? 'png';
           const url = `data:image/${ext};base64,${res.value}`;
-          if (assetCache.size >= ASSET_CACHE_LIMIT) assetCache.clear();
           assetCache.set(name, url);
           urlByAsset.set(name, url);
         }
