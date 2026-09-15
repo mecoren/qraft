@@ -156,4 +156,211 @@ describe('openDocFromSystem', () => {
     expect(fallback?.title).toMatch(/^md-\d+$/);
     expect(fallback?.autoTitle).toBe(fallback?.title);
   });
+
+  it('携带文件载荷(拖放/关联打开):走绑定语义,同路径去重刷新而非重复 Tab', () => {
+    const s = useMdDocsStore.getState();
+    // 第一次:绑定路径,Tab 名取文件名,记录编码与 mtime 基准
+    s.openDocFromSystem('v0', {
+      path: 'C:\\docs\\drop.md',
+      content: 'v0',
+      encoding: 'utf-8',
+      mtimeMs: 10,
+    });
+    const first = useMdDocsStore.getState().docs.find((d) => d.path === 'C:\\docs\\drop.md');
+    expect(first).toBeDefined();
+    expect(first?.title).toBe('drop.md');
+    expect(first?.encoding).toBe('utf-8');
+    expect(first?.mtimeMs).toBe(10);
+    expect(first?.savedContent).toBe('v0');
+    expect(useMdDocsStore.getState().activeDocId).toBe(first?.id);
+
+    // 同路径再次打开(外部修改后重拖):刷新该文档而非新增 Tab
+    s.openDocFromSystem('v1', {
+      path: 'C:\\docs\\drop.md',
+      content: 'v1',
+      encoding: 'utf-8',
+      mtimeMs: 11,
+    });
+    const after = useMdDocsStore.getState();
+    expect(after.docs.filter((d) => d.path === 'C:\\docs\\drop.md')).toHaveLength(1);
+    const refreshed = after.docs.find((d) => d.path === 'C:\\docs\\drop.md');
+    expect(refreshed?.content).toBe('v1');
+    expect(refreshed?.mtimeMs).toBe(11);
+  });
+
+  it('无载荷(纯内容注入)保持既有非绑定语义:不设 path/savedContent', () => {
+    useMdDocsStore.getState().openDocFromSystem('# 纯内容');
+    const doc = useMdDocsStore.getState().docs.find((d) => d.content === '# 纯内容');
+    expect(doc?.path).toBeUndefined();
+    expect(doc?.savedContent).toBeUndefined();
+  });
+});
+
+describe('文件绑定(openFileAsDoc / attachPath / markSaved)', () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue({ ok: true, value: true });
+    useMdDocsStore.setState({
+      docs: [{ id: 'md-default', title: 'md-1', autoTitle: 'md-1', pinned: false, content: '' }],
+      activeDocId: 'md-default',
+      ready: true,
+      userTouched: false,
+      firstUse: false,
+      error: null,
+    });
+  });
+
+  it('openFileAsDoc:新路径追加文档并激活,Tab 名取文件名,快照与 mtime 记录', () => {
+    useMdDocsStore.getState().openFileAsDoc({
+      path: 'C:\\docs\\我的笔记.md',
+      content: '# 笔记',
+      encoding: 'utf-8',
+      mtimeMs: 1234,
+    });
+    const s = useMdDocsStore.getState();
+    expect(s.docs).toHaveLength(2);
+    const doc = s.docs[1];
+    expect(doc.title).toBe('我的笔记.md');
+    expect(doc.path).toBe('C:\\docs\\我的笔记.md');
+    expect(doc.encoding).toBe('utf-8');
+    expect(doc.mtimeMs).toBe(1234);
+    expect(doc.savedContent).toBe('# 笔记');
+    expect(s.activeDocId).toBe(doc.id);
+    // 用户主动打开:置位 userTouched
+    expect(s.userTouched).toBe(true);
+  });
+
+  it('openFileAsDoc:同路径文档已存在时重读刷新内容与基准,不追加新 Tab', () => {
+    useMdDocsStore.getState().openFileAsDoc({
+      path: 'C:\\docs\\a.md',
+      content: 'v1',
+      encoding: 'utf-8',
+      mtimeMs: 100,
+    });
+    // 编辑偏离磁盘(制造 dirty)
+    useMdDocsStore.getState().setDocContent(useMdDocsStore.getState().activeDocId!, 'v1 改');
+    // 重新打开同路径:磁盘内容刷回,savedContent 同步刷新(dirty 消除)
+    useMdDocsStore.getState().openFileAsDoc({
+      path: 'C:\\docs\\a.md',
+      content: 'v2',
+      encoding: 'utf-8',
+      mtimeMs: 200,
+    });
+    const s = useMdDocsStore.getState();
+    expect(s.docs).toHaveLength(2); // 原默认 + 一个文件文档,未新增
+    const doc = s.docs[1];
+    expect(doc.content).toBe('v2');
+    expect(doc.savedContent).toBe('v2');
+    expect(doc.mtimeMs).toBe(200);
+  });
+
+  it('attachPath:纯草稿另存为后绑定路径,标题切为文件名且内容派生让位', () => {
+    const s0 = useMdDocsStore.getState();
+    useMdDocsStore.getState().setDocContent(s0.activeDocId!, '# 草稿标题');
+    const id = useMdDocsStore.getState().activeDocId!;
+    useMdDocsStore.getState().attachPath(id, 'C:\\docs\\saved.md', 'utf-8', 999);
+    const doc = useMdDocsStore.getState().docs.find((d) => d.id === id);
+    expect(doc?.path).toBe('C:\\docs\\saved.md');
+    expect(doc?.title).toBe('saved.md');
+    expect(doc?.autoTitle).toBeUndefined();
+    expect(doc?.savedContent).toBe('# 草稿标题');
+    // 后续内容变化不再改写 Tab 名(文件名优先),但 dirty 生效
+    useMdDocsStore.getState().setDocContent(id, '# 草稿标题 改');
+    expect(useMdDocsStore.getState().docs.find((d) => d.id === id)?.title).toBe('saved.md');
+  });
+
+  it('markSaved:刷新 savedContent 快照与 mtime;dirty 判定随内容变化', () => {
+    useMdDocsStore.getState().openFileAsDoc({
+      path: 'C:\\docs\\b.md',
+      content: 'base',
+      encoding: 'utf-8',
+      mtimeMs: 1,
+    });
+    const id = useMdDocsStore.getState().activeDocId!;
+    // 打开后干净
+    let doc = useMdDocsStore.getState().docs.find((d) => d.id === id);
+    expect(doc?.content === doc?.savedContent).toBe(true);
+    // 编辑 → dirty
+    useMdDocsStore.getState().setDocContent(id, 'base 改');
+    doc = useMdDocsStore.getState().docs.find((d) => d.id === id);
+    expect(doc?.content !== doc?.savedContent).toBe(true);
+    // 保存成功 → 快照刷新、dirty 消除
+    useMdDocsStore.getState().markSaved(id, 42);
+    doc = useMdDocsStore.getState().docs.find((d) => d.id === id);
+    expect(doc?.savedContent).toBe('base 改');
+    expect(doc?.mtimeMs).toBe(42);
+    expect(doc?.content === doc?.savedContent).toBe(true);
+  });
+
+  it('持久化往返:path/encoding/mtimeMs/savedContent 一并还原(sanitizeDoc)', async () => {
+    useMdDocsStore.getState().openFileAsDoc({
+      path: 'C:\\docs\\c.md',
+      content: '# 还原',
+      encoding: 'gb18030',
+      mtimeMs: 77,
+    });
+    // 组件防抖 persist 最终调 config_set;直接驱动一次 persistDocs
+    await useMdDocsStore.getState().persistDocs();
+    const payload = invokeMock.mock.calls.find((c) => c[0] === 'config_set')?.[1];
+    expect(payload?.value.docs[1].path).toBe('C:\\docs\\c.md');
+    expect(payload?.value.docs[1].encoding).toBe('gb18030');
+    expect(payload?.value.docs[1].mtimeMs).toBe(77);
+    expect(payload?.value.docs[1].savedContent).toBe('# 还原');
+  });
+
+  it('hydrate 还原带 path 的文档:字段完整还原', async () => {
+    invokeMock.mockResolvedValue({
+      ok: true,
+      value: {
+        docs: [
+          {
+            id: 'f-1',
+            title: 'file.md',
+            pinned: false,
+            content: '# F',
+            path: 'C:\\docs\\file.md',
+            encoding: 'utf-8',
+            mtimeMs: 5,
+            savedContent: '# F',
+          },
+        ],
+        activeDocId: 'f-1',
+      },
+    });
+    useMdDocsStore.setState({ ready: false, userTouched: false });
+    await useMdDocsStore.getState().hydrate();
+    const doc = useMdDocsStore.getState().docs[0];
+    expect(doc.path).toBe('C:\\docs\\file.md');
+    expect(doc.encoding).toBe('utf-8');
+    expect(doc.mtimeMs).toBe(5);
+    expect(doc.savedContent).toBe('# F');
+    // fromSystem 瞬时标记仍被剥离
+    expect(doc.fromSystem).toBeUndefined();
+  });
+
+  it('损坏数据兜底:path 非法(空串/非字符串)时绑定字段整体丢弃,文档保留', async () => {
+    invokeMock.mockResolvedValue({
+      ok: true,
+      value: {
+        docs: [
+          {
+            id: 'broken',
+            title: 'Broken',
+            pinned: false,
+            content: 'x',
+            path: '',
+            mtimeMs: 1,
+          },
+        ],
+        activeDocId: 'broken',
+      },
+    });
+    useMdDocsStore.setState({ ready: false, userTouched: false });
+    await useMdDocsStore.getState().hydrate();
+    const doc = useMdDocsStore.getState().docs[0];
+    expect(doc.id).toBe('broken');
+    expect(doc.content).toBe('x');
+    expect(doc.path).toBeUndefined();
+    expect(doc.mtimeMs).toBeUndefined();
+  });
 });

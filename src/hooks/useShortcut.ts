@@ -14,6 +14,8 @@
 
 import { useEffect } from 'react';
 import { useConfigStore } from '@/store/configStore';
+import { useToolStateStore } from '@/store/toolStateStore';
+import { isPopoutWindow } from '@/lib/popout-window';
 import { DEFAULT_SHORTCUTS, type ShortcutBinding } from '@/types/config';
 
 /** ShortcutBinding 的 key 集合 */
@@ -105,6 +107,37 @@ function matchesShortcut(e: KeyboardEvent, sc: ParsedShortcut): boolean {
  * Monaco 查找部件(原生 Esc 关闭)。其余返回值/void 均视为已消费。
  */
 export type ShortcutHandler = (e: KeyboardEvent) => void | false;
+
+/**
+ * 判断某工具的工具级快捷键当前是否应响应。
+ *
+ * 页面/工具均 keepalive 常驻挂载,`useShortcut` 监听在 window 捕获阶段,
+ * 两个常驻工具的同类绑定会同时触发且 stopPropagation 拦不住(同元素
+ * 多监听器互相独立执行)。因此工具级快捷键(保存/打开等编辑类动作)必须
+ * 由归属工具声明,仅当「当前激活工具 === 归属工具」时响应;
+ * 弹窗窗口单工具独占视口且无 currentToolId 概念,视同激活。
+ */
+export function isToolShortcutActive(toolId: string): boolean {
+  if (isPopoutWindow()) return true;
+  return useToolStateStore.getState().currentToolId === toolId;
+}
+
+/**
+ * 注册带归属工具守卫的工具级快捷键。
+ *
+ * 与 `useShortcut` 的差别:非激活时 handler 不执行并**放行**事件(返回
+ * false 语义),让激活侧的同名绑定(若有)接管消费;激活时行为与
+ * `useShortcut` 完全一致(消费并阻止默认动作)。应用级快捷键(设置/
+ * 命令面板等)仍用 `useShortcut`。
+ */
+export function useToolShortcut(
+  toolId: string,
+  key: ShortcutKey,
+  handler: ShortcutHandler,
+  deps: readonly unknown[],
+): void {
+  useShortcut(key, (e) => (isToolShortcutActive(toolId) ? handler(e) : false), [toolId, ...deps]);
+}
 
 /**
  * 注册全局快捷键。

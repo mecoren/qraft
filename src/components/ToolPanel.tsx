@@ -5,7 +5,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { getCatalogEntry, pickText, type CatalogEntry } from '@/lib/tool-catalog';
-import { MAX_KEEPALIVE_TOOLS, pushVisited } from '@/lib/keepalive';
+import { MAX_KEEPALIVE_SLOTS, pushVisited } from '@/lib/keepalive';
 import { getToolComponent, type ToolProps } from '@/tools/registry';
 import type { ToolMetadata, ToolCategory, Alert, AlertLevel } from '@/types/tool';
 
@@ -64,9 +64,9 @@ export function ToolPanel({ toolId, alerts = [] }: ToolPanelProps): JSX.Element 
     // 在异步回调内更新,避免在 effect 同步体内 setState 触发的级联渲染 lint 错误
     const id = toolId;
     const h = setTimeout(() => {
-      // LRU 容量上限:超出 MAX_KEEPALIVE_TOOLS 时淘汰最久未访问的工具(真卸载,
+      // LRU 容量上限(名额制,重型工具×2):超出时淘汰最久未访问的工具(真卸载,
       // 触发其 Monaco 实例 dispose),防止长会话内存无界增长
-      setVisited((v) => pushVisited(v, id, MAX_KEEPALIVE_TOOLS));
+      setVisited((v) => pushVisited(v, id, MAX_KEEPALIVE_SLOTS));
     }, 0);
     return () => clearTimeout(h);
   }, [toolId]);

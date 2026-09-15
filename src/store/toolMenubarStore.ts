@@ -20,6 +20,7 @@
 
 import { useEffect, useLayoutEffect } from 'react';
 import { create } from 'zustand';
+import { useToolStateStore } from '@/store/toolStateStore';
 import type { ToolMenu } from '@/types/tool-menu';
 
 interface ToolMenusState {
@@ -29,16 +30,59 @@ interface ToolMenusState {
   menus: ToolMenu[];
   /** 设置菜单(挂载时调用,需携带工具 id 以便 Titlebar 判断归属) */
   setMenus: (toolId: string, menus: ToolMenu[]) => void;
-  /** 清空菜单(卸载时调用) */
-  clear: () => void;
+  /** 清空菜单(卸载时调用);携带工具 id 时只清自己的注册 */
+  clear: (toolId?: string) => void;
+  /**
+   * 归属工具的最近一次菜单注册(toolId → menus)。
+   * 组件 keepalive 常驻:切走时菜单被其他工具覆盖,切回时组件不会重新
+   * 挂载、useLayoutEffect 不会重跑,菜单栏因此丢失 —— 由模块级的
+   * currentToolId 订阅把归属工具的最近注册重放回去(见文件尾部)。
+   */
+  registry: Map<string, ToolMenu[]>;
 }
 
-export const useToolMenusStore = create<ToolMenusState>((set) => ({
+export const useToolMenusStore = create<ToolMenusState>((set, get) => ({
   ownerToolId: null,
   menus: [],
-  setMenus: (toolId, menus) => set({ ownerToolId: toolId, menus }),
-  clear: () => set({ ownerToolId: null, menus: [] }),
+  registry: new Map<string, ToolMenu[]>(),
+  setMenus: (toolId, menus) => {
+    get().registry.set(toolId, menus);
+    // 归属工具正是激活工具时才落到 menus(否则等激活订阅重放);
+    // 但挂载顺序上组件先于 Titlebar 订阅,直接设置保持首挂载即注册的
+    // 原有行为 —— 归属非激活的场景由激活订阅纠正
+    set({ ownerToolId: toolId, menus });
+  },
+  clear: (toolId) => {
+    if (toolId === undefined) {
+      // 无条件清空(测试隔离用):状态与注册表一起重置
+      get().registry.clear();
+      set({ ownerToolId: null, menus: [] });
+      return;
+    }
+    // keepalive 下多工具并存:仅清自己的注册;且仅当自己正是当前归属时
+    // 才清掉展示,防止已隐藏工具的卸载把新激活工具刚注册的菜单抹掉
+    get().registry.delete(toolId);
+    if (get().ownerToolId === toolId) set({ ownerToolId: null, menus: [] });
+  },
 }));
+
+// 激活工具切换时重放其最近一次菜单注册(keepalive 切回修复):
+// 后挂载工具的 setMenus 会覆盖 store 里的 menus,先挂载的工具切回时
+// 不会重新挂载,只有这里把它的注册重放回去
+if (typeof window !== 'undefined') {
+  let lastActive: string | null | undefined;
+  useToolStateStore.subscribe((s) => {
+    if (s.currentToolId === lastActive) return;
+    lastActive = s.currentToolId;
+    if (s.currentToolId === null) return;
+    const menus = useToolMenusStore.getState().registry.get(s.currentToolId);
+    // 有注册的工具被激活:重放(若归属已是它且内容未变,重放幂等);
+    // 未注册菜单的工具激活:清掉上一归属的展示(Titlebar 的归属校验
+    // 本就会隐藏,显式清空保持 store 状态与展示一致)
+    if (menus) useToolMenusStore.setState({ ownerToolId: s.currentToolId, menus });
+    else useToolMenusStore.setState({ ownerToolId: null, menus: [] });
+  });
+}
 
 /**
  * 工具菜单声明副作用 —— 挂载时注册菜单,卸载时自动清空。
@@ -76,10 +120,12 @@ export function useToolMenus(toolId: string, menus: ToolMenu[]): void {
   }, [toolId, menus]);
 
   // unmount 清理:effect cleanup 是唯一可靠的「组件卸载时执行」机制;
-  // 空依赖数组在卸载时执行 cleanup,menus 变更由上面的 useLayoutEffect 处理
+  // 空依赖数组在卸载时执行 cleanup,menus 变更由上面的 useLayoutEffect 处理。
+  // 携带 toolId:keepalive 下已隐藏工具的卸载(LRU 淘汰)不应清掉
+  // 其他归属工具的注册(见 store.clear 说明)
   useEffect(() => {
     return () => {
-      useToolMenusStore.getState().clear();
+      useToolMenusStore.getState().clear(toolId);
     };
-  }, []);
+  }, [toolId]);
 }

@@ -35,11 +35,46 @@ vi.mock('@/components/ui/resizable', () => ({
 // mermaid 懒渲染不参与组件测试(jsdom 无 SVG 布局意义),仅断言调用
 vi.mock('./markdown-mermaid', () => ({ renderMermaidIn: vi.fn(async () => undefined) }));
 
+// sonner toast:文件打开/保存路径的错误提示断言用(HashCalculator.test 同款)。
+// toast 本体也要可调用(markdown-preview-pane 的图片拦截提示走 toast(title, …) 形态)
+vi.mock('sonner', () => {
+  const fn = vi.fn();
+  return {
+    toast: Object.assign(fn, {
+      success: vi.fn(),
+      error: vi.fn(),
+      info: vi.fn(),
+      warning: vi.fn(),
+    }),
+  };
+});
+
+// 文件操作基建(IPC)整体 mock:打开/保存对话框与写盘走桩,
+// 避免测试环境触发真实 Tauri invoke(setup 已 mock,此处控制返回值)
+const openDialogMock = vi.fn();
+const saveDialogMock = vi.fn();
+const writeToPathMock = vi.fn();
+const fileMtimeMock = vi.fn();
+const readEncodedMock = vi.fn();
+vi.mock('./code-editor-workspace/fileOps', () => ({
+  OPEN_REASON_BINARY: 'binary',
+  OPEN_REASON_TOO_LARGE: 'too-large',
+  openTextFileDialog: (...a: unknown[]) => openDialogMock(...a),
+  saveWithDialogEncoded: (...a: unknown[]) => saveDialogMock(...a),
+  saveToPathEncoded: (...a: unknown[]) => writeToPathMock(...a),
+  fileMtimeMs: (...a: unknown[]) => fileMtimeMock(...a),
+  readTextFileEncoded: (...a: unknown[]) => readEncodedMock(...a),
+  forceOpenFile: vi.fn(),
+}));
+
 import { MarkdownPreview } from './MarkdownPreview';
 import { renderMermaidIn } from './markdown-mermaid';
 import { useMarkdownPreviewStore } from './markdownPreviewStore';
 import { DRAFT_STORAGE_KEY } from './markdownPreviewStore';
 import { useMdDocsStore } from './markdownPreviewDocsStore';
+import { useToolMenusStore } from '@/store/toolMenubarStore';
+import { useToolStateStore } from '@/store/toolStateStore';
+import { toast } from 'sonner';
 import { changeLocale } from '@/i18n';
 
 describe('MarkdownPreview', () => {
@@ -65,6 +100,22 @@ describe('MarkdownPreview', () => {
     });
     Element.prototype.scrollIntoView = vi.fn();
     vi.mocked(renderMermaidIn).mockClear();
+    openDialogMock.mockReset();
+    saveDialogMock.mockReset();
+    writeToPathMock.mockReset();
+    // 外部修改轮询的 mtime 探测:缺省 resolve 当前基准值(磁盘未变),
+    // 冲突提示用例再按需 override
+    fileMtimeMock.mockReset().mockImplementation((p: string) => {
+      const doc = useMdDocsStore.getState().docs.find((d) => d.path === p);
+      return Promise.resolve(doc?.mtimeMs);
+    });
+    readEncodedMock.mockReset();
+    vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.success).mockClear();
+    // 快捷键守卫依赖激活工具:置为本工具(主窗口语义)
+    act(() => {
+      useToolStateStore.setState({ currentToolId: 'markdown_preview' });
+    });
   });
 
   /** 等待 hydrate + 首文档 effect 完成(测试环境 safeInvoke 失败 → 无持久化数据,
@@ -78,6 +129,14 @@ describe('MarkdownPreview', () => {
       const s = useMdDocsStore.getState();
       expect(s.docs.length).toBeGreaterThanOrEqual(1);
       expect(s.activeDocId).toBe(s.docs[0].id);
+    });
+  }
+
+  /** 等待 hydrate 完成(ready 置位);文件操作用例中激活文档可能是预置的
+   *  绑定文档(docs[0] 为默认草稿),不校验 docs[0] 激活 */
+  async function waitForReady() {
+    await waitFor(() => {
+      expect(useMdDocsStore.getState().ready).toBe(true);
     });
   }
 
@@ -411,5 +470,401 @@ describe('MarkdownPreview', () => {
     await waitFor(() => expect(screen.getByTestId('export-md-file')).toBeInTheDocument());
     expect(screen.getByTestId('export-print')).toBeInTheDocument();
     expect(screen.getByTestId('export-html-file')).toBeInTheDocument();
+  });
+
+  // ============================================================
+  // 文件操作:菜单注册 / 打开 / 保存 / dirty 徽标
+  // ============================================================
+
+  it('挂载即注册「文件」菜单(打开/保存/另存为/关闭),卸载清空', async () => {
+    const { unmount } = render(
+      <MarkdownPreview toolId="markdown_preview" metadata={null as never} />,
+    );
+    await waitForHydrate();
+    const s = useToolMenusStore.getState();
+    expect(s.ownerToolId).toBe('markdown_preview');
+    expect(s.menus.length).toBeGreaterThan(0);
+    const fileMenu = s.menus[0];
+    expect(fileMenu.id).toBe('file');
+    const ids = fileMenu.groups.flatMap((g) => g.items.map((i) => i.id));
+    expect(ids).toContain('open');
+    expect(ids).toContain('save');
+    expect(ids).toContain('save-as');
+    expect(ids).toContain('close');
+    unmount();
+    expect(useToolMenusStore.getState().menus).toHaveLength(0);
+  });
+
+  it('打开文件:对话框返回内容 → 新文档承载,Tab 名取文件名', async () => {
+    openDialogMock.mockResolvedValue({
+      file: {
+        path: 'C:\\docs\\opened.md',
+        content: '# Opened From Disk',
+        encoding: 'utf-8',
+        mtimeMs: 111,
+      },
+      failed: null,
+    });
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForHydrate();
+
+    // 菜单「打开」入口
+    const openItem = useToolMenusStore
+      .getState()
+      .menus[0].groups.flatMap((g) => g.items)
+      .find((i) => i.id === 'open');
+    await act(async () => {
+      openItem?.onSelect();
+    });
+
+    const s = useMdDocsStore.getState();
+    const doc = s.docs.find((d) => d.path === 'C:\\docs\\opened.md');
+    expect(doc).toBeDefined();
+    expect(doc?.title).toBe('opened.md');
+    expect(doc?.content).toBe('# Opened From Disk');
+    expect(doc?.savedContent).toBe('# Opened From Disk');
+    expect(s.activeDocId).toBe(doc?.id);
+    // 有路径且未编辑:无 dirty 徽标
+    const tab = screen
+      .getAllByTestId('md-doc-tab')
+      .find((el) => el.getAttribute('data-doc-id') === doc?.id);
+    expect(tab?.getAttribute('data-dirty')).toBeNull();
+    // 预览渲染打开的内容
+    await waitFor(() =>
+      expect(screen.getByTestId('md-preview').textContent).toContain('Opened From Disk'),
+    );
+  });
+
+  it('打开二进制文件:toast 带仍要打开动作,点击后经 force 通道载入', async () => {
+    openDialogMock.mockResolvedValue({
+      file: null,
+      failed: { path: 'C:\\docs\\bin.dat', reason: 'binary', size: null },
+    });
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForHydrate();
+
+    const openItem = useToolMenusStore
+      .getState()
+      .menus[0].groups.flatMap((g) => g.items)
+      .find((i) => i.id === 'open');
+    await act(async () => {
+      openItem?.onSelect();
+    });
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+  });
+
+  it('Ctrl+S 保存:有路径文档按记录编码写回并刷新快照;dirty 徽标随编辑/保存切换', async () => {
+    // 直接构造一个已绑定路径且 dirty 的文档
+    act(() => {
+      const s = useMdDocsStore.getState();
+      s.openFileAsDoc({
+        path: 'C:\\docs\\save.md',
+        content: 'base',
+        encoding: 'utf-8',
+        mtimeMs: 5,
+      });
+      s.setDocContent(useMdDocsStore.getState().activeDocId!, 'base edited');
+    });
+    writeToPathMock.mockResolvedValue(true);
+    fileMtimeMock.mockResolvedValue(9);
+
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForReady();
+
+    // 编辑器 mock 受控:内容来自 store,不依赖 textarea 渲染
+    const docId = useMdDocsStore.getState().activeDocId!;
+    // dirty 徽标可见
+    await waitFor(() => expect(screen.getByTestId('md-doc-tab-dirty')).toBeInTheDocument());
+
+    // Ctrl+S(用户默认绑定;快捷键挂在 window 捕获阶段)
+    fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+
+    await waitFor(() => expect(writeToPathMock).toHaveBeenCalled());
+    // 写盘参数:路径 + 编辑后内容 + 记录编码 + 打开时 mtime 乐观基准
+    expect(writeToPathMock).toHaveBeenCalledWith('C:\\docs\\save.md', 'base edited', 'utf-8', 5);
+    // 保存成功:快照刷新,dirty 消除(mtime 同步刷新)
+    await waitFor(() => {
+      const doc = useMdDocsStore.getState().docs.find((d) => d.id === docId);
+      expect(doc?.savedContent).toBe('base edited');
+      expect(doc?.mtimeMs).toBe(9);
+    });
+    await waitFor(() => expect(screen.queryByTestId('md-doc-tab-dirty')).toBeNull());
+  });
+
+  it('Ctrl+S 纯草稿:弹另存为对话框,保存后绑定路径', async () => {
+    // hydrate 后示例文档为纯草稿;编辑制造内容
+    saveDialogMock.mockResolvedValue('C:\\docs\\saved-as.md');
+    fileMtimeMock.mockResolvedValue(66);
+
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForHydrate();
+    act(() => {
+      const s = useMdDocsStore.getState();
+      s.setDocContent(s.activeDocId!, '# Draft Content');
+    });
+
+    fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+
+    await waitFor(() => expect(saveDialogMock).toHaveBeenCalled());
+    const doc = useMdDocsStore.getState().docs.find((d) => d.content === '# Draft Content');
+    await waitFor(() => expect(doc?.path).toBe('C:\\docs\\saved-as.md'));
+    expect(doc?.savedContent).toBe('# Draft Content');
+    expect(doc?.title).toBe('saved-as.md');
+  });
+
+  it('快捷键仅在激活工具时响应:切走后 Ctrl+S 不触发保存', async () => {
+    act(() => {
+      const s = useMdDocsStore.getState();
+      s.openFileAsDoc({ path: 'C:\\docs\\x.md', content: 'v', encoding: 'utf-8', mtimeMs: 1 });
+    });
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForReady();
+    writeToPathMock.mockClear();
+
+    // 激活工具切到别的工具:守卫放行事件(返回 false),不触发保存
+    act(() => {
+      useToolStateStore.setState({ currentToolId: 'base64_codec' });
+    });
+    fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+    expect(writeToPathMock).not.toHaveBeenCalled();
+
+    // 切回本工具:保存生效
+    act(() => {
+      useToolStateStore.setState({ currentToolId: 'markdown_preview' });
+    });
+    fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+    await waitFor(() => expect(writeToPathMock).toHaveBeenCalled());
+  });
+
+  it('另存为:对话框保存后绑定新路径(即使已有旧路径)', async () => {
+    act(() => {
+      const s = useMdDocsStore.getState();
+      s.openFileAsDoc({ path: 'C:\\docs\\old.md', content: '# C', encoding: 'utf-8', mtimeMs: 1 });
+    });
+    saveDialogMock.mockResolvedValue('C:\\docs\\new.md');
+    fileMtimeMock.mockResolvedValue(2);
+
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForReady();
+
+    const saveAsItem = useToolMenusStore
+      .getState()
+      .menus[0].groups.flatMap((g) => g.items)
+      .find((i) => i.id === 'save-as');
+    await act(async () => {
+      saveAsItem?.onSelect();
+    });
+
+    const doc = useMdDocsStore.getState().docs.find((d) => (d.id === 'md-default' ? false : true));
+    await waitFor(() => {
+      const bound = useMdDocsStore.getState().docs.find((d) => d.path === 'C:\\docs\\new.md');
+      expect(bound).toBeDefined();
+    });
+    void doc;
+  });
+
+  it('关闭 dirty 文档:确认文案提示保存并关闭,确认后保存成功才关闭', async () => {
+    writeToPathMock.mockResolvedValue(true);
+    fileMtimeMock.mockResolvedValue(3);
+    act(() => {
+      const s = useMdDocsStore.getState();
+      s.openFileAsDoc({ path: 'C:\\docs\\close.md', content: 'v0', encoding: 'utf-8', mtimeMs: 1 });
+      s.setDocContent(useMdDocsStore.getState().activeDocId!, 'v1');
+    });
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForReady();
+
+    // 关闭按钮 → 确认框出现,文案为「保存并关闭」
+    const docId = useMdDocsStore.getState().activeDocId!;
+    const closeBtn = screen
+      .getAllByTestId('md-doc-tab-close')
+      .find((el) => el.closest('[data-doc-id]')?.getAttribute('data-doc-id') === docId);
+    fireEvent.click(closeBtn as HTMLElement);
+    expect(screen.getByTestId('md-doc-close-dialog')).toBeInTheDocument();
+    const confirmBtn = screen.getByTestId('md-doc-close-dialog-confirm');
+    expect(confirmBtn.textContent).toContain('保存并关闭');
+
+    // 确认:先写盘再关闭
+    fireEvent.click(confirmBtn);
+    await waitFor(() =>
+      expect(writeToPathMock).toHaveBeenCalledWith('C:\\docs\\close.md', 'v1', 'utf-8', 1),
+    );
+    await waitFor(() =>
+      expect(useMdDocsStore.getState().docs.some((d) => d.id === docId)).toBe(false),
+    );
+  });
+
+  it('保存冲突(磁盘外部修改):弹三选对话框,覆盖入口跳过校验写盘', async () => {
+    const { CommandError } = await import('@/lib/ipc');
+    // 第一次写盘:冲突;第二次(覆盖):成功
+    writeToPathMock
+      .mockRejectedValueOnce(new CommandError('ERR_FILE_MODIFIED', 'file modified'))
+      .mockResolvedValueOnce(true);
+    fileMtimeMock.mockResolvedValue(8);
+
+    act(() => {
+      const s = useMdDocsStore.getState();
+      s.openFileAsDoc({
+        path: 'C:\\docs\\conflict.md',
+        content: 'v0',
+        encoding: 'utf-8',
+        mtimeMs: 1,
+      });
+      s.setDocContent(useMdDocsStore.getState().activeDocId!, 'v1');
+    });
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForReady();
+
+    fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+    // 冲突 → 三选对话框
+    await waitFor(() => expect(screen.getByTestId('md-file-modified-dialog')).toBeInTheDocument());
+
+    // 「覆盖」:跳过 mtime 校验写盘
+    fireEvent.click(screen.getByTestId('file-modified-overwrite'));
+    await waitFor(() =>
+      expect(writeToPathMock).toHaveBeenCalledWith(
+        'C:\\docs\\conflict.md',
+        'v1',
+        'utf-8',
+        undefined,
+      ),
+    );
+    await waitFor(() => {
+      const doc = useMdDocsStore.getState().docs.find((d) => d.path === 'C:\\docs\\conflict.md');
+      expect(doc?.savedContent).toBe('v1');
+    });
+  });
+
+  it('关闭 dirty 文档:「不保存关闭」直接丢弃改动,不触发写盘', async () => {
+    writeToPathMock.mockResolvedValue(true);
+    fileMtimeMock.mockResolvedValue(3);
+    act(() => {
+      const s = useMdDocsStore.getState();
+      s.openFileAsDoc({
+        path: 'C:\\docs\\discard.md',
+        content: 'v0',
+        encoding: 'utf-8',
+        mtimeMs: 1,
+      });
+      s.setDocContent(useMdDocsStore.getState().activeDocId!, 'v1');
+    });
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForReady();
+
+    const docId = useMdDocsStore.getState().activeDocId!;
+    const closeBtn = screen
+      .getAllByTestId('md-doc-tab-close')
+      .find((el) => el.closest('[data-doc-id]')?.getAttribute('data-doc-id') === docId);
+    fireEvent.click(closeBtn as HTMLElement);
+    // dirty 三选:「不保存关闭」按钮存在
+    const discardBtn = screen.getByTestId('md-doc-close-dialog-discard');
+    expect(discardBtn.textContent).toContain('不保存关闭');
+
+    // 点击:直接关闭,不写盘
+    fireEvent.click(discardBtn);
+    await waitFor(() =>
+      expect(useMdDocsStore.getState().docs.some((d) => d.id === docId)).toBe(false),
+    );
+    expect(writeToPathMock).not.toHaveBeenCalled();
+  });
+
+  it('关闭干净文档:两选(无「不保存关闭」),确认即直接关闭', async () => {
+    act(() => {
+      useMdDocsStore.getState().openFileAsDoc({
+        path: 'C:\\docs\\clean.md',
+        content: 'v0',
+        encoding: 'utf-8',
+        mtimeMs: 1,
+      });
+    });
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForReady();
+
+    const docId = useMdDocsStore.getState().activeDocId!;
+    const closeBtn = screen
+      .getAllByTestId('md-doc-tab-close')
+      .find((el) => el.closest('[data-doc-id]')?.getAttribute('data-doc-id') === docId);
+    fireEvent.click(closeBtn as HTMLElement);
+    // 干净文档无「不保存关闭」按钮
+    expect(screen.queryByTestId('md-doc-close-dialog-discard')).toBeNull();
+    fireEvent.click(screen.getByTestId('md-doc-close-dialog-confirm'));
+    await waitFor(() =>
+      expect(useMdDocsStore.getState().docs.some((d) => d.id === docId)).toBe(false),
+    );
+  });
+
+  it('文件菜单含「新建文档」项,触发新建空白文档并激活', async () => {
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForHydrate();
+    const before = useMdDocsStore.getState().docs.length;
+    const beforeActive = useMdDocsStore.getState().activeDocId;
+
+    const newItem = useToolMenusStore
+      .getState()
+      .menus[0].groups.flatMap((g) => g.items)
+      .find((i) => i.id === 'new');
+    expect(newItem).toBeDefined();
+    expect(newItem?.label).toBe('新建文档');
+    act(() => {
+      newItem?.onSelect();
+    });
+    const s = useMdDocsStore.getState();
+    expect(s.docs.length).toBe(before + 1);
+    expect(s.activeDocId).not.toBe(beforeActive);
+    expect(s.docs.find((d) => d.id === s.activeDocId)?.content).toBe('');
+  });
+
+  it('Ctrl+N 新建文档,Ctrl+W 触发关闭确认', async () => {
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForHydrate();
+
+    fireEvent.keyDown(window, { key: 'n', ctrlKey: true });
+    await waitFor(() => {
+      const s = useMdDocsStore.getState();
+      // 新建文档内容为空且激活
+      expect(s.docs.filter((d) => d.content === '').length).toBeGreaterThanOrEqual(1);
+      const active = s.docs.find((d) => d.id === s.activeDocId);
+      expect(active?.content).toBe('');
+    });
+
+    // Ctrl+W:激活文档(非空示例文档)弹关闭确认
+    fireEvent.keyDown(window, { key: 'w', ctrlKey: true });
+    await waitFor(() => expect(screen.getByTestId('md-doc-close-dialog')).toBeInTheDocument());
+  });
+
+  it('外部修改轮询:切回绑定文档时磁盘 mtime 已变 → toast 提示一次', async () => {
+    // 磁盘 mtime(8)与打开基准(1)不同 → 触发提示
+    fileMtimeMock.mockReset().mockResolvedValue(8);
+    act(() => {
+      useMdDocsStore.getState().openFileAsDoc({
+        path: 'C:\\docs\\touched.md',
+        content: 'v0',
+        encoding: 'utf-8',
+        mtimeMs: 1,
+      });
+    });
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForReady();
+
+    await waitFor(() => expect(vi.mocked(toast.warning)).toHaveBeenCalled());
+    expect(vi.mocked(toast.warning).mock.calls[0][0]).toContain('touched.md');
+  });
+
+  it('外部修改轮询:磁盘未变不提示', async () => {
+    // 默认 mock 实现:按 path 查 store 返回当前基准 mtime → 相等,不提示
+    act(() => {
+      useMdDocsStore.getState().openFileAsDoc({
+        path: 'C:\\docs\\stable.md',
+        content: 'v0',
+        encoding: 'utf-8',
+        mtimeMs: 7,
+      });
+    });
+    render(<MarkdownPreview toolId="markdown_preview" metadata={null as never} />);
+    await waitForReady();
+
+    // effect 已跑完(fileMtimeMock 被调用过)但无 warning toast
+    await waitFor(() => expect(fileMtimeMock).toHaveBeenCalled());
+    expect(vi.mocked(toast.warning)).not.toHaveBeenCalled();
   });
 });

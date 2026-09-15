@@ -14,6 +14,8 @@
  */
 import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
+import { fileNameFromPath } from '@/tools/code-editor-workspace/languageMap';
+import type { OpenFileResult } from '@/tools/code-editor-workspace/fileOps';
 import { DRAFT_STORAGE_KEY } from './markdownPreviewStore';
 
 /** 单个 Markdown 文档(Tab) */
@@ -37,6 +39,26 @@ export interface MdDoc {
    * 使空内容文件(空 .md)也不被 content 非空过滤条件丢弃。
    */
   fromSystem?: true;
+  /**
+   * 绑定的磁盘文件路径(打开文件 / 另存为后写入;无绑定的纯草稿为
+   * undefined)。有绑定的文档 Ctrl+S 直接写回该路径,Tab 名展示文件名。
+   */
+  path?: string;
+  /**
+   * 磁盘文件编码标识(打开时探测;有 path 的文档保存按此编码写回,
+   * 缺省按 UTF-8)。与编辑器 Tab 的 encoding 字段同语义。
+   */
+  encoding?: string;
+  /**
+   * 打开/最近保存时刻的文件 mtime(epoch 毫秒);保存写回时做乐观
+   * 并发校验(磁盘被外部修改时 Rust 抛 ERR_FILE_MODIFIED)。
+   */
+  mtimeMs?: number;
+  /**
+   * 与磁盘一致的内容快照(dirty 判定基准:content !== savedContent)。
+   * 有 path 的文档打开/保存时刷新;纯草稿恒与 content 同步(恒干净)。
+   */
+  savedContent?: string;
 }
 
 /** 文档工作区(整体持久化单元) */
@@ -105,13 +127,23 @@ function sanitizeDoc(raw: unknown): MdDoc | null {
   const pinned = t.pinned === true;
   const content = typeof t.content === 'string' ? t.content : '';
   // fromSystem 是会话内瞬时标记,持久化还原时一律剥离(旧数据冗余字段防污染)
-  return {
+  const doc: MdDoc = {
     id: t.id,
     title: t.title,
     ...(autoTitle !== undefined ? { autoTitle } : {}),
     pinned,
     content,
   };
+  // 文件绑定字段:path 合法则一并还原(编码/mtime/savedContent 依赖 path)。
+  // 重启还原的 mtime 基准对当前磁盘可能过期(外部已改),组件在激活
+  // 有路径文档时可刷新;savedContent 保持落盘值供 dirty 判定兜底
+  if (typeof t.path === 'string' && t.path) {
+    doc.path = t.path;
+    if (typeof t.encoding === 'string' && t.encoding) doc.encoding = t.encoding;
+    if (typeof t.mtimeMs === 'number' && t.mtimeMs > 0) doc.mtimeMs = t.mtimeMs;
+    if (typeof t.savedContent === 'string') doc.savedContent = t.savedContent;
+  }
+  return doc;
 }
 
 /** 将任意反序列化值规整为合法 MdDocsWorkspace,损坏数据逐字段回退默认值 */
@@ -155,7 +187,7 @@ interface MdDocsState {
    * 不置位 userTouched(语义同编辑器 openLocalFileFromSystem —— hydrate 走
    * mergeInjectedDocs 合并,持久化文档列表不被丢弃)。
    */
-  openDocFromSystem: (content: string) => void;
+  openDocFromSystem: (content: string, file?: OpenFileResult) => void;
   /** 关闭文档,激活态自动跳到相邻 */
   closeDoc: (id: string) => void;
   /** 切换激活文档 */
@@ -166,6 +198,23 @@ interface MdDocsState {
   togglePinDoc: (id: string) => void;
   /** 更新文档内容(编辑器 onChange 调用);自动命名 Tab 随内容派生标题 */
   setDocContent: (id: string, content: string) => void;
+  /**
+   * 打开磁盘文件为新文档(工具内「打开」对话框):同路径文档已存在则
+   * 仅重新读取激活该文档(内容刷新为磁盘),否则追加新文档并激活。
+   */
+  openFileAsDoc: (result: {
+    path: string;
+    content: string;
+    encoding?: string;
+    mtimeMs?: number;
+  }) => void;
+  /** 「另存为」成功后绑定路径:写回 path/encoding/mtimeMs/savedContent 快照 */
+  attachPath: (id: string, path: string, encoding: string, mtimeMs: number | undefined) => void;
+  /**
+   * 标记文档已保存到磁盘(保存成功后调用):刷新 savedContent 快照与
+   * mtime 基准,并把 Tab 名更新为文件名(有路径的文档以文件名展示)。
+   */
+  markSaved: (id: string, mtimeMs?: number) => void;
   /** 将当前文档列表写入 Rust config(组件防抖后调用) */
   persistDocs: () => Promise<void>;
 }
@@ -361,8 +410,14 @@ export const useMdDocsStore = create<MdDocsState>((set, get) => ({
   // userTouched 分两档:hydrate 未完成(ready=false)时保持 false,让 hydrate 走
   // mergeInjectedDocs 合并分支保住持久化文档;ready 后已无合并机会,置位使
   // 防抖 persist 把注入文档落盘(重启不丢)。fromSystem 标记让空 .md 文件
-  // 在合并时同样保留(见 mergeInjectedDocs)
-  openDocFromSystem: (content) => {
+  // 在合并时同样保留(见 mergeInjectedDocs)。
+  // 携带 file(拖放/关联打开的磁盘载荷)时直接走 openFileAsDoc 的绑定语义:
+  // 同路径去重刷新、Tab 名取文件名、encoding/mtimeMs 记录供 Ctrl+S 写回。
+  openDocFromSystem: (content, file) => {
+    if (file) {
+      get().openFileAsDoc({ ...file, content });
+      return;
+    }
     const { docs, ready } = get();
     const derived = deriveMdTitle(content);
     const doc: MdDoc = {
@@ -377,6 +432,86 @@ export const useMdDocsStore = create<MdDocsState>((set, get) => ({
       docs: [...s.docs, doc],
       activeDocId: doc.id,
       ...(ready ? { userTouched: true } : {}),
+    }));
+  },
+
+  // 工具内「打开」对话框:同路径文档已存在 → 重读磁盘内容并激活(刷新
+  // 内容与 mtime 基准,路径绑定字段保持);不存在 → 追加新文档并激活。
+  // 持久化语义:与 newDoc 一致置位 userTouched(用户的主动操作)
+  openFileAsDoc: ({ path, content, encoding, mtimeMs }) => {
+    const { docs } = get();
+    const existing = docs.find((d) => d.path === path);
+    if (existing) {
+      set((s) => ({
+        docs: s.docs.map((d) =>
+          d.id === existing.id
+            ? {
+                ...d,
+                content,
+                savedContent: content,
+                ...(encoding !== undefined ? { encoding } : {}),
+                ...(mtimeMs !== undefined ? { mtimeMs } : {}),
+              }
+            : d,
+        ),
+        activeDocId: existing.id,
+        userTouched: true,
+      }));
+      return;
+    }
+    const doc: MdDoc = {
+      id: createId(),
+      title: fileNameFromPath(path),
+      pinned: false,
+      content,
+      savedContent: content,
+      ...(encoding !== undefined ? { encoding } : {}),
+      ...(mtimeMs !== undefined ? { mtimeMs } : {}),
+      path,
+    };
+    set((s) => ({
+      docs: [...s.docs, doc],
+      activeDocId: doc.id,
+      userTouched: true,
+    }));
+  },
+
+  // 「另存为」成功后绑定路径:文档从纯草稿转正为磁盘文件。autoTitle/
+  // 内容派生标题让位于文件名(有路径的文档 Tab 名恒为文件名)
+  attachPath: (id, path, encoding, mtimeMs) => {
+    set((s) => ({
+      docs: s.docs.map((d) =>
+        d.id === id
+          ? {
+              ...d,
+              title: fileNameFromPath(path),
+              autoTitle: undefined,
+              path,
+              encoding,
+              ...(mtimeMs !== undefined ? { mtimeMs } : {}),
+              savedContent: d.content,
+            }
+          : d,
+      ),
+      userTouched: true,
+    }));
+  },
+
+  // 保存成功:刷新 savedContent 快照与 mtime 基准(下次保存据此判定外部
+  // 修改),Tab 名同步为文件名(磁盘名可能被用户/外部改名,保存时以
+  // 绑定路径为准刷新展示)
+  markSaved: (id, mtimeMs) => {
+    set((s) => ({
+      docs: s.docs.map((d) => {
+        if (d.id !== id) return d;
+        return {
+          ...d,
+          ...(d.path ? { title: fileNameFromPath(d.path) } : {}),
+          ...(mtimeMs !== undefined ? { mtimeMs } : {}),
+          savedContent: d.content,
+        };
+      }),
+      userTouched: true,
     }));
   },
 

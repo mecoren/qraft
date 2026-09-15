@@ -14,6 +14,9 @@
  * - 排版主题:Qraft 默认 / GitHub / Newsprint / Pixyll / Night(globals.css .md-theme-*)
  * - 状态栏:光标行列 + 字数统计 + 选区统计(Typora 风格)
  * - 导出:复制富文本、复制 HTML 源码、另存独立 HTML 文件
+ * - 文件:左上角「文件」菜单 + Ctrl+O 打开 .md / Ctrl+S 保存 / Ctrl+Shift+S
+ *   另存为;有路径的文档直接写回(带 mtime 乐观校验,冲突弹三选对话框),
+ *   纯草稿另存为后绑定路径;Tab 名展示文件名,未保存改动带 dirty 圆点
  * - 格式工具栏与快捷键(Ctrl+B/I/E 等)+ 打字机模式 + 粘贴为 Markdown
  * - 草稿自动保存(localStorage 防抖持久化),重启恢复
  *
@@ -36,6 +39,7 @@ import {
   Eye,
   FileCode2,
   FileText,
+  FolderOpen,
   Italic,
   Link2,
   List,
@@ -46,10 +50,12 @@ import {
   Plus,
   Printer,
   Quote,
+  Save,
   Strikethrough,
   Table,
   X,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import 'katex/dist/katex.min.css';
 import { t as translate } from '@/i18n';
 import { CodeEditor } from '@/components/ui/code-editor';
@@ -82,6 +88,7 @@ import { Switch } from '@/components/ui/switch';
 import { readClipboardText, writeClipboardRichText, writeClipboardText } from '@/lib/clipboard';
 import { showAlert } from '@/lib/toast-alert';
 import { useToolHandoff } from '@/hooks/useToolHandoff';
+import { useToolShortcut } from '@/hooks/useShortcut';
 import { cn } from '@/lib/utils';
 import { computeDocStats, type DocStats, type OutlineItem } from './markdown-render';
 import { applyInlineWrap, toggleLinePrefixes, type LinePrefixMode } from './markdown-edit';
@@ -101,7 +108,24 @@ import {
   useMarkdownPreviewStore,
   type MdViewMode,
 } from './markdownPreviewStore';
+import { useToolMenus } from '@/store/toolMenubarStore';
+import { useConfigStore } from '@/store/configStore';
+import { DEFAULT_SHORTCUTS, type ShortcutBinding } from '@/types/config';
+import type { ToolMenu } from '@/types/tool-menu';
 import type { ToolProps } from './registry';
+import {
+  OPEN_REASON_BINARY,
+  OPEN_REASON_TOO_LARGE,
+  fileMtimeMs,
+  forceOpenFile,
+  openTextFileDialog,
+  readTextFileEncoded,
+  saveToPathEncoded,
+  saveWithDialogEncoded,
+} from './code-editor-workspace/fileOps';
+import { fileNameFromPath } from './code-editor-workspace/languageMap';
+import { CommandError } from '@/lib/ipc';
+import { FileModifiedDialog } from './code-editor-workspace/FileModifiedDialog';
 
 /** 按载荷规模自适应的持久化防抖窗口(ms):载荷越大合并越久,降低全量重写的 IO 放大 */
 function persistDelayFor(totalChars: number): number {
@@ -287,6 +311,36 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
 
   /** Tab 栏滚动容器:指向 ScrollArea 内部 Viewport(div) */
   const docTabsScrollRef = useRef<HTMLDivElement>(null);
+
+  // —— 外部修改激活轮询(对齐编辑器 P1 轻方案)——
+  // 激活文档切换时,对「绑定磁盘路径且记录了 mtime 基准」的文档做一次轻量
+  // mtime 比对:磁盘已被外部程序改写时 toast 提示(每文档会话内只提示一次)。
+  // 不做定时轮询/自动弹窗——保存路径已有 ERR_FILE_MODIFIED 三选兜底,这里
+  // 只是把「保存时才发现」提前为「切回 Tab 即知晓」,不打断用户。
+  const mtimeNotifiedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!mdReady || !activeDoc) return;
+    const { path, mtimeMs, title } = activeDoc;
+    // 纯草稿(无路径)/旧数据无基准时无从比较
+    if (path === undefined || mtimeMs === undefined) return;
+    // 同一文档一次会话只提示一次(用户已知悉,重复提示只是噪音)
+    const key = `${path}:${mtimeMs}`;
+    if (mtimeNotifiedRef.current.has(key)) return;
+    mtimeNotifiedRef.current.add(key);
+    let cancelled = false;
+    void fileMtimeMs(path)
+      .then((current) => {
+        if (cancelled) return;
+        if (current === mtimeMs) return;
+        toast.warning(t('tools.markdown_preview.external_modified_hint', { title }));
+      })
+      .catch(() => {
+        // mtime 读取失败(文件被移动/删除等):静默,保存时的错误处理会接住
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mdReady, activeDoc, t]);
 
   /**
    * 激活 Tab 变化时自动滚入视野(对齐 EditorTabsBar / VSCode 行为):
@@ -812,18 +866,30 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
     [outline],
   );
 
-  /** 请求关闭文档:一律先弹确认框防误关(非空内容确认后直接关闭,
-   * Markdown 工具不设本地历史,关闭即丢,确认是唯一的挽留手段) */
-  function requestCloseDoc(id: string) {
-    const target = docs.find((d) => d.id === id);
-    if (!target) return;
-    setCloseTarget(target);
-  }
+  /** 请求关闭文档:一律先弹确认框防误关(有路径且 dirty 的文档三选:
+   *  保存并关闭 / 不保存关闭 / 取消;纯草稿提示无历史快照;确认后关闭) */
+  const requestCloseDoc = useCallback(
+    (id: string) => {
+      const target = docs.find((d) => d.id === id);
+      if (!target) return;
+      setCloseTarget(target);
+    },
+    [docs, setCloseTarget],
+  );
 
-  /** 确认关闭文档 */
+  /** 确认关闭文档;有未保存改动的文档先保存再关闭 */
   function confirmCloseDoc() {
     if (!closeTarget) return;
-    closeDoc(closeTarget.id);
+    const doc = closeTarget;
+    const dirty = doc.path !== undefined && doc.content !== doc.savedContent;
+    if (dirty) {
+      void saveDocWithConflict(doc.id).then((ok) => {
+        // 保存成功 / 用户取消另存为都关闭;保存失败(冲突对话框已弹)保留 Tab
+        if (ok) closeDoc(doc.id);
+      });
+    } else {
+      closeDoc(doc.id);
+    }
     setCloseTarget(null);
   }
 
@@ -893,10 +959,313 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
       });
   }, [activeDoc, input, t]);
 
+  // ============================================================
+  // 文件操作:打开 / 保存 / 另存为(菜单 + Ctrl+O / Ctrl+S / Ctrl+Shift+S)
+  // 基建复用编辑器工作台的 fileOps;保存带 mtime 乐观校验,
+  // 冲突(ERR_FILE_MODIFIED)弹 FileModifiedDialog 三选
+  // ============================================================
+
+  /** 保存冲突目标文档 id(null = 关闭三选对话框) */
+  const [modifiedConflict, setModifiedConflict] = useState<string | null>(null);
+
+  /**
+   * 打开 .md 文件(菜单「打开」/ Ctrl+O):系统对话框选文件 → 新文档并激活。
+   * 失败分流与编辑器一致:二进制 → toast 带「仍要打开」;超大 → 大文件
+   * 通道不适用本工具(无流式视图),提示去编辑器查看。
+   */
+  const handleOpenFile = useCallback(async (): Promise<void> => {
+    let outcome: Awaited<ReturnType<typeof openTextFileDialog>>;
+    try {
+      outcome = await openTextFileDialog();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('tools.markdown_preview.err_open_file'));
+      return;
+    }
+    if (!outcome) return; // 用户取消
+    const file = outcome.file;
+    if (file) {
+      useMdDocsStore.getState().openFileAsDoc(file);
+      return;
+    }
+    const failure = outcome.failed;
+    if (!failure) return;
+    const name = fileNameFromPath(failure.path);
+    if (failure.reason === OPEN_REASON_BINARY) {
+      toast.error(t('tools.markdown_preview.err_file_binary', { name }), {
+        duration: 10_000,
+        action: {
+          label: t('tools.markdown_preview.open_anyway'),
+          onClick: () => {
+            void forceOpenFile(failure.path)
+              .then((r) => useMdDocsStore.getState().openFileAsDoc(r))
+              .catch(() => {
+                // 强制打开失败:静默(后端已有对应提示渠道)
+              });
+          },
+        },
+      });
+    } else if (failure.reason === OPEN_REASON_TOO_LARGE) {
+      toast.error(t('tools.markdown_preview.err_file_too_large', { name }));
+    } else {
+      toast.error(t('tools.markdown_preview.err_open_file'));
+    }
+  }, [t]);
+
+  /** saveDocById 的结果(调用方据此驱动后续交互) */
+  type SaveDocResult = 'saved' | 'cancelled' | 'conflict' | 'failed';
+
+  /**
+   * 保存指定文档(菜单「保存」/ Ctrl+S 的核心):
+   * - 已绑定路径:按记录编码直接写回(带 mtime 乐观校验),成功后刷新
+   *   快照与 mtime 基准
+   * - 纯草稿:文件名从 Tab 标题派生(补 .md 扩展名),弹「另存为」,
+   *   保存后绑定路径
+   * `overwrite` 为 true 时跳过校验(三选对话框「覆盖」入口)。
+   * 冲突不在此弹对话框(保持 useCallback 依赖最小),由返回值驱动调用方。
+   */
+  const saveDocById = useCallback(
+    async (id: string, overwrite = false): Promise<SaveDocResult> => {
+      const doc = useMdDocsStore.getState().docs.find((d) => d.id === id);
+      if (!doc) return 'failed';
+      try {
+        if (doc.path) {
+          const expect = overwrite || doc.mtimeMs === undefined ? undefined : doc.mtimeMs;
+          await saveToPathEncoded(doc.path, doc.content, doc.encoding ?? 'utf-8', expect);
+          try {
+            const mtime = await fileMtimeMs(doc.path);
+            useMdDocsStore.getState().markSaved(id, mtime);
+          } catch {
+            // mtime 刷新失败不阻塞保存成功路径(基准保持旧值,至多下次误报冲突)
+            useMdDocsStore.getState().markSaved(id);
+          }
+          toast.success(t('tools.markdown_preview.toast_saved', { name: doc.title }));
+          return 'saved';
+        }
+        // 纯草稿:文件名从 Tab 标题派生(补 .md 扩展名),弹「另存为」
+        const base = doc.title.replace(/[\\/:*?"<>|]/g, '').slice(0, 40) || 'document';
+        const fileName = /\.md$/i.test(base) ? base : `${base}.md`;
+        const path = await saveWithDialogEncoded(fileName, doc.content, 'utf-8');
+        if (!path) return 'cancelled'; // 用户取消
+        let mtime: number | undefined;
+        try {
+          mtime = await fileMtimeMs(path);
+        } catch {
+          // 新路径 mtime 读取失败:不带基准(下次保存不校验)
+        }
+        useMdDocsStore.getState().attachPath(id, path, 'utf-8', mtime);
+        toast.success(t('tools.markdown_preview.toast_saved', { name: fileName }));
+        return 'saved';
+      } catch (e) {
+        if (e instanceof CommandError && e.code === 'ERR_FILE_MODIFIED') {
+          // 外部修改冲突:不写盘、不弹错误 toast,由调用方弹三选对话框
+          return 'conflict';
+        }
+        toast.error(e instanceof Error ? e.message : t('tools.markdown_preview.err_save'));
+        return 'failed';
+      }
+    },
+    [t],
+  );
+
+  /** 保存指定文档并处理冲突交互(菜单/快捷键/关闭前保存共用入口) */
+  const saveDocWithConflict = useCallback(
+    async (id: string, overwrite = false): Promise<boolean> => {
+      const result = await saveDocById(id, overwrite);
+      if (result === 'conflict') {
+        setModifiedConflict(id);
+        return false;
+      }
+      return result === 'saved';
+    },
+    [saveDocById, setModifiedConflict],
+  );
+
+  /** 保存激活文档(菜单「保存」/ Ctrl+S) */
+  const handleSaveDoc = useCallback((): void => {
+    const id = useMdDocsStore.getState().activeDocId;
+    if (id) void saveDocWithConflict(id);
+  }, [saveDocWithConflict]);
+
+  /**
+   * 另存为(菜单项 / Ctrl+Shift+S):无论是否已绑定路径都弹对话框,
+   * 保存到新路径并把当前文档绑定过去(编辑器「另存为」同语义)
+   */
+  const handleSaveAs = useCallback(async (): Promise<void> => {
+    const s = useMdDocsStore.getState();
+    const doc = s.docs.find((d) => d.id === s.activeDocId);
+    if (!doc) return;
+    const base = doc.title.replace(/[\\/:*?"<>|]/g, '').slice(0, 40) || 'document';
+    const fileName = /\.md$/i.test(base) ? base : `${base}.md`;
+    try {
+      const path = await saveWithDialogEncoded(fileName, doc.content, 'utf-8');
+      if (!path) return;
+      let mtime: number | undefined;
+      try {
+        mtime = await fileMtimeMs(path);
+      } catch {
+        // 新路径 mtime 读取失败:不带基准(下次保存不校验)
+      }
+      s.attachPath(doc.id, path, 'utf-8', mtime);
+      toast.success(t('tools.markdown_preview.toast_saved', { name: fileName }));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('tools.markdown_preview.err_save'));
+    }
+  }, [t]);
+
+  // —— 保存冲突三选(FileModifiedDialog 的宿主逻辑)——
+  /** 冲突目标文档(对话框条件渲染期间 docs 可能因 markSaved 刷新,
+   *  无 memo 直接派生,保持与 store 同步) */
+  const conflictDoc = modifiedConflict
+    ? (docs.find((d) => d.id === modifiedConflict) ?? null)
+    : null;
+  /** 「覆盖」:跳过 mtime 校验,以当前编辑内容写盘(丢弃外部修改) */
+  const handleConflictOverwrite = useCallback(() => {
+    const id = modifiedConflict;
+    setModifiedConflict(null);
+    if (id) void saveDocWithConflict(id, true);
+  }, [modifiedConflict, saveDocWithConflict, setModifiedConflict]);
+  /** 「重新加载」:以磁盘最新内容覆盖文档(丢弃本地改动) */
+  const handleConflictReload = useCallback(() => {
+    const id = modifiedConflict;
+    setModifiedConflict(null);
+    if (!id) return;
+    const doc = useMdDocsStore.getState().docs.find((d) => d.id === id);
+    const path = doc?.path;
+    if (!path) return;
+    void (async () => {
+      try {
+        // 复用 openFileAsDoc 的「同路径重读」分支(刷新内容与 mtime 基准)
+        const r = await readTextFileEncoded(path);
+        useMdDocsStore.getState().openFileAsDoc(r);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : t('tools.markdown_preview.err_open_file'));
+      }
+    })();
+  }, [modifiedConflict, t, setModifiedConflict]);
+  /** 「对比」:Markdown 无对比视图,把磁盘内容注入为临时对照文档
+   *  (标题标注磁盘来源),用户看完自行决定覆盖或重载 */
+  const handleConflictCompare = useCallback(() => {
+    const id = modifiedConflict;
+    setModifiedConflict(null);
+    if (!id) return;
+    const doc = useMdDocsStore.getState().docs.find((d) => d.id === id);
+    const path = doc?.path;
+    if (!path || !doc) return;
+    void (async () => {
+      try {
+        const r = await readTextFileEncoded(path);
+        useMdDocsStore
+          .getState()
+          .newDoc(
+            `${t('tools.markdown_preview.modified_disk_copy', { name: doc.title })}\n\n${r.content}`,
+          );
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : t('tools.markdown_preview.err_open_file'));
+      }
+    })();
+  }, [modifiedConflict, t, setModifiedConflict]);
+
   /** 打印 / 导出 PDF:系统打印对话框(CSS @media print 已铺好分页样式) */
   const handlePrint = useCallback(() => {
     window.print();
   }, []);
+
+  /**
+   * 注册 Titlebar「文件」菜单(参考文本编辑器左上角菜单):
+   * - 新建(Ctrl+N)→ 新空白文档并激活(与 Tab 栏「+」同动作)
+   * - 打开...(Ctrl+O)→ 系统对话框选 .md,新文档承载
+   * - 另存为...(Ctrl+Shift+S)→ 保存对话框,保存后绑定路径
+   * - 保存(Ctrl+S)→ 有路径直接写回;纯草稿走另存为(禁用条件:无激活文档)
+   * - 关闭(Ctrl+W)→ 关闭激活文档(与 Tab X 一致走确认流,dirty 三选)
+   */
+  const menus = useMemo<ToolMenu[]>(() => {
+    /** 菜单快捷键标签:与快捷键绑定同源(用户自定义后菜单即时跟随);
+     *  空串(禁用)不显示标签 */
+    const shortcutLabel = (key: keyof ShortcutBinding): string | undefined => {
+      const combo = useConfigStore.getState().config?.shortcuts[key] ?? DEFAULT_SHORTCUTS[key];
+      return combo || undefined;
+    };
+    return [
+      {
+        id: 'file',
+        label: t('tools.markdown_preview.menu_file'),
+        groups: [
+          {
+            items: [
+              {
+                id: 'new',
+                label: t('tools.markdown_preview.menu_new'),
+                shortcut: shortcutLabel('new_file'),
+                icon: Plus,
+                onSelect: () => newDoc(),
+                testId: 'md-toolbar-new',
+              },
+              {
+                id: 'open',
+                label: t('tools.markdown_preview.menu_open'),
+                shortcut: shortcutLabel('open_file'),
+                icon: FolderOpen,
+                onSelect: () => void handleOpenFile(),
+                testId: 'md-toolbar-open',
+              },
+            ],
+          },
+          {
+            items: [
+              {
+                id: 'save',
+                label: t('tools.markdown_preview.menu_save'),
+                shortcut: shortcutLabel('save_file'),
+                icon: Save,
+                onSelect: handleSaveDoc,
+                disabled: !activeDocId,
+                testId: 'md-toolbar-save',
+              },
+              {
+                id: 'save-as',
+                label: t('tools.markdown_preview.menu_save_as'),
+                shortcut: shortcutLabel('save_all'),
+                onSelect: () => void handleSaveAs(),
+                disabled: !activeDocId,
+                testId: 'md-toolbar-save-as',
+              },
+            ],
+          },
+          {
+            items: [
+              {
+                id: 'close',
+                label: t('tools.markdown_preview.menu_close'),
+                shortcut: shortcutLabel('close_editor'),
+                onSelect: () => {
+                  if (activeDocId) requestCloseDoc(activeDocId);
+                },
+                disabled: !activeDocId,
+                testId: 'md-toolbar-close',
+              },
+            ],
+          },
+        ],
+      },
+    ];
+  }, [activeDocId, handleOpenFile, handleSaveAs, handleSaveDoc, newDoc, requestCloseDoc, t]);
+  useToolMenus(toolId, menus);
+
+  // 快捷键:与编辑器共用全局绑定(用户自定义的 save_file/open_file 等),
+  // 经 useToolShortcut 的激活守卫保证 keepalive 下仅本工具激活时响应
+  useToolShortcut(toolId, 'save_file', handleSaveDoc, [handleSaveDoc]);
+  useToolShortcut(toolId, 'open_file', () => void handleOpenFile(), [handleOpenFile]);
+  useToolShortcut(toolId, 'save_all', () => void handleSaveAs(), [handleSaveAs]);
+  useToolShortcut(toolId, 'new_file', () => newDoc(), [newDoc]);
+  useToolShortcut(
+    toolId,
+    'close_editor',
+    () => {
+      const id = useMdDocsStore.getState().activeDocId;
+      if (id) requestCloseDoc(id);
+    },
+    [requestCloseDoc],
+  );
 
   const showEditor = viewMode !== 'preview';
   const showPreview = viewMode !== 'edit';
@@ -930,6 +1299,8 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
           >
             {sortedDocs.map((doc) => {
               const active = doc.id === activeDocId;
+              // dirty 判定与编辑器 Tab 一致:有路径且内容偏离磁盘快照
+              const dirty = doc.path !== undefined && doc.content !== doc.savedContent;
               return (
                 <ContextMenu key={doc.id}>
                   {/* 关闭确认:锚定在 Tab 旁的小 Popover(受控 open 挂 closeTarget,
@@ -949,6 +1320,8 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
                           data-testid="md-doc-tab"
                           data-doc-id={doc.id}
                           data-pinned={doc.pinned ? 'true' : undefined}
+                          data-dirty={dirty ? 'true' : undefined}
+                          title={doc.path ?? doc.title}
                           onClick={() => switchDoc(doc.id)}
                           onKeyDown={(e) => handleTabKeyDown(e, doc.id)}
                           onMouseDown={(e) => {
@@ -985,9 +1358,18 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
                               )}
                             />
                           )}
-                          <span className="min-w-0 truncate" title={doc.title}>
+                          <span className="min-w-0 truncate" title={doc.path ?? doc.title}>
                             {doc.title}
                           </span>
+                          {/* dirty 圆点:有路径且内容偏离磁盘快照时显示;
+                              与关闭按钮共用槽位,悬停 Tab 时让位给关闭 X */}
+                          {dirty && !doc.pinned && (
+                            <span
+                              data-testid="md-doc-tab-dirty"
+                              title={t('tools.markdown_preview.dirty_tooltip')}
+                              className="absolute right-[18px] top-1/2 z-[5] size-1.5 -translate-y-1/2 rounded-full bg-primary opacity-100 transition-opacity group-hover:opacity-0"
+                            />
+                          )}
                           {/* 关闭按钮槽位:悬停 Tab 时在右侧槽位淡入 */}
                           <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
                             <button
@@ -1009,20 +1391,38 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
                         </div>
                       </ContextMenuTrigger>
                     </PopoverTrigger>
-                    {/* 关闭确认内容:与 JsonFormatter 同款小框,锚定 Tab 下方 */}
+                    {/* 关闭确认内容:与 JsonFormatter 同款小框,锚定 Tab 下方;
+                        dirty 文档三选(不保存关闭/取消/保存并关闭),干净文档两选 */}
                     <PopoverContent
                       align="start"
                       side="bottom"
-                      className="w-56 p-3"
+                      className="w-64 p-3"
                       data-testid="md-doc-close-dialog"
                     >
                       <p className="text-xs font-semibold">
                         {t('tools.markdown_preview.close_confirm_title', { title: doc.title })}
                       </p>
                       <p className="mt-1 text-[10px] text-muted-foreground">
-                        {t('tools.markdown_preview.close_confirm_desc')}
+                        {doc.path !== undefined && doc.content !== doc.savedContent
+                          ? t('tools.markdown_preview.close_confirm_dirty_desc')
+                          : t('tools.markdown_preview.close_confirm_desc')}
                       </p>
                       <div className="mt-2.5 flex justify-end gap-1">
+                        {doc.path !== undefined && doc.content !== doc.savedContent && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2.5 text-xs"
+                            onClick={() => {
+                              closeDoc(doc.id);
+                              setCloseTarget(null);
+                            }}
+                            data-testid="md-doc-close-dialog-discard"
+                          >
+                            {t('tools.markdown_preview.close_discard')}
+                          </Button>
+                        )}
                         <Button
                           type="button"
                           variant="outline"
@@ -1040,7 +1440,9 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
                           onClick={confirmCloseDoc}
                           data-testid="md-doc-close-dialog-confirm"
                         >
-                          {t('tools.markdown_preview.close')}
+                          {doc.path !== undefined && doc.content !== doc.savedContent
+                            ? t('tools.markdown_preview.close_save_and_close')
+                            : t('tools.markdown_preview.close')}
                         </Button>
                       </div>
                     </PopoverContent>
@@ -1476,6 +1878,19 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
           }}
           onCancel={() => setRenameTarget(null)}
           data-testid="md-doc-rename-dialog"
+        />
+      )}
+
+      {/* —— 保存冲突三选(磁盘文件已被外部修改):覆盖 / 对比 / 重新加载 —— */}
+      {modifiedConflict && (
+        <FileModifiedDialog
+          open
+          fileName={conflictDoc?.title ?? ''}
+          onOverwrite={handleConflictOverwrite}
+          onCompare={handleConflictCompare}
+          onReload={handleConflictReload}
+          onCancel={() => setModifiedConflict(null)}
+          data-testid="md-file-modified-dialog"
         />
       )}
     </div>

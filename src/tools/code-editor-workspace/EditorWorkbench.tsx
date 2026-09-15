@@ -54,7 +54,7 @@ import { registerTabEditor, clearTabEditors, getTabEditor } from '@/lib/editor-s
 import { registerMonacoInstance, disposeModel } from './editorModelRegistry';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
-import { useShortcut } from '@/hooks/useShortcut';
+import { useToolShortcut } from '@/hooks/useShortcut';
 import { useEditorDisplay } from '@/hooks/useEditorDisplay';
 import { useConfigStore } from '@/store/configStore';
 import { DEFAULT_SHORTCUTS, type ShortcutKey } from '@/types/config';
@@ -709,7 +709,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
 
   // Ctrl+S(Cmd+S)保存当前 Tab,阻止浏览器默认的「保存页面」行为。
   // 快捷键字符串可到设置里自定义;无激活 Tab 时是安全的 no-op。
-  useShortcut('save_file', handleSave, [handleSave]);
+  useToolShortcut(toolId, 'save_file', handleSave, [handleSave]);
 
   /**
    * 请求关闭单个 Tab:
@@ -1388,21 +1388,22 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
 
   /**
    * 文本编辑器工作区快捷键全套(菜单 File/View 项的键盘入口):
-   * 全部经 useShortcut 读取用户可自定义的绑定,菜单标签经 shortcutLabel
-   * 同源渲染,保证「标签显示的 = 实际生效的」。卸载(切换工具)自动
-   * 解除监听,不影响其它工具。
+   * 全部经 useToolShortcut 读取用户可自定义的绑定,菜单标签经 shortcutLabel
+   * 同源渲染,保证「标签显示的 = 实际生效的」。守卫保证 keepalive 下其它
+   * 常驻工具(如 Markdown 预览)激活时按键不误进本工作区。卸载(切换
+   * 工具)自动解除监听,不影响其它工具。
    */
-  useShortcut('new_file', handleNewTab, [handleNewTab]);
-  useShortcut('open_file', () => void handleOpen(), [handleOpen]);
-  useShortcut('save_all', () => void handleSaveAll(), [handleSaveAll]);
-  useShortcut('close_editor', handleCloseCurrent, [handleCloseCurrent]);
-  useShortcut('close_all_editors', () => requestCloseAll('tabs'), [requestCloseAll]);
-  useShortcut('toggle_editor_sidebar', handleToggleSidebar, [handleToggleSidebar]);
-  useShortcut('next_tab', () => cycleActiveTab('next'), []);
-  useShortcut('previous_tab', () => cycleActiveTab('previous'), []);
-  useShortcut('reopen_closed_tab', reopenClosedTab, [reopenClosedTab]);
-  useShortcut('navigate_edit_back', () => navigateEditHistory('back'), []);
-  useShortcut('navigate_edit_forward', () => navigateEditHistory('forward'), []);
+  useToolShortcut(toolId, 'new_file', handleNewTab, [handleNewTab]);
+  useToolShortcut(toolId, 'open_file', () => void handleOpen(), [handleOpen]);
+  useToolShortcut(toolId, 'save_all', () => void handleSaveAll(), [handleSaveAll]);
+  useToolShortcut(toolId, 'close_editor', handleCloseCurrent, [handleCloseCurrent]);
+  useToolShortcut(toolId, 'close_all_editors', () => requestCloseAll('tabs'), [requestCloseAll]);
+  useToolShortcut(toolId, 'toggle_editor_sidebar', handleToggleSidebar, [handleToggleSidebar]);
+  useToolShortcut(toolId, 'next_tab', () => cycleActiveTab('next'), []);
+  useToolShortcut(toolId, 'previous_tab', () => cycleActiveTab('previous'), []);
+  useToolShortcut(toolId, 'reopen_closed_tab', reopenClosedTab, [reopenClosedTab]);
+  useToolShortcut(toolId, 'navigate_edit_back', () => navigateEditHistory('back'), []);
+  useToolShortcut(toolId, 'navigate_edit_forward', () => navigateEditHistory('forward'), []);
   // Alt+1..9 直达第 N 个 Tab:固定映射不进 ShortcutBinding(九个键位
   // 挤占设置页且录制繁琐,VSCode/浏览器同样固定);超出 Tab 数夹到末尾
   useEffect(() => {

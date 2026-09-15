@@ -33,6 +33,11 @@ export function isTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
+/** 当前窗口是否为工具弹窗窗口(popout 壳) */
+export function isPopoutWindow(): boolean {
+  return new URLSearchParams(window.location.search).get(POPOUT_QUERY_KEY) !== null;
+}
+
 /** 弹窗窗口 label:每工具单实例的唯一标识 */
 export function popoutWindowLabel(toolId: string): string {
   return `${POPOUT_LABEL_PREFIX}${toolId}`;

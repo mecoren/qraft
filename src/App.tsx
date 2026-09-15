@@ -36,6 +36,7 @@ import {
   forceOpenFile,
   pullPendingOpenFiles,
   type OpenFileEventPayload,
+  type OpenFileResult,
   type OpenFileUnsupportedPayload,
 } from '@/tools/code-editor-workspace/fileOps';
 import { fileNameFromPath } from '@/tools/code-editor-workspace/languageMap';
@@ -87,10 +88,12 @@ function openFileInEditor(
  * 用户上次若停在「仅编辑」,此处切到分屏,保证「自动打开预览」的目标体验。
  * 路径授权由 Rust 侧在读取前完成(authorize),前端无需在编辑器工作区
  * 额外建 Tab。
+ * file 为磁盘载荷(拖放/文件关联/强制打开):传入时文档直接绑定路径,
+ * Ctrl+S 按打开时编码写回而非被迫「另存为」。
  */
-function openFileInMarkdownPreview(content: string): void {
+function openFileInMarkdownPreview(content: string, file?: OpenFileResult): void {
   useUiStore.getState().openTool('markdown_preview');
-  useMdDocsStore.getState().openDocFromSystem(content);
+  useMdDocsStore.getState().openDocFromSystem(content, file);
   const { viewMode, setViewMode } = useMarkdownPreviewStore.getState();
   if (viewMode === 'edit') setViewMode('split');
 }
@@ -201,7 +204,7 @@ function showBinaryUnsupportedToast(path: string): void {
               // 强制打开成功后与正常打开同一分流:.md 进 Markdown 预览工具,
               // .pdf 进 PDF 工具,.docx/.xlsx/.pptx 等 Office 文档进 Office 工具,
               // 其余进编辑器
-              if (isMarkdownPath(r.path)) openFileInMarkdownPreview(r.content);
+              if (isMarkdownPath(r.path)) openFileInMarkdownPreview(r.content, r);
               else if (isPdfPath(r.path)) openFileInPdfEditor(r.path);
               else if (isOfficePath(r.path)) openFileInOfficeEditor(r.path);
               else openFileInEditor(r.path, r.content, r.encoding, r.mtimeMs);
@@ -290,7 +293,7 @@ export function App(): JSX.Element {
           if (!p?.path) return;
           const dropInsideEditor = isDropInsideEditorBox(p.dropPosition, resolveDropElement);
           if (isMarkdownPath(p.path) && !dropInsideEditor) {
-            openFileInMarkdownPreview(p.content);
+            openFileInMarkdownPreview(p.content, p);
             return;
           }
           openFileInEditor(p.path, p.content, p.encoding, p.mtimeMs);
@@ -375,7 +378,12 @@ export function App(): JSX.Element {
         for (const item of items) {
           if (item?.kind === 'file' && item.path) {
             if (isMarkdownPath(item.path)) {
-              openFileInMarkdownPreview(item.content);
+              openFileInMarkdownPreview(item.content, {
+                path: item.path,
+                content: item.content,
+                encoding: item.encoding,
+                mtimeMs: item.mtimeMs,
+              });
             } else {
               openFileInEditor(item.path, item.content, item.encoding, item.mtimeMs);
             }

@@ -56,8 +56,10 @@ const popoutToolId = new URLSearchParams(window.location.search).get(POPOUT_QUER
 
 createRoot(rootEl).render(popoutToolId ? <PopoutApp toolId={popoutToolId} /> : <App />);
 
-// 空闲预取重型懒加载链(Markdown 工具 → mermaid/katex/worker),
+// 空闲预取重型懒加载链(Markdown 工具 → markdown worker 等 vendor chunk),
 // 消除首次进入该工具时的磁盘读取尖峰;dev 与冷启动零影响。
+// mermaid 本体不再预取:拆分入口(alias mermaid → dist/mermaid.esm.mjs)后
+// 其各图表实现按需加载,预取整包反而会把 30+ 图表全拉进内存,违背拆分初衷。
 // 弹窗窗口按需加载自身工具即可,不参与主窗口的预取。
 if (!popoutToolId) {
   scheduleIdlePrefetch({

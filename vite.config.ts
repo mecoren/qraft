@@ -45,6 +45,14 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // mermaid 官方包默认入口把 30+ 种图表全部内联成单文件(实测 vite 产物
+      // vendor-mermaid 单 chunk 1.46MB,含 cytoscape/katex/全部 diagram 实现)。
+      // dist/mermaid.esm.mjs 是官方保留的分块入口:只内联 detectors 与共享
+      // runtime,各图表实现仍是 dist/chunks/mermaid.esm/*.mjs 的动态 import,
+      // 构建后按图种类拆成小 chunk,首次渲染某种图时才真正下载其实现 ——
+      // flowchart 场景实测只拉 ~1MB 基础 chunk,advanced 图表(cytoscape 等
+      // 3MB 级)仅在文档含对应图时按需加载。
+      mermaid: 'mermaid/dist/mermaid.esm.mjs',
     },
   },
   define: {
@@ -95,6 +103,12 @@ export default defineConfig({
             {
               name(id) {
                 if (id.includes('@tauri-apps')) return 'tauri';
+                // mermaid 官方分块入口(见 resolve.alias)的内部模块不归组:
+                // 它们携带 mermaid 自身的动态 import 边界(各图表实现 chunk),
+                // 若按包名归并进单组,30+ 图表实现会被合成一个 3.5MB 大包,
+                // 按需加载完全失效。返回 null 让这些模块走 rolldown 原生
+                // 自动分包,保持「渲染哪种图才下载哪种图实现」的粒度。
+                if (id.includes('mermaid/dist/chunks/')) return null;
                 const parts = id.split('node_modules/');
                 const last = parts[parts.length - 1];
                 const match = last.split('/')[0];
