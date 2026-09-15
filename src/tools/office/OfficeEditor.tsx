@@ -254,24 +254,33 @@ function ExcelView({ doc }: { doc: OfficeDoc }): JSX.Element {
     >
       {/* 工具栏:工作表切换 + 导出 */}
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
-        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-          {model.sheets.map((s, i) => (
-            <button
-              key={s.name}
-              type="button"
-              aria-pressed={i === activeSheet}
-              onClick={() => switchSheet(i)}
-              className={cn(
-                'shrink-0 rounded-md px-2.5 py-1 text-xs transition-colors',
-                i === activeSheet
-                  ? 'bg-accent font-medium text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
-              )}
-            >
-              {s.name}
-            </button>
-          ))}
-        </div>
+        {/* 工作表条横向滚动:走共享 ScrollArea 横向模式(与全部工具 Tab 栏同一原语),
+            原生 overflow-x-auto 换成悬浮细条 + 滚轮直通横向滚动 */}
+        <ScrollArea
+          orientation="horizontal"
+          type="hover"
+          scrollbarClassName="h-1.5 p-0"
+          className="h-full min-w-0 flex-1"
+        >
+          <div className="flex h-full min-w-max items-center gap-1">
+            {model.sheets.map((s, i) => (
+              <button
+                key={s.name}
+                type="button"
+                aria-pressed={i === activeSheet}
+                onClick={() => switchSheet(i)}
+                className={cn(
+                  'shrink-0 rounded-md px-2.5 py-1 text-xs transition-colors',
+                  i === activeSheet
+                    ? 'bg-accent font-medium text-accent-foreground'
+                    : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                )}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
+        </ScrollArea>
         <Button
           type="button"
           size="sm"
