@@ -29,22 +29,70 @@ const ScrollArea = React.forwardRef<
       ...props
     },
     ref,
-  ) => (
-    <ScrollAreaPrimitive.Root
-      ref={ref}
-      className={cn('relative overflow-hidden', className)}
-      {...props}
-    >
-      <ScrollAreaPrimitive.Viewport
-        ref={viewportRef}
-        className={cn('h-full w-full rounded-[inherit]', viewportClassName)}
+  ) => {
+    /** 内部持有 Viewport 节点:横向模式挂「滚轮→横滚」原生监听用 */
+    const internalViewportRef = React.useRef<HTMLDivElement | null>(null);
+
+    /** 合并内部 Viewport 引用与外部 viewportRef(函数 / 对象两种形态都要透传) */
+    const composedViewportRef = React.useCallback(
+      (node: HTMLDivElement | null): void => {
+        internalViewportRef.current = node;
+        if (typeof viewportRef === 'function') {
+          viewportRef(node);
+        } else if (viewportRef) {
+          (viewportRef as { current: HTMLDivElement | null }).current = node;
+        }
+      },
+      [viewportRef],
+    );
+
+    /**
+     * 横向模式滚轮直通(Chrome 标签栏 / VSCode Tab 栏同款行为):
+     * 鼠标悬浮在横向滚动区(工具 Tab 栏)上滚动滚轮,纵向 delta 直接转成
+     * 横向滚动,用户无需按住 Shift 或瞄准悬浮细条。
+     * - React 合成 onWheel 由 React 以 passive 方式挂载,preventDefault 无效,
+     *   必须原生 addEventListener({ passive: false })
+     * - 仅在确有横向溢出时劫持(无溢出不吞滚轮,放行给祖先滚动容器);
+     *   已溢出时滚到两端也吞掉事件,避免滚动突然穿透到底下内容
+     * - 触控板横扫(deltaY=0、deltaX≠0)落到同一通道
+     * - Ctrl/Cmd+滚轮是缩放手势,不劫持
+     * - 纵向模式(默认)不挂监听,滚轮行为完全原生
+     */
+    React.useEffect(() => {
+      if (orientation !== 'horizontal') return;
+      const viewport = internalViewportRef.current;
+      if (!viewport) return;
+
+      const handleWheel = (e: WheelEvent): void => {
+        if (e.ctrlKey || e.metaKey) return;
+        if (viewport.scrollWidth - viewport.clientWidth <= 1) return;
+        const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+        if (delta === 0) return;
+        e.preventDefault();
+        viewport.scrollLeft += delta;
+      };
+
+      viewport.addEventListener('wheel', handleWheel, { passive: false });
+      return () => viewport.removeEventListener('wheel', handleWheel);
+    }, [orientation]);
+
+    return (
+      <ScrollAreaPrimitive.Root
+        ref={ref}
+        className={cn('relative overflow-hidden', className)}
+        {...props}
       >
-        {children}
-      </ScrollAreaPrimitive.Viewport>
-      <ScrollBar orientation={orientation} className={scrollbarClassName} />
-      <ScrollAreaPrimitive.Corner />
-    </ScrollAreaPrimitive.Root>
-  ),
+        <ScrollAreaPrimitive.Viewport
+          ref={composedViewportRef}
+          className={cn('h-full w-full rounded-[inherit]', viewportClassName)}
+        >
+          {children}
+        </ScrollAreaPrimitive.Viewport>
+        <ScrollBar orientation={orientation} className={scrollbarClassName} />
+        <ScrollAreaPrimitive.Corner />
+      </ScrollAreaPrimitive.Root>
+    );
+  },
 );
 ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName;
 
