@@ -20,6 +20,7 @@ import {
   useState,
   type JSX,
   type MouseEvent,
+  type WheelEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
@@ -82,6 +83,15 @@ export interface MarkdownPreviewPaneProps {
   onScroll?: () => void;
   /** 预览区双击代理:宿主用于跳回编辑器对应源行(元素 → 源行映射由宿主实现) */
   onSourceLocate?: (target: HTMLElement) => void;
+  /** 任务列表勾选写回:宿主替换对应源行的 [ ]/[x](Typora 点击即勾选) */
+  onTaskToggle?: (line: number, checked: boolean) => void;
+  /**
+   * 预览区复制即 Markdown 源码(Typora 行为):宿主传入时,预览内的
+   * copy 事件把选区 HTML 经 turndown 回转为源码写入剪贴板;返回空串/
+   * undefined 表示转换失败,放行原生复制(富文本)。未传时(只读展示
+   * 场景)保持原生复制。
+   */
+  copyAsMarkdown?: (getSelectionHtml: () => string) => string | undefined;
 }
 
 export function MarkdownPreviewPane({
@@ -93,6 +103,8 @@ export function MarkdownPreviewPane({
   onArticle,
   onScroll,
   onSourceLocate,
+  onTaskToggle,
+  copyAsMarkdown,
 }: MarkdownPreviewPaneProps): JSX.Element {
   const { t } = useTranslation();
   const themeId = useMarkdownPreviewStore((s) => s.themeId);
@@ -187,10 +199,19 @@ export function MarkdownPreviewPane({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [lightboxSrc]);
 
-  /** 预览区点击代理:图片 lightbox / 代码块复制按钮 / 锚点链接 / 外部链接 / 被拦截图片提示 */
+  /** 预览区点击代理:任务勾选 / 图片 lightbox / 代码块复制按钮 / 锚点链接 / 外部链接 / 被拦截图片提示 */
   const handleArticleClick = useCallback(
     (event: MouseEvent<HTMLElement>) => {
       const target = event.target as HTMLElement;
+
+      // 任务列表勾选:写回源码(Typora 点击即勾选)。原生 checkbox 点击
+      // 已翻转视觉态,宿主替换源文本后重渲会同步真实状态
+      if (onTaskToggle && target.matches('input[data-md-task]')) {
+        const line = Number(target.getAttribute('data-task-line'));
+        if (Number.isFinite(line) && line >= 1)
+          onTaskToggle(line, (target as HTMLInputElement).checked);
+        return;
+      }
 
       // 被拦截的远程图片:提示原因(不放大、不请求)
       if (target.closest('[data-md-blocked-src]')) {
@@ -238,7 +259,7 @@ export function MarkdownPreviewPane({
         void openExternal(href);
       }
     },
-    [t],
+    [t, onTaskToggle],
   );
 
   /** 预览区双击代理:VSCode 行为——双击任意预览元素跳回编辑器对应源行 */
@@ -247,7 +268,7 @@ export function MarkdownPreviewPane({
       if (!onSourceLocate) return;
       // 忽略双击的纯交互控件(代码复制按钮/任务勾选),仅正文元素触发
       const target = event.target as HTMLElement;
-      if (target.closest('[data-md-copy]')) return;
+      if (target.closest('[data-md-copy], input[data-md-task]')) return;
       const block = target.closest(
         'p,li,blockquote,pre,table,h1,h2,h3,h4,h5,h6,.md-code,.md-mermaid',
       );
@@ -255,6 +276,35 @@ export function MarkdownPreviewPane({
     },
     [onSourceLocate],
   );
+
+  /**
+   * 预览区复制即源码(Typora 行为):copy 事件里取选区 HTML → turndown
+   * 回转 → 覆写剪贴板纯文本。挂在滚动容器(scroller 恒挂载;article 随
+   * 空态/有内容切换可能后出现,copy 监听挂它会在空文档首挂载时丢失),
+   * capture 阶段先行于默认复制行为;转换失败放行原生复制(富文本兜底)。
+   */
+  useEffect(() => {
+    const article = articleRef.current;
+    const scroller = scrollerRef.current;
+    if (!scroller || !article || !copyAsMarkdown) return;
+    const onCopy = (event: ClipboardEvent): void => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) return;
+      const range = selection.getRangeAt(0);
+      if (!article.contains(range.commonAncestorContainer)) return;
+      const markdown = copyAsMarkdown(() => {
+        const fragment = range.cloneContents();
+        const box = document.createElement('div');
+        box.appendChild(fragment);
+        return box.innerHTML;
+      });
+      if (!markdown) return; // 转换失败/空选区:放行原生富文本复制
+      event.preventDefault();
+      event.clipboardData?.setData('text/plain', markdown);
+    };
+    scroller.addEventListener('copy', onCopy, true);
+    return () => scroller.removeEventListener('copy', onCopy, true);
+  }, [copyAsMarkdown, rendered]);
 
   /** 脚注引用悬停:在滚动容器内定位内容气泡(随内容滚动联动) */
   const handleArticleMouseOver = useCallback((event: MouseEvent<HTMLElement>) => {
@@ -289,6 +339,30 @@ export function MarkdownPreviewPane({
     setFootnotePop((current) => (current === null ? current : null));
     onScroll?.();
   }, [onScroll]);
+
+  /**
+   * 图片 Ctrl+滚轮文内缩放(Typora 行为):悬停图片上滚轮调显示尺寸,
+   * 基于原始尺寸等比缩放(每次 ±15%),clamp 到 10%~600%;非 Ctrl 滚轮
+   * 不拦截(保持页面滚动)。缩放是纯展示态(不写回源码),重渲后还原。
+   */
+  const handleArticleWheel = useCallback((event: WheelEvent<HTMLElement>) => {
+    if (!event.ctrlKey) return;
+    const image = (event.target as HTMLElement).closest('img');
+    if (!image || !(image instanceof HTMLImageElement)) return;
+    event.preventDefault();
+    // 原始尺寸锚点:首次缩放时记入 dataset(避开本轮已缩放的尺寸)
+    if (image.dataset.mdZoomBaseW === undefined) {
+      const natural = image.naturalWidth || image.width || 300;
+      image.dataset.mdZoomBaseW = String(natural);
+    }
+    const base = Number(image.dataset.mdZoomBaseW);
+    const current = Number(image.dataset.mdZoomScale ?? 1);
+    const next = Math.min(6, Math.max(0.1, current * (event.deltaY < 0 ? 1.15 : 1 / 1.15)));
+    image.dataset.mdZoomScale = String(next);
+    image.style.width = `${Math.round(base * next)}px`;
+    image.style.height = '';
+    image.style.maxWidth = 'none';
+  }, []);
 
   const scrollerCb = useCallback(
     (el: HTMLDivElement | null) => {
@@ -325,6 +399,7 @@ export function MarkdownPreviewPane({
               dangerouslySetInnerHTML={{ __html: renderableHtml }}
               onClick={handleArticleClick}
               onDoubleClick={handleArticleDoubleClick}
+              onWheel={handleArticleWheel}
               onMouseOver={handleArticleMouseOver}
               onMouseOut={handleArticleMouseOut}
             />

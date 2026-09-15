@@ -1,7 +1,7 @@
 import katex from 'katex';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildTocHtml, computeDocStats, renderMarkdown, slugifyText } from './markdown-render';
-import { clearKatexCache } from './markdown-core';
+import { clearHljsCache, clearKatexCache } from './markdown-core';
 
 describe('slugifyText', () => {
   it('保留中文并折叠空白为连字符', () => {
@@ -84,11 +84,21 @@ describe('renderMarkdown:[toc] 目录', () => {
 });
 
 describe('renderMarkdown:任务列表', () => {
-  it('渲染 disabled checkbox 且勾选状态正确', () => {
+  it('渲染 checkbox 且勾选状态正确', () => {
     const { html } = renderMarkdown('- [x] done\n- [ ] todo');
     expect((html.match(/<input[^>]*type="checkbox"/g) ?? []).length).toBe(2);
     expect(html).toContain('checked');
-    expect(html).toContain('disabled');
+  });
+
+  it('任务 checkbox 挂源行号与交互标记(嵌套列表按文档序)', () => {
+    const src = 'intro\n\n- [ ] one\n- [x] two\n  - [ ] nested\n- plain\n\n1. [x] ordered';
+    const { html } = renderMarkdown(src);
+    const lines = Array.from(html.matchAll(/data-task-line="(\d+)"/g)).map((m) => m[1]);
+    // one=3, two=4, nested=5, ordered=8
+    expect(lines).toEqual(['3', '4', '5', '8']);
+    expect(html).toContain('data-md-task="true"');
+    // 勾选状态保留
+    expect(html).toMatch(/data-task-line="4"[^>]*checked/);
   });
 });
 
@@ -221,6 +231,61 @@ describe('renderMarkdown:消毒', () => {
     const { html } = renderMarkdown('$\\frac{a}{b}$');
     expect(html).toContain('<math');
     expect(html).toContain('katex-html');
+  });
+});
+
+describe('renderMarkdown:图片尺寸语法(Typora =WxH)', () => {
+  it('"=100x200" 渲染为 width/height 属性且不残留 title', () => {
+    const { html } = renderMarkdown('![alt](u.png "=100x200")');
+    expect(html).toContain('<img src="u.png" alt="alt" width="100" height="200"');
+    expect(html).not.toContain('=100x200');
+  });
+
+  it('与标题共存时标题保留、尺寸剥离', () => {
+    const { html } = renderMarkdown('![t](u.png "Caption =300x")');
+    expect(html).toContain('title="Caption"');
+    expect(html).toContain('width="300"');
+    expect(html).not.toContain('height=');
+  });
+
+  it('仅高度 "=x50" 生成 height;无尺寸语法时输出与原生等价', () => {
+    const { html } = renderMarkdown('![t](v.png "=x50")');
+    expect(html).toContain('height="50"');
+    expect(html).not.toContain('width=');
+    const plain = renderMarkdown('![a](p.png "T")').html;
+    expect(plain).toContain('title="T"');
+    expect(plain).not.toMatch(/width=|height=/);
+  });
+
+  it('普通 title 不被误判(无 x 段/非数字不剥离)', () => {
+    const { html } = renderMarkdown('![a](u.png "Screenshot 2x scale")');
+    expect(html).toContain('title="Screenshot 2x scale"');
+  });
+});
+
+// ============================================================
+// hljs 代码块高亮缓存(LRU)
+// ============================================================
+
+describe('renderMarkdown:代码高亮缓存(LRU)', () => {
+  beforeEach(() => {
+    clearHljsCache();
+  });
+
+  it('同一代码块二次渲染命中缓存,输出一致', () => {
+    const src = '```js\nconst a = 1;\n```';
+    const first = renderMarkdown(src).html;
+    const second = renderMarkdown(src).html;
+    expect(second).toBe(first);
+    expect(second).toMatch(/hljs-keyword/);
+  });
+
+  it('不同代码 / 不同语言为不同缓存条目', () => {
+    const a = renderMarkdown('```js\nconst a = 1;\n```').html;
+    const b = renderMarkdown('```js\nconst b = 2;\n```').html;
+    const py = renderMarkdown('```py\nx = 1\n```').html;
+    expect(a).not.toBe(b);
+    expect(py).toContain('language-python');
   });
 });
 

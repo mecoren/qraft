@@ -185,6 +185,31 @@ function escapeHtml(text: string): string {
 }
 
 // ============================================================
+// hljs 代码块高亮缓存
+//
+// 两阶段渲染的 fast 阶段(纯转义)之后,完整阶段要对全部围栏重跑
+// hljs.highlight(单块 1~20ms,技术文档常见几十块)。同一代码块在连续
+// 两轮渲染中内容不变者占多数 —— 与 KaTeX/Mermaid 缓存同思路,以
+// 语言 + 代码文本为键缓存高亮 HTML,LRU 逐条淘汰避免全清回填尖峰。
+// ============================================================
+
+const hljsCache = new LruCache<string, string>({ maxEntries: 300, maxBytes: 4 * 1024 * 1024 });
+
+/** 清空代码高亮缓存(测试用) */
+export function clearHljsCache(): void {
+  hljsCache.clear();
+}
+
+function highlightCode(text: string, lang: string): string {
+  const cacheKey = `${lang}:${text}`;
+  const cached = hljsCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+  const highlighted = hljs.highlight(text, { language: lang, ignoreIllegals: true }).value;
+  hljsCache.set(cacheKey, highlighted);
+  return highlighted;
+}
+
+// ============================================================
 // Slug 与大纲提取
 // ============================================================
 
@@ -677,6 +702,48 @@ function buildFootnotesHtml(
   return `<section class="md-footnotes"><hr><ol>\n${items.join('\n')}\n</ol></section>`;
 }
 
+/**
+ * 预扫描任务列表项的源行号(文档序)。
+ * marked 的 checkbox 渲染器只拿得到 checked,没有源位置;渲染前先
+ * lex 一遍,遍历 list tokens(含嵌套)按出现序收集 task item 的起始行,
+ * 与渲染器消费顺序严格一致(checkbox 渲染次数 = task item 数)。
+ * 行号定位用 token.raw 在源文本中的 indexOf 推进指针(同 extractHeadingLines)。
+ */
+function extractTaskItemLines(source: string): number[] {
+  const lines: number[] = [];
+  let searchFrom = 0;
+
+  const visitList = (token: Token): void => {
+    const items = (token as unknown as Record<string, unknown>).items;
+    if (!Array.isArray(items)) return;
+    for (const item of items as Token[]) {
+      if ((item as unknown as Record<string, unknown>).task === true) {
+        const idx = source.indexOf(item.raw, searchFrom);
+        const line = idx === -1 ? 1 : source.slice(0, idx).split('\n').length;
+        lines.push(line);
+        if (idx !== -1) searchFrom = idx + 1;
+      }
+      const nested = (item as unknown as Record<string, unknown>).tokens;
+      if (Array.isArray(nested)) {
+        for (const child of nested as Token[]) visitList(child);
+      }
+    }
+  };
+
+  try {
+    for (const token of markedLexer(source)) {
+      visitList(token);
+      const nested = (token as unknown as Record<string, unknown>).tokens;
+      if (Array.isArray(nested)) {
+        for (const child of nested as Token[]) visitList(child);
+      }
+    }
+  } catch {
+    // 词法异常时返回已收集部分(渲染器消费计数回落到跳过逻辑)
+  }
+  return lines;
+}
+
 // ============================================================
 // 自定义 Renderer(代码块高亮 / Mermaid 占位 / 标题锚点)
 // ============================================================
@@ -699,8 +766,30 @@ function createRendererObject(
   collected: HeadingMeta[],
   fastHighlight: boolean,
   labels: MdRenderLabels,
+  /** 任务列表项源行号(文档序);checkbox 渲染器按下标消费 */
+  taskLines: readonly number[],
 ) {
+  /** 已消费的任务行号计数(渲染顺序 = extractTaskItemLines 收集顺序) */
+  let taskCursor = 0;
   return {
+    /**
+     * 任务列表复选框:挂源行号与 data-md-task 标记供预览交互层写回源码
+     * (Typora 点击即勾选)。行号耗尽(词法异常兜底路径)退化为纯展示。
+     * 不设 disabled —— 可点击是本工具的写回交互;tabindex=-1 避免与
+     * 编辑器抢 Tab 焦点环。
+     */
+    checkbox({ checked }: { checked: boolean }): string {
+      const line = taskLines[taskCursor];
+      taskCursor += 1;
+      if (line === undefined) {
+        return `<input ${checked ? 'checked="" ' : ''}disabled="" type="checkbox"> `;
+      }
+      return (
+        `<input data-md-task="true" data-task-line="${line}" ${checked ? 'checked ' : ''}` +
+        'tabindex="-1" type="checkbox"> '
+      );
+    },
+
     /** 标题:注入锚点 id + 悬停锚点链接,并记录元数据(大纲/[toc] 的唯一事实源) */
     heading(this: RendererThis, { tokens, depth }: Tokens.Heading): string {
       const html = this.parser.parseInline(tokens);
@@ -713,6 +802,17 @@ function createRendererObject(
         `<h${depth} id="${meta.id}">${html}` +
         `<a class="md-heading-anchor" href="#${meta.id}" aria-label="${labels.headingAnchor}">#</a></h${depth}>\n`
       );
+    },
+
+    /** 图片:解析 title 槽末尾 Typora 尺寸语法(=WxH)为 width/height 属性 */
+    image({ href, title, text }: Tokens.Image): string {
+      const { title: cleanTitle, width, height } = parseImageSizeTitle(title ?? null);
+      const safeHref = href ?? '';
+      let out = `<img src="${escapeHtml(safeHref)}" alt="${escapeHtml(text ?? '')}"`;
+      if (cleanTitle) out += ` title="${escapeHtml(cleanTitle)}"`;
+      if (width !== undefined) out += ` width="${width}"`;
+      if (height !== undefined) out += ` height="${height}"`;
+      return `${out}>`;
     },
 
     /** 围栏代码块:mermaid/math → 专属容器;其余 → hljs 高亮 + 语言徽标 + 复制按钮 */
@@ -738,9 +838,7 @@ function createRendererObject(
 
       const hljsLang = resolveHighlightLang(langTag);
       const highlighted =
-        !fastHighlight && hljsLang !== null
-          ? hljs.highlight(text, { language: hljsLang, ignoreIllegals: true }).value
-          : escapeHtml(text);
+        !fastHighlight && hljsLang !== null ? highlightCode(text, hljsLang) : escapeHtml(text);
 
       const langLabel = langTag || (hljsLang ?? '');
       const head = langLabel
@@ -754,6 +852,33 @@ function createRendererObject(
         `<pre><code class="hljs${hljsLang ? ` language-${hljsLang}` : ''}">${highlighted}</code></pre></div>`
       );
     },
+  };
+}
+
+// ============================================================
+// 图片尺寸语法(Typora:![alt](src.png =300x200) / =300x / =x200)
+//
+// marked 把括号内第三段归入 title 槽,但 link 词法要求其带引号
+// (![a](u.png =300x) 不成 token);带引号形式 ![a](u.png "=300x200")
+// 与标题共存("Caption =300x200")都可靠到达本渲染器,故在此解析。
+// 尺寸段从 title 末尾剥离,不渲染进 title 属性;DOMPurify 白名单
+// 放行 width/height(SANITIZE_CONFIG 已补)。
+// ============================================================
+
+/** 解析 title 槽末尾的 =WxH 尺寸段;返回剩余 title 与宽高(未知侧为 undefined) */
+export function parseImageSizeTitle(title: string | null): {
+  title: string | null;
+  width?: string;
+  height?: string;
+} {
+  if (!title) return { title: null };
+  const match = /^(.*)\s*=\s*(\d*)x(\d*)\s*$/.exec(title);
+  if (!match || (match[2] === '' && match[3] === '')) return { title };
+  const rest = (match[1] ?? '').trim();
+  return {
+    title: rest || null,
+    width: match[2] === '' ? undefined : match[2],
+    height: match[3] === '' ? undefined : match[3],
   };
 }
 
@@ -1054,11 +1179,12 @@ function createMarked(
   headings: HeadingMeta[],
   fastHighlight: boolean,
   labels: MdRenderLabels,
+  taskLines: readonly number[],
 ): Marked {
   const md = new Marked({ gfm: true, breaks: false });
   md.use({
     extensions: MARKED_EXTENSIONS,
-    renderer: createRendererObject(slugs, headings, fastHighlight, labels),
+    renderer: createRendererObject(slugs, headings, fastHighlight, labels, taskLines),
   });
   return md;
 }
@@ -1113,11 +1239,13 @@ export function renderMarkdownCore(source: string, options: RenderOptions = {}):
   const { defs, body } = collectFootnoteDefs(withTocPlaceholder);
   const { body: withRefs, order } = replaceFootnoteRefs(body, defs);
 
-  // 3. 正文渲染(同步):渲染器按文档序写入标题元数据;异常时纯文本兜底
+  // 3. 正文渲染(同步):渲染器按文档序写入标题元数据;异常时纯文本兜底。
+  //    任务列表项行号先预扫描(checkbox 渲染器按消费序取行号,写回源码用)
   const headings: HeadingMeta[] = [];
+  const taskLines = extractTaskItemLines(withRefs);
   let rendered: string;
   try {
-    rendered = createMarked(slugs, headings, fastHighlight, labels).parse(withRefs, {
+    rendered = createMarked(slugs, headings, fastHighlight, labels, taskLines).parse(withRefs, {
       async: false,
     }) as string;
   } catch {

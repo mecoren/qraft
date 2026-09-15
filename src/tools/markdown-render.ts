@@ -47,6 +47,13 @@ const SANITIZE_CONFIG: Parameters<typeof DOMPurify.sanitize>[1] = {
     'data-md-copy',
     'data-md-toc',
     'data-mermaid',
+    // 任务列表勾选写回:checkbox 的源行号与标记(交互层据此替换源码)
+    'data-md-task',
+    'data-task-line',
+    'tabindex',
+    // Typora 图片尺寸语法(=WxH)渲染出的 width/height(数值,由渲染器产出)
+    'width',
+    'height',
   ],
   ALLOW_DATA_ATTR: true,
   FORBID_TAGS: ['style', 'script', 'iframe', 'form', 'object', 'embed', 'textarea', 'link', 'meta'],

@@ -469,6 +469,36 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
     return el instanceof HTMLElement ? el.offsetTop : null;
   }, []);
 
+  /**
+   * 任务列表勾选写回源码(Typora 点击即勾选):替换对应源行的
+   * [ ]/[x] 标记,其余行原样保留;写回走 setInput 经正常渲染管线
+   * (勾选状态由重渲后的 HTML 同步,视觉翻转只是乐观反馈)。
+   * 目标行无任务标记(行号漂移/竞态)时静默忽略,不破坏文档。
+   */
+  const handleTaskToggle = useCallback(
+    (line: number, checked: boolean) => {
+      const lines = input.split('\n');
+      const target = lines[line - 1];
+      if (target === undefined) return;
+      const next = checked
+        ? target.replace(/^(\s*(?:[-*+]|\d+[.)])\s+)\[ \]/, '$1[x]')
+        : target.replace(/^(\s*(?:[-*+]|\d+[.)])\s+)\[x\]/i, '$1[ ]');
+      if (next === target) return;
+      lines[line - 1] = next;
+      setInput(lines.join('\n'));
+    },
+    [input, setInput],
+  );
+
+  /**
+   * 预览区复制即 Markdown 源码(Typora 行为):选区 HTML 经 turndown
+   * 回转为源码。转换结果为空串时回传 undefined,由面板放行原生复制。
+   * useCallback 稳定引用(pane 的 copy 监听按引用重挂)。
+   */
+  const handleCopyAsMarkdown = useCallback((getSelectionHtml: () => string): string | undefined => {
+    return htmlToMarkdown(getSelectionHtml()) || undefined;
+  }, []);
+
   /** 构建当前文档的滚动同步锚点(含起止虚拟锚点) */
   const buildAnchors = useCallback(() => {
     const scroller = previewScrollRef.current;
@@ -784,6 +814,26 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
         });
       };
       container.addEventListener('paste', handlePaste, true);
+
+      // —— 拖拽图片文件截获(对齐粘贴通道):位图落盘并插入引用;
+      // 拖拽文本片段走 Monaco 原生 drop 行为。dragover 必须 preventDefault,
+      // 否则浏览器按导航处理 drop(整个 WebView 跳转 data URL)
+      const handleDragOver = (event: DragEvent): void => {
+        if (event.dataTransfer?.types.includes('Files')) event.preventDefault();
+      };
+      const handleDrop = (event: DragEvent): void => {
+        const files = event.dataTransfer?.files;
+        if (!files || files.length === 0) return;
+        const image = Array.from(files).find((f) => f.type.startsWith('image/'));
+        if (!image) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        void savePastedImage(image).then((result) => {
+          if (result) insertRawText(result.markdown);
+        });
+      };
+      container.addEventListener('dragover', handleDragOver, true);
+      container.addEventListener('drop', handleDrop, true);
 
       // —— 快捷键(KeyMod/KeyCode 取自运行时命名空间,避免引入 monaco 值包)——
       // 占位文案在触发时经全局 translate 即时翻译(命令只注册一次,
@@ -1856,6 +1906,8 @@ export function MarkdownPreview({ toolId }: ToolProps): JSX.Element {
                     onRendered={handlePaneRendered}
                     onScroll={handlePreviewScroll}
                     onSourceLocate={handleSourceLocate}
+                    onTaskToggle={handleTaskToggle}
+                    copyAsMarkdown={handleCopyAsMarkdown}
                   />
                 </section>
               </ResizablePanel>
