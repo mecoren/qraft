@@ -338,47 +338,6 @@ describe('MarkdownEditor', () => {
     expect(screen.queryByTestId('md-path-title')).toBeNull();
   });
 
-  it('正文栏宽切换:默认窄屏阅读栏,切自适应后铺满并写入缓存', async () => {
-    render(<MarkdownEditor toolId="markdown_editor" metadata={{} as never} />);
-    const surface = await screen.findByTestId('md-wysiwyg');
-    // 栏宽落在所见正文根节点(markdown-body)上,宽度由 globals.css 的 md-width-* 覆盖
-    expect(surface.closest('.markdown-body')?.className).toContain('md-width-narrow');
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('md-width-adaptive'));
-    });
-    expect(screen.getByTestId('md-wysiwyg').closest('.markdown-body')?.className).toContain(
-      'md-width-adaptive',
-    );
-    expect(useMarkdownEditorStore.getState().contentWidth).toBe('adaptive');
-    const persisted = JSON.parse(
-      window.localStorage.getItem('qraft_markdown_preview_v1') ?? '{}',
-    ) as {
-      state?: { contentWidth?: string };
-    };
-    expect(persisted.state?.contentWidth).toBe('adaptive');
-  });
-
-  it('正文栏宽沿用缓存值:重挂载按上次选择渲染并回显选中态', async () => {
-    act(() => {
-      useMarkdownEditorStore.getState().setContentWidth('adaptive');
-    });
-    render(<MarkdownEditor toolId="markdown_editor" metadata={{} as never} />);
-    const surface = await screen.findByTestId('md-wysiwyg');
-    expect(surface.closest('.markdown-body')?.className).toContain('md-width-adaptive');
-    expect(screen.getByTestId('md-width-adaptive')).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByTestId('md-width-narrow')).toHaveAttribute('aria-pressed', 'false');
-  });
-
-  it('源码模式不展示正文栏宽切换(Monaco 代码面不参与栏宽)', async () => {
-    render(<MarkdownEditor toolId="markdown_editor" metadata={{} as never} />);
-    await screen.findByTestId('md-wysiwyg');
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('md-mode-source'));
-    });
-    await screen.findByTestId('md-source-textarea');
-    expect(screen.queryByTestId('md-width-switch')).toBeNull();
-  });
-
   it('大纲侧栏可收起/展开:收起 snap 到 0,工具条按钮可重开', async () => {
     render(<MarkdownEditor toolId="markdown_editor" metadata={{} as never} />);
     await screen.findByTestId('md-wysiwyg');

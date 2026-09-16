@@ -5,6 +5,21 @@ All notable changes to Qraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-09-16
+
+### Added
+
+- Markdown 编辑器全面升级(TipTap 所见即所得内核):多 Tab 文档管理与持久化、富文本格式工具栏与快捷键、分栏/编辑/预览三视图、大纲导航、打字机/专注写作模式、本地草稿自动保存、表格/代码块/公式/Mermaid 图渲染、图片预览与远程图片加载控制、导出 HTML/Markdown/打印/PDF、文件打开/保存/重命名与冲突处理、中英双语完整覆盖
+- JSON 格式化器六项增强:嵌套层级展开/折叠、Unix 时间戳与日期互转、JMESPath 查询、对比视图双侧展示、历史记录固定(pin)、剪贴板内容一键填充
+
+### Changed
+
+- Markdown 预览工具重构为 Markdown 编辑器(toolId 由 `markdown_preview` 改为 `markdown_editor`),新增旧 ID 迁移逻辑,兼容既有收藏与历史记录
+
+### Fixed
+
+- 修复 `pnpm tauri dev` 偶发空等前端:Vite dev server 强制监听 IPv4,避免 localhost 解析到 IPv6 时 Tauri 连不上 devUrl
+
 ## [0.3.0] - 2026-09-15
 
 ### Added
@@ -264,6 +279,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tauri Updater 签名验证(ed25519)
 - MVP 阶段:Windows/macOS 使用占位签名(ad-hoc),正式发布需 EV 证书与 Apple Developer ID
 
+[0.3.1]: https://github.com/qraft/qraft/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/qraft/qraft/compare/v0.2.9...v0.3.0
 [0.2.9]: https://github.com/qraft/qraft/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/qraft/qraft/compare/v0.2.7...v0.2.8

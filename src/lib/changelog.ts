@@ -19,6 +19,7 @@
  * v0.2.8 内容基于 git log(v0.2.7 标签之后至 2026-09-14)提炼,
  * v0.2.9 内容基于 git log 与工作区改动(v0.2.8 标签之后至 2026-09-15)提炼,
  * v0.3.0 内容基于 git log 与工作区改动(v0.2.9 标签之后至 2026-09-15)提炼,
+ * v0.3.1 内容基于 git log(v0.3.0 标签之后至 2026-09-16)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -47,6 +48,44 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.3.1',
+    date: '2026-09-16',
+    summary: {
+      zh: 'Markdown 预览重构为所见即所得 Markdown 编辑器(TipTap 内核:多 Tab、工具栏、三视图、大纲、打字机/专注模式、导出);JSON 格式化器六项增强(嵌套展开、时间戳互转、JMESPath、对比双侧、历史固定、剪贴板填充);修复 tauri dev 空等前端',
+      en: 'Markdown preview rebuilt as a WYSIWYG Markdown editor (TipTap core: multi-tab, toolbar, three views, outline, typewriter/focus modes, export). JSON formatter six upgrades (nested expansion, timestamp conversion, JMESPath, two-sided compare, pinned history, clipboard fill). Fixed tauri dev waiting on the frontend',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: 'Markdown 编辑器全面升级(TipTap 所见即所得内核):多 Tab 文档管理与持久化、富文本格式工具栏与快捷键、分栏/编辑/预览三视图、大纲导航、打字机/专注写作模式、本地草稿自动保存、表格/代码块/公式/Mermaid 图渲染、图片预览与远程图片加载控制、导出 HTML/Markdown/打印/PDF、文件打开/保存/重命名与冲突处理、中英双语完整覆盖',
+          en: 'Markdown editor overhaul (TipTap WYSIWYG core): multi-tab document management with persistence, rich-text toolbar and shortcuts, split/edit/preview views, outline navigation, typewriter/focus writing modes, local-first draft autosave, tables/code blocks/math/Mermaid rendering, image preview with remote-image loading control, export to HTML/Markdown/print/PDF, open/save/rename with conflict handling, full zh/en i18n coverage',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: 'JSON 格式化器六项增强:嵌套 JSON 字符串一键展开为对象/数组并写回输入、文档内时间戳与可读时间双向批量互转、新增 JMESPath 查询引擎(支持过滤与函数)、对比视图双侧展示、历史记录固定(pin)免于淘汰、空文档检测到剪贴板 JSON 时提示一键填入',
+          en: 'JSON formatter six upgrades (inspired by Json-Assistant): expand nested JSON strings into objects/arrays in place, batch-convert timestamps and readable dates both ways, new JMESPath query engine with filters and functions, two-sided compare view, pin history entries against eviction, clipboard JSON detected on empty docs offers one-click fill',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: 'Markdown 预览工具重构为 Markdown 编辑器(toolId 由 `markdown_preview` 迁移为 `markdown_editor`),新增旧 ID 迁移逻辑,既有收藏与历史记录自动兼容',
+          en: 'Markdown preview rebuilt as Markdown editor (toolId migrated from `markdown_preview` to `markdown_editor`) with legacy-id migration so existing favorites and history keep working',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复 `pnpm tauri dev` 偶发空等前端:Vite dev server 强制监听 IPv4,避免 localhost 解析到 IPv6 时 Tauri 连不上 devUrl',
+          en: 'Fixed `pnpm tauri dev` occasionally hanging while waiting for the frontend: Vite dev server now binds IPv4 explicitly, avoiding devUrl connection failures when localhost resolves to IPv6',
+        },
+      },
+    ],
+  },
   {
     version: '0.3.0',
     date: '2026-09-15',
