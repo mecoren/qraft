@@ -265,6 +265,24 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       ],
     },
     {
+      key: 'expand-nested',
+      title: { zh: '展开嵌套 JSON', en: 'Expand nested JSON' },
+      description: {
+        zh: '字符串里的嵌套 JSON 展开为对象/数组并写回输入',
+        en: 'Expand nested JSON strings into objects/arrays, written back to input',
+      },
+      keywords: ['展开嵌套', '嵌套', 'expand', 'nested'],
+    },
+    {
+      key: 'timestamp',
+      title: { zh: '时间戳互转', en: 'Timestamp conversion' },
+      description: {
+        zh: '文档内时间戳与可读时间批量互转并写回输入',
+        en: 'Batch-convert timestamps and readable times, written back to input',
+      },
+      keywords: ['时间戳', 'timestamp', '时间', 'date', 'time'],
+    },
+    {
       key: 'output',
       title: T_OUTPUT,
       description: { zh: '格式化结果', en: 'Formatted result' },
@@ -274,6 +292,11 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       key: 'jsonpath-expression',
       title: { zh: 'JSONPath 表达式', en: 'JSONPath expression' },
       keywords: ['jsonpath', '表达式', '查询', 'query'],
+    },
+    {
+      key: 'query-engine',
+      title: { zh: '查询引擎(JSONPath / JMESPath)', en: 'Query engine (JSONPath / JMESPath)' },
+      keywords: ['jmespath', 'jsonpath', '查询引擎', '过滤', '函数', 'query engine'],
     },
     {
       key: 'jsonpath-result',

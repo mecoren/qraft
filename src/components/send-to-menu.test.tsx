@@ -30,7 +30,8 @@ describe('SendToMenu', () => {
     render(<SendToMenu text="abc" currentToolId="json_formatter" testId="send-json" />);
     await user.click(screen.getByTestId('send-json'));
     expect(await screen.findByRole('menuitem', { name: /文本处理工具/ })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /文本比较工具/ })).toBeInTheDocument();
+    // 文本比较是双栏目标,占修改前/修改后两项
+    expect(screen.getAllByRole('menuitem', { name: /文本比较工具/ })).toHaveLength(2);
   });
 
   it('选择目标后写入对应载荷', async () => {
@@ -46,6 +47,30 @@ describe('SendToMenu', () => {
     });
   });
 
+  it('文本比较列出修改前/修改后两项,分别写入对应侧', async () => {
+    const user = userEvent.setup();
+    render(<SendToMenu text="abc" currentToolId="json_formatter" testId="send-json" />);
+    await user.click(screen.getByTestId('send-json'));
+    await user.click(await screen.findByRole('menuitem', { name: /文本比较工具.*修改前/ }));
+    await waitFor(() => {
+      expect(useHandoffStore.getState().pending).toEqual({
+        toolId: 'text_compare',
+        text: 'abc',
+        side: 'original',
+      });
+    });
+
+    useHandoffStore.setState({ pending: null });
+    await user.click(screen.getByTestId('send-json'));
+    await user.click(await screen.findByRole('menuitem', { name: /文本比较工具.*修改后/ }));
+    await waitFor(() => {
+      expect(useHandoffStore.getState().pending).toEqual({
+        toolId: 'text_compare',
+        text: 'abc',
+        side: 'modified',
+      });
+    });
+  });
   it('text 为空时不渲染触发按钮', () => {
     render(<SendToMenu text="" currentToolId="json_formatter" testId="send-empty" />);
     expect(screen.queryByTestId('send-empty')).not.toBeInTheDocument();

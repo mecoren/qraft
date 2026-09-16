@@ -176,6 +176,9 @@ importers:
       react:
         specifier: ^19.2.8
         version: 19.2.8
+      jmespath:
+        specifier: ^0.16.0
+        version: 0.16.0
       react-dom:
         specifier: ^19.2.8
         version: 19.2.8(react@19.2.8)
@@ -285,6 +288,9 @@ importers:
       prettier:
         specifier: ^3.9.6
         version: 3.9.6
+      '@types/jmespath':
+        specifier: ^0.15.2
+        version: 0.15.2
       sharp:
         specifier: ^0.35.3
         version: 0.35.3(@types/node@26.1.2)
@@ -2277,6 +2283,12 @@ packages:
 
   compare-versions@6.1.1:
     resolution: {integrity: sha512-4hm4VPpIecmlg59CHXnRDnqGplJFrbLG4aFEl5vl6cK1u76ws3LLvX7ikFnTDl5vo39sjWD6AaDPYodJp/NNHg==}
+  '@types/hast@3.0.5':
+    resolution: {integrity: sha512-rp/ezSWaD1m44dPKICGhiskI13nVr7qTloFwDa/IYkhhf5nzwP+zIQcIJh3WIFSBOy/H1PzB40jPjMDksN4F+g==}
+
+  '@types/jmespath@0.15.2':
+    resolution: {integrity: sha512-pegh49FtNsC389Flyo9y8AfkVIZn9MMPE9yJrO9svhq6Fks2MwymULWjZqySuxmctd3ZH4/n7Mr98D+1Qo5vGA==}
+
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
@@ -3085,6 +3097,10 @@ packages:
     engines: {node: '>=8'}
 
   pathe@2.0.3:
+  jmespath@0.16.0:
+    resolution: {integrity: sha512-9FzQjJ7MATs1tSpnco1K6ayiYE3figslrXA72G2HQ/n76RzvYlofyi5QM+iX4YRs/pu3yzxlVQSST23+dMDknw==}
+    engines: {node: '>= 0.6.0'}
+
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
 
   pdf-lib@1.17.1:
@@ -5867,6 +5883,12 @@ snapshots:
       '@esbuild/openbsd-x64': 0.27.7
       '@esbuild/openharmony-arm64': 0.27.7
       '@esbuild/sunos-x64': 0.27.7
+  '@types/hast@3.0.5':
+    dependencies:
+      '@types/unist': 3.0.3
+
+  '@types/jmespath@0.15.2': {}
+
       '@esbuild/win32-arm64': 0.27.7
       '@esbuild/win32-ia32': 0.27.7
       '@esbuild/win32-x64': 0.27.7
@@ -6721,6 +6743,8 @@ snapshots:
   tsyringe@4.10.0:
     dependencies:
       tslib: 1.14.1
+
+  jmespath@0.16.0: {}
 
   turndown-plugin-gfm@1.0.2: {}
 

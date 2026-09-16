@@ -25,6 +25,14 @@ describe('yamlToJson', () => {
   it('throws on invalid yaml', () => {
     expect(() => yamlToJson('a: [1,')).toThrow();
   });
+
+  it('多文档 YAML 组成数组返回,不丢弃后续文档', () => {
+    expect(yamlToJson('a: 1\n---\nb: 2\n')).toEqual([{ a: 1 }, { b: 2 }]);
+  });
+
+  it('空输入返回 null(与单文档空态一致)', () => {
+    expect(yamlToJson('')).toBeNull();
+  });
 });
 
 describe('tomlToJson', () => {

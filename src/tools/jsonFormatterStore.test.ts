@@ -283,6 +283,76 @@ describe('recordHistory', () => {
   });
 });
 
+describe('history pin', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function useClock(): void {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+  }
+
+  it('togglePinHistory 翻转固定标志,旧数据规整回退 false', () => {
+    const s = useJsonFormatterStore.getState();
+    s.recordHistory('A');
+    const id = useJsonFormatterStore.getState().history[0].id;
+    expect(useJsonFormatterStore.getState().history[0].pinned).toBe(false);
+    s.togglePinHistory(id);
+    expect(useJsonFormatterStore.getState().history[0].pinned).toBe(true);
+    s.togglePinHistory(id);
+    expect(useJsonFormatterStore.getState().history[0].pinned).toBe(false);
+    // 旧持久化数据无 pinned 字段
+    expect(normalizeHistory([{ id: 'h', content: 'x' }])[0].pinned).toBe(false);
+    expect(normalizeHistory([{ id: 'h', content: 'x', pinned: true }])[0].pinned).toBe(true);
+  });
+
+  it('条数上限淘汰最旧的未固定条目,固定条目保留', () => {
+    useClock();
+    const s = useJsonFormatterStore.getState();
+    for (let i = 0; i < MAX_HISTORY_ITEMS; i++) {
+      vi.setSystemTime(i * (COALESCE_WINDOW_MS + 1000));
+      s.recordHistory(`item-${i}`);
+    }
+    // 固定最旧的一条,再写入一条新的
+    const oldest = useJsonFormatterStore.getState().history[MAX_HISTORY_ITEMS - 1];
+    s.togglePinHistory(oldest.id);
+    vi.setSystemTime(MAX_HISTORY_ITEMS * (COALESCE_WINDOW_MS + 1000));
+    s.recordHistory('newest');
+    const { history } = useJsonFormatterStore.getState();
+    expect(history).toHaveLength(MAX_HISTORY_ITEMS);
+    // 固定条目仍在,被淘汰的是次旧的未固定条目
+    expect(history.some((h) => h.id === oldest.id)).toBe(true);
+    expect(history.some((h) => h.content === 'item-1')).toBe(false);
+    expect(history[0].content).toBe('newest');
+  });
+
+  it('会话合并跳过固定的最新条目,不覆写用户标记的版本', () => {
+    useClock();
+    const s = useJsonFormatterStore.getState();
+    s.recordHistory('important');
+    s.togglePinHistory(useJsonFormatterStore.getState().history[0].id);
+    vi.setSystemTime(1000);
+    s.recordHistory('typing...');
+    const { history } = useJsonFormatterStore.getState();
+    expect(history).toHaveLength(2);
+    expect(history.map((h) => h.content)).toEqual(['typing...', 'important']);
+    expect(history[1].pinned).toBe(true);
+  });
+
+  it('clearHistory 仅移除未固定条目', () => {
+    useClock();
+    const s = useJsonFormatterStore.getState();
+    s.recordHistory('keep me');
+    s.togglePinHistory(useJsonFormatterStore.getState().history[0].id);
+    vi.setSystemTime(COALESCE_WINDOW_MS + 1);
+    s.recordHistory('drop me');
+    s.clearHistory();
+    const { history } = useJsonFormatterStore.getState();
+    expect(history.map((h) => h.content)).toEqual(['keep me']);
+  });
+});
+
 describe('hydrate / persist', () => {
   it('restores docs and history from config_get', async () => {
     invokeMock

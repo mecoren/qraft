@@ -104,7 +104,9 @@
     "send_to": {
       "send_to": "Send to",
       "send_aria": "Send to another tool",
-      "dropped_tab_name": "Sent content"
+      "dropped_tab_name": "Sent content",
+      "side_original": "Before",
+      "side_modified": "After"
     },
     "json_tree": {
       "count_elements": "({{count}} items)",

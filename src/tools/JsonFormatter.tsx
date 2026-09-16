@@ -14,7 +14,7 @@ import type { editor } from 'monaco-editor';
 import { formatDistanceToNow } from 'date-fns';
 import { formatError } from '@/lib/format-error';
 import { useTranslation } from 'react-i18next';
-import { JSONPath } from 'jsonpath-plus';
+import { runJsonQuery, type QueryEngine } from './json-query';
 import { Input } from '@/components/ui/input';
 import { CodeEditor, type EditorLanguage } from '@/components/ui/code-editor';
 import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
@@ -42,6 +42,7 @@ import { RenameDialog } from '@/components/RenameDialog';
 import { CopyAction } from '@/components/copy-action';
 import { invokeCommand } from '@/lib/ipc';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
+import { useUiStore } from '@/store/uiStore';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import { useToolHandoff } from '@/hooks/useToolHandoff';
 import { SendToMenu } from '@/components/send-to-menu';
@@ -51,6 +52,9 @@ import {
   ArrowUpDown,
   Check,
   ChevronDown,
+  ChevronsUpDown,
+  ClipboardCheck,
+  Clock,
   FileCode2,
   FileJson,
   FileText,
@@ -69,6 +73,7 @@ import {
   Wand2,
   Wrench,
   X,
+  Zap,
 } from 'lucide-react';
 import type { ToolProps } from './registry';
 import type { OutputMeta, ToolOutput } from '@/types/tool';
@@ -83,6 +88,8 @@ import {
 } from './json-utils';
 import { locateJsonError, type JsonErrorLocation } from './json-diagnostics';
 import { repairJson } from './json-repair';
+import { expandNestedJson } from './json-nested';
+import { convertDatesToTimestamps, convertTimestampsToDates } from './json-timestamp';
 import { collectJsonStats, type JsonStats } from './json-stats';
 import { findJsonPrecisionIssues, type PrecisionIssue } from './json-precision';
 import { jsonToCsv } from './json-csv-utils';
@@ -139,6 +146,24 @@ export function unescapeJsonString(input: string): string {
     return JSON.parse(trimmed) as string;
   }
   return JSON.parse(`"${trimmed}"`) as string;
+}
+
+/**
+ * 判定输入是否为"转义后的 JSON 文本"(整体是带首尾引号的字符串字面量,
+ * 且内容含转义序列):命中时工具栏给出"一键去除转义"提示 chip,对照
+ * Json Assistant 默认提供的自动去转义能力。判定保守 —— 长度上限内、
+ * JSON.parse 确认为字符串才算真,Windows 路径等裸文本不会误命中。
+ */
+export function looksLikeEscapedJson(input: string): boolean {
+  const trimmed = input.trim();
+  if (trimmed.length < 2 || trimmed.length > 64 * 1024) return false;
+  if (!trimmed.startsWith('"') || !trimmed.endsWith('"')) return false;
+  if (!/\\["\\/bfnrtu]/.test(trimmed)) return false;
+  try {
+    return typeof JSON.parse(trimmed) === 'string';
+  } catch {
+    return false;
+  }
 }
 
 /** 输出语言映射:实体类生成后输出编辑器切换到对应语言高亮 */
@@ -320,6 +345,53 @@ function OutputViewToggle({
   );
 }
 
+/** 查询引擎切换(JSONPath/JMESPath,与 OutputViewToggle 同款分段样式) */
+function QueryEngineToggle({
+  engine,
+  onChange,
+}: {
+  engine: QueryEngine;
+  onChange: (engine: QueryEngine) => void;
+}) {
+  const { t } = useTranslation();
+  const itemClass = (active: boolean): string =>
+    cn(
+      'flex items-center gap-1 px-2 py-0.5 text-xs transition-colors',
+      active
+        ? 'bg-accent text-accent-foreground'
+        : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
+    );
+  return (
+    <div
+      role="group"
+      aria-label={t('tools.json_formatter.query_engine_aria')}
+      data-search-anchor="json_formatter:query-engine"
+      className="flex overflow-hidden rounded border border-border"
+    >
+      <button
+        type="button"
+        data-testid="engine-jsonpath"
+        aria-pressed={engine === 'jsonpath'}
+        title={t('tools.json_formatter.query_engine_jsonpath_title')}
+        onClick={() => onChange('jsonpath')}
+        className={itemClass(engine === 'jsonpath')}
+      >
+        {t('tools.json_formatter.query_engine_jsonpath')}
+      </button>
+      <button
+        type="button"
+        data-testid="engine-jmespath"
+        aria-pressed={engine === 'jmespath'}
+        title={t('tools.json_formatter.query_engine_jmespath_title')}
+        onClick={() => onChange('jmespath')}
+        className={itemClass(engine === 'jmespath')}
+      >
+        {t('tools.json_formatter.query_engine_jmespath')}
+      </button>
+    </div>
+  );
+}
+
 /**
  * 统计 + meta 徽标(文本/树形输出视图共用):
  * 常显一行摘要(对象 N · 数组 N · 键 N · 深度 N | 字节与耗时),
@@ -397,6 +469,16 @@ export function JsonFormatter({ toolId }: ToolProps) {
         : docs,
     [docs],
   );
+  /** 历史列表展示顺序:固定条目恒排最前(稳定排序,与 Tab 栏同款语义) */
+  const sortedHistory = useMemo(
+    () =>
+      history.some((h) => h.pinned)
+        ? [...history].sort((a, b) => Number(b.pinned) - Number(a.pinned))
+        : history,
+    [history],
+  );
+  /** 未固定的历史条数(清空确认框的删除口径;固定条目保留) */
+  const unpinnedHistoryCount = useMemo(() => history.filter((h) => !h.pinned).length, [history]);
 
   /** Tab 栏滚动容器:指向 ScrollArea 内部 Viewport(div) */
   const docTabsScrollRef = useRef<HTMLDivElement>(null);
@@ -450,7 +532,10 @@ export function JsonFormatter({ toolId }: ToolProps) {
    * forgetJsonError 维护:JSON 时记定位,非 JSON(或成功)时清空。
    */
   const [jsonError, setJsonError] = useState<JsonErrorLocation | null>(null);
-  /** 「修复 JSON」上一次动作的报告(fixed=false 或 actions 为空时为 null) */
+  /**
+   * 显式动作的报告条(修复 / 展开嵌套 / 时间戳转换共用):fixed=false 或
+   * 无动作时为 null;用户再次输入即清空(handleInputChange),程序性写回保留。
+   */
   const [repairReport, setRepairReport] = useState<string | null>(null);
   /** 最近一次成功解析的文档结构统计(对象/数组/键/深度),解析失败时为 null */
   const [stats, setStats] = useState<JsonStats | null>(null);
@@ -462,6 +547,8 @@ export function JsonFormatter({ toolId }: ToolProps) {
   const [precisionIssues, setPrecisionIssues] = useState<PrecisionIssue[] | null>(null);
   /** JSONPath 视图:查询表达式(作用于左侧输入文档,非格式化输出) */
   const [jsonPathExpr, setJsonPathExpr] = useState('$.');
+  /** 查询视图的引擎(JSONPath/JMESPath 双引擎,对照 Json Assistant) */
+  const [queryEngine, setQueryEngine] = useState<QueryEngine>('jsonpath');
   const [historyOpen, setHistoryOpen] = useState(false);
   /** 待确认关闭的文档(null = 无);仅非空内容文档关闭前弹确认 */
   const [closeTarget, setCloseTarget] = useState<JsonDoc | null>(null);
@@ -471,6 +558,10 @@ export function JsonFormatter({ toolId }: ToolProps) {
   const [clearHistoryOpen, setClearHistoryOpen] = useState(false);
   /** 待确认删除的历史条目 id(null = 关闭;受控单开,同时只允许一个确认框) */
   const [historyRemoveId, setHistoryRemoveId] = useState<string | null>(null);
+  /** 剪贴板填充:本会话已处理(填入/忽略)的剪贴板原文,同内容不再追问 */
+  const [dismissedClipboard, setDismissedClipboard] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  );
 
   /**
    * 用户输入(非程序性写回):同步清掉错误定位与修复报告 —— 输入一变,
@@ -494,6 +585,11 @@ export function JsonFormatter({ toolId }: ToolProps) {
     if (!inputFormat || inputFormat === 'json') return 'json';
     return INPUT_LANGUAGE_MAP[inputFormat];
   }, [inputFormat]);
+  /**
+   * 转义提示 chip 的显示判定:输入是转义文本时给出一键去除入口。
+   * useMemo 缓存 —— 含一次试探性 JSON.parse,大输入直接短路不判。
+   */
+  const showEscapedHint = useMemo(() => looksLikeEscapedJson(text), [text]);
   const formatHintKey = inputFormat && inputFormat !== 'json' ? INPUT_HINT_KEY[inputFormat] : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -733,6 +829,52 @@ export function JsonFormatter({ toolId }: ToolProps) {
       setRepairReport(t('tools.json_formatter.repair_failed'));
     }
   }, [text, isJsonLike, activeDoc, setDocContent, t, forgetJsonError]);
+
+  /**
+   * 显式「展开嵌套 JSON」(绝不自动触发):把字符串叶子里的 JSON 文本原地
+   * 展开为对象/数组,结果写回输入文档,400ms 防抖自动格式化随即接管。
+   * 无嵌套可展时如实报告,不改输入。
+   */
+  const handleExpandNested = useCallback(() => {
+    if (!text.trim() || !activeDoc) return;
+    try {
+      const { value, count } = expandNestedJson(parseSmart(text));
+      if (count === 0) {
+        setRepairReport(t('tools.json_formatter.expand_none'));
+        return;
+      }
+      setDocContent(activeDoc.id, JSON.stringify(value, null, indent));
+      setRepairReport(t('tools.json_formatter.expand_applied', { count }));
+    } catch (e) {
+      setRepairReport(formatError(e, t('tools.json_formatter.parse_failed')));
+    }
+  }, [text, activeDoc, setDocContent, indent, t]);
+
+  /**
+   * 时间戳批量互转(显式触发,写回输入):direction=to-date 把区间内数字/
+   * 纯数字字符串转为本地时间,to-timestamp 把确凿时间文本转为毫秒数字。
+   * 无命中时如实报告,不改输入。
+   */
+  const handleTimestampConvert = useCallback(
+    (direction: 'to-date' | 'to-timestamp') => {
+      if (!text.trim() || !activeDoc) return;
+      try {
+        const { value, count } =
+          direction === 'to-date'
+            ? convertTimestampsToDates(parseSmart(text))
+            : convertDatesToTimestamps(parseSmart(text));
+        if (count === 0) {
+          setRepairReport(t('tools.json_formatter.timestamp_none'));
+          return;
+        }
+        setDocContent(activeDoc.id, JSON.stringify(value, null, indent));
+        setRepairReport(t('tools.json_formatter.timestamp_applied', { count }));
+      } catch (e) {
+        setRepairReport(formatError(e, t('tools.json_formatter.parse_failed')));
+      }
+    },
+    [text, activeDoc, setDocContent, indent, t],
+  );
 
   /**
    * 执行格式化(主按钮与自动防抖共用)。
@@ -1053,10 +1195,10 @@ export function JsonFormatter({ toolId }: ToolProps) {
   }, [deferredTreeOutput]);
 
   /**
-   * JSONPath 视图查询结果:仅在该视图激活时计算(与树视图解析同模式:
-   * useDeferredValue 降优先级,大文档下 JSON.parse + JSONPath 全量执行
-   * 可达百毫秒级,defer 让表达式输入框保持跟手)。查询作用于左侧输入
-   * 文档原文,不依赖格式化输出 —— 输入改完立刻能看到查询结果。
+   * 查询视图结果:仅在该视图激活时计算(与树视图解析同模式:
+   * useDeferredValue 降优先级,大文档下全量执行可达百毫秒级,defer 让
+   * 表达式输入框保持跟手)。查询作用于左侧输入文档原文,不依赖格式化
+   * 输出 —— 输入改完立刻能看到查询结果。双引擎共用 runJsonQuery。
    */
   const wantsJsonPath = viewMode === 'jsonpath';
   const deferredPathInput = useDeferredValue(wantsJsonPath ? text : '');
@@ -1072,14 +1214,17 @@ export function JsonFormatter({ toolId }: ToolProps) {
     }
     if (!jsonPathExpr.trim()) return '';
     try {
-      const out = JSONPath({ path: jsonPathExpr, json: data as object, wrap: true });
+      const out = runJsonQuery(data, queryEngine, jsonPathExpr);
       return JSON.stringify(out, null, 2);
     } catch (e) {
-      return t('tools.json_formatter.jsonpath_expression_error', {
-        message: e instanceof Error ? e.message : String(e),
-      });
+      return t(
+        queryEngine === 'jmespath'
+          ? 'tools.json_formatter.jmespath_expression_error'
+          : 'tools.json_formatter.jsonpath_expression_error',
+        { message: e instanceof Error ? e.message : String(e) },
+      );
     }
-  }, [deferredPathInput, jsonPathExpr, t]);
+  }, [deferredPathInput, jsonPathExpr, queryEngine, t]);
 
   const disabled = loading || !text;
 
@@ -1130,6 +1275,42 @@ export function JsonFormatter({ toolId }: ToolProps) {
       ],
     },
   ];
+
+  /**
+   * 剪贴板填充候选:智能检测开关开启(默认关闭,须在设置里显式打开)且
+   * 剪贴板内容可被本工具消费、当前文档为空、本会话未处理过该内容时,
+   * 在输入区顶部给一条显式确认条 —— 只提示不自动填入。这是 Json Assistant
+   * 自动导入 + 黑名单的本地实现,黑名单为会话级(重进工具重新询问)。
+   */
+  const smartDetectionEnabled = useUiStore((s) => s.smartDetectionEnabled);
+  const detectedText = useUiStore((s) => s.detectedText);
+  const clipboardFillCandidate = useMemo(() => {
+    if (!smartDetectionEnabled || !detectedText.trim()) return null;
+    if ((activeDoc?.content ?? '').trim()) return null;
+    if (dismissedClipboard.has(detectedText)) return null;
+    try {
+      // 仅容器(对象/数组)才提示:纯文本经 YAML 回退会解析成标量字符串,
+      // 那种情况填入格式化器没有意义且每次复制都弹条(pp noise),不提示
+      const parsed = parseSmart(detectedText);
+      if (parsed === null || typeof parsed !== 'object') return null;
+    } catch {
+      return null;
+    }
+    return detectedText;
+  }, [smartDetectionEnabled, detectedText, activeDoc, dismissedClipboard]);
+
+  /** 确认填入:剪贴板内容写入当前文档,并记入会话黑名单不再追问 */
+  function handleClipboardFill() {
+    if (!clipboardFillCandidate || !activeDoc) return;
+    setDocContent(activeDoc.id, clipboardFillCandidate);
+    setDismissedClipboard((prev) => new Set(prev).add(clipboardFillCandidate));
+  }
+
+  /** 忽略:同内容本会话不再提示 */
+  function handleClipboardDismiss() {
+    if (!clipboardFillCandidate) return;
+    setDismissedClipboard((prev) => new Set(prev).add(clipboardFillCandidate));
+  }
 
   /** Tab 键盘激活(Enter / Space),配合 role=tab 的可访问性 */
   function handleTabKeyDown(e: KeyboardEvent<HTMLDivElement>, id: string) {
@@ -1340,6 +1521,36 @@ export function JsonFormatter({ toolId }: ToolProps) {
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
           <div className="flex h-full min-h-0 flex-col">
+            {/* 剪贴板填充确认条:仅当前文档为空且智能检测开时出现,点填入才写 */}
+            {clipboardFillCandidate && (
+              <div
+                data-testid="clipboard-fill-bar"
+                className="flex shrink-0 items-center gap-1.5 border-b border-border bg-primary/5 px-2 py-1 text-xs text-muted-foreground"
+              >
+                <ClipboardCheck aria-hidden className="size-3.5 shrink-0 text-primary" />
+                <span className="min-w-0 flex-1 truncate">
+                  {t('tools.json_formatter.clipboard_fill_prompt')}
+                </span>
+                <button
+                  type="button"
+                  data-testid="clipboard-fill-ok"
+                  onClick={handleClipboardFill}
+                  className="shrink-0 rounded px-1.5 py-0.5 font-medium text-primary transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {t('tools.json_formatter.clipboard_fill_ok')}
+                </button>
+                <button
+                  type="button"
+                  data-testid="clipboard-fill-dismiss"
+                  aria-label={t('tools.json_formatter.clipboard_fill_dismiss_aria')}
+                  title={t('tools.json_formatter.clipboard_fill_dismiss_aria')}
+                  onClick={handleClipboardDismiss}
+                  className="flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <X aria-hidden className="size-3" />
+                </button>
+              </div>
+            )}
             <CodeEditor
               title={t('tools.json_formatter.input_title')}
               language={inputLanguage}
@@ -1431,6 +1642,32 @@ export function JsonFormatter({ toolId }: ToolProps) {
                     <RemoveFormatting aria-hidden className="size-3.5" />
                     {t('tools.json_formatter.unescape')}
                   </ActionButton>
+                  {/* —— 转义提示:输入本身是转义文本时给出一键去除入口(自动识别,不自动执行) —— */}
+                  {showEscapedHint && (
+                    <button
+                      type="button"
+                      data-testid="escaped-hint"
+                      onClick={handleUnescape}
+                      title={t('tools.json_formatter.escaped_hint_title')}
+                      className="flex h-[26px] min-w-0 max-w-52 items-center gap-1 rounded px-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <Zap aria-hidden className="size-3.5 shrink-0" />
+                      <span className="min-w-0 truncate">
+                        {t('tools.json_formatter.escaped_hint')}
+                      </span>
+                    </button>
+                  )}
+                  {/* —— 展开嵌套:字符串叶子里的 JSON 文本原地展开,写回输入 —— */}
+                  <ActionButton
+                    testId="btn-expand-nested"
+                    data-search-anchor="json_formatter:expand-nested"
+                    onClick={handleExpandNested}
+                    disabled={disabled}
+                    title={t('tools.json_formatter.expand_nested_title')}
+                  >
+                    <ChevronsUpDown aria-hidden className="size-3.5" />
+                    {t('tools.json_formatter.expand_nested')}
+                  </ActionButton>
                   {/* —— 多模式键排序(仿 Json Assistant:基础/自然/特殊三组) —— */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -1516,6 +1753,39 @@ export function JsonFormatter({ toolId }: ToolProps) {
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  {/* —— 时间戳互转:批量改写文档内时间戳/时间,写回输入 —— */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        data-testid="btn-timestamp"
+                        data-search-anchor="json_formatter:timestamp"
+                        disabled={disabled}
+                        title={t('tools.json_formatter.timestamp_title')}
+                        className="flex h-[26px] items-center gap-1 rounded px-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                      >
+                        <Clock aria-hidden className="size-3.5" />
+                        {t('tools.json_formatter.timestamp')}
+                        <ChevronDown aria-hidden className="size-3 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem
+                        data-testid="ts-to-date"
+                        disabled={disabled}
+                        onSelect={() => handleTimestampConvert('to-date')}
+                      >
+                        {t('tools.json_formatter.timestamp_to_date')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        data-testid="ts-to-timestamp"
+                        disabled={disabled}
+                        onSelect={() => handleTimestampConvert('to-timestamp')}
+                      >
+                        {t('tools.json_formatter.timestamp_to_timestamp')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   {/* —— 工具本地历史(完整内容,可还原;全局历史仅存预览不可复用) —— */}
                   <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
                     <PopoverTrigger asChild>
@@ -1573,7 +1843,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                                 <PopoverTrigger asChild>
                                   <ActionButton
                                     testId="history-clear"
-                                    disabled={history.length === 0}
+                                    disabled={unpinnedHistoryCount === 0}
                                   >
                                     <Trash2 aria-hidden className="size-3.5" />
                                     {t('tools.json_formatter.clear')}
@@ -1590,7 +1860,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                                   </p>
                                   <p className="mt-1 text-[10px] text-muted-foreground">
                                     {t('tools.json_formatter.history_clear_confirm_desc', {
-                                      count: history.length,
+                                      count: unpinnedHistoryCount,
                                     })}
                                   </p>
                                   <div className="mt-2.5 flex justify-end gap-1">
@@ -1651,7 +1921,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                         </div>
                       ) : (
                         <ul className="max-h-72 overflow-y-auto py-1" data-testid="history-list">
-                          {history.map((item) => (
+                          {sortedHistory.map((item) => (
                             <li key={item.id} className="group relative">
                               <button
                                 type="button"
@@ -1674,6 +1944,34 @@ export function JsonFormatter({ toolId }: ToolProps) {
                                     count: item.content.length,
                                   })}
                                 </span>
+                              </button>
+                              {/* 固定:用户标记的重要版本免于淘汰/合并覆盖/清空;
+                                固定态常显(与 Tab 栏 Pin 语义一致),未固定悬停浮现 */}
+                              <button
+                                type="button"
+                                data-testid="history-item-pin"
+                                aria-pressed={item.pinned}
+                                aria-label={t(
+                                  item.pinned
+                                    ? 'tools.json_formatter.history_unpin_aria'
+                                    : 'tools.json_formatter.history_pin_aria',
+                                )}
+                                title={t(
+                                  item.pinned
+                                    ? 'tools.json_formatter.history_unpin_aria'
+                                    : 'tools.json_formatter.history_pin_aria',
+                                )}
+                                onClick={() =>
+                                  useJsonFormatterStore.getState().togglePinHistory(item.id)
+                                }
+                                className={cn(
+                                  'absolute right-7 top-1/2 -translate-y-1/2 rounded p-1 transition-colors hover:bg-background hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                  item.pinned
+                                    ? 'text-primary opacity-100'
+                                    : 'text-muted-foreground opacity-0 group-hover:opacity-100',
+                                )}
+                              >
+                                <Pin aria-hidden className="size-3" />
                               </button>
                               {/* 单条删除确认:同样锚定在 X 旁的 Popover;
                                 受控 open 按 item.id 单开,避免多条确认框同屏 */}
@@ -1845,6 +2143,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
                     {t('tools.json_formatter.jsonpath_title')}
                   </span>
                   <span className="flex items-center">
+                    <QueryEngineToggle engine={queryEngine} onChange={setQueryEngine} />
                     <OutputViewToggle mode={viewMode} onChange={setViewMode} />
                     <CopyAction text={jsonPathResult} testId="jsonpath-copy" />
                     <SendToMenu
@@ -1869,7 +2168,11 @@ export function JsonFormatter({ toolId }: ToolProps) {
                       type="text"
                       value={jsonPathExpr}
                       onChange={(e) => setJsonPathExpr(e.target.value)}
-                      placeholder="$.store.book[*].author"
+                      placeholder={
+                        queryEngine === 'jmespath'
+                          ? 'store.book[*].author'
+                          : '$.store.book[*].author'
+                      }
                       aria-label={t('tools.json_formatter.jsonpath_expression_title')}
                       data-testid="jsonpath-expr"
                       className="h-8 pl-8 pr-2 text-sm"
@@ -1902,8 +2205,10 @@ export function JsonFormatter({ toolId }: ToolProps) {
                   <>
                     <StatsMetaBadge stats={stats} meta={meta} />
                     {/* 与输入侧工具栏自然同高:缩进下拉框移除后,两侧控件均为
-                      py-1 text-xs(≈24px 行高),无需再强制 h-7 对齐 */}
-                    <span className="flex items-center">
+                      py-1 text-xs(≈24px 行高),无需再强制 h-7 对齐。
+                      ml-2:CodeEditor 的 actions 插槽是无 gap 容器,统计徽标
+                      (无内边距的纯文本 span)与按钮组之间需手动留距 */}
+                    <span className="ml-2 flex items-center">
                       <OutputViewToggle mode={viewMode} onChange={setViewMode} />
                       <CopyAction text={output} testId="output-copy" />
                       <SendToMenu text={output} currentToolId={toolId} testId="output-send" />

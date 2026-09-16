@@ -15,7 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { requestHandoff } from '@/store/handoffStore';
+import { requestHandoff, type HandoffSide } from '@/store/handoffStore';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
 import { DEFAULT_TOOL_ID, getCatalogEntry, pickText } from '@/lib/tool-catalog';
 
@@ -41,14 +41,14 @@ export function SendToMenu({ text, currentToolId, testId }: SendToMenuProps): JS
   const targets = HANDOFF_TARGETS.filter((target) => target.toolId !== currentToolId);
   if (targets.length === 0 || !text) return <span />;
 
-  const send = (target: (typeof HANDOFF_TARGETS)[number]): void => {
-    if (target.toolId === DEFAULT_TOOL_ID) {
+  const send = (toolId: string, side?: HandoffSide): void => {
+    if (toolId === DEFAULT_TOOL_ID) {
       useEditorWorkspaceStore
         .getState()
         .openDroppedText(t('chrome.send_to.dropped_tab_name'), text);
       return;
     }
-    requestHandoff(target.toolId, text);
+    requestHandoff(toolId, text, side);
   };
 
   const labelOf = (toolId: string): string =>
@@ -69,11 +69,24 @@ export function SendToMenu({ text, currentToolId, testId }: SendToMenuProps): JS
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {targets.map((target) => (
-          <DropdownMenuItem key={target.toolId} onSelect={() => send(target)}>
-            {labelOf(target.toolId)}
-          </DropdownMenuItem>
-        ))}
+        {targets.flatMap((target) =>
+          // 文本比较是双栏目标:扁平列出修改前(左)/修改后(右)两个入口
+          // (子菜单 hover 在触屏/键盘下难用,两项扁平更直接),其余单输入工具直达
+          target.toolId === 'text_compare'
+            ? (['original', 'modified'] as const).map((side) => (
+                <DropdownMenuItem
+                  key={`${target.toolId}-${side}`}
+                  onSelect={() => send(target.toolId, side)}
+                >
+                  {`${labelOf(target.toolId)} · ${side === 'original' ? t('chrome.send_to.side_original') : t('chrome.send_to.side_modified')}`}
+                </DropdownMenuItem>
+              ))
+            : [
+                <DropdownMenuItem key={target.toolId} onSelect={() => send(target.toolId)}>
+                  {labelOf(target.toolId)}
+                </DropdownMenuItem>,
+              ],
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

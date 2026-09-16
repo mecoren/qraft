@@ -46,7 +46,8 @@ import {
 import { downloadText } from '@/lib/file-utils';
 import { inferLanguageFromPath } from './code-editor-workspace/languageMap';
 import { cn } from '@/lib/utils';
-import { useToolHandoff } from '@/hooks/useToolHandoff';
+import { consumeHandoffPayload } from '@/store/handoffStore';
+import { useToolStateStore } from '@/store/toolStateStore';
 import { useTextCompareStore, type CompareDoc } from './textCompareStore';
 import type { ToolProps } from './registry';
 
@@ -202,12 +203,17 @@ export function TextCompare({ toolId }: ToolProps): JSX.Element {
     downloadText(`${activeDoc?.title ?? 'compare'}.patch`, patch, 'text/x-diff');
   }, [original, modified, ignoreWhitespace, ignoreCase, ignoreEol, activeDoc, t]);
 
-  // handoff 接收:跨工具发来的文本填入当前文档的「修改后」侧(常见流:
-  // 从文本处理/编辑器把改后版本送来与原文对比)
-  useToolHandoff(toolId, (incoming) => {
+  // handoff 接收:跨工具发来的单文本按 side 填入对应侧(缺省修改后侧)。
+  // 经 store getState 读写,无闭包过期问题;setDocContent 置位 userTouched,
+  // hydrate 不会覆盖投递内容。
+  const currentToolId = useToolStateStore((s) => s.currentToolId);
+  useEffect(() => {
+    if (currentToolId !== toolId) return;
+    const payload = consumeHandoffPayload(toolId);
+    if (!payload) return;
     const s = useTextCompareStore.getState();
-    if (s.activeDocId) s.setDocContent(s.activeDocId, 'modified', incoming);
-  });
+    if (s.activeDocId) s.setDocContent(s.activeDocId, payload.side ?? 'modified', payload.text);
+  }, [currentToolId, toolId]);
 
   // 启动时从 Rust config 还原文档(hydrate 内部幂等)
   useEffect(() => {

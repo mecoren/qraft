@@ -13,7 +13,7 @@
  *   静默吞掉
  */
 
-import { parse as yamlParse } from 'yaml';
+import { parseAllDocuments } from 'yaml';
 
 /** 解析失败的统一错误类型:对外只呈现 message,由调用方写入输出框 */
 export class ParseFormatError extends Error {
@@ -30,11 +30,18 @@ export class ParseFormatError extends Error {
 // YAML → JSON
 // ============================================================
 
-/** 解析 YAML 文本为 JSON 值(yaml 包 YAML.parse,支持多文档时取首个) */
+/** 解析 YAML 文本为 JSON 值;多文档时组成数组返回,不静默丢弃后 N 个文档 */
 export function yamlToJson(input: string): unknown {
   try {
-    return yamlParse(input);
+    const docs = parseAllDocuments(input);
+    const bad = docs.find((d) => d.errors.length > 0);
+    if (bad) throw bad.errors[0];
+    if (docs.length <= 1) return docs.length === 0 ? null : docs[0].toJS();
+    // 多文档 YAML(如 `---` 分隔):对照 Json Assistant 的多文档处理,
+    // 逐个转换后组成数组 —— 数据一个不少,格式化后形态自明
+    return docs.map((d) => d.toJS());
   } catch (e) {
+    if (e instanceof ParseFormatError) throw e;
     throw new ParseFormatError('yaml', e instanceof Error ? e.message : String(e));
   }
 }

@@ -26,12 +26,15 @@ vi.mock('@/lib/ipc', () => {
 });
 
 // 导入必须在 mock 声明之后,确保组件拿到的是 mocked 模块
-import { JsonFormatter } from './JsonFormatter';
+import { JsonFormatter, looksLikeEscapedJson } from './JsonFormatter';
 import { useJsonFormatterStore } from './jsonFormatterStore';
+import { useUiStore } from '@/store/uiStore';
 
 describe('JsonFormatter', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // 智能检测默认关闭:剪贴板填充提示须显式开启才出现,复位防跨用例污染
+    useUiStore.setState({ smartDetectionEnabled: false, detectedText: '' });
     // zustand 模块级单例:每个用例重置为「单个空白文档」初始态,避免跨用例污染
     useJsonFormatterStore.setState({
       docs: [{ id: 'default', title: 'json-1', autoTitle: 'json-1', pinned: false, content: '' }],
@@ -111,6 +114,8 @@ describe('JsonFormatter', () => {
     expect(badge.textContent).toContain('深度 4');
     // 前端路径的 meta 也已回填(不再恒为空)
     expect(badge.textContent).toContain('字节');
+    // 徽标与右侧按钮组留距(CodeEditor actions 插槽无 gap,靠 ml-2 手动隔开)
+    expect(badge.nextElementSibling).toHaveClass('ml-2');
   });
 
   it('warns about large numbers that lose precision during parsing', async () => {
@@ -171,6 +176,109 @@ describe('JsonFormatter', () => {
     fireEvent.change(getInputEditor(), { target: { value: '{\\"a\\":1}' } });
     fireEvent.click(screen.getByTestId('btn-unescape'));
     expect(getOutputValue()).toBe('{"a":1}');
+  });
+
+  it('展开嵌套:字符串里的 JSON 原地展开并写回输入', () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    const raw = '{"address":"{\\"city\\":\\"杭州\\"}","n":1}';
+    fireEvent.change(getInputEditor(), { target: { value: raw } });
+    fireEvent.click(screen.getByTestId('btn-expand-nested'));
+    expect(getInputEditor().value).toBe('{\n  "address": {\n    "city": "杭州"\n  },\n  "n": 1\n}');
+    expect(screen.getByTestId('repair-report')).toHaveTextContent('1');
+  });
+
+  it('展开嵌套:无嵌套时如实报告且输入不动', () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: '{"a":1}' } });
+    fireEvent.click(screen.getByTestId('btn-expand-nested'));
+    expect(getInputEditor().value).toBe('{"a":1}');
+    expect(screen.getByTestId('repair-report')).toHaveTextContent('无需展开');
+  });
+
+  it('时间戳互转:时间戳批量转为可读时间并写回输入', async () => {
+    const user = userEvent.setup();
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: '{"finish":1496937600,"id":42}' } });
+    screen.getByTestId('btn-timestamp').focus();
+    await user.keyboard('{Enter}');
+    fireEvent.click(await screen.findByTestId('ts-to-date'));
+    // 时间戳转了,普通小数字不动
+    expect(getInputEditor().value).toContain('"id": 42');
+    expect(getInputEditor().value).toMatch(/"finish": "\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"/);
+    expect(screen.getByTestId('repair-report')).toHaveTextContent('1');
+  });
+
+  it('时间戳互转:可读时间批量转为毫秒时间戳', async () => {
+    const user = userEvent.setup();
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: '{"finish":"2017-06-09 00:00:00"}' } });
+    screen.getByTestId('btn-timestamp').focus();
+    await user.keyboard('{Enter}');
+    fireEvent.click(await screen.findByTestId('ts-to-timestamp'));
+    const next = getInputEditor().value;
+    expect(next).toMatch(/"finish": \d{13}/);
+    expect(screen.getByTestId('repair-report')).toHaveTextContent('1');
+  });
+
+  it('转义提示:输入为转义文本时出现一键去除入口', () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    expect(screen.queryByTestId('escaped-hint')).not.toBeInTheDocument();
+    fireEvent.change(getInputEditor(), { target: { value: '"{\\"a\\":1}"' } });
+    fireEvent.click(screen.getByTestId('escaped-hint'));
+    expect(getOutputValue()).toBe('{"a":1}');
+  });
+
+  it('looksLikeEscapedJson:仅首尾引号+转义序列的字符串字面量才命中', () => {
+    expect(looksLikeEscapedJson('"{\\"a\\":1}\\n"')).toBe(true);
+    expect(looksLikeEscapedJson('{"a":1}')).toBe(false);
+    expect(looksLikeEscapedJson('{\\"a\\":1}')).toBe(false);
+    expect(looksLikeEscapedJson('"plain"')).toBe(false);
+    expect(looksLikeEscapedJson('')).toBe(false);
+    expect(looksLikeEscapedJson('"unclosed')).toBe(false);
+  });
+
+  it('剪贴板填充:开关关闭时默认不提示', () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    expect(screen.queryByTestId('clipboard-fill-bar')).not.toBeInTheDocument();
+  });
+
+  it('剪贴板填充:开启+剪贴板 JSON+空文档时确认后填入', () => {
+    useUiStore.setState({ smartDetectionEnabled: true, detectedText: '{"a":1}' });
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    expect(screen.getByTestId('clipboard-fill-bar')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('clipboard-fill-ok'));
+    expect(getInputEditor().value).toBe('{"a":1}');
+    // 填入后文档非空,提示条消失
+    expect(screen.queryByTestId('clipboard-fill-bar')).not.toBeInTheDocument();
+  });
+
+  it('剪贴板填充:忽略后同内容不再提示,新内容重新提示', async () => {
+    useUiStore.setState({ smartDetectionEnabled: true, detectedText: '{"a":1}' });
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.click(screen.getByTestId('clipboard-fill-dismiss'));
+    expect(screen.queryByTestId('clipboard-fill-bar')).not.toBeInTheDocument();
+    // 同内容更新(聚焦再次读到相同剪贴板)仍不提示
+    act(() => {
+      useUiStore.setState({ detectedText: '{"a":1}' });
+    });
+    expect(screen.queryByTestId('clipboard-fill-bar')).not.toBeInTheDocument();
+    // 新内容重新提示(外部 store 更新需等 React 刷新,用 findBy 等待)
+    act(() => {
+      useUiStore.setState({ detectedText: '{"b":2}' });
+    });
+    expect(await screen.findByTestId('clipboard-fill-bar')).toBeInTheDocument();
+  });
+
+  it('剪贴板填充:纯文本标量或文档非空时不提示', () => {
+    // 纯文本经 YAML 回退只是标量字符串,填入格式化器无意义,不提示
+    useUiStore.setState({ smartDetectionEnabled: true, detectedText: 'just some text' });
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    expect(screen.queryByTestId('clipboard-fill-bar')).not.toBeInTheDocument();
+    fireEvent.change(getInputEditor(), { target: { value: '{"x":1}' } });
+    act(() => {
+      useUiStore.setState({ detectedText: '{"a":1}' });
+    });
+    expect(screen.queryByTestId('clipboard-fill-bar')).not.toBeInTheDocument();
   });
 
   it('unescape writes an error to the output when the input is not escaped text', () => {
@@ -236,7 +344,7 @@ describe('JsonFormatter', () => {
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
     act(() => {
       useJsonFormatterStore.setState({
-        history: [{ id: 'h1', title: 'json', content: '{}', timestamp: Date.now() }],
+        history: [{ id: 'h1', title: 'json', content: '{}', timestamp: Date.now(), pinned: false }],
         userTouched: true,
         ready: true,
       });
@@ -261,7 +369,7 @@ describe('JsonFormatter', () => {
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
     act(() => {
       useJsonFormatterStore.setState({
-        history: [{ id: 'h1', title: 'json', content: '{}', timestamp: Date.now() }],
+        history: [{ id: 'h1', title: 'json', content: '{}', timestamp: Date.now(), pinned: false }],
         userTouched: true,
         ready: true,
       });
@@ -273,6 +381,35 @@ describe('JsonFormatter', () => {
     expect(confirm).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('history-remove-confirm-ok'));
     expect(useJsonFormatterStore.getState().history).toHaveLength(0);
+  });
+
+  it('pins a history entry: pinned sorts first and survives clearing', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    const now = Date.now();
+    act(() => {
+      useJsonFormatterStore.setState({
+        history: [
+          { id: 'h-new', title: 'new', content: '{"b":2}', timestamp: now, pinned: false },
+          { id: 'h-old', title: 'old', content: '{"a":1}', timestamp: now - 1000, pinned: false },
+        ],
+        userTouched: true,
+        ready: true,
+      });
+    });
+    fireEvent.click(screen.getByTestId('btn-history'));
+    await screen.findByTestId('history-list');
+    // 默认最新在前
+    expect(screen.getAllByTestId('history-item')[0]).toHaveTextContent('new');
+    // 固定旧条目 → 排到最前
+    fireEvent.click(screen.getAllByTestId('history-item-pin')[1]);
+    expect(useJsonFormatterStore.getState().history.find((h) => h.id === 'h-old')?.pinned).toBe(
+      true,
+    );
+    expect(screen.getAllByTestId('history-item')[0]).toHaveTextContent('old');
+    // 清空仅移除未固定条目
+    fireEvent.click(screen.getByTestId('history-clear'));
+    fireEvent.click(await screen.findByTestId('history-clear-confirm-ok'));
+    expect(useJsonFormatterStore.getState().history.map((h) => h.id)).toEqual(['h-old']);
   });
 
   it('opens history popover without auto-focusing save-current (no instant tooltip)', async () => {
@@ -785,6 +922,34 @@ describe('JsonFormatter', () => {
     });
     await waitFor(() => {
       expect(getJsonPathResult()).toBe('[\n  "Nigel",\n  "Erik"\n]');
+    });
+  });
+
+  it('queries with JMESPath after switching the engine', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), {
+      target: { value: '{"store":{"book":[{"price":10},{"price":20}]}}' },
+    });
+    fireEvent.click(screen.getByTestId('view-jsonpath'));
+    fireEvent.click(screen.getByTestId('engine-jmespath'));
+    fireEvent.change(screen.getByTestId('jsonpath-expr'), {
+      target: { value: 'store.book[?price > `15`].price' },
+    });
+    await waitFor(() => {
+      expect(getJsonPathResult()).toBe('[\n  20\n]');
+    });
+  });
+
+  it('shows a JMESPath error message for an invalid expression', async () => {
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: '{"a":1}' } });
+    fireEvent.click(screen.getByTestId('view-jsonpath'));
+    fireEvent.click(screen.getByTestId('engine-jmespath'));
+    fireEvent.change(screen.getByTestId('jsonpath-expr'), {
+      target: { value: 'a..[' },
+    });
+    await waitFor(() => {
+      expect(getJsonPathResult()).toMatch(/JMESPath 表达式错误/);
     });
   });
 

@@ -173,6 +173,7 @@ cargo test
 - 模式/方向切换照 Base64Codec 的 ConfigRow 分段控件,忌通栏 Tab 条与自创标题栏样式。
 - ConfigRow 的 caption 微标签(96px 定宽小标签列)放不下行级说明:该行描述统一经 `captionHint` 传 i18n 文案,渲染为标签文本上的原生 `title`——浮层样式由全局 title 接管层(`global-title-tooltip`,main.tsx 挂载)统一渲染,勿自引 Radix Tooltip 或塞回 hint 行。title 挂可见文本而非外层容器,悬停空白不弹。
 
+- CodeEditor 的 `actions` 插槽是**无 gap 容器**:纯文本徽标 / 状态行(自身无内边距,如统计徽标)与按钮组相邻时,在按钮组上手动加 `ml-2`(8px,与树形等自带 `gap-2` 的标题栏对齐);不要改共享 CodeEditor 加全局 gap(影响全部工具标题栏)。
 **测试**
 
 - Vitest + jsdom + @testing-library/react;测试与源文件共置(`*.test.tsx`)。

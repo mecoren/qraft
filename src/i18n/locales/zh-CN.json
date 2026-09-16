@@ -104,7 +104,9 @@
     "send_to": {
       "send_to": "发送到",
       "send_aria": "发送到其他工具",
-      "dropped_tab_name": "发送的内容"
+      "dropped_tab_name": "发送的内容",
+      "side_original": "修改前",
+      "side_modified": "修改后"
     },
     "json_tree": {
       "count_elements": "({{count}} 元素)",

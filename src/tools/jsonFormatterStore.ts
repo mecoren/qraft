@@ -46,6 +46,11 @@ export interface JsonHistoryItem {
   content: string;
   /** 记录时间(ms 时间戳) */
   timestamp: number;
+  /**
+   * 是否固定:固定条目不被条数上限淘汰、不被会话合并覆盖、不被清空历史删除。
+   * 旧版本持久化数据无该字段,规整时回退 false(与 JsonDoc.pinned 同款兼容)。
+   */
+  pinned: boolean;
 }
 
 /** 文档工作区(整体持久化单元) */
@@ -162,6 +167,7 @@ function sanitizeHistoryItem(raw: unknown): JsonHistoryItem | null {
         : (deriveTitleFromContent(h.content) ?? 'json'),
     content: h.content,
     timestamp: typeof h.timestamp === 'number' ? h.timestamp : 0,
+    pinned: h.pinned === true,
   };
 }
 
@@ -210,9 +216,11 @@ interface JsonFormatterWorkspaceState {
   setDocContent: (id: string, content: string) => void;
   /**
    * 记录一条历史:按完整内容去重(命中则提升到最前并刷新时间),
-   * 空内容 / 超大内容跳过,超出上限丢弃最旧。
+   * 空内容 / 超大内容跳过,超出上限淘汰最旧的未固定条目。
    */
   recordHistory: (content: string) => void;
+  /** 切换单条历史的固定状态(固定条目免于淘汰/合并覆盖/清空) */
+  togglePinHistory: (id: string) => void;
   /** 删除单条历史 */
   removeHistory: (id: string) => void;
   /** 清空全部历史 */
@@ -264,6 +272,21 @@ function mergeInjectedDocs(restored: FormatterDocs, current: FormatterDocs): For
     activeDocId = id;
   }
   return { docs, activeDocId };
+}
+
+/** 条数上限裁剪:从最旧端淘汰首个未固定条目;全固定时淘汰最旧(上限必须成立) */
+function capHistoryLength(list: JsonHistoryItem[]): JsonHistoryItem[] {
+  if (list.length <= MAX_HISTORY_ITEMS) return list;
+  const next = [...list];
+  let victim = -1;
+  for (let i = next.length - 1; i >= 0; i--) {
+    if (!next[i].pinned) {
+      victim = i;
+      break;
+    }
+  }
+  next.splice(victim < 0 ? next.length - 1 : victim, 1);
+  return next;
 }
 
 export const useJsonFormatterStore = create<JsonFormatterWorkspaceState>((set, get) => ({
@@ -423,9 +446,10 @@ export const useJsonFormatterStore = create<JsonFormatterWorkspaceState>((set, g
         };
       }
       const newest = s.history[0];
-      // 同一编辑会话合并:最新条目在时间窗内的连续变更原位覆盖(内容/标题/时间),
-      // 使打字或粘贴调整过程中的自动快照收敛为一条,而不是每次按键新增一条
-      if (newest && now - newest.timestamp <= COALESCE_WINDOW_MS) {
+      // 同一编辑会话合并:最新条目在时间窗内且未固定时原位覆盖(内容/标题/时间),
+      // 使打字或粘贴调整过程中的自动快照收敛为一条,而不是每次按键新增一条。
+      // 固定条目是用户标记的重要版本,绝不覆写 —— 此时走新增分支。
+      if (newest && !newest.pinned && now - newest.timestamp <= COALESCE_WINDOW_MS) {
         const updated: JsonHistoryItem = {
           ...newest,
           title: deriveTitleFromContent(content) ?? newest.title,
@@ -439,9 +463,17 @@ export const useJsonFormatterStore = create<JsonFormatterWorkspaceState>((set, g
         title: deriveTitleFromContent(content) ?? 'json',
         content,
         timestamp: now,
+        pinned: false,
       };
-      return { history: [item, ...s.history].slice(0, MAX_HISTORY_ITEMS), userTouched: true };
+      return { history: capHistoryLength([item, ...s.history]), userTouched: true };
     });
+  },
+
+  togglePinHistory: (id) => {
+    set((s) => ({
+      history: s.history.map((h) => (h.id === id ? { ...h, pinned: !h.pinned } : h)),
+      userTouched: true,
+    }));
   },
 
   removeHistory: (id) => {
@@ -449,7 +481,8 @@ export const useJsonFormatterStore = create<JsonFormatterWorkspaceState>((set, g
   },
 
   clearHistory: () => {
-    set({ history: [], userTouched: true });
+    // 清空仅移除未固定条目:固定是用户对重要版本的显式标记,清空不应带走
+    set((s) => ({ history: s.history.filter((h) => h.pinned), userTouched: true }));
   },
 
   persistDocs: async () => {

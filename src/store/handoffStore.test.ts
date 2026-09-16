@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { consumeHandoff, peekHandoff, requestHandoff, useHandoffStore } from './handoffStore';
+import {
+  consumeHandoff,
+  consumeHandoffPayload,
+  peekHandoff,
+  requestHandoff,
+  useHandoffStore,
+} from './handoffStore';
 
 describe('handoffStore', () => {
   beforeEach(() => {
@@ -25,5 +31,17 @@ describe('handoffStore', () => {
     requestHandoff('hash_calculator', 'first');
     requestHandoff('hash_calculator', 'second');
     expect(consumeHandoff('hash_calculator')).toBe('second');
+  });
+
+  it('side 随载荷透传,旧 consumeHandoff 仍只取文本', () => {
+    requestHandoff('text_compare', 'left text', 'original');
+    expect(consumeHandoff('text_compare')).toBe('left text');
+    requestHandoff('text_compare', 'left text', 'original');
+    expect(consumeHandoffPayload('text_compare')).toEqual({
+      toolId: 'text_compare',
+      text: 'left text',
+      side: 'original',
+    });
+    expect(consumeHandoffPayload('text_compare')).toBeNull();
   });
 });

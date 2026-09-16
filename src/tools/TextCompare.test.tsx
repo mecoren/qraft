@@ -216,6 +216,17 @@ describe('TextCompare', () => {
     useToolStateStore.setState({ currentToolId: 'text_editor' });
   });
 
+  it('handoff:side=original 时写入修改前侧,修改后侧不受影响', () => {
+    useToolStateStore.setState({ currentToolId: 'text_compare' });
+    requestHandoff('text_compare', 'left text', 'original');
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    const doc = useTextCompareStore.getState().docs[0];
+    expect(doc?.original).toBe('left text');
+    expect(doc?.modified).toBe('');
+    expect(useHandoffStore.getState().pending).toBeNull();
+    useToolStateStore.setState({ currentToolId: 'text_editor' });
+  });
+
   it('忽略换行符开关:仅 CRLF/LF 差异时统计归零', async () => {
     render(<TextCompare toolId="text_compare" metadata={null as never} />);
     // 经 store 直写:textarea(浏览器规范)会把 \r\n 归一成 \n,无法在测试里
