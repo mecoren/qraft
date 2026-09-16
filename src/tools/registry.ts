@@ -112,8 +112,8 @@ registerTool('ip_parser', () => import('./IpParser').then((m) => ({ default: m.I
 registerTool('json_array_table', () =>
   import('./JsonArrayTable').then((m) => ({ default: m.JsonArrayTable })),
 );
-registerTool('markdown_preview', () =>
-  import('./MarkdownPreview').then((m) => ({ default: m.MarkdownPreview })),
+registerTool('markdown_editor', () =>
+  import('./markdown-editor/MarkdownEditor').then((m) => ({ default: m.MarkdownEditor })),
 );
 registerTool('list_comparer', () =>
   import('./ListComparer').then((m) => ({ default: m.ListComparer })),

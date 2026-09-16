@@ -127,13 +127,13 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
-// MarkdownPreviewPane 依赖 markdown Worker,jsdom 无法加载;
+// MarkdownEditorPane 依赖 markdown Worker,jsdom 无法加载;
 // 用轻量替身渲染 source,保留真实的 isMarkdownDocument 判定逻辑
-vi.mock('@/tools/markdown-preview-pane', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/tools/markdown-preview-pane')>();
+vi.mock('@/tools/markdown-editor-pane', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/tools/markdown-editor-pane')>();
   return {
     ...actual,
-    MarkdownPreviewPane: ({ source }: { source: string }) => (
+    MarkdownEditorPane: ({ source }: { source: string }) => (
       <div data-testid="editor-md-preview">{source}</div>
     ),
   };
@@ -143,7 +143,7 @@ import userEvent from '@testing-library/user-event';
 import { CommandError, listen, safeInvoke } from '@/lib/ipc';
 import { CodeEditorTool } from './CodeEditor';
 import { useEditorWorkspaceStore } from './code-editor-workspace/useEditorWorkspaceStore';
-import { useMarkdownPreviewStore } from './markdownPreviewStore';
+import { useMarkdownEditorStore } from './markdownEditorStore';
 import { ToolMenuBar } from '@/components/layout/ToolMenuBar';
 import {
   openTextFileDialog,
@@ -170,7 +170,7 @@ beforeEach(() => {
     recentlyClosed: [],
   });
   // Markdown 视图模式回到默认(与工具页共享的 store,避免用例间串扰)
-  useMarkdownPreviewStore.setState({ viewMode: 'split' });
+  useMarkdownEditorStore.setState({ viewMode: 'split' });
   (openTextFileDialog as unknown as Mock).mockReset();
   (saveToPathEncoded as unknown as Mock).mockReset();
   (saveWithDialog as unknown as Mock).mockReset();

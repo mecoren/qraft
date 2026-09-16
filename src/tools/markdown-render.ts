@@ -82,9 +82,9 @@ export function renderMarkdown(source: string, options: RenderOptions = {}): Ren
   const core: RenderCoreResult = renderMarkdownCore(source, {
     ...options,
     labels: options.labels ?? {
-      copyCode: t('tools.markdown_preview.core_copy_code'),
-      headingAnchor: t('tools.markdown_preview.core_heading_anchor'),
-      backref: t('tools.markdown_preview.core_backref'),
+      copyCode: t('tools.markdown_editor.core_copy_code'),
+      headingAnchor: t('tools.markdown_editor.core_heading_anchor'),
+      backref: t('tools.markdown_editor.core_backref'),
     },
   });
   return {

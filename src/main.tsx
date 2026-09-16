@@ -64,6 +64,6 @@ createRoot(rootEl).render(popoutToolId ? <PopoutApp toolId={popoutToolId} /> : <
 if (!popoutToolId) {
   scheduleIdlePrefetch({
     dev: import.meta.env.DEV,
-    loaders: [() => import('./tools/MarkdownPreview')],
+    loaders: [() => import('./tools/markdown-editor/MarkdownEditor')],
   });
 }

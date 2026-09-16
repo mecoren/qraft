@@ -12,8 +12,7 @@ import { useToolStateStore } from '@/store/toolStateStore';
 import { useUiStore } from '@/store/uiStore';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
 import { DEFAULT_WORKSPACE } from '@/tools/code-editor-workspace/schema';
-import { useMdDocsStore } from '@/tools/markdownPreviewDocsStore';
-import { useMarkdownPreviewStore } from '@/tools/markdownPreviewStore';
+import { useMdEditorDocsStore } from '@/tools/markdownEditorDocsStore';
 import { usePdfDocsStore } from '@/tools/pdf/pdfDocsStore';
 
 const invokeMock = invoke as unknown as ReturnType<typeof vi.fn>;
@@ -83,7 +82,7 @@ beforeEach(() => {
     error: null,
   });
   // Markdown 文档工作区同为全局单例,复位避免跨用例泄漏
-  useMdDocsStore.setState({
+  useMdEditorDocsStore.setState({
     docs: [],
     activeDocId: null,
     ready: true,
@@ -252,10 +251,8 @@ describe('App', () => {
     expect(tab?.encoding).toBe('gb18030');
   });
 
-  it('打开 .md 文件(文件关联/命令行):自动切到 Markdown 预览工具并注入文档', async () => {
+  it('打开 .md 文件(文件关联/命令行):自动切到 Markdown 编辑器并注入文档', async () => {
     const handlers = await renderAndCaptureEvents(['app:open-file']);
-    // 视图偏好停在「仅编辑」:注入后应被切回分屏(自动打开预览)
-    useMarkdownPreviewStore.setState({ viewMode: 'edit' });
     await act(async () => {
       // 文件关联/命令行入口无 dropPosition
       handlers['app:open-file']({
@@ -264,19 +261,18 @@ describe('App', () => {
         encoding: 'utf-8',
       });
     });
-    // 切到 markdown_preview 工具且文档已注入激活
-    expect(useToolStateStore.getState().currentToolId).toBe('markdown_preview');
-    const md = useMdDocsStore.getState();
+    // 切到 markdown_editor 工具且文档已注入激活
+    expect(useToolStateStore.getState().currentToolId).toBe('markdown_editor');
+    const md = useMdEditorDocsStore.getState();
     const doc = md.docs.find((d) => d.content === '# 标题\n\n正文');
     expect(doc).toBeDefined();
     expect(md.activeDocId).toBe(doc?.id);
-    // 自动开启预览:上次偏好为「仅编辑」时切回分屏
-    expect(useMarkdownPreviewStore.getState().viewMode).not.toBe('edit');
+    // 所见编辑器单窗格即排版,不再切换 viewMode
     // 不进入文本编辑器工作区
     expect(useEditorWorkspaceStore.getState().workspace.tabs).toHaveLength(0);
   });
 
-  it('拖入 .md 到编辑框外的区域:同样切到 Markdown 预览工具打开', async () => {
+  it('拖入 .md 到编辑框外的区域:同样切到 Markdown 编辑器打开', async () => {
     const handlers = await renderAndCaptureEvents(['app:open-file']);
     await act(async () => {
       handlers['app:open-file']({
@@ -285,13 +281,13 @@ describe('App', () => {
         dropPosition: { x: 300, y: 500 },
       });
     });
-    expect(useToolStateStore.getState().currentToolId).toBe('markdown_preview');
-    const md = useMdDocsStore.getState();
+    expect(useToolStateStore.getState().currentToolId).toBe('markdown_editor');
+    const md = useMdEditorDocsStore.getState();
     expect(md.docs.some((d) => d.content === '拖到窗口空白处')).toBe(true);
     expect(useEditorWorkspaceStore.getState().workspace.tabs).toHaveLength(0);
   });
 
-  it('拖入 .md 直接落在文本编辑器的编辑框内:维持编辑器打开,不分流到 Markdown 预览', async () => {
+  it('拖入 .md 直接落在文本编辑器的编辑框内:维持编辑器打开,不分流到 Markdown 编辑器', async () => {
     const handlers = await renderAndCaptureEvents(['app:open-file']);
     // 模拟落点命中 Monaco 编辑区:jsdom 无 elementFromPoint,这里定义
     // 一个桩,返回位于 .monaco-editor 根节点内的元素(还原删除标记)
@@ -328,7 +324,7 @@ describe('App', () => {
       .workspace.tabs.find((t) => t.path === '/home/user/notes.md');
     expect(tab?.content).toBe('直接拖进编辑框');
     // Markdown 工具未收到注入
-    expect(useMdDocsStore.getState().docs).toHaveLength(0);
+    expect(useMdEditorDocsStore.getState().docs).toHaveLength(0);
   });
 
   it('打开/拖入 .pdf:自动切到 PDF 工具并注入文档(Rust 经 Pdf 变体分流)', async () => {

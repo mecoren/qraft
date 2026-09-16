@@ -496,12 +496,23 @@ const RAW_TOOL_CATALOG: readonly RawCatalogEntry[] = [
     popoutSize: { width: 1100, height: 720 },
   },
   {
-    id: 'markdown_preview',
-    name: 'Markdown 预览',
-    description: '类 Typora 分栏预览:代码高亮、数学公式、Mermaid 图表、大纲导航与多排版主题',
+    id: 'markdown_editor',
+    name: 'Markdown 编辑器',
+    description: 'Typora 式所见即所得:直接在排版中写作,公式图表代码大纲主题导出俱全',
     category: 'text',
     icon: FileText,
-    keywords: ['markdown', 'md', '预览', '公式', 'katex', 'mermaid', '大纲', '导出 html'],
+    keywords: [
+      'markdown',
+      'md',
+      '编辑',
+      '所见即所得',
+      'wysiwyg',
+      '公式',
+      'katex',
+      'mermaid',
+      '大纲',
+      '导出 html',
+    ],
     popoutSize: { width: 1000, height: 720 },
     heavy: true,
   },
@@ -814,10 +825,10 @@ const EN_TOOLS: Record<string, { name: string; description: string }> = {
       'Inspect image container metadata: PNG chunks, JPEG EXIF camera fields, WebP / GIF / BMP headers; fully local parsing',
   },
   text_compare: { name: 'Text Comparer', description: 'Compare two pieces of text' },
-  markdown_preview: {
-    name: 'Markdown Preview',
+  markdown_editor: {
+    name: 'Markdown Editor',
     description:
-      'Typora-style split preview: syntax highlighting, math formulas, Mermaid diagrams, outline navigation and multiple typography themes',
+      'Typora-style WYSIWYG: write directly in rendered typography with math, Mermaid, outline, themes and export',
   },
   list_comparer: { name: 'List Comparer', description: 'Compare two lists' },
   duplicate_detector: {

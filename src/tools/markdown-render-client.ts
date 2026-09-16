@@ -17,9 +17,9 @@ import { loadExtendedLanguages, type MdRenderLabels } from './markdown-core';
 /** 主线程按当前语言解析渲染产出内嵌文案,随任务下发 Worker(避免 Worker 打包 i18n) */
 function resolveRenderLabels(): MdRenderLabels {
   return {
-    copyCode: t('tools.markdown_preview.core_copy_code'),
-    headingAnchor: t('tools.markdown_preview.core_heading_anchor'),
-    backref: t('tools.markdown_preview.core_backref'),
+    copyCode: t('tools.markdown_editor.core_copy_code'),
+    headingAnchor: t('tools.markdown_editor.core_heading_anchor'),
+    backref: t('tools.markdown_editor.core_backref'),
   };
 }
 

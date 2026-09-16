@@ -1,12 +1,12 @@
 /**
- * MarkdownPreviewPane —— 可复用的 Markdown 预览面板(纯展示层)
+ * MarkdownEditorPane —— 可复用的 Markdown 预览面板(纯展示层)
  *
- * 职责(自 MarkdownPreview 工具页抽出,供工具页与文本编辑器工作台共用):
+ * 职责(自 MarkdownEditor 工具页抽出,供工具页与文本编辑器工作台共用):
  * - 两阶段防抖渲染(fast 快照 → 完整高亮),经 Worker 异步管线 + 消毒
  * - Mermaid 懒渲染(跟随主题深浅)、KaTeX 公式、代码高亮
  * - 预览区交互代理:图片 lightbox、代码块复制、锚点跳转、外部链接
  * - 脚注引用悬浮气泡
- * - 排版主题类(.md-theme-*)来自 markdownPreviewStore,与工具页共享偏好
+ * - 排版主题类(.md-theme-*)来自 markdownEditorStore,与工具页共享偏好
  *
  * 不包含:工具栏/状态栏/大纲/滚动同步 —— 由宿主组合。
  * 宿主可通过 onScroller / onArticle / onRendered 回调接入同步与导出能力。
@@ -31,7 +31,7 @@ import { renderMarkdown, type OutlineItem, type RenderResult } from './markdown-
 import { renderMarkdownAsync } from './markdown-render-client';
 import { renderMermaidIn } from './markdown-mermaid';
 import { resolveAssetImages } from './markdown-image-assets';
-import { useMarkdownPreviewStore } from './markdownPreviewStore';
+import { useMarkdownEditorStore } from './markdownEditorStore';
 
 /** 渲染防抖间隔(ms):输入到预览刷新的延迟 */
 export const PANE_RENDER_DEBOUNCE_MS = 200;
@@ -66,7 +66,7 @@ export function useIsDarkTheme(): boolean {
   return dark;
 }
 
-export interface MarkdownPreviewPaneProps {
+export interface MarkdownEditorPaneProps {
   /** Markdown 源文本 */
   source: string;
   /** 追加到滚动容器的类名 */
@@ -94,7 +94,7 @@ export interface MarkdownPreviewPaneProps {
   copyAsMarkdown?: (getSelectionHtml: () => string) => string | undefined;
 }
 
-export function MarkdownPreviewPane({
+export function MarkdownEditorPane({
   source,
   className,
   emptyHint,
@@ -105,12 +105,12 @@ export function MarkdownPreviewPane({
   onSourceLocate,
   onTaskToggle,
   copyAsMarkdown,
-}: MarkdownPreviewPaneProps): JSX.Element {
+}: MarkdownEditorPaneProps): JSX.Element {
   const { t } = useTranslation();
-  const themeId = useMarkdownPreviewStore((s) => s.themeId);
-  const loadRemoteImages = useMarkdownPreviewStore((s) => s.loadRemoteImages);
+  const themeId = useMarkdownEditorStore((s) => s.themeId);
+  const loadRemoteImages = useMarkdownEditorStore((s) => s.loadRemoteImages);
   /** 空文档提示:宿主未提供时按当前语言取默认文案(语言切换即重算) */
-  const resolvedEmptyHint = emptyHint ?? t('tools.markdown_preview.empty_hint');
+  const resolvedEmptyHint = emptyHint ?? t('tools.markdown_editor.empty_hint');
 
   // 首帧直接渲染初始内容(同步路径),避免空窗;后续更新经 Worker 异步推进。
   // 惰性 useState 只在挂载时执行一次:后续 source 变化由下方 Worker effect
@@ -216,7 +216,7 @@ export function MarkdownPreviewPane({
       // 被拦截的远程图片:提示原因(不放大、不请求)
       if (target.closest('[data-md-blocked-src]')) {
         event.preventDefault();
-        showAlert({ variant: 'info', title: t('tools.markdown_preview.remote_blocked') });
+        showAlert({ variant: 'info', title: t('tools.markdown_editor.remote_blocked') });
         return;
       }
 
@@ -238,8 +238,8 @@ export function MarkdownPreviewPane({
           void writeClipboardText(code.textContent).then((ok) => {
             showAlert(
               ok
-                ? { variant: 'success', title: t('tools.markdown_preview.toast_code_copied') }
-                : { variant: 'destructive', title: t('tools.markdown_preview.toast_copy_failed') },
+                ? { variant: 'success', title: t('tools.markdown_editor.toast_code_copied') }
+                : { variant: 'destructive', title: t('tools.markdown_editor.toast_copy_failed') },
             );
           });
         }
@@ -387,13 +387,13 @@ export function MarkdownPreviewPane({
         onScroll={handleInternalScroll}
         data-md-surface={themeId === 'night' ? 'night' : undefined}
         className={cn('relative min-h-0 flex-1 overflow-y-auto bg-card', className)}
-        data-testid="md-preview-scroll"
+        data-testid="md-editor-preview-scroll"
       >
         <div className="mx-auto px-6 py-5">
           {source.trim() ? (
             <article
               ref={articleCb}
-              data-testid="md-preview"
+              data-testid="md-editor-preview"
               className={`markdown-body md-theme-${themeId}`}
               // eslint-disable-next-line react-dom/no-dangerously-set-innerhtml -- 已在 markdown-render.ts 经 DOMPurify 白名单消毒
               dangerouslySetInnerHTML={{ __html: renderableHtml }}
@@ -425,7 +425,7 @@ export function MarkdownPreviewPane({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={t('tools.markdown_preview.lightbox_aria')}
+          aria-label={t('tools.markdown_editor.lightbox_aria')}
           data-testid="md-lightbox"
           onClick={() => setLightboxSrc(null)}
           className="fixed inset-0 z-[60] flex cursor-zoom-out items-center justify-center bg-black/80 p-6"
@@ -438,12 +438,12 @@ export function MarkdownPreviewPane({
           />
           <button
             type="button"
-            aria-label={t('tools.markdown_preview.lightbox_close_aria')}
+            aria-label={t('tools.markdown_editor.lightbox_close_aria')}
             data-testid="md-lightbox-close"
             onClick={() => setLightboxSrc(null)}
             className="absolute right-4 top-4 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/90 transition-colors hover:bg-white/20"
           >
-            {t('tools.markdown_preview.lightbox_close')}
+            {t('tools.markdown_editor.lightbox_close')}
           </button>
         </div>
       )}

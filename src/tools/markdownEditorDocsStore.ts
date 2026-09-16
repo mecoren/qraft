@@ -16,7 +16,7 @@ import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
 import { fileNameFromPath } from '@/tools/code-editor-workspace/languageMap';
 import type { OpenFileResult } from '@/tools/code-editor-workspace/fileOps';
-import { DRAFT_STORAGE_KEY } from './markdownPreviewStore';
+import { DRAFT_STORAGE_KEY } from './markdownEditorStore';
 
 /** 单个 Markdown 文档(Tab) */
 export interface MdDoc {
@@ -299,7 +299,7 @@ function mergeInjectedDocs(restored: MdDocsWorkspace, current: MdDocsWorkspace):
   return { docs, activeDocId };
 }
 
-export const useMdDocsStore = create<MdDocsState>((set, get) => ({
+export const useMdEditorDocsStore = create<MdDocsState>((set, get) => ({
   ...createDefaultDocs(),
   ready: false,
   userTouched: false,

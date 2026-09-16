@@ -23,7 +23,7 @@ export function getPopoutToolIdFromLabel(label: string): string | null {
 
 /**
  * 弹窗关闭前冲刷该工具 store 的待落盘数据(防抖兜底)。
- * markdown_preview 的草稿由组件在弹窗模式下改为即时直写(见 MarkdownPreview),
+ * markdown_editor 的草稿由组件防抖持久化 + 卸载兜底落盘(见 MarkdownEditor),
  * 偏好走 zustand persist 同步写,均无需此处处理。
  */
 export async function flushPopoutToolState(toolId: string): Promise<void> {
@@ -69,10 +69,10 @@ export async function rehydrateToolStateFromPopout(toolId: string): Promise<void
         .getState()
         .hydrate(true);
       return;
-    case 'markdown_preview':
+    case 'markdown_editor':
       await (
-        await import('@/tools/markdownPreviewStore')
-      ).useMarkdownPreviewStore.persist.rehydrate();
+        await import('@/tools/markdownEditorStore')
+      ).useMarkdownEditorStore.persist.rehydrate();
       return;
     default:
       return;

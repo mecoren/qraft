@@ -61,8 +61,8 @@ import { DEFAULT_SHORTCUTS, type ShortcutKey } from '@/types/config';
 import { listen, safeInvoke, CommandError } from '@/lib/ipc';
 import { writeClipboardText } from '@/lib/clipboard';
 import type { ToolProps } from '@/tools/registry';
-import { MarkdownPreviewPane, isMarkdownDocument } from '@/tools/markdown-preview-pane';
-import { useMarkdownPreviewStore, type MdViewMode } from '@/tools/markdownPreviewStore';
+import { MarkdownEditorPane, isMarkdownDocument } from '@/tools/markdown-editor-pane';
+import { useMarkdownEditorStore, type MdViewMode } from '@/tools/markdownEditorStore';
 import { buildUnifiedPatch } from '@/components/text-diff/diff-utils';
 import { downloadText } from '@/lib/file-utils';
 import { useEditorWorkspaceStore, folderNameFromPath } from './useEditorWorkspaceStore';
@@ -207,8 +207,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const [historySelectedId, setHistorySelectedId] = useState<string | null>(null);
 
   // —— Markdown 视图模式(编辑/分屏/预览;仅 md 文档生效,与工具页共享偏好)——
-  const mdViewMode = useMarkdownPreviewStore((s) => s.viewMode);
-  const setMdViewMode = useMarkdownPreviewStore((s) => s.setViewMode);
+  const mdViewMode = useMarkdownEditorStore((s) => s.viewMode);
+  const setMdViewMode = useMarkdownEditorStore((s) => s.setViewMode);
 
   /**
    * 分隔条 hover / 拖拽中状态:
@@ -1881,7 +1881,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
                   <div className="flex h-full min-h-0" data-testid="editor-md-layout">
                     {mdViewMode !== 'preview' && <div className="min-w-0 flex-1">{editorPane}</div>}
                     <div className="relative min-w-0 flex-1 overflow-hidden border-l border-border">
-                      <MarkdownPreviewPane source={activeTab.content} className="h-full" />
+                      <MarkdownEditorPane source={activeTab.content} className="h-full" />
                       {mdViewMode === 'preview' && (
                         <div className="absolute right-3 top-2 z-10 rounded-md border border-border bg-background/80 p-0.5 backdrop-blur-sm">
                           {mdViewActions}

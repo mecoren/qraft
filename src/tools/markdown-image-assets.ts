@@ -115,3 +115,25 @@ export async function resolveAssetImages(html: string): Promise<string> {
     return url ? `src="${url}"` : `src="" alt="missing:${name}" data-md-blocked-src="${ref}"`;
   });
 }
+
+/**
+ * 按资产名解析单张 `mdasset:` 为 data URL(供所见编辑器图片节点显示用,
+ * 复用同一 LRU 缓存;读不到返回 null,调用方展示占位)。
+ */
+export async function resolveMdAssetUrl(name: string): Promise<string | null> {
+  if (!name) return null;
+  const cached = assetCache.get(name);
+  if (cached) return cached;
+  try {
+    const res = await safeInvoke<string>('md_read_image_asset', { name });
+    if (res.ok && res.value) {
+      const ext = name.split('.').pop() ?? 'png';
+      const url = `data:image/${ext};base64,${res.value}`;
+      assetCache.set(name, url);
+      return url;
+    }
+  } catch {
+    // 读取失败:调用方展示占位
+  }
+  return null;
+}

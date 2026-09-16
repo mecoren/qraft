@@ -158,6 +158,7 @@ cargo test
 
 - Tailwind v4 CSS-first:配置、主题变量、语义 token 全在 `src/styles/globals.css`(OKLCH + `data-palette`),没有 tailwind.config。
 - 优先用 `components/ui/` 的 shadcn 风格原语;className 合并统一用 `cn()`(`@/lib/utils`);图标用 lucide-react。
+- **表单控件一律用 shadcn 原语,禁止原生控件**:下拉用 `Select` + `SelectTrigger/SelectContent/SelectItem`(PdfEditor `h-7 w-20 text-xs` 为工具条内嵌尺寸基准),开关用 `Switch`,输入用 `Input`,不要写原生 `<select>/<input type="checkbox">`(样式与主题跟随断裂,如 Markdown 编辑器主题切换曾用的原生 select)。浏览器默认弹出的原生下拉/日期框不受主题变量控制,是审查红线。
 - HTML 内容渲染前必须经 DOMPurify sanitize。
 - **字体分工**(跟随「设置 → 字体」的两族 token):
   - 输入框、Select、开关等**非编辑器控件一律用 UI 字体**(默认继承,不要加 `font-mono`,密钥 / secret / 字母表这类"内容像代码"的输入框也不例外);
@@ -172,8 +173,8 @@ cargo test
 - 满高预览区不要嵌 Radix ScrollArea(其 viewport 的 table 包裹会打断高度链),用普通 `div.min-h-0 flex-1 overflow-auto` + flex 居中。
 - 模式/方向切换照 Base64Codec 的 ConfigRow 分段控件,忌通栏 Tab 条与自创标题栏样式。
 - ConfigRow 的 caption 微标签(96px 定宽小标签列)放不下行级说明:该行描述统一经 `captionHint` 传 i18n 文案,渲染为标签文本上的原生 `title`——浮层样式由全局 title 接管层(`global-title-tooltip`,main.tsx 挂载)统一渲染,勿自引 Radix Tooltip 或塞回 hint 行。title 挂可见文本而非外层容器,悬停空白不弹。
-
 - CodeEditor 的 `actions` 插槽是**无 gap 容器**:纯文本徽标 / 状态行(自身无内边距,如统计徽标)与按钮组相邻时,在按钮组上手动加 `ml-2`(8px,与树形等自带 `gap-2` 的标题栏对齐);不要改共享 CodeEditor 加全局 gap(影响全部工具标题栏)。
+
 **测试**
 
 - Vitest + jsdom + @testing-library/react;测试与源文件共置(`*.test.tsx`)。

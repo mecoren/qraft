@@ -19,7 +19,7 @@ export function installGlobalLinkHandler(): () => void {
 
     // 取原始 href,而非解析后的 anchor.href:
     // - 页面内锚点(#foo)经解析会带上当前页 origin,会被误判成外部链接
-    // - 保留用户书写的原样链接,不做多余规范化(与 markdown-preview-pane 一致)
+    // - 保留用户书写的原样链接,不做多余规范化(与 markdown-editor-pane 一致)
     const href = anchor.getAttribute('href')?.trim();
     if (!href || href.startsWith('#')) return;
     // 仅接管绝对 http/https 链接;相对路径交给应用内路由处理

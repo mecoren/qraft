@@ -1,5 +1,5 @@
 /**
- * Markdown 预览偏好 Store
+ * Markdown 编辑器偏好 Store
  *
  * 职责:
  * - 排版主题 / 视图模式 / 大纲开关 / 滚动同步开关的持久化(zustand persist)
@@ -16,16 +16,27 @@ import { getLocale } from '@/i18n';
 /** 排版主题 ID(对应 globals.css 中 .md-theme-* 类) */
 export type MdThemeId = 'typora' | 'github' | 'newsprint' | 'pixyll' | 'night';
 
-/** 视图模式:仅编辑 / 分屏(Typora 概念的源码+预览)/ 仅预览 */
+/** 视图模式:仅编辑 / 分屏(Typora 概念的源码+预览)/ 仅预览(文本编辑器 .md 分屏用) */
 export type MdViewMode = 'edit' | 'split' | 'preview';
+
+/** Markdown 编辑器编辑模式:所见即所得 / Monaco 源码(本工具独占,不影响工作台) */
+export type MdEditorMode = 'wysiwyg' | 'source';
+
+/**
+ * 正文栏宽模式(所见视图专有):
+ * - adaptive:铺满编辑区可用宽度(宽表格 / 长代码行)
+ * - narrow:收敛为限宽居中阅读栏(≈700px,长文写作)
+ * 与排版主题正交:主题只定字体与行高,栏宽由该设置覆盖主题自带宽度。
+ */
+export type MdContentWidthMode = 'adaptive' | 'narrow';
 
 /** 主题显示名单存 i18n 键,由组件层翻译(MODE_LABEL 模式) */
 export const THEME_ITEMS: ReadonlyArray<{ id: MdThemeId; labelKey: string }> = [
-  { id: 'typora', labelKey: 'tools.markdown_preview.theme_qraft' },
-  { id: 'github', labelKey: 'tools.markdown_preview.theme_github' },
-  { id: 'newsprint', labelKey: 'tools.markdown_preview.theme_newsprint' },
-  { id: 'pixyll', labelKey: 'tools.markdown_preview.theme_pixyll' },
-  { id: 'night', labelKey: 'tools.markdown_preview.theme_night' },
+  { id: 'typora', labelKey: 'tools.markdown_editor.theme_qraft' },
+  { id: 'github', labelKey: 'tools.markdown_editor.theme_github' },
+  { id: 'newsprint', labelKey: 'tools.markdown_editor.theme_newsprint' },
+  { id: 'pixyll', labelKey: 'tools.markdown_editor.theme_pixyll' },
+  { id: 'night', labelKey: 'tools.markdown_editor.theme_night' },
 ];
 
 /** Night 主题为固定深色(OLED),深浅判定需叠加此条件 */
@@ -35,10 +46,19 @@ export function isThemeInherentlyDark(themeId: MdThemeId): boolean {
 
 export const DRAFT_STORAGE_KEY = 'qraft_markdown_draft';
 
-interface MarkdownPreviewState {
+interface MarkdownEditorState {
   themeId: MdThemeId;
   viewMode: MdViewMode;
+  /** 所见/源码编辑模式(本工具独占,持久化;旧数据缺省所见) */
+  editorMode: MdEditorMode;
+  /** 正文栏宽模式(持久化;旧数据缺省窄屏阅读栏,与既有默认观感一致) */
+  contentWidth: MdContentWidthMode;
   outlineOpen: boolean;
+  /**
+   * 大纲列表折叠态:头部按钮只收起/展开标题列表,侧栏卡片保持占位
+   * (与 outlineOpen 的整栏显隐正交)
+   */
+  outlineListOpen: boolean;
   syncScroll: boolean;
   /** 打字机模式:输入时滚动保持光标行居中(Typora 行为) */
   typewriterMode: boolean;
@@ -52,19 +72,31 @@ interface MarkdownPreviewState {
 
   setThemeId: (themeId: MdThemeId) => void;
   setViewMode: (viewMode: MdViewMode) => void;
+  setEditorMode: (editorMode: MdEditorMode) => void;
+  setContentWidth: (contentWidth: MdContentWidthMode) => void;
   toggleOutline: () => void;
+  toggleOutlineList: () => void;
+  setOutlineOpen: (outlineOpen: boolean) => void;
+  /** 大纲卡宽度(px):分隔条拖拽写入,持久化(文本编辑器侧栏同机制) */
+  outlineWidth: number;
+  setOutlineWidth: (outlineWidth: number) => void;
   setSyncScroll: (syncScroll: boolean) => void;
   setTypewriterMode: (typewriterMode: boolean) => void;
   setFocusMode: (focusMode: boolean) => void;
   setLoadRemoteImages: (loadRemoteImages: boolean) => void;
 }
 
-export const useMarkdownPreviewStore = create<MarkdownPreviewState>()(
+export const useMarkdownEditorStore = create<MarkdownEditorState>()(
   persist(
     (set) => ({
       themeId: 'typora',
       viewMode: 'split',
+      editorMode: 'wysiwyg',
+      contentWidth: 'narrow',
       outlineOpen: true,
+      outlineListOpen: true,
+      // 默认 208px;分隔条拖拽写入,持久化
+      outlineWidth: 208,
       syncScroll: true,
       typewriterMode: false,
       focusMode: false,
@@ -72,7 +104,12 @@ export const useMarkdownPreviewStore = create<MarkdownPreviewState>()(
 
       setThemeId: (themeId) => set({ themeId }),
       setViewMode: (viewMode) => set({ viewMode }),
+      setEditorMode: (editorMode) => set({ editorMode }),
+      setContentWidth: (contentWidth) => set({ contentWidth }),
       toggleOutline: () => set((s) => ({ outlineOpen: !s.outlineOpen })),
+      toggleOutlineList: () => set((s) => ({ outlineListOpen: !s.outlineListOpen })),
+      setOutlineOpen: (outlineOpen) => set({ outlineOpen }),
+      setOutlineWidth: (outlineWidth) => set({ outlineWidth }),
       setSyncScroll: (syncScroll) => set({ syncScroll }),
       setTypewriterMode: (typewriterMode) => set({ typewriterMode }),
       setFocusMode: (focusMode) => set({ focusMode }),

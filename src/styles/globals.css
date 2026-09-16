@@ -1215,6 +1215,18 @@
   --md-toc-bg: #14141d;
 }
 
+/* —— 正文栏宽模式(Markdown 编辑器持久化设置,与排版主题正交)——
+   覆盖主题的 --md-content-width:自适应 = 铺满可用宽度;
+   窄屏 = 收敛为限宽居中阅读栏。必须排在 .md-theme-* 之后:
+   同特异性(双类)下靠源序压过主题赋值。 */
+.markdown-body.md-width-adaptive {
+  --md-content-width: 100%;
+}
+
+.markdown-body.md-width-narrow {
+  --md-content-width: min(100%, 44rem);
+}
+
 /* —— 标题 —— */
 .markdown-body h1,
 .markdown-body h2,

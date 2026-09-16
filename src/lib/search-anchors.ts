@@ -672,27 +672,21 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
       ],
     },
   ],
-  markdown_preview: [
+  markdown_editor: [
     {
-      key: 'input',
-      title: { zh: 'Markdown', en: 'Markdown' },
-      description: { zh: 'Markdown 源文本编辑器', en: 'Markdown source editor' },
-      keywords: ['md', 'markdown', '编辑', '源码'],
-    },
-    {
-      key: 'preview',
-      title: { zh: '预览', en: 'Preview' },
+      key: 'editor',
+      title: { zh: '所见编辑', en: 'Visual editing' },
       description: {
-        zh: '类 Typora 渲染:代码高亮 / 公式 / Mermaid / 排版主题',
-        en: 'Typora-like rendering: code highlight / math / Mermaid / themes',
+        zh: '直接在排版中写作:公式 / Mermaid / 任务列表',
+        en: 'Write in rendered typography: math / Mermaid / tasks',
       },
-      keywords: ['渲染', 'html', '主题', '导出'],
+      keywords: ['md', 'markdown', '编辑', '所见即所得', 'wysiwyg'],
     },
     {
       key: 'outline',
       title: { zh: '大纲', en: 'Outline' },
       description: { zh: '标题树导航,点击定位章节', en: 'Heading tree navigation; click to jump' },
-      keywords: ['目录', 'toc', '导航', '标题'],
+      keywords: ['目录', 'toc', '导航', '标题', '主题', '导出'],
     },
   ],
   list_comparer: [

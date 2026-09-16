@@ -41,8 +41,8 @@ import {
 } from '@/tools/code-editor-workspace/fileOps';
 import { fileNameFromPath } from '@/tools/code-editor-workspace/languageMap';
 import { useEditorWorkspaceStore } from '@/tools/code-editor-workspace/useEditorWorkspaceStore';
-import { useMdDocsStore } from '@/tools/markdownPreviewDocsStore';
-import { useMarkdownPreviewStore } from '@/tools/markdownPreviewStore';
+import { useMdEditorDocsStore } from '@/tools/markdownEditorDocsStore';
+import { migrateMarkdownToolId } from '@/tools/markdown-editor/migrate-tool-id';
 import { usePdfDocsStore } from '@/tools/pdf/pdfDocsStore';
 import { readPdfFile } from '@/tools/pdf/pdfOps';
 import { useOfficeDocsStore } from '@/tools/office/officeDocsStore';
@@ -81,21 +81,19 @@ function openFileInEditor(
   useEditorWorkspaceStore.getState().openLocalFileFromSystem(path, content, encoding, mtimeMs);
 }
 /**
- * 以 Markdown 预览工具打开 .md 文档:切换到 markdown_preview 工具,
+ * 以 Markdown 编辑器打开 .md 文档:切换到 markdown_editor 工具,
  * 并把内容作为新文档注入其工作区(经 openDocFromSystem:追加并激活、
  * 不置位 userTouched,hydrate 未完成时由 mergeInjectedDocs 合并保留)。
- * 视图偏好 viewMode 持久化且默认 split:注入后自动带出预览面板,
- * 用户上次若停在「仅编辑」,此处切到分屏,保证「自动打开预览」的目标体验。
+ * 所见编辑器单窗格即排版,无需旧分栏的 viewMode 切换。
  * 路径授权由 Rust 侧在读取前完成(authorize),前端无需在编辑器工作区
  * 额外建 Tab。
  * file 为磁盘载荷(拖放/文件关联/强制打开):传入时文档直接绑定路径,
  * Ctrl+S 按打开时编码写回而非被迫「另存为」。
  */
-function openFileInMarkdownPreview(content: string, file?: OpenFileResult): void {
-  useUiStore.getState().openTool('markdown_preview');
-  useMdDocsStore.getState().openDocFromSystem(content, file);
-  const { viewMode, setViewMode } = useMarkdownPreviewStore.getState();
-  if (viewMode === 'edit') setViewMode('split');
+function openFileInMarkdownEditor(content: string, file?: OpenFileResult): void {
+  migrateMarkdownToolId();
+  useUiStore.getState().openTool('markdown_editor');
+  useMdEditorDocsStore.getState().openDocFromSystem(content, file);
 }
 
 /**
@@ -201,10 +199,10 @@ function showBinaryUnsupportedToast(path: string): void {
         onClick: () => {
           void forceOpenFile(path)
             .then((r) => {
-              // 强制打开成功后与正常打开同一分流:.md 进 Markdown 预览工具,
+              // 强制打开成功后与正常打开同一分流:.md 进 Markdown 编辑器,
               // .pdf 进 PDF 工具,.docx/.xlsx/.pptx 等 Office 文档进 Office 工具,
               // 其余进编辑器
-              if (isMarkdownPath(r.path)) openFileInMarkdownPreview(r.content, r);
+              if (isMarkdownPath(r.path)) openFileInMarkdownEditor(r.content, r);
               else if (isPdfPath(r.path)) openFileInPdfEditor(r.path);
               else if (isOfficePath(r.path)) openFileInOfficeEditor(r.path);
               else openFileInEditor(r.path, r.content, r.encoding, r.mtimeMs);
@@ -281,7 +279,7 @@ export function App(): JSX.Element {
         }),
       );
       // 通过文件关联/命令行/拖放「用 Qraft 打开」的文件:实时在编辑器工作区打开。
-      // .md 文件例外:自动切到 Markdown 预览工具打开(目标体验对齐 Typora);
+      // .md 文件例外:自动切到 Markdown 编辑器打开(目标体验对齐 Typora);
       // .pdf 文件同理:自动切到 PDF 工具打开(渲染 + 表单 + 叠加编辑);
       // .docx/.xlsx/.pptx 等 Office 文档(含 WPS 旧格式 doc/xls/ppt)同理:
       // 自动切到 Office 工具打开(渲染 + 表格编辑;旧格式展示转换指引)。
@@ -293,7 +291,7 @@ export function App(): JSX.Element {
           if (!p?.path) return;
           const dropInsideEditor = isDropInsideEditorBox(p.dropPosition, resolveDropElement);
           if (isMarkdownPath(p.path) && !dropInsideEditor) {
-            openFileInMarkdownPreview(p.content, p);
+            openFileInMarkdownEditor(p.content, p);
             return;
           }
           openFileInEditor(p.path, p.content, p.encoding, p.mtimeMs);
@@ -364,7 +362,7 @@ export function App(): JSX.Element {
   // 初始化兜底:拉取「打开文件」待处理队列。
   // 若应用在 webview 就绪前就收到打开文件请求,`app:open-file` /
   // `app:open-file-unsupported` 事件可能丢失,这里从 Rust 端队列补齐:
-  // - File 项 → 常规打开(.md 走 Markdown 预览工具,同事件路径的分流规则)
+  // - File 项 → 常规打开(.md 走 Markdown 编辑器,同事件路径的分流规则)
   // - TooLarge 项 → 大文件只读查看模式
   // - Pdf 项 → PDF 工具打开(同事件路径分流)
   // - Office 项 → Office 工具打开(同事件路径分流)
@@ -378,7 +376,7 @@ export function App(): JSX.Element {
         for (const item of items) {
           if (item?.kind === 'file' && item.path) {
             if (isMarkdownPath(item.path)) {
-              openFileInMarkdownPreview(item.content, {
+              openFileInMarkdownEditor(item.content, {
                 path: item.path,
                 content: item.content,
                 encoding: item.encoding,

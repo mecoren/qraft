@@ -30,9 +30,9 @@ describe('pushVisited(LRU keepalive 容量管理)', () => {
 });
 
 describe('名额制容量(重型工具 ×2)', () => {
-  // json_formatter / markdown_preview 为 catalog 内 heavy: true 的真实工具
+  // json_formatter / markdown_editor 为 catalog 内 heavy: true 的真实工具
   const HEAVY = 'json_formatter';
-  const HEAVY_2 = 'markdown_preview';
+  const HEAVY_2 = 'markdown_editor';
   const LIGHT = 'unknown_tool_x';
 
   it('重型工具占 2 名额,轻工具占 1', () => {

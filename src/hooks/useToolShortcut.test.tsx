@@ -1,7 +1,7 @@
 /**
  * useToolShortcut 守卫契约测试 —— keepalive 下工具级快捷键的激活归属
  *
- * 核心场景:两个常驻工具(EditorWorkbench / MarkdownPreview)都注册
+ * 核心场景:两个常驻工具(EditorWorkbench / MarkdownEditor)都注册
  * save_file 等 window 捕获阶段监听。守卫必须保证:
  * - 激活工具是归属工具 → handler 执行,事件被消费(preventDefault)
  * - 激活工具是其它工具 → handler 不执行,事件放行(返回 false 语义,
@@ -16,7 +16,7 @@ import { useToolStateStore } from '@/store/toolStateStore';
 /** 挂载两个工具的快捷键注册(镜像 keepalive 下双工具常驻的真实拓扑) */
 function DualShortcutHarness(): null {
   useToolShortcut('text_editor', 'save_file', () => undefined, []);
-  useToolShortcut('markdown_preview', 'save_file', () => undefined, []);
+  useToolShortcut('markdown_editor', 'save_file', () => undefined, []);
   return null;
 }
 
@@ -31,7 +31,7 @@ describe('useToolShortcut 激活守卫', () => {
     const mdHandler = vi.fn();
     function Harness(): null {
       useToolShortcut('text_editor', 'save_file', editorHandler, [editorHandler]);
-      useToolShortcut('markdown_preview', 'save_file', mdHandler, [mdHandler]);
+      useToolShortcut('markdown_editor', 'save_file', mdHandler, [mdHandler]);
       return null;
     }
     act(() => {
@@ -51,11 +51,11 @@ describe('useToolShortcut 激活守卫', () => {
     const mdHandler = vi.fn();
     function Harness(): null {
       useToolShortcut('text_editor', 'save_file', editorHandler, [editorHandler]);
-      useToolShortcut('markdown_preview', 'save_file', mdHandler, [mdHandler]);
+      useToolShortcut('markdown_editor', 'save_file', mdHandler, [mdHandler]);
       return null;
     }
     act(() => {
-      useToolStateStore.setState({ currentToolId: 'markdown_preview' });
+      useToolStateStore.setState({ currentToolId: 'markdown_editor' });
     });
     const { unmount } = render(<Harness />);
 
@@ -118,7 +118,7 @@ describe('useToolShortcut 激活守卫', () => {
   it('popout 弹窗窗口视同激活:守卫不依赖 currentToolId', () => {
     const handler = vi.fn();
     function Harness(): null {
-      useToolShortcut('markdown_preview', 'save_file', handler, [handler]);
+      useToolShortcut('markdown_editor', 'save_file', handler, [handler]);
       return null;
     }
     // popout 窗口下 currentToolId 是独立实例的默认值(文本编辑器),仍应响应
@@ -126,7 +126,7 @@ describe('useToolShortcut 激活守卫', () => {
     act(() => {
       useToolStateStore.setState({ currentToolId: 'text_editor' });
     });
-    window.history.replaceState(null, '', '/?popout=markdown_preview');
+    window.history.replaceState(null, '', '/?popout=markdown_editor');
     const { unmount } = render(<Harness />);
 
     fireEvent.keyDown(window, { key: 's', ctrlKey: true });
@@ -148,7 +148,7 @@ describe('useToolShortcut 激活守卫', () => {
         [],
       );
       useToolShortcut(
-        'markdown_preview',
+        'markdown_editor',
         'save_file',
         () => {
           spy.push('md');
@@ -158,7 +158,7 @@ describe('useToolShortcut 激活守卫', () => {
       return null;
     }
     act(() => {
-      useToolStateStore.setState({ currentToolId: 'markdown_preview' });
+      useToolStateStore.setState({ currentToolId: 'markdown_editor' });
     });
     const { unmount } = render(<DualShortcutHarness key="topology" />);
     // 用 spy 版本重挂(替换 handler 引用)

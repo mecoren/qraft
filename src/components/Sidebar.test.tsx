@@ -205,7 +205,7 @@ describe('Sidebar 工具右键菜单', () => {
 
   it('排序后重开菜单,禁用态随新位置迁移(上移后成为首项则「上移」禁用)', async () => {
     useUiStore.setState({
-      favorites: ['base64_codec', 'json_formatter', 'markdown_preview'],
+      favorites: ['base64_codec', 'json_formatter', 'markdown_editor'],
     });
     const user = userEvent.setup();
     renderSidebar();
@@ -215,7 +215,7 @@ describe('Sidebar 工具右键菜单', () => {
     expect(useUiStore.getState().favorites).toEqual([
       'json_formatter',
       'base64_codec',
-      'markdown_preview',
+      'markdown_editor',
     ]);
     // 关闭菜单后重新右键同一工具(现为首项),「上移」应变为禁用
     await user.keyboard('{Escape}');

@@ -1,11 +1,11 @@
 /**
  * 系统打开文件的 md / pdf / office 分流 —— 纯逻辑辅助
  *
- * 「打开或拖入 .md 文件时自动进入 Markdown 预览工具」「打开或拖入 .pdf
+ * 「打开或拖入 .md 文件时自动进入 Markdown 编辑器」「打开或拖入 .pdf
  * 文件时自动进入 PDF 工具」「打开或拖入 Office 文档(docx/xlsx/pptx 及
  * WPS 旧格式 doc/xls/ppt)时自动进入 Office 工具」的判定拆成纯函数,
  * 便于单测覆盖;DOM 依赖(elementFromPoint)由调用方(App.tsx)注入。
- * 判定口径与 markdown-preview-pane 的 isMarkdownDocument 保持一致:
+ * 判定口径与 markdown-editor-pane 的 isMarkdownDocument 保持一致:
  * 扩展名 .md / .markdown / .mdx(大小写不敏感);PDF 为 .pdf,与 Rust 端
  * `shell::file_open::is_pdf_path` 同口径;Office 白名单与 Rust 端
  * `shell::file_open::is_office_path` / `OFFICE_FILE_EXTS` 同口径。

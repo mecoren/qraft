@@ -93,7 +93,7 @@ export async function renderMermaidIn(root: HTMLElement, dark: boolean): Promise
       block.classList.add('md-mermaid-error');
       block.insertAdjacentHTML(
         'beforeend',
-        `<p class="md-mermaid-msg">${t('tools.markdown_preview.mermaid_load_failed')}</p>`,
+        `<p class="md-mermaid-msg">${t('tools.markdown_editor.mermaid_load_failed')}</p>`,
       );
     }
     return;
@@ -126,7 +126,7 @@ export async function renderMermaidIn(root: HTMLElement, dark: boolean): Promise
       block.classList.add('md-mermaid-error');
       block.insertAdjacentHTML(
         'beforeend',
-        `<p class="md-mermaid-msg">${t('tools.markdown_preview.mermaid_syntax_error')}</p>`,
+        `<p class="md-mermaid-msg">${t('tools.markdown_editor.mermaid_syntax_error')}</p>`,
       );
     }
   }

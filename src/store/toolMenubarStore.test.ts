@@ -42,8 +42,8 @@ describe('toolMenubarStore(keepalive 注册重放)', () => {
 
     // Markdown 后挂载:菜单展示被覆盖(keepalive 下编辑器组件不卸载)
     const mdMenus = fakeMenus('Markdown 菜单');
-    useToolMenusStore.getState().setMenus('markdown_preview', mdMenus);
-    useToolStateStore.setState({ currentToolId: 'markdown_preview' });
+    useToolMenusStore.getState().setMenus('markdown_editor', mdMenus);
+    useToolStateStore.setState({ currentToolId: 'markdown_editor' });
     expect(useToolMenusStore.getState().menus).toBe(mdMenus);
 
     // 切回编辑器:编辑器组件不重新挂载,订阅重放其注册
@@ -52,7 +52,7 @@ describe('toolMenubarStore(keepalive 注册重放)', () => {
     expect(useToolMenusStore.getState().menus).toBe(editorMenus);
 
     // 再切回 Markdown:同样重放
-    useToolStateStore.setState({ currentToolId: 'markdown_preview' });
+    useToolStateStore.setState({ currentToolId: 'markdown_editor' });
     expect(useToolMenusStore.getState().menus).toBe(mdMenus);
   });
 
@@ -68,14 +68,14 @@ describe('toolMenubarStore(keepalive 注册重放)', () => {
     const editorMenus = fakeMenus('编辑器');
     const mdMenus = fakeMenus('Markdown');
     useToolMenusStore.getState().setMenus('text_editor', editorMenus);
-    useToolMenusStore.getState().setMenus('markdown_preview', mdMenus);
-    useToolStateStore.setState({ currentToolId: 'markdown_preview' });
+    useToolMenusStore.getState().setMenus('markdown_editor', mdMenus);
+    useToolStateStore.setState({ currentToolId: 'markdown_editor' });
 
     // 编辑器被 LRU 淘汰卸载:带自己的 id 清理
     useToolMenusStore.getState().clear('text_editor');
     // Markdown 的展示不受影响
     expect(useToolMenusStore.getState().menus).toBe(mdMenus);
-    expect(useToolMenusStore.getState().ownerToolId).toBe('markdown_preview');
+    expect(useToolMenusStore.getState().ownerToolId).toBe('markdown_editor');
     // 切回编辑器:注册已清,不再重放
     useToolStateStore.setState({ currentToolId: 'text_editor' });
     expect(useToolMenusStore.getState().ownerToolId).toBeNull();

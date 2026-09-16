@@ -1,0 +1,177 @@
+/**
+ * Markdown 所见编辑器样式(TipTap)。
+ * 正文排版直接继承 .markdown-body(.md-theme-* 同套变量,5 主题/深色零成本);
+ * 此处只补 ProseMirror 结构与自定义节点(alert/公式/图表/图片/表格/占位)。
+ */
+
+/* 注意:tiptap-md-body 经 editorProps.attributes 挂在 .ProseMirror 元素自身,
+   必须用复合选择器(无空格);写成后代选择器会静默失配,焦点环与占位符全失效 */
+.tiptap-md-body {
+  outline: none;
+  min-height: 50vh;
+  caret-color: var(--primary);
+  overflow-wrap: break-word;
+}
+
+/* 编辑区不画焦点框/选中框(与文本编辑器一致:Monaco 侧本就没有 focus 边框) */
+.tiptap-md-body:focus,
+.tiptap-md-body:focus-visible {
+  outline: none;
+}
+.tiptap-md-body .ProseMirror-selectednode {
+  outline: none !important;
+}
+
+.tiptap-md-body p.is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--muted-foreground);
+}
+
+/* —— 任务列表(对齐旧预览 li:has(checkbox) 行高)—— */
+.tiptap-md-body ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0;
+}
+.tiptap-md-body ul[data-type='taskList'] label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
+  margin-right: 0.5em;
+}
+.tiptap-md-body ul[data-type='taskList'] input[type='checkbox'] {
+  translate: 0 1px;
+  accent-color: var(--primary);
+}
+
+/* —— 表格(借用 --md 表变量,选中格高亮)—— */
+.tiptap-md-body table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  overflow: hidden;
+}
+.tiptap-md-body td,
+.tiptap-md-body th {
+  border: 1px solid var(--border);
+  padding: 0.375em 0.625em;
+  vertical-align: top;
+  min-width: 3em;
+}
+.tiptap-md-body .selectedCell {
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+}
+
+/* —— Alert 标题行(旧渲染器同款图标+英文标签,不进 content 流)—— */
+.tiptap-md-body .markdown-alert[data-alert-type='note']::before {
+  content: 'ℹ Note';
+}
+.tiptap-md-body .markdown-alert[data-alert-type='tip']::before {
+  content: '💡 Tip';
+}
+.tiptap-md-body .markdown-alert[data-alert-type='important']::before {
+  content: '❗ Important';
+}
+.tiptap-md-body .markdown-alert[data-alert-type='warning']::before {
+  content: '⚠ Warning';
+}
+.tiptap-md-body .markdown-alert[data-alert-type='caution']::before {
+  content: '⛔ Caution';
+}
+.tiptap-md-body .markdown-alert::before {
+  display: block;
+  font-weight: 600;
+  font-size: 0.875em;
+  margin-bottom: 0.25em;
+}
+
+/* —— 公式/图表现场块:渲染区 + 细工具条 + 源码 textarea —— */
+.md-math-live-block-body .katex-display,
+.md-mermaid-live-body .md-mermaid {
+  margin: 0.5em 0;
+}
+.md-math-live-block-body .md-math-error {
+  color: var(--destructive);
+}
+.md-math-live-block-bar,
+.md-mermaid-live-bar {
+  display: flex;
+  justify-content: flex-end;
+}
+.md-math-live-block-toggle,
+.md-mermaid-live-toggle {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.md-math-live-block-toggle:hover,
+.md-mermaid-live-toggle:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.md-math-live-block-source,
+.md-mermaid-live-source {
+  width: 100%;
+  min-height: 4em;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  background: var(--muted);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.md-math-live-block .md-mermaid-error .md-mermaid-msg {
+  color: var(--destructive);
+  font-size: 12px;
+}
+.md-math-edit {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.875em;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+  min-width: 8em;
+}
+
+/* —— 图片:拦截占位 + 限制溢出 —— */
+.md-img-live-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+.md-img-blocked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.md-img-blocked-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.md-img-blocked-btn {
+  flex-shrink: 0;
+  border-radius: 4px;
+  padding: 2px 8px;
+  color: var(--primary);
+}
+.md-img-blocked-btn:hover {
+  background: var(--accent);
+}
+
+@media print {
+  .md-math-live-block-bar,
+  .md-mermaid-live-bar {
+    display: none;
+  }
+}
