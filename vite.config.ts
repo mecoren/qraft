@@ -60,6 +60,10 @@ export default defineConfig({
   },
   clearScreen: false,
   server: {
+    // 强制 IPv4 127.0.0.1:默认不设 host 时 Vite 只监听 ::1,
+    // 部分 Windows 上 ::1 连接报 Bad access 且 127.0.0.1 拒绝连接,
+    // Tauri CLI 轮询 localhost:14200 永远等不到(一直 Waiting...),故钉死 IPv4。
+    host: '127.0.0.1',
     port: 14200,
     strictPort: true,
     watch: {
