@@ -46,9 +46,7 @@ import {
   PenLine,
   Plus,
   Quote,
-  RectangleVertical,
   Save,
-  StretchHorizontal,
   Strikethrough,
   X,
   Pin,
@@ -76,7 +74,6 @@ import {
   setMdCursor,
   setMdSelection,
   useMarkdownEditorStore,
-  type MdContentWidthMode,
   type MdEditorMode,
 } from '../markdownEditorStore';
 import { splitFrontMatter, joinFrontMatter } from './markdown-doc';
@@ -315,7 +312,6 @@ function MdStatusBar({
 function WysiwygDoc({
   body,
   themeId,
-  contentWidth,
   placeholder,
   onSnapshot,
   onTick,
@@ -324,7 +320,6 @@ function WysiwygDoc({
 }: {
   body: string;
   themeId: string;
-  contentWidth: MdContentWidthMode;
   placeholder: string;
   onSnapshot: (bodyMd: string, outline: OutlineItem[]) => void;
   onTick: () => void;
@@ -448,12 +443,7 @@ function WysiwygDoc({
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-x/exhaustive-deps -- 挂载/卸载一次性语义
   }, [editor]);
 
-  return (
-    <EditorContent
-      editor={editor}
-      className={cn('markdown-body', `md-theme-${themeId}`, `md-width-${contentWidth}`)}
-    />
-  );
+  return <EditorContent editor={editor} className={cn('markdown-body', `md-theme-${themeId}`)} />;
 }
 
 /**
@@ -568,8 +558,6 @@ export function MarkdownEditor({ toolId }: ToolProps): JSX.Element {
   const outlineWidth = useMarkdownEditorStore((s) => s.outlineWidth);
   const editorMode = useMarkdownEditorStore((s) => s.editorMode) ?? 'wysiwyg';
   const setEditorMode = useMarkdownEditorStore((s) => s.setEditorMode);
-  const contentWidth = useMarkdownEditorStore((s) => s.contentWidth) ?? 'narrow';
-  const setContentWidth = useMarkdownEditorStore((s) => s.setContentWidth);
 
   const docs = useMdEditorDocsStore((s) => s.docs);
   const activeDocId = useMdEditorDocsStore((s) => s.activeDocId);
@@ -1566,42 +1554,6 @@ export function MarkdownEditor({ toolId }: ToolProps): JSX.Element {
                 );
               })}
             </div>
-            {/* —— 正文栏宽切换(仅所见视图:源码是 Monaco 代码面,不参与正文栏宽)——
-                自适应 = 铺满编辑区;窄屏 = 限宽居中阅读栏;设置持久化且与排版主题正交 —— */}
-            {editorMode === 'wysiwyg' && (
-              <div
-                role="group"
-                aria-label={t('tools.markdown_editor.width_group_aria')}
-                className="flex shrink-0 items-center gap-0.5"
-                data-testid="md-width-switch"
-              >
-                {(
-                  [
-                    ['adaptive', StretchHorizontal],
-                    ['narrow', RectangleVertical],
-                  ] as ReadonlyArray<[MdContentWidthMode, typeof PenLine]>
-                ).map(([mode, Icon]) => {
-                  const label = t(`tools.markdown_editor.width_${mode}`);
-                  return (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => setContentWidth(mode)}
-                      aria-pressed={contentWidth === mode}
-                      aria-label={label}
-                      title={t(`tools.markdown_editor.width_${mode}_title`)}
-                      data-testid={`md-width-${mode}`}
-                      className={cn(
-                        'rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
-                        contentWidth === mode && 'bg-accent text-accent-foreground',
-                      )}
-                    >
-                      <Icon aria-hidden className="size-3.5" />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
             <button
               type="button"
               data-testid="md-outline-toggle"
@@ -1729,7 +1681,6 @@ export function MarkdownEditor({ toolId }: ToolProps): JSX.Element {
                     key={activeDoc.id}
                     body={view.body}
                     themeId={themeId}
-                    contentWidth={contentWidth}
                     placeholder={t('tools.markdown_editor.editor_placeholder')}
                     onSnapshot={handleSnapshot}
                     onTick={handleTick}
