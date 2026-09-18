@@ -368,18 +368,22 @@ pub fn open_dropped_file(
         return Ok(());
     }
 
-    // 二进制内容:不打开,通知前端提供「仍要打开」兜底
-    if read_file_text(path)?.is_none() {
-        emit_unsupported(
-            app,
-            &OpenFileUnsupported::Unsupported {
-                path: path.to_string(),
-            },
-        );
-        return Ok(());
+    // 二进制内容:不打开,通知前端提供「仍要打开」兜底。文本读取(编码探测 +
+    // 解码)由 open_file_in_app 内部完成一次即可——不再先 read_file_text 探测
+    // 一遍再交给 open_file_in_app 重读,避免同一文件被完整读两遍。
+    // open_file_in_app 对二进制返回 Err(Unsupported)(在授权前短路)。
+    match open_file_in_app(app, authorized, pending, path, drop_position) {
+        Err(AppError::Unsupported(_)) => {
+            emit_unsupported(
+                app,
+                &OpenFileUnsupported::Unsupported {
+                    path: path.to_string(),
+                },
+            );
+            Ok(())
+        }
+        other => other,
     }
-
-    open_file_in_app(app, authorized, pending, path, drop_position)
 }
 
 /// 批量处理拖放的文件路径列表

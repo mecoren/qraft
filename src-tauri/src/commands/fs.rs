@@ -12,6 +12,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use base64::Engine as _;
 use serde::Serialize;
@@ -143,9 +144,7 @@ pub async fn fs_write_file_inner(
 ) -> Result<CommandResponse<()>, AppError> {
     validate_path(path, authorized)?;
     snapshot_if_any(history, path);
-    tokio::fs::write(path, content)
-        .await
-        .map_err(AppError::from)?;
+    write_bytes_atomic(path, content.as_bytes()).await?;
     Ok(CommandResponse::ok(()))
 }
 
@@ -170,6 +169,56 @@ fn now_epoch_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_millis() as u64)
+}
+
+/// 原子写盘的临时文件名序号(同进程内去重,配合 pid 保证并发保存不撞名)
+static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
+
+/// 原子写入:先写目标**同目录**的临时文件并 `fsync`,再 `rename` 覆盖目标。
+///
+/// 目标文件要么保持旧内容完整、要么是本次新内容——绝不会因写入中途崩溃 /
+/// 磁盘满而残留被截断的半截内容。`rename` 在同分区是原子替换(Windows 走
+/// `MoveFileExW(REPLACE_EXISTING)`)。任一步失败即清理临时文件并回传错误,
+/// 目标原样不动。POSIX 下继承已存在目标的权限位,避免把受限文件(如 0600)
+/// 降级为默认 umask 权限;Windows 权限模型不同,不做映射。
+///
+/// # Errors
+///
+/// 创建 / 写入 / fsync / rename 任一失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+async fn write_bytes_atomic(path: &str, bytes: &[u8]) -> Result<(), AppError> {
+    use tokio::io::AsyncWriteExt as _;
+
+    let target = Path::new(path);
+    // 临时文件落在目标同目录:保证 rename 为同分区原子替换
+    let parent = target.parent().unwrap_or_else(|| Path::new("."));
+    let base = target
+        .file_name()
+        .map_or_else(|| "file".to_string(), |n| n.to_string_lossy().into_owned());
+    let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
+    let tmp = parent.join(format!(".{base}.qraft-tmp-{}-{seq}", std::process::id()));
+
+    let attempt: std::io::Result<()> = async {
+        let mut f = tokio::fs::File::create(&tmp).await?;
+        // 目标已存在:继承其权限位,避免把受限文件降级为默认 umask 权限
+        // (仅 unix;Windows 的 set_permissions 只管只读位,不镜像)
+        #[cfg(unix)]
+        if let Ok(meta) = tokio::fs::metadata(target).await {
+            let _ = f.set_permissions(meta.permissions()).await;
+        }
+        f.write_all(bytes).await?;
+        f.flush().await?;
+        f.sync_all().await?; // 数据落盘后再 rename,防断电留下空 / 半截文件
+        drop(f);
+        tokio::fs::rename(&tmp, target).await?;
+        Ok(())
+    }
+    .await;
+
+    if attempt.is_err() {
+        // rename 前的任一步失败:清理残留临时文件(尽力而为),目标保持旧内容
+        let _ = tokio::fs::remove_file(&tmp).await;
+    }
+    attempt.map_err(AppError::from)
 }
 
 /// 将字节写入指定路径
@@ -512,9 +561,7 @@ pub async fn fs_write_file_encoded_inner(
     }
     snapshot_if_any(history, path);
     let bytes = encode_text(content, encoding_id)?;
-    tokio::fs::write(path, bytes)
-        .await
-        .map_err(AppError::from)?;
+    write_bytes_atomic(path, &bytes).await?;
     Ok(CommandResponse::ok(()))
 }
 
@@ -1632,6 +1679,45 @@ mod tests {
         // 清理
         let _ = std::fs::remove_file(path);
         let _ = std::fs::remove_dir_all(&history_root);
+    }
+
+    #[tokio::test]
+    async fn test_write_atomic_replaces_and_leaves_no_temp_residue() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("atomic.txt");
+        let path_str = path.to_str().unwrap();
+
+        let authorized = AuthorizedPaths::new();
+        authorized.authorize(path_str);
+
+        // 首次创建
+        fs_write_file_inner(path_str, "first", &authorized, None)
+            .await
+            .unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "first");
+
+        // 覆盖:原子替换为新内容,目录内不得残留 *.qraft-tmp-*
+        fs_write_file_inner(path_str, "second-version", &authorized, None)
+            .await
+            .unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "second-version");
+        let residue = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().contains(".qraft-tmp-"))
+            .count();
+        assert_eq!(residue, 0, "atomic write must clean up its temp file");
+
+        // 目标父目录不存在:创建临时文件即失败(ERR_FILE_IO),不产生目标
+        let bad = dir.path().join("no-such-dir/x.txt");
+        let bad_str = bad.to_str().unwrap();
+        let authorized2 = AuthorizedPaths::new();
+        authorized2.authorize(bad_str);
+        let err = fs_write_file_inner(bad_str, "x", &authorized2, None)
+            .await
+            .unwrap_err();
+        assert_eq!(err.code(), "ERR_FILE_IO");
+        assert!(!bad.exists());
     }
 
     #[tokio::test]
