@@ -50,6 +50,8 @@ describe('AboutDialog', () => {
     expect(screen.getByText(/本地优先的开发者工具箱/)).toBeInTheDocument();
     // 版本号由 Vite/vitest 从 package.json 注入(__APP_VERSION__)
     expect(screen.getAllByText(`v${__APP_VERSION__}`).length).toBeGreaterThan(0);
+    // 检查更新区块已从设置弹窗迁入应用信息区
+    expect(screen.getByRole('button', { name: '检查更新' })).toBeInTheDocument();
   });
 
   it('switches to changelog section with latest entry', async () => {

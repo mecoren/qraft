@@ -134,7 +134,10 @@ describe('searchIndex', () => {
 
   it('设置字段可检索', () => {
     expect(flatResults('最大历史数').some((e) => e.kind === 'setting-field')).toBe(true);
-    expect(flatResults('检查更新').some((e) => e.kind === 'setting-field')).toBe(true);
+    // 「检查更新」已迁出设置分区,经「关于」页面条目命中(AboutDialog 应用信息区)
+    expect(
+      flatResults('检查更新').some((e) => e.kind === 'page' && e.target.view === 'about'),
+    ).toBe(true);
   });
 
   it('页面条目可检索', () => {

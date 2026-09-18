@@ -10,8 +10,6 @@ import {
   type CSSProperties,
   type JSX,
 } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { listen, normalizeIpcError } from '@/lib/ipc';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { Palette, Type, Check, ArrowUp, ArrowDown, FileText, X } from 'lucide-react';
@@ -21,8 +19,6 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FontPicker } from '@/components/ui/font-picker';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useConfigStore } from '@/store/configStore';
 import { useUiStore } from '@/store/uiStore';
@@ -141,169 +137,6 @@ const shortcutSchema = z.object({
 });
 
 type GeneralFormValues = z.infer<typeof generalSchema>;
-
-// ===== CheckUpdateResponse:与 Rust shell::updater::CheckUpdateResponse 对齐 =====
-// 字段使用 camelCase(Rust 端 #[serde(rename_all = "camelCase")])
-interface CheckUpdateResponse {
-  available: boolean;
-  version: string | null;
-  currentVersion: string;
-  notes: string | null;
-  date: string | null;
-  // 不同平台/安装方式对应不同的安装包类型与安装流程
-  packageType:
-    'msi' | 'nsis' | 'portable' | 'dmg' | 'app-archive' | 'appimage' | 'deb' | 'archive' | null;
-  installMode: 'windows-msi' | 'windows-nsis' | 'in-place' | 'macos-dmg' | 'linux-deb' | null;
-  installModeLabel: string | null;
-}
-
-/**
- * 「检查更新」区块
- *
- * 自动更新是 Qraft 唯一允许的联网功能(见 PRD 13-security.md §3.1)。
- * 更新源接入 GitHub Releases(https://github.com/mecoren/qraft/releases)。
- * 不同平台/安装方式对应不同的安装包类型与安装流程:
- * - 就地覆盖类(portable / AppImage / zip):自动下载 patch 包并覆盖,带进度反馈
- * - 系统安装版(msi / dmg / deb):Tauri patch 模式无法可靠升级,自动跳转 GitHub
- *   Releases 供用户手动下载整包(「不同版本不同安装方式」的核心分流)
- */
-export function UpdateSection(): JSX.Element {
-  const { t } = useTranslation();
-  const [checking, setChecking] = useState(false);
-  const [installing, setInstalling] = useState(false);
-  const [progress, setProgress] = useState<number | null>(null);
-  const [updateInfo, setUpdateInfo] = useState<CheckUpdateResponse | null>(null);
-  // 系统安装版(msi / dmg / deb)需要手动下载整包;render 阶段需要读取该标记,
-  // 故用 state 而非 ref(React 规则不允许在渲染期访问 ref)。
-  const [manualInstall, setManualInstall] = useState(false);
-
-  // 监听 Rust 端广播的下载进度事件(仅 in-place 自动更新使用)
-  useEffect(() => {
-    let unlistenProgress: (() => void) | undefined;
-    let unlistenFinished: (() => void) | undefined;
-    void (async () => {
-      unlistenProgress = await listen<number>('update-download-progress', (p) => setProgress(p));
-      unlistenFinished = await listen('update-download-finished', () => setProgress(100));
-    })();
-    return () => {
-      unlistenProgress?.();
-      unlistenFinished?.();
-    };
-  }, []);
-
-  async function handleCheckUpdate() {
-    setChecking(true);
-    try {
-      const resp = await invoke<CheckUpdateResponse>('app_check_update');
-      setUpdateInfo(resp);
-      // 仅 MSI / dmg / deb 等 updater 无法自动升级的模式走手动分流;
-      // NSIS 安装版与便携版一样由 updater 原生支持自动安装
-      const isManual =
-        resp.installMode != null &&
-        resp.installMode !== 'in-place' &&
-        resp.installMode !== 'windows-nsis';
-      setManualInstall(isManual);
-      if (!resp.available) {
-        toast.success(t('settings.up_to_date_toast', { version: resp.currentVersion }));
-      } else if (isManual) {
-        // 系统安装版:提示需前往 Releases 手动下载整包(不同安装方式)
-        toast.info(t('settings.manual_install_toast', { mode: resp.installModeLabel ?? '' }));
-      }
-    } catch (err) {
-      // Tauri 命令 Err(AppError) 时以序列化错误对象 reject,需归一化取真实消息
-      toast.error(t('settings.check_failed_toast', { message: normalizeIpcError(err).message }));
-    } finally {
-      setChecking(false);
-    }
-  }
-
-  async function handleInstallUpdate() {
-    // 系统安装版:直接跳转 GitHub Releases 手动下载整包(不走自动 patch)
-    if (manualInstall) {
-      void invoke('app_open_release_page');
-      return;
-    }
-    setInstalling(true);
-    setProgress(0);
-    try {
-      // in-place 类:把安装方式回传 Rust 走 download_and_install,完成后自动重启
-      await invoke('app_install_update', { installMode: updateInfo?.installMode ?? null });
-      // 安装后会自动重启,代码不会执行到这里
-    } catch (err) {
-      // 归一化后取真实消息(哨兵标记 MANUAL_INSTALL_REQUIRED 在 detail 文本中)
-      const msg = normalizeIpcError(err).message;
-      if (msg.includes('MANUAL_INSTALL_REQUIRED')) {
-        // 兜底:Rust 端判定为系统安装版,跳转下载页
-        void invoke('app_open_release_page');
-      } else {
-        toast.error(t('settings.install_failed_toast', { message: msg }));
-      }
-      setInstalling(false);
-      setProgress(null);
-    }
-  }
-
-  function handleOpenReleasePage() {
-    void invoke('app_open_release_page');
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div data-search-anchor="settings:update:check">
-        <h3 className="text-sm font-semibold">{t('settings.update_heading')}</h3>
-        <p className="text-xs text-muted-foreground">{t('settings.update_desc')}</p>
-      </div>
-
-      {!updateInfo?.available && (
-        <Button onClick={handleCheckUpdate} disabled={checking || installing}>
-          {checking ? t('settings.checking') : t('settings.check_update')}
-        </Button>
-      )}
-
-      {updateInfo?.available && (
-        <div className="flex flex-col gap-3 rounded-md border p-4">
-          <div>
-            <p className="font-medium">
-              {t('settings.new_version_found', { version: updateInfo.version ?? '' })}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {t('settings.current_version', { version: updateInfo.currentVersion })}
-            </p>
-          </div>
-          {updateInfo.installModeLabel && (
-            <p className="text-xs text-muted-foreground">
-              {t('settings.install_mode_label')}
-              <span className="font-medium text-foreground">{updateInfo.installModeLabel}</span>
-            </p>
-          )}
-          {updateInfo.notes && (
-            <ScrollArea className="max-h-40 rounded-md border border-border">
-              <pre className="p-2 text-xs whitespace-pre-wrap">{updateInfo.notes}</pre>
-            </ScrollArea>
-          )}
-          {progress !== null && !manualInstall && <Progress value={progress} className="w-full" />}
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={handleInstallUpdate} disabled={installing}>
-              {manualInstall
-                ? t('settings.go_download')
-                : installing
-                  ? t('settings.downloading', {
-                      progress: progress !== null ? ` ${progress}%` : '...',
-                    })
-                  : t('settings.install_now')}
-            </Button>
-            <Button variant="outline" onClick={handleOpenReleasePage} disabled={installing}>
-              {t('settings.open_releases')}
-            </Button>
-            <Button variant="ghost" onClick={() => setUpdateInfo(null)} disabled={installing}>
-              {t('settings.later')}
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ============================================================
 // 主题预览卡片
@@ -1297,11 +1130,6 @@ export function SettingsPanel(): JSX.Element {
 
           {/* 快捷键表单 */}
           <ShortcutSection />
-
-          <Separator />
-
-          {/* 更新区块 */}
-          <UpdateSection />
         </div>
       </ScrollArea>
     </div>

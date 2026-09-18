@@ -2,8 +2,8 @@
  * SettingsDialog —— 设置弹窗
  *
  * 以可拖拽、可缩放的形式承载设置项:
- * - 左侧为设置菜单(主题 / 字体 / 通用 / 文本编辑器 / 快捷键 / 更新),右侧为对应内容页
- * - 关于已独立为 AboutDialog,由侧边栏「关于」入口打开,不再属于设置
+ * - 左侧为设置菜单(主题 / 字体 / 通用 / 文本编辑器 / 快捷键),右侧为对应内容页
+ * - 检查更新已迁入 AboutDialog 的「应用信息」分区;关于与设置均独立于侧边栏入口
  * - 标题栏支持拖拽移动弹窗,仅四角支持放大缩小
  * - 拖拽/缩放逻辑由 useDialogWindow hook 提供
  * - 基于 Radix Dialog 提供模态、遮罩、Esc 关闭、焦点管理
@@ -18,7 +18,6 @@ import {
   Type,
   SlidersHorizontal,
   Keyboard,
-  CloudDownload,
   GripHorizontal,
   X,
   Check,
@@ -29,7 +28,6 @@ import {
   FontSection,
   GeneralSection,
   ShortcutSection,
-  UpdateSection,
   EditorSection,
 } from '@/components/SettingsPanel';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -45,7 +43,7 @@ const DEFAULT_HEIGHT = 620;
 const MIN_WIDTH = 520;
 const MIN_HEIGHT = 400;
 
-type MenuId = 'theme' | 'font' | 'general' | 'editor' | 'shortcuts' | 'update';
+type MenuId = 'theme' | 'font' | 'general' | 'editor' | 'shortcuts';
 
 interface MenuItem {
   id: MenuId;
@@ -100,12 +98,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX
       label: t('settings.shortcut_title'),
       icon: <Keyboard className="size-4" />,
       content: <ShortcutSection />,
-    },
-    {
-      id: 'update',
-      label: t('settings.update_heading'),
-      icon: <CloudDownload className="size-4" />,
-      content: <UpdateSection />,
     },
   ];
 

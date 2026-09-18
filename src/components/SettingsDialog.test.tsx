@@ -23,12 +23,12 @@ beforeEach(() => {
 describe('SettingsDialog', () => {
   it('shows left menu and theme content by default', () => {
     render(<SettingsDialog open onOpenChange={() => {}} />);
-    // 左侧菜单项(关于已独立为 AboutDialog,不在设置菜单中)
+    // 左侧菜单项(关于/检查更新均已独立,不在设置菜单中)
     expect(screen.getByRole('button', { name: /主题/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /字体/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /通用/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /快捷键/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /更新/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /更新/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /关于/ })).not.toBeInTheDocument();
     // 默认展示主题内容(ThemeSection 的说明文案)
     expect(screen.getByText(/选择预设主题或自定义 accent 色/)).toBeInTheDocument();

@@ -9,6 +9,7 @@
  * - 更新日志:src/lib/changelog.ts(前端硬编码,发版时追加新版本条目)
  * - 应用信息/开源许可/开源组件:由原 SettingsPanel 的 AboutSection 迁入,
  *   版本号仍由 Vite 注入的 __APP_VERSION__ 提供(唯一数据源 package.json)
+ * - 检查更新:徽标行小按钮触发(useUpdateCheck),发现新版本时在信息卡下方展示结果卡片
  *
  * 交互:与 SettingsDialog 一致,支持标题栏拖拽、四角缩放、视口内 clamp
  * (由 useDialogWindow hook 提供)。
@@ -38,7 +39,9 @@ import {
   AccordionContent,
 } from '@/components/ui/accordion';
 import { Logo } from '@/components/Logo';
+import { UpdateCheckButton, UpdateResultCard } from '@/components/UpdateSection';
 import { useDialogWindow, DialogResizeHandle } from '@/hooks/useDialogWindow';
+import { useUpdateCheck } from '@/hooks/useUpdateCheck';
 import { CHANGELOG_VERSIONS, type ChangeCategory } from '@/lib/changelog';
 import { pickText, type LocalizedText } from '@/lib/tool-catalog';
 
@@ -832,6 +835,7 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps): JSX.Eleme
 
 function InfoSection(): JSX.Element {
   const { t } = useTranslation();
+  const update = useUpdateCheck();
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center gap-3 py-2">
@@ -840,9 +844,10 @@ function InfoSection(): JSX.Element {
           <div className="text-base font-semibold text-foreground">Qraft</div>
           <div className="mt-1 text-xs text-muted-foreground">{t('chrome.welcome.hero_title')}</div>
         </div>
-        <Badge variant="secondary" className="mt-1">
-          v{APP_VERSION}
-        </Badge>
+        <div className="mt-1 flex items-center gap-2">
+          <Badge variant="secondary">v{APP_VERSION}</Badge>
+          <UpdateCheckButton state={update} />
+        </div>
       </div>
       <div>
         <h2 className="text-base font-semibold text-foreground">
@@ -860,6 +865,7 @@ function InfoSection(): JSX.Element {
           ))}
         </CardContent>
       </Card>
+      <UpdateResultCard state={update} />
     </div>
   );
 }

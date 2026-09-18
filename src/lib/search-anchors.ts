@@ -16,7 +16,7 @@ import type { AppView } from '@/store/uiStore';
 import type { LocalizedText } from './tool-catalog';
 
 /** 设置弹窗左侧菜单 id(与 SettingsDialog 的 MenuId 保持一致) */
-export type SettingsMenuId = 'theme' | 'font' | 'general' | 'editor' | 'shortcuts' | 'update';
+export type SettingsMenuId = 'theme' | 'font' | 'general' | 'editor' | 'shortcuts';
 
 /** 高频复用区块标题(双语) */
 const T_CONFIG: LocalizedText = { zh: '配置', en: 'Configuration' };
@@ -1021,7 +1021,7 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
   ],
 };
 
-/** 设置 6 大分区(与 SettingsDialog 左侧菜单一一对应) */
+/** 设置 5 大分区(与 SettingsDialog 左侧菜单一一对应) */
 export const SETTING_SECTIONS: readonly SettingSection[] = [
   {
     menuId: 'theme',
@@ -1080,12 +1080,6 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
       en: 'Customize keyboard shortcuts per feature',
     },
     keywords: ['快捷键', '绑定', '快捷键设置'],
-  },
-  {
-    menuId: 'update',
-    title: { zh: '更新', en: 'Updates' },
-    description: { zh: '检查更新与版本信息', en: 'Check for updates and version info' },
-    keywords: ['更新', '升级', '版本', 'github releases'],
   },
 ];
 
@@ -1372,14 +1366,6 @@ export const SETTING_FIELDS: readonly SettingField[] = [
     keywords: ['diff', '差异', '比较', '下一个', '跳转'],
     menuId: 'shortcuts',
   },
-  // 更新
-  {
-    key: 'check',
-    title: { zh: '检查更新', en: 'Check for updates' },
-    description: { zh: '手动检查更新', en: 'Check for updates manually' },
-    keywords: ['检查', '更新', '升级'],
-    menuId: 'update',
-  },
 ];
 
 /** 应用页面(非工具) */
@@ -1417,10 +1403,10 @@ export const PAGE_ENTRIES: readonly PageEntry[] = [
   {
     title: { zh: '关于', en: 'About' },
     description: {
-      zh: '应用信息、更新日志与开源组件',
-      en: 'App info, changelog and open-source components',
+      zh: '应用信息、检查更新、更新日志与开源组件',
+      en: 'App info, updates, changelog and open-source components',
     },
-    keywords: ['关于', '版本', '更新日志', '开源'],
+    keywords: ['关于', '版本', '更新日志', '开源', '检查更新', '更新', '升级'],
     view: 'about',
   },
 ];
