@@ -5,6 +5,17 @@ All notable changes to Qraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-09-18
+
+### Changed
+
+- 文本比较与文件对比的并排差异算法改用 Monaco 原生 `advanced`:常驻隐藏 `DiffEditor` 优先计算(字符级 `innerChanges`),不可用/超时回退 jsdiff 同步/Worker 快慢路径;分组与词级精度与行内原生 DiffEditor 同源,同 hunk 内无关增删不再被硬配成"修改行"
+
+### Fixed
+
+- 修复并排模式下词级高亮丢失:删除行被语义配对到非相邻新增行(中间夹纯插入)时,余量行此前按位置窗口裁剪会丢掉行内高亮,现按 `charChanges` 绝对行号覆盖整块渲染,与 VSCode 原生 DiffEditor 对齐
+- 移除旧的 `src/lib/diff.ts`,差异计算统一到 `text-diff` 服务
+
 ## [0.3.1] - 2026-09-16
 
 ### Added
@@ -279,6 +290,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tauri Updater 签名验证(ed25519)
 - MVP 阶段:Windows/macOS 使用占位签名(ad-hoc),正式发布需 EV 证书与 Apple Developer ID
 
+[0.3.2]: https://github.com/qraft/qraft/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/qraft/qraft/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/qraft/qraft/compare/v0.2.9...v0.3.0
 [0.2.9]: https://github.com/qraft/qraft/compare/v0.2.8...v0.2.9

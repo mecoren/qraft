@@ -20,6 +20,7 @@
  * v0.2.9 内容基于 git log 与工作区改动(v0.2.8 标签之后至 2026-09-15)提炼,
  * v0.3.0 内容基于 git log 与工作区改动(v0.2.9 标签之后至 2026-09-15)提炼,
  * v0.3.1 内容基于 git log(v0.3.0 标签之后至 2026-09-16)提炼,
+ * v0.3.2 内容基于 git log(v0.3.1 标签之后至 2026-09-18)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -48,6 +49,30 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.3.2',
+    date: '2026-09-18',
+    summary: {
+      zh: '文本比较 / 文件对比的并排差异改用 Monaco 原生 advanced 算法(隐藏 DiffEditor 优先、jsdiff 兜底),词级精度与行内对比同源;修复同块内被配对到非相邻行的词级高亮丢失',
+      en: 'Side-by-side diff in text compare / file compare now uses Monaco native advanced algorithm (hidden DiffEditor first, jsdiff fallback), word-level precision shares the inline diff source; fixed lost word highlights for lines paired to non-adjacent rows',
+    },
+    changes: [
+      {
+        category: 'refactor',
+        description: {
+          zh: '并排差异算法改用 Monaco 原生 advanced:常驻隐藏 DiffEditor 优先计算字符级 innerChanges,不可用/超时回退 jsdiff 同步/Worker 快慢路径;分组与词级精度与行内原生 DiffEditor 同源,同 hunk 内无关增删不再被硬配成"修改行";移除旧的 src/lib/diff.ts,差异计算统一到 text-diff 服务',
+          en: 'Side-by-side diff switched to Monaco native advanced: a persistent hidden DiffEditor computes character-level innerChanges first, falling back to jsdiff sync/worker paths when unavailable or on timeout; grouping and word-level precision share the inline DiffEditor source, so unrelated add/delete in one hunk are no longer forced into "modified" pairs; removed the old src/lib/diff.ts, unifying diff into the text-diff service',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复并排模式词级高亮丢失:删除行被语义配对到非相邻新增行(中间夹纯插入)时,余量行此前按位置窗口裁剪会丢掉行内高亮,现按 charChanges 绝对行号覆盖整块渲染,与 VSCode 原生 DiffEditor 对齐',
+          en: 'Fixed lost word-level highlights in side-by-side mode: when a removed line is semantically paired to a non-adjacent added line (with a pure insertion between), surplus lines previously had inline highlights clipped away by a positional window; spans are now rendered by charChanges absolute line numbers across the whole block, matching VSCode native DiffEditor',
+        },
+      },
+    ],
+  },
   {
     version: '0.3.1',
     date: '2026-09-16',
