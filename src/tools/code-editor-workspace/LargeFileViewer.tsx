@@ -14,9 +14,9 @@
  *   差异化能力)
  * - 只读:不支持编辑/保存;支持选中行复制、转到行、超长行截断标记
  *
- * 行窗口缓存(LRU):Map<行号, Promise<LinesWindowResult>>,
- * 最多 CACHE_WINDOWS 个窗口(约 1600 行),超出逐出最旧;
- * 组件卸载即释放,内存占用与文件大小无关。
+ * 行窗口缓存(LRU 分片池):Map<文件键, Map<窗口起始行号, 结果>>,
+ * 每个文件最多 CACHE_WINDOWS 个窗口(约 1600 行);文件分片间整片 LRU,
+ * 内存占用与打开的大文件数相关、与单文件大小无关。
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -35,6 +35,7 @@ import {
   readFileLines,
   type LargeFileSearchProgressPayload,
   type LargeFileSearchResult,
+  type LineCalibrationPoint,
   type LinesWindowResult,
 } from './fileOps';
 
@@ -61,42 +62,67 @@ const MAX_ROWS_PER_UNIT = 32;
 /** 行窗口缓存条目:已完成窗口或 in-flight 请求(去重用) */
 type CacheEntry = LinesWindowResult | Promise<LinesWindowResult>;
 
-/** 行窗口缓存:窗口起始行号 → 结果;插入序 LRU,容量有限 */
-const windowCache = createWindowCache(CACHE_WINDOWS);
+/**
+ * 行窗口缓存池:按「path:lineCount」分片,每个分片是以窗口起始行号为键
+ * 的插入序 LRU(容量 CACHE_WINDOWS);分片之间按整片 LRU 逐出(容量
+ * CACHE_FILES)。分片隔离保证:多个大文件 Tab 交替激活不互挤缓存,
+ * 文件重扫(lineCount 变化)自然落入新分片,迟到请求只会写回自己发起时
+ * 的分片——不会再按行号命中其它文件的内容。
+ */
+const CACHE_FILES = 4;
+const windowCache = createWindowCachePool(CACHE_WINDOWS, CACHE_FILES);
 
-function createWindowCache(limit: number) {
-  const map = new Map<number, CacheEntry>();
+function createWindowCachePool(bucketLimit: number, maxBuckets: number) {
+  const buckets = new Map<string, Map<number, CacheEntry>>();
+
+  /** 取分片并touch(置为最近使用);不存在则建,整片维度按 LRU 逐出 */
+  const bucketFor = (key: string): Map<number, CacheEntry> => {
+    let bucket = buckets.get(key);
+    if (bucket) {
+      buckets.delete(key);
+      buckets.set(key, bucket);
+      return bucket;
+    }
+    bucket = new Map<number, CacheEntry>();
+    buckets.set(key, bucket);
+    while (buckets.size > maxBuckets) {
+      const oldest = buckets.keys().next().value;
+      if (oldest === undefined) break;
+      buckets.delete(oldest);
+    }
+    return bucket;
+  };
+
   return {
-    get: (line: number): CacheEntry | undefined => map.get(line),
-    set: (line: number, value: CacheEntry): void => {
-      map.set(line, value);
-      while (map.size > limit) {
-        const oldest = map.keys().next().value;
+    get: (key: string, line: number): CacheEntry | undefined => bucketFor(key).get(line),
+    set: (key: string, line: number, value: CacheEntry): void => {
+      const bucket = bucketFor(key);
+      bucket.set(line, value);
+      while (bucket.size > bucketLimit) {
+        const oldest = bucket.keys().next().value;
         if (oldest === undefined) break;
-        map.delete(oldest);
+        bucket.delete(oldest);
       }
     },
-    clear: (): void => {
-      map.clear();
-    },
-    /** 已完成窗口的起始行号集合(读取锚点复用) */
-    completed: (): Array<[number, LinesWindowResult]> =>
-      [...map.entries()].filter(
+    /** 指定分片中已完成窗口的起始行号集合(读取锚点复用) */
+    completed: (key: string): Array<[number, LinesWindowResult]> =>
+      [...bucketFor(key).entries()].filter(
         (e): e is [number, LinesWindowResult] => !(e[1] instanceof Promise),
       ),
   };
 }
 
 /**
- * 计算目标行的读取锚点:优先复用窗口缓存中不超过目标行的最大 next 锚点
- * (滚动接续,零数行开销),否则用校准点最近锚点(跳转)。
+ * 计算目标行的读取锚点:优先复用当前文件分片中不超过目标行的最大
+ * next 锚点(滚动接续,零数行开销),否则用校准点最近锚点(跳转)。
  */
 function anchorForRequest(
-  calibration: ReadonlyArray<[number, number]>,
+  cacheKey: string,
+  calibration: ReadonlyArray<LineCalibrationPoint>,
   targetLine: number,
 ): { offset: number; line: number } {
   let best: { offset: number; line: number } | null = null;
-  for (const [, win] of windowCache.completed()) {
+  for (const [, win] of windowCache.completed(cacheKey)) {
     const anchorLine = win.nextLine;
     if (anchorLine <= targetLine && (!best || anchorLine > best.line)) {
       best = { offset: win.nextOffset, line: anchorLine };
@@ -148,20 +174,28 @@ export function LargeFileViewer({
   // —— 滚动状态(ref 驱动,避免每次滚动触发 React 渲染)——
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
+  // 滚动 rAF 合帧:flick 快速滚动时每个动画帧最多渲染一次,
+  // 避免逐事件重算可视窗口并沿途发起整串窗口请求
+  const scrollRafRef = useRef(0);
+  const scheduleScrollSync = useCallback((el: HTMLDivElement): void => {
+    if (scrollRafRef.current) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = 0;
+      setScrollTop(el.scrollTop);
+    });
+  }, []);
+  useEffect(
+    () => () => {
+      if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
+    },
+    [],
+  );
   const [viewportHeight, setViewportHeight] = useState(600);
   const [gotoOpen, setGotoOpen] = useState(false);
 
-  // 行窗口缓存:模块级单例。切换文件 / 重扫时清空(按 path + lineCount
-  // 判定,而非 info 引用:info 对象每次 setLargeFileInfo 都是新引用,
-  // 以引用为依赖会把已完成窗口误清,导致渲染回退占位)
+  // 行窗口缓存分片键:path + lineCount(重扫后行数变化即落入新分片,
+  // 旧分片自然废弃,无需手动 clear;不同文件互不挤占、互不串台)
   const cacheKey = tab.path ? `${tab.path}:${info?.lineCount ?? 0}` : '';
-  const lastCacheKeyRef = useRef('');
-  useEffect(() => {
-    if (lastCacheKeyRef.current !== cacheKey) {
-      lastCacheKeyRef.current = cacheKey;
-      windowCache.clear();
-    }
-  }, [cacheKey]);
 
   // 可视区滚动单元范围(含缓冲);行号由单元换算(firstRowOfUnit)
   const firstUnit = Math.max(0, Math.floor(scrollTop / lineHeight) - OVERSCAN_LINES);
@@ -193,8 +227,8 @@ export function LargeFileViewer({
   useEffect(() => {
     if (!info || !tab.path) return;
     for (const start of windowStarts) {
-      if (windowCache.get(start) !== undefined) continue;
-      const anchor = anchorForRequest(info.calibration, start);
+      if (windowCache.get(cacheKey, start) !== undefined) continue;
+      const anchor = anchorForRequest(cacheKey, info.calibration, start);
       const promise = readFileLines(
         tab.path,
         info.encoding,
@@ -204,7 +238,7 @@ export function LargeFileViewer({
         LINES_PER_WINDOW,
       )
         .then((win) => {
-          windowCache.set(start, win);
+          windowCache.set(cacheKey, start, win);
           // 请求落地后触发一次重渲染(renderedLines 重新读缓存)
           setRenderTick((v) => v + 1);
           return win;
@@ -214,9 +248,9 @@ export function LargeFileViewer({
           toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_open_file'));
           throw e;
         });
-      windowCache.set(start, promise);
+      windowCache.set(cacheKey, start, promise);
     }
-  }, [windowStarts, info, tab.path, t]);
+  }, [windowStarts, info, tab.path, cacheKey, t]);
 
   // 视口尺寸观察(ResizeObserver)
   useEffect(() => {
@@ -245,7 +279,7 @@ export function LargeFileViewer({
       const line = firstRowOfUnit(unit);
       const rows = Math.min(rowsPerUnit, (info.lineCount ?? 0) - line + 1);
       const winStart = Math.floor((line - 1) / LINES_PER_WINDOW) * LINES_PER_WINDOW + 1;
-      const cached = windowCache.get(winStart);
+      const cached = windowCache.get(cacheKey, winStart);
       if (cached && !(cached instanceof Promise)) {
         const win: LinesWindowResult = cached;
         const idx = line - win.startLine;
@@ -556,7 +590,7 @@ export function LargeFileViewer({
       {/* 虚拟滚动主体 */}
       <div
         ref={scrollRef}
-        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+        onScroll={(e) => scheduleScrollSync(e.currentTarget)}
         className="min-h-0 flex-1 overflow-auto bg-background"
         data-testid={dataTestId ? `${dataTestId}-scroll` : 'large-file-scroll'}
       >

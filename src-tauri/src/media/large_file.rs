@@ -248,7 +248,7 @@ fn scan_byte_chunk(
     n: usize,
     pos: u64,
     prev_chunk_last: Option<u8>,
-    eol: &mut String,
+    eol_crlf: &mut bool,
     on_line: &mut dyn FnMut(u64),
 ) {
     let mut search = 0;
@@ -261,7 +261,7 @@ fn scan_byte_chunk(
             prev_chunk_last
         };
         if prev == Some(b'\r') {
-            *eol = "crlf".to_string();
+            *eol_crlf = true;
         }
         on_line(abs_eol);
         search += rel + 1;
@@ -278,7 +278,7 @@ fn scan_utf16_chunk(
     pos: u64,
     dir: Utf16Endian,
     carry: Option<u8>,
-    eol: &mut String,
+    eol_crlf: &mut bool,
     on_line: &mut dyn FnMut(u64),
 ) -> Option<u8> {
     let carry_len = usize::from(carry.is_some());
@@ -298,7 +298,7 @@ fn scan_utf16_chunk(
         };
         if unit == 0x000A {
             if prev_unit == Some(0x000D) {
-                *eol = "crlf".to_string();
+                *eol_crlf = true;
             }
             on_line(abs);
         }
@@ -340,7 +340,7 @@ fn build_line_index(
 
     let mut line_count: u64 = 0; // 已结束(见到行结束符)的行数
     let mut line_start: u64 = enc.bom_len; // 当前行起始偏移(首行跳过 BOM)
-    let mut eol = "lf".to_string();
+    let mut eol_crlf = false; // 扫描见到任一 CRLF(结束统一映射为字符串)
     let mut calibration: Vec<LineCalibrationPoint> = Vec::new();
     let mut pos: u64 = 0; // 已扫描到的绝对偏移(含 BOM)
     let mut next_idx: usize = 1; // 下一个待检查的采样点序号(1-based)
@@ -361,11 +361,18 @@ fn build_line_index(
         };
         match enc.utf16 {
             None => {
-                scan_byte_chunk(&chunk, n, pos, prev_chunk_last, &mut eol, &mut on_line);
+                scan_byte_chunk(&chunk, n, pos, prev_chunk_last, &mut eol_crlf, &mut on_line);
             }
             Some(dir) => {
-                utf16_carry =
-                    scan_utf16_chunk(&chunk, n, pos, dir, utf16_carry, &mut eol, &mut on_line);
+                utf16_carry = scan_utf16_chunk(
+                    &chunk,
+                    n,
+                    pos,
+                    dir,
+                    utf16_carry,
+                    &mut eol_crlf,
+                    &mut on_line,
+                );
             }
         }
         pos += n as u64;
@@ -416,15 +423,20 @@ fn build_line_index(
     // 清理:剔除越界行号(EOF 恰在行边界时采样到的幻影行)并按行号去重
     calibration.retain(|p| p.line <= line_count);
     calibration.dedup_by(|a, b| a.line == b.line);
+    let eol = if eol_crlf {
+        "crlf".to_string()
+    } else {
+        "lf".to_string()
+    };
     Ok((line_count, eol, calibration))
 }
 
 // ============ 行窗口读取 ============
 
-/// 顺序单元读取器:按字节(或 u16 码元)迭代文件,正确处理跨块边界。
-/// 返回 (单元绝对偏移, 单元字节, 单元长度);文件尾返回 None。
+/// 顺序单元读取器:按块批量消费文件(字节模式找 `\n`;UTF-16 按码元
+/// 找 0x000A),正确处理跨块边界与奇数尾字节。
 struct UnitReader {
-    reader: std::io::BufReader<std::fs::File>,
+    file: std::fs::File,
     buf: Vec<u8>,
     idx: usize,
     /// buf[idx] 的绝对偏移
@@ -432,11 +444,23 @@ struct UnitReader {
     utf16: Option<Utf16Endian>,
 }
 
+/// `UnitReader::consume_until_eol` 的批量消费结果
+struct Consumed {
+    /// 本次消费字节数(含行结束符单元;写入 sink 的字节数与其一致)
+    bytes: usize,
+    /// 是否止步于行结束符
+    hit_eol: bool,
+    /// 是否因达到 `stop_after` 字节预算提前止步(未达行结束符)
+    hit_stop: bool,
+    /// 消费结束位置的绝对偏移(`hit_eol` 时恰在行结束符之后)
+    off_after: u64,
+}
+
 impl UnitReader {
     /// `start` 为起始偏移(调用方先 seek;UTF-16 必须码元对齐)
-    fn new(file: std::fs::File, start: u64, utf16: Option<Utf16Endian>) -> Self {
+    const fn new(file: std::fs::File, start: u64, utf16: Option<Utf16Endian>) -> Self {
         Self {
-            reader: std::io::BufReader::with_capacity(CHUNK_BYTES, file),
+            file,
             buf: Vec::new(),
             idx: 0,
             pos: start,
@@ -444,30 +468,113 @@ impl UnitReader {
         }
     }
 
+    /// 压缩已消费前缀并补液一块;返回是否有新数据(false = EOF)
+    fn fill(&mut self) -> Result<bool, AppError> {
+        if self.idx > 0 {
+            self.pos += self.idx as u64;
+            self.buf.drain(..self.idx);
+            self.idx = 0;
+        }
+        let old = self.buf.len();
+        self.buf.resize(old + CHUNK_BYTES, 0);
+        match read_chunk(&mut self.file, &mut self.buf[old..]) {
+            Ok(0) => {
+                self.buf.truncate(old);
+                Ok(false)
+            }
+            Ok(read) => {
+                self.buf.truncate(old + read);
+                Ok(true)
+            }
+            Err(e) => {
+                self.buf.truncate(old);
+                Err(e)
+            }
+        }
+    }
+
+    /// 批量消费到下一个行结束符(含该单元)。`sink` 为 Some 时整段写入
+    /// (窗口收集),None 则只计数丢弃(数行跳过 / 余段跳过);
+    /// `stop_after` 为字节预算,达到即提前返回(`hit_stop`)。
+    /// EOF 时返回 `hit_eol=false`(已消费字节交由调用方处置残行)。
+    fn consume_until_eol(
+        &mut self,
+        mut sink: Option<&mut Vec<u8>>,
+        stop_after: Option<usize>,
+    ) -> Result<Consumed, AppError> {
+        let unit: usize = if self.utf16.is_some() { 2 } else { 1 };
+        let mut consumed: usize = 0;
+        loop {
+            // 至少凑齐一个完整单元才可扫描(UTF-16 孤尾字节由此交由 EOF 分支)
+            if self.buf.len() - self.idx < unit && !self.fill()? {
+                return Ok(Consumed {
+                    bytes: consumed,
+                    hit_eol: false,
+                    hit_stop: false,
+                    off_after: self.pos + self.idx as u64,
+                });
+            }
+            let (rel_eol, scan_len) = {
+                let avail = &self.buf[self.idx..];
+                // UTF-16 只扫描完整码元对(奇数尾字节留待补液后成对)
+                let scan_len = if unit == 2 {
+                    avail.len() - avail.len() % 2
+                } else {
+                    avail.len()
+                };
+                let rel = match self.utf16 {
+                    None => avail[..scan_len].iter().position(|&b| b == b'\n'),
+                    Some(Utf16Endian::Le) => avail[..scan_len]
+                        .chunks_exact(2)
+                        .position(|u| u == [0x0A, 0x00])
+                        .map(|i| i * 2),
+                    Some(Utf16Endian::Be) => avail[..scan_len]
+                        .chunks_exact(2)
+                        .position(|u| u == [0x00, 0x0A])
+                        .map(|i| i * 2),
+                };
+                (rel, scan_len)
+            };
+            if let Some(rel) = rel_eol {
+                let take = rel + unit;
+                if let Some(s) = sink.as_deref_mut() {
+                    s.extend_from_slice(&self.buf[self.idx..self.idx + take]);
+                }
+                consumed += take;
+                self.idx += take;
+                return Ok(Consumed {
+                    bytes: consumed,
+                    hit_eol: true,
+                    hit_stop: false,
+                    off_after: self.pos + self.idx as u64,
+                });
+            }
+            if scan_len > 0 {
+                if let Some(s) = sink.as_deref_mut() {
+                    s.extend_from_slice(&self.buf[self.idx..self.idx + scan_len]);
+                }
+                consumed += scan_len;
+                self.idx += scan_len;
+            }
+            if let Some(stop) = stop_after {
+                if consumed >= stop {
+                    return Ok(Consumed {
+                        bytes: consumed,
+                        hit_eol: false,
+                        hit_stop: true,
+                        off_after: self.pos + self.idx as u64,
+                    });
+                }
+            }
+        }
+    }
+
     /// 读取下一单元;UTF-16 尾部孤字节(非码元对齐的残余)静默终止
     fn next(&mut self) -> Result<Option<(u64, [u8; 2], u8)>, AppError> {
         let need = if self.utf16.is_some() { 2 } else { 1 };
         while self.buf.len() - self.idx < need {
-            // 压缩已消费前缀(buf[0] 仍对应 pos,drain 后 pos 前移 idx)
-            if self.idx > 0 {
-                self.pos += self.idx as u64;
-                self.buf.drain(..self.idx);
-                self.idx = 0;
-            }
-            let old = self.buf.len();
-            self.buf.resize(old + CHUNK_BYTES, 0);
-            match read_chunk(&mut self.reader, &mut self.buf[old..]) {
-                Ok(0) => {
-                    self.buf.truncate(old);
-                    return Ok(None);
-                }
-                Ok(read) => {
-                    self.buf.truncate(old + read);
-                }
-                Err(e) => {
-                    self.buf.truncate(old);
-                    return Err(e);
-                }
+            if !self.fill()? {
+                return Ok(None);
             }
         }
         let off = self.pos + self.idx as u64;
@@ -533,7 +640,7 @@ fn read_lines_window(
         .map_err(AppError::from)?;
     // 注意:UnitReader 持有独立的 File clone(seek 各自独立),读取从
     // seek 后的位置开始;pos 以 anchor_offset 为零点累计消费字节数
-    let mut units = UnitReader::new(
+    let mut reader = UnitReader::new(
         file.try_clone().map_err(AppError::from)?,
         anchor_offset,
         enc.utf16,
@@ -551,54 +658,62 @@ fn read_lines_window(
     let mut truncated = false;
     let mut next_offset = size;
 
-    loop {
-        let Some((off, unit, len)) = units.next()? else {
-            // 文件结束:Collect 中未完成的残行计一条(尾部无 EOL 的最后一行)
-            if phase == WindowPhase::Collect && !current.is_empty() {
-                emit_line(&mut lines, &mut current, enc);
-                next_offset = size;
-            }
-            break;
-        };
-        let is_eol = units.is_eol(unit);
+    // 三阶段均经 consume_until_eol 按块推进:段内批量定位行结束符,
+    // 不再逐单元虚调用(Skip 只需数 \n,Collect 整段切片入 current)
+    'outer: loop {
         match phase {
             WindowPhase::Skip => {
-                if is_eol {
-                    line += 1;
-                    if line == target_line {
-                        phase = WindowPhase::Collect;
-                    }
+                let c = reader.consume_until_eol(None, None)?;
+                if !c.hit_eol {
+                    // EOF:目标行超出文件末尾,窗口为空(交由下方收尾返回 empty)
+                    break 'outer;
+                }
+                line += 1;
+                if line == target_line {
+                    phase = WindowPhase::Collect;
                 }
             }
             WindowPhase::Collect => {
-                // 两个分支都先积累单元字节(EOL 单元也入列,emit_line 统一剥离)
-                current.extend_from_slice(&unit[..len_as_usize(len)]);
-                if is_eol {
-                    // 行字节预算含行结束符(emit 前记录,emit 会剥离 EOL/CR)
-                    let line_bytes = current.len() as u64;
+                let c = reader.consume_until_eol(
+                    Some(&mut current),
+                    Some(usize::try_from(WINDOW_MAX_BYTES).unwrap_or(usize::MAX)),
+                )?;
+                if c.hit_eol {
+                    // 行字节预算含行结束符(emit 前记录,emit_line 会剥离 EOL/CR)
+                    let line_bytes = c.bytes as u64;
                     emit_line(&mut lines, &mut current, enc);
                     window_bytes += line_bytes;
-                    next_offset = off + u64::from(len);
-                    if lines.len() as u64 >= max_lines || window_bytes >= WINDOW_MAX_BYTES {
-                        break;
-                    }
-                    line += 1;
+                    next_offset = c.off_after;
                     current.clear();
-                } else {
-                    // 超长行:单行字节数达上限 → 截断展示,跳过余段
-                    if current.len() as u64 >= WINDOW_MAX_BYTES {
-                        emit_line(&mut lines, &mut current, enc);
-                        truncated = true;
-                        next_offset = size; // 由 SkipRemainder 阶段修正
-                        phase = WindowPhase::SkipRemainder;
+                    if lines.len() as u64 >= max_lines || window_bytes >= WINDOW_MAX_BYTES {
+                        break 'outer;
                     }
+                } else if c.hit_stop {
+                    // 超长行:截断到预算上限入列,跳过该行余段直到行结束符
+                    if current.len() as u64 > WINDOW_MAX_BYTES {
+                        let cap = usize::try_from(WINDOW_MAX_BYTES).unwrap_or(usize::MAX);
+                        current.truncate(cap);
+                    }
+                    emit_line(&mut lines, &mut current, enc);
+                    current.clear();
+                    truncated = true;
+                    next_offset = size; // 由 SkipRemainder 阶段修正
+                    phase = WindowPhase::SkipRemainder;
+                } else {
+                    // 文件结束:Collect 中未完成的残行计一条(尾部无 EOL 的最后一行)
+                    if c.bytes > 0 {
+                        emit_line(&mut lines, &mut current, enc);
+                    }
+                    next_offset = size;
+                    break 'outer;
                 }
             }
             WindowPhase::SkipRemainder => {
-                if is_eol {
-                    next_offset = off + u64::from(len);
-                    break;
+                let c = reader.consume_until_eol(None, None)?;
+                if c.hit_eol {
+                    next_offset = c.off_after;
                 }
+                break 'outer;
             }
         }
     }
@@ -618,32 +733,36 @@ fn read_lines_window(
     })
 }
 
-/// 发射一条完整行:剥离行尾 CR 与已积累的行结束符后,按编码解码入列
-fn emit_line(lines: &mut Vec<String>, current: &mut Vec<u8>, enc: &LargeFileEncoding) {
-    let unit: usize = if enc.utf16.is_some() { 2 } else { 1 };
-    // 剥离已积累的行结束符单元(LF;收集路径把它一并 push 进了 current)
-    if current.len() >= unit {
-        let tail: Vec<u8> = current[current.len() - unit..].to_vec();
-        let is_lf = match enc.utf16 {
-            None => tail[0] == 0x0A,
-            Some(Utf16Endian::Le) => u16::from_le_bytes([tail[0], tail[1]]) == 0x000A,
-            Some(Utf16Endian::Be) => u16::from_be_bytes([tail[0], tail[1]]) == 0x000A,
-        };
-        if is_lf {
-            current.truncate(current.len() - unit);
+/// 行字节序列是否以指定 ASCII 控制单元结尾(字节模式 1 字节;UTF-16 为码元)
+fn ends_with_control_unit(current: &[u8], utf16: Option<Utf16Endian>, ascii: u8) -> bool {
+    match utf16 {
+        None => current.last() == Some(&ascii),
+        Some(Utf16Endian::Le) => {
+            let n = current.len();
+            n >= 2 && u16::from_le_bytes([current[n - 2], current[n - 1]]) == u16::from(ascii)
+        }
+        Some(Utf16Endian::Be) => {
+            let n = current.len();
+            n >= 2 && u16::from_be_bytes([current[n - 2], current[n - 1]]) == u16::from(ascii)
         }
     }
+}
+
+/// 行结束/CR 单元长度(UTF-16 为 2 字节码元)
+const fn enc_unit_len(utf16: Option<Utf16Endian>) -> usize {
+    if utf16.is_some() { 2 } else { 1 }
+}
+
+/// 发射一条完整行:剥离行尾 CR 与已积累的行结束符后,按编码解码入列
+fn emit_line(lines: &mut Vec<String>, current: &mut Vec<u8>, enc: &LargeFileEncoding) {
+    let unit = enc_unit_len(enc.utf16);
+    // 剥离已积累的行结束符单元(LF;收集路径把它一并 push 进了 current)
+    if ends_with_control_unit(current, enc.utf16, 0x0A) {
+        current.truncate(current.len() - unit);
+    }
     // CRLF 剥离:行内容以 CR 结尾(紧邻 LF)
-    if current.len() >= unit {
-        let tail: Vec<u8> = current[current.len() - unit..].to_vec();
-        let is_cr = match enc.utf16 {
-            None => tail[0] == 0x0D,
-            Some(Utf16Endian::Le) => u16::from_le_bytes([tail[0], tail[1]]) == 0x000D,
-            Some(Utf16Endian::Be) => u16::from_be_bytes([tail[0], tail[1]]) == 0x000D,
-        };
-        if is_cr {
-            current.truncate(current.len() - unit);
-        }
+    if ends_with_control_unit(current, enc.utf16, 0x0D) {
+        current.truncate(current.len() - unit);
     }
     let id = if enc.id == "utf-8-bom" {
         "utf-8"
@@ -926,6 +1045,20 @@ fn static_id_for(id: &str) -> &'static str {
 mod tests {
     use super::*;
     use std::cell::Cell;
+
+    #[test]
+    fn calibration_point_serializes_as_line_offset_object() {
+        // 前端 fileOps.ts 按 `{ line, offset }` 消费校准点;
+        // 钉死形状,防止任一侧改动再次悄悄破坏锚点协议
+        let p = LineCalibrationPoint {
+            line: 2,
+            offset: 17,
+        };
+        assert_eq!(
+            serde_json::to_value(&p).expect("serialize"),
+            serde_json::json!({ "line": 2, "offset": 17 })
+        );
+    }
 
     #[test]
     fn search_finds_hits_with_line_numbers_case_insensitive() {

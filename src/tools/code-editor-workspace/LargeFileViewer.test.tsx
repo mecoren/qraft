@@ -12,7 +12,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { toast } from 'sonner';
-import { anchorForLine, type LinesWindowResult } from './fileOps';
+import { anchorForLine, type LineCalibrationPoint, type LinesWindowResult } from './fileOps';
 import { LargeFileViewer } from './LargeFileViewer';
 import type { EditorTab } from './schema';
 
@@ -57,10 +57,10 @@ function makeInfo() {
     eol: 'lf',
     lineCount: 33722759,
     calibration: [
-      [1, 0],
-      [10_000_000, 600_000_000],
-      [20_000_000, 1_300_000_000],
-    ] as Array<[number, number]>,
+      { line: 1, offset: 0 },
+      { line: 10_000_000, offset: 600_000_000 },
+      { line: 20_000_000, offset: 1_300_000_000 },
+    ] satisfies LineCalibrationPoint[],
   };
 }
 
@@ -150,6 +150,54 @@ describe('LargeFileViewer', () => {
     });
   });
 
+  it('缓存分片:另一个大文件同起始行不复用前文件窗口内容', async () => {
+    invokeMock.mockImplementation((cmd: string, args: Record<string, unknown>) => {
+      if (cmd === 'fs_read_file_lines') {
+        const target = args.targetLine as number;
+        const prefix = args.path === 'C:\\logs\\huge-a.log' ? 'rowA' : 'rowB';
+        return Promise.resolve({
+          ...windowFor(target, 3),
+          lines: [1, 2, 3].map((i) => `${prefix}-${target + i - 1}`),
+        });
+      }
+      return Promise.resolve({});
+    });
+
+    render(
+      <LargeFileViewer
+        tab={makeLargeTab({
+          id: 'tab-a',
+          path: 'C:\\logs\\huge-a.log',
+          largeFileInfo: makeInfo(),
+        })}
+        data-testid="lv-a"
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getAllByTestId('lv-a-line')[0].textContent).toContain('rowA-1');
+    });
+
+    // 同一网格起点(行 1)的另一文件:必须自发请求、渲染自己的内容,
+    // 不得命中前文件的窗口缓存(旧共享缓存按行号为键会串台)
+    render(
+      <LargeFileViewer
+        tab={makeLargeTab({
+          id: 'tab-b',
+          path: 'C:\\logs\\huge-b.log',
+          largeFileInfo: makeInfo(),
+        })}
+        data-testid="lv-b"
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getAllByTestId('lv-b-line')[0].textContent).toContain('rowB-1');
+    });
+    expect(invokeMock).toHaveBeenCalledWith(
+      'fs_read_file_lines',
+      expect.objectContaining({ path: 'C:\\logs\\huge-b.log', targetLine: 1 }),
+    );
+  });
+
   it('复制选中:空选区提示,不写剪贴板', async () => {
     render(<LargeFileViewer tab={makeLargeTab({ largeFileInfo: makeInfo() })} data-testid="lv" />);
     fireEvent.click(screen.getByTestId('lv-copy'));
@@ -187,7 +235,7 @@ describe('LargeFileViewer', () => {
             encoding: 'utf-8',
             eol: 'lf',
             lineCount: 50,
-            calibration: [[1, 0]] as Array<[number, number]>,
+            calibration: [{ line: 1, offset: 0 }],
           },
         })}
         data-testid="lv"
@@ -219,7 +267,7 @@ describe('LargeFileViewer', () => {
             encoding: 'utf-8',
             eol: 'lf',
             lineCount: 200_000_000,
-            calibration: [[1, 0]] as Array<[number, number]>,
+            calibration: [{ line: 1, offset: 0 }],
           },
         })}
         data-testid="lv"

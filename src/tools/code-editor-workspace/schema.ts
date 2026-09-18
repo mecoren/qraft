@@ -11,6 +11,7 @@
  * - `path` 为本地文件绝对路径;未保存过的新建 Tab 为 null,
  *   由「另存为」绑定路径后变为非 null。
  */
+import type { LineCalibrationPoint } from './fileOps';
 import type { EditorLanguage } from '@/components/ui/code-editor';
 
 export type { EditorLanguage };
@@ -95,8 +96,8 @@ export interface LargeFileMeta {
   eol: string;
   /** 总行数 */
   lineCount: number;
-  /** 行校准点(升序):[行号, 该行首字节偏移],首项恒为 [1, BOM 长度] */
-  calibration: Array<[number, number]>;
+  /** 行校准点(升序),首项恒为 line=1 / offset=BOM 长度 */
+  calibration: LineCalibrationPoint[];
 }
 
 /**

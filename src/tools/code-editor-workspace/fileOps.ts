@@ -207,6 +207,14 @@ export async function forceOpenFile(path: string): Promise<OpenFileResult> {
 
 // ============ 大文件只读查看(超过编辑器整读上限的文件)============
 
+/** 行校准点(Rust `LineCalibrationPoint` 的 camelCase 序列化形态) */
+export interface LineCalibrationPoint {
+  /** 1-based 行号 */
+  line: number;
+  /** 该行首字节偏移(精确) */
+  offset: number;
+}
+
 /** `fs_large_file_info` 返回载荷(Rust LargeFileInfo 的 camelCase 形态) */
 export interface LargeFileInfoResult {
   path: string;
@@ -215,8 +223,8 @@ export interface LargeFileInfoResult {
   /** lf / crlf */
   eol: string;
   lineCount: number;
-  /** 行校准点:[行号, 该行首字节偏移](升序,首项 [1, BOM 长度]) */
-  calibration: Array<[number, number]>;
+  /** 行校准点(升序,首项恒为 line=1 / offset=BOM 长度) */
+  calibration: LineCalibrationPoint[];
 }
 
 /** `fs_read_file_lines` 返回载荷(Rust LinesWindow 的 camelCase 形态) */
@@ -328,16 +336,16 @@ export async function readFileLines(
  * 无合适校准点(目标行在首点之前)时退回首行锚点 (0, 1)。
  */
 export function anchorForLine(
-  calibration: ReadonlyArray<[number, number]>,
+  calibration: ReadonlyArray<LineCalibrationPoint>,
   targetLine: number,
 ): { offset: number; line: number } {
-  let best: [number, number] | null = null;
+  let best: LineCalibrationPoint | null = null;
   for (const point of calibration) {
-    if (point[0] <= targetLine) best = point;
+    if (point.line <= targetLine) best = point;
     else break;
   }
   if (!best) return { offset: 0, line: 1 };
-  return { offset: best[1], line: best[0] };
+  return { offset: best.offset, line: best.line };
 }
 
 /** 直接覆盖写入已授权路径;成功返回 true,失败抛 CommandError */
