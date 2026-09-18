@@ -3,7 +3,11 @@
 // 核心逻辑在 `media::large_file`(纯逻辑层,测试编译下可用):
 // - `fs_large_file_info`:元数据 + 行校准点索引(一次顺序扫描)
 // - `fs_read_file_lines`:锚点式行窗口读取(滚动/跳转按需加载)
-// 此处只做授权校验、spawn_blocking 卸载与进度事件转发。
+// - `fs_large_file_search`:流式全文搜索
+// 此处只做授权校验、spawn_blocking 卸载、进度事件转发与取消令牌登记。
+//
+// 长任务(10GB 索引可达数秒)按前端生成的 `scanId` 登记进流式任务注册表,
+// `fs_cancel_large_file_scan` 据此中断:关闭 Tab / 发起新搜索后不再读盘。
 //
 // 10GB+ 文件从不整读进内存:索引扫描只统计 \n 位置并采样校准点,
 // 行窗口按需读取固定行数/字节,webview 与 Rust 两侧内存占用均为常数级。
@@ -17,8 +21,8 @@ use crate::commands::fs::AuthorizedPaths;
 use crate::media::large_file::{
     LargeFileInfo, LargeFileSearchResult, LinesWindow, search_large_file,
 };
-use crate::shell::AppError;
 use crate::shell::response::CommandResponse;
+use crate::shell::{AppError, AppState};
 
 /// 大文件查看元数据 + 行校准点(编辑器大文件模式打开时调用一次)
 ///
@@ -26,35 +30,47 @@ use crate::shell::response::CommandResponse;
 /// 只读大文件视图;扫描期间通过 `app:large-file-progress` 事件上报进度
 /// (载荷 `{ path, scanned, total }`),前端用于展示「正在索引」状态。
 ///
+/// `scan_id` 为前端生成的本次扫描标识,登记到流式任务注册表供
+/// `fs_cancel_large_file_scan` 中断。
+///
 /// # Errors
 ///
 /// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 扫描被取消时返回 `AppError::Tool`(`ERR_CANCELLED`)
 /// - 文件打开/读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 #[tauri::command]
 pub async fn fs_large_file_info(
     app: tauri::AppHandle,
     path: String,
+    scan_id: String,
     authorized: tauri::State<'_, AuthorizedPaths>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<CommandResponse<LargeFileInfo>, AppError> {
     if !authorized.is_path_allowed(&path) {
         return Err(AppError::Permission(format!(
             "path not authorized, must be selected via dialog: {path}"
         )));
     }
+    let cancel = state.streaming_tasks.register(&scan_id);
     let path_for_progress = path.clone();
-    let info = tauri::async_runtime::spawn_blocking(move || {
-        crate::media::large_file::scan_large_file(&path, &move |scanned: u64, total: u64| {
-            // 进度事件失败仅忽略,不影响扫描
-            let payload = serde_json::json!({
-                "path": path_for_progress,
-                "scanned": scanned,
-                "total": total,
-            });
-            let _ = app.emit("app:large-file-progress", payload);
-        })
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
+        crate::media::large_file::scan_large_file(
+            &path,
+            &move |scanned: u64, total: u64| {
+                // 进度事件失败仅忽略,不影响扫描
+                let payload = serde_json::json!({
+                    "path": path_for_progress,
+                    "scanned": scanned,
+                    "total": total,
+                });
+                let _ = app.emit("app:large-file-progress", payload);
+            },
+            &cancel,
+        )
     })
-    .await
-    .map_err(|e| AppError::Unknown(format!("scan task failed: {e}")))??;
+    .await;
+    state.streaming_tasks.unregister(&scan_id);
+    let info = outcome.map_err(|e| AppError::Unknown(format!("scan task failed: {e}")))??;
     Ok(CommandResponse::ok(info))
 }
 
@@ -107,18 +123,25 @@ pub async fn fs_read_file_lines(
 /// `app:large-file-search-progress` 事件上报进度
 /// (载荷 `{ path, scanned, total }`),前端展示搜索进度态。
 ///
+/// `scan_id` 同 `fs_large_file_info`:新一轮搜索用新 id,旧 id 由前端取消,
+/// 避免过期扫描继续占用磁盘带宽并把结果写回已刷新的 UI。
+///
 /// # Errors
 ///
 /// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
+/// - 搜索被取消时返回 `AppError::Tool`(`ERR_CANCELLED`)
 /// - 文件打开/读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn fs_large_file_search(
     app: tauri::AppHandle,
     path: String,
     needle: String,
     case_sensitive: Option<bool>,
     max_hits: Option<usize>,
+    scan_id: String,
     authorized: tauri::State<'_, AuthorizedPaths>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<CommandResponse<LargeFileSearchResult>, AppError> {
     if !authorized.is_path_allowed(&path) {
         return Err(AppError::Permission(format!(
@@ -128,8 +151,9 @@ pub async fn fs_large_file_search(
     // 命中上限钳制:防前端误传超大值导致失控扫描
     let max_hits = max_hits.unwrap_or(100).clamp(1, MAX_HITS_CAP);
     let case_sensitive = case_sensitive.unwrap_or(false);
+    let cancel = state.streaming_tasks.register(&scan_id);
     let path_for_progress = path.clone();
-    let result = tauri::async_runtime::spawn_blocking(move || {
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
         search_large_file(
             &path,
             &needle,
@@ -143,9 +167,28 @@ pub async fn fs_large_file_search(
                 });
                 let _ = app.emit("app:large-file-search-progress", payload);
             },
+            &cancel,
         )
     })
-    .await
-    .map_err(|e| AppError::Unknown(format!("search task failed: {e}")))??;
+    .await;
+    state.streaming_tasks.unregister(&scan_id);
+    let result = outcome.map_err(|e| AppError::Unknown(format!("search task failed: {e}")))??;
     Ok(CommandResponse::ok(result))
+}
+
+/// 取消正在执行的大文件索引扫描 / 全文搜索
+///
+/// 只做令牌置位:任务侧在下一个字节节奏点(1MB)停止读盘并回 `ERR_CANCELLED`。
+/// 任务已结束或 id 未登记时返回 false 而非报错——关闭 Tab 与任务完成本就是
+/// 竞态,取消失败无副作用,前端无需分支处理。
+///
+/// # Errors
+///
+/// 恒成功(取消是幂等提示,未登记的 id 视为已结束)。
+#[tauri::command]
+pub async fn fs_cancel_large_file_scan(
+    scan_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<CommandResponse<bool>, AppError> {
+    Ok(CommandResponse::ok(state.streaming_tasks.cancel(&scan_id)))
 }

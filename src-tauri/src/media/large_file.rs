@@ -24,7 +24,9 @@
 use std::io::{Read, Seek, SeekFrom};
 
 use serde::Serialize;
+use tokio_util::sync::CancellationToken;
 
+use crate::core::error::ToolError;
 use crate::media::text_encoding::{decode_text, is_supported_encoding};
 use crate::shell::AppError;
 
@@ -45,6 +47,10 @@ const ENCODE_PROBE_BYTES: usize = 512 * 1024;
 
 /// 扫描 / 读取块大小
 const CHUNK_BYTES: usize = 1024 * 1024;
+
+/// 取消检查的字节节奏:逐单元(每字节)做原子读无必要,
+/// 每 1MB 一次即可让「关闭 Tab 即停」在读盘延迟内生效
+const CANCEL_CHECK_BYTES: u64 = CHUNK_BYTES as u64;
 
 /// 大文件元数据 + 行校准点(`fs_large_file_info` 返回)
 #[derive(Debug, Clone, Serialize)]
@@ -321,11 +327,15 @@ fn scan_utf16_chunk(
 /// 尾字节进位处理。
 ///
 /// 返回 (行数, 行尾, 校准点);进度经 `on_progress(已扫字节, 总字节)` 上报。
+///
+/// `cancel` 在每个数据块边界检查(1MB 节奏),命中即返回
+/// `AppError::Tool(ToolError::Cancelled)`,不再继续读盘。
 fn build_line_index(
     file: &mut std::fs::File,
     size: u64,
     enc: &LargeFileEncoding,
     on_progress: &dyn Fn(u64, u64),
+    cancel: &CancellationToken,
 ) -> Result<(u64, String, Vec<LineCalibrationPoint>), AppError> {
     let target_points: usize = if size == 0 {
         0
@@ -350,6 +360,11 @@ fn build_line_index(
     let mut utf16_carry: Option<u8> = None;
 
     loop {
+        // 取消检查按块(1MB)节奏:一次无竞争原子读,相对整块扫描开销可忽略,
+        // 命中后最多再读一块就停,不必等到 64MB 的进度上报点
+        if cancel.is_cancelled() {
+            return Err(AppError::Tool(ToolError::Cancelled));
+        }
         let n = read_chunk(&mut reader, &mut chunk)?;
         if n == 0 {
             break;
@@ -814,8 +829,12 @@ const SEARCH_PREVIEW_MAX_BYTES: u64 = 512 * 1024;
 /// 达到 `max_hits` 即停(truncated=true),扫描全程按 `PROGRESS_REPORT_BYTES`
 /// 节奏上报进度,完成必报一次。
 ///
+/// `cancel` 按 `CANCEL_CHECK_BYTES`(1MB)节奏检查(含超长行跳过段),命中即
+/// 返回 `AppError::Tool(ToolError::Cancelled)`。
+///
 /// # Errors
 ///
+/// - 取消时返回 `AppError::Tool`(`ERR_CANCELLED`)
 /// - 文件打开/读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 pub fn search_large_file(
     path: &str,
@@ -823,7 +842,11 @@ pub fn search_large_file(
     case_sensitive: bool,
     max_hits: usize,
     on_progress: &dyn Fn(u64, u64),
+    cancel: &CancellationToken,
 ) -> Result<LargeFileSearchResult, AppError> {
+    if cancel.is_cancelled() {
+        return Err(AppError::Tool(ToolError::Cancelled));
+    }
     let mut file = std::fs::File::open(path).map_err(AppError::from)?;
     let size = file.metadata().map_err(AppError::from)?.len();
     // 编码探测:与 scan_large_file 同一头部探测策略
@@ -859,24 +882,32 @@ pub fn search_large_file(
     // 已扫描偏移:首次循环迭代赋值,空文件时保持 BOM 起点
     let mut scanned: u64;
     let mut last_progress: u64 = 0;
+    let mut last_cancel: u64 = 0;
+    // 取消 + 进度共用一个按字节节奏的判断:逐单元(每字节)原子读没必要,
+    // 合并成一处也保证超长行跳过段同样能被取消中断
+    let mut tick = |scanned: u64| -> Result<(), AppError> {
+        if scanned - last_cancel >= CANCEL_CHECK_BYTES {
+            last_cancel = scanned;
+            if cancel.is_cancelled() {
+                return Err(AppError::Tool(ToolError::Cancelled));
+            }
+        }
+        if scanned - last_progress >= PROGRESS_REPORT_BYTES {
+            last_progress = scanned;
+            on_progress(scanned.min(size), size);
+        }
+        Ok(())
+    };
 
     while let Some((off, unit, len)) = reader.next()? {
         scanned = off;
+        tick(scanned)?;
         let unit_len = len_as_usize(len);
         let is_eol = reader.is_eol(unit);
         if is_eol {
-            // 行完成:解码后按口径匹配(不敏感统一小写;敏感原文比较)
-            let line_text = decode_line_for_search(&current, &enc);
-            let line_cmp = if case_sensitive {
-                line_text.clone()
-            } else {
-                line_text.to_lowercase()
-            };
-            if line_cmp.contains(&needle_cmp) {
-                hits.push(SearchHit {
-                    line,
-                    preview: truncate_preview(&line_text),
-                });
+            // 行完成:解码后按口径匹配;命中数达上限即停并标记截断
+            if let Some(hit) = match_line(&current, &enc, &needle_cmp, case_sensitive, line) {
+                hits.push(hit);
                 if hits.len() >= max_hits {
                     truncated = true;
                     break;
@@ -890,6 +921,7 @@ pub fn search_large_file(
             if current.len() as u64 >= SEARCH_PREVIEW_MAX_BYTES {
                 while let Some((off2, unit2, len2)) = reader.next()? {
                     scanned = off2;
+                    tick(scanned)?;
                     if reader.is_eol(unit2) {
                         break;
                     }
@@ -899,31 +931,40 @@ pub fn search_large_file(
                 current.clear();
             }
         }
-        // 进度上报:沿用扫描的节奏常量
-        if scanned - last_progress >= PROGRESS_REPORT_BYTES {
-            last_progress = scanned;
-            on_progress(scanned.min(size), size);
-        }
     }
     // 末尾残行(EOF 无换行):同样参与匹配
-    if !truncated && !current.is_empty() {
-        let line_text = decode_line_for_search(&current, &enc);
-        let line_cmp = if case_sensitive {
-            line_text.clone()
-        } else {
-            line_text.to_lowercase()
-        };
-        if line_cmp.contains(&needle_cmp) && hits.len() < max_hits {
-            hits.push(SearchHit {
-                line,
-                preview: truncate_preview(&line_text),
-            });
+    if !truncated && !current.is_empty() && hits.len() < max_hits {
+        if let Some(hit) = match_line(&current, &enc, &needle_cmp, case_sensitive, line) {
+            hits.push(hit);
         }
     }
     // 扫描完成必报一次(进度 UI 收尾)
     on_progress(size, size);
 
     Ok(LargeFileSearchResult { hits, truncated })
+}
+
+/// 单行匹配:按编码解码 → 按口径比较(不敏感统一小写)→ 命中则给出预览
+fn match_line(
+    current: &[u8],
+    enc: &LargeFileEncoding,
+    needle: &str,
+    case_sensitive: bool,
+    line: u64,
+) -> Option<SearchHit> {
+    let line_text = decode_line_for_search(current, enc);
+    let line_cmp = if case_sensitive {
+        line_text.clone()
+    } else {
+        line_text.to_lowercase()
+    };
+    if !line_cmp.contains(needle) {
+        return None;
+    }
+    Some(SearchHit {
+        line,
+        preview: truncate_preview(&line_text),
+    })
 }
 
 /// 按编码把已积累的行字节解码为文本(与 `emit_line` 同语义,但不入列)
@@ -958,13 +999,21 @@ fn truncate_preview(line: &str) -> String {
 
 /// 大文件索引扫描(同步核心;IPC 层用 `spawn_blocking` 包装)
 ///
+/// `cancel` 命中时扫描在中途返回 `AppError::Tool(ToolError::Cancelled)`,
+/// 不再把余下文件读完。
+///
 /// # Errors
 ///
+/// - 取消时返回 `AppError::Tool`(`ERR_CANCELLED`)
 /// - 文件打开/读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 pub fn scan_large_file(
     path: &str,
     on_progress: &dyn Fn(u64, u64),
+    cancel: &CancellationToken,
 ) -> Result<LargeFileInfo, AppError> {
+    if cancel.is_cancelled() {
+        return Err(AppError::Tool(ToolError::Cancelled));
+    }
     let mut file = std::fs::File::open(path).map_err(AppError::from)?;
     let size = file.metadata().map_err(AppError::from)?.len();
     // 探测编码:读头部(build_line_index 内部会重新 seek 到 0 扫描)
@@ -974,7 +1023,8 @@ pub fn scan_large_file(
         file.read_exact(&mut head).map_err(AppError::from)?;
     }
     let enc = detect_large_file_encoding(&head);
-    let (line_count, eol, calibration) = build_line_index(&mut file, size, &enc, on_progress)?;
+    let (line_count, eol, calibration) =
+        build_line_index(&mut file, size, &enc, on_progress, cancel)?;
     Ok(LargeFileInfo {
         path: path.to_string(),
         size,
@@ -1066,8 +1116,15 @@ mod tests {
         let path = dir.join("qraft_search_basic.txt");
         std::fs::write(&path, "alpha\nBravo target\ncharlie\nTARGET again\nend\n").expect("write");
 
-        let result = search_large_file(path.to_str().unwrap(), "target", false, 100, &|_, _| {})
-            .expect("search");
+        let result = search_large_file(
+            path.to_str().unwrap(),
+            "target",
+            false,
+            100,
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("search");
         // 大小写不敏感:两处命中(Bravo target / TARGET again)
         assert_eq!(result.hits.len(), 2);
         assert_eq!(result.hits[0].line, 2);
@@ -1085,20 +1142,41 @@ mod tests {
         std::fs::write(&path, "alpha\nBravo target\ncharlie\nTARGET again\nend\n").expect("write");
 
         // 敏感口径:仅大小写完全一致的行命中
-        let exact = search_large_file(path.to_str().unwrap(), "TARGET", true, 100, &|_, _| {})
-            .expect("search");
+        let exact = search_large_file(
+            path.to_str().unwrap(),
+            "TARGET",
+            true,
+            100,
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("search");
         assert_eq!(exact.hits.len(), 1);
         assert_eq!(exact.hits[0].line, 4);
 
-        let mixed = search_large_file(path.to_str().unwrap(), "Target", true, 100, &|_, _| {})
-            .expect("search");
+        let mixed = search_large_file(
+            path.to_str().unwrap(),
+            "Target",
+            true,
+            100,
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("search");
         assert!(mixed.hits.is_empty());
 
         // 中文(无大小写概念)不受口径影响
         let path2 = dir.join("qraft_search_case_cjk.txt");
         std::fs::write(&path2, "中文目标行\n").expect("write");
-        let cjk = search_large_file(path2.to_str().unwrap(), "目标", true, 10, &|_, _| {})
-            .expect("search");
+        let cjk = search_large_file(
+            path2.to_str().unwrap(),
+            "目标",
+            true,
+            10,
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("search");
         assert_eq!(cjk.hits.len(), 1);
 
         let _ = std::fs::remove_file(&path);
@@ -1111,8 +1189,15 @@ mod tests {
         let path = dir.join("qraft_search_cap.txt");
         std::fs::write(&path, "x\nx\nx\nx\nx\nx\n").expect("write");
 
-        let result =
-            search_large_file(path.to_str().unwrap(), "x", false, 3, &|_, _| {}).expect("search");
+        let result = search_large_file(
+            path.to_str().unwrap(),
+            "x",
+            false,
+            3,
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("search");
         assert_eq!(result.hits.len(), 3);
         // 达到上限即停:truncated 标记提示前端「截断展示」
         assert!(result.truncated);
@@ -1136,6 +1221,7 @@ mod tests {
                 assert!(scanned <= total);
                 calls.set(calls.get() + 1);
             },
+            &CancellationToken::new(),
         )
         .expect("search");
         assert_eq!(result.hits.len(), 1);
@@ -1155,8 +1241,15 @@ mod tests {
         let line = format!("{}\n", "目标内容在这里".repeat(100));
         std::fs::write(&path, format!("{line}其他行\n{line}")).expect("write");
 
-        let result = search_large_file(path.to_str().unwrap(), "内容", false, 10, &|_, _| {})
-            .expect("search");
+        let result = search_large_file(
+            path.to_str().unwrap(),
+            "内容",
+            false,
+            10,
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("search");
         assert_eq!(result.hits.len(), 2);
 
         let _ = std::fs::remove_file(&path);
@@ -1168,8 +1261,15 @@ mod tests {
         let path = dir.join("qraft_search_absent.txt");
         std::fs::write(&path, "nothing relevant\nhere\n").expect("write");
 
-        let result = search_large_file(path.to_str().unwrap(), "zebra", false, 10, &|_, _| {})
-            .expect("search");
+        let result = search_large_file(
+            path.to_str().unwrap(),
+            "zebra",
+            false,
+            10,
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("search");
         assert!(result.hits.is_empty());
         assert!(!result.truncated);
 
@@ -1230,7 +1330,12 @@ mod tests {
         let path = dir.join("qraft_lf_info.txt");
         std::fs::write(&path, "l1\nl2\nl3\n").expect("write");
 
-        let info = scan_large_file(path.to_str().unwrap(), &|_, _| {}).expect("scan");
+        let info = scan_large_file(
+            path.to_str().unwrap(),
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("scan");
         assert_eq!(info.line_count, 3);
         assert_eq!(info.eol, "lf");
         assert_eq!(info.encoding, "utf-8");
@@ -1246,7 +1351,12 @@ mod tests {
         let path = dir.join("qraft_crlf_info.txt");
         std::fs::write(&path, b"a\r\nb\r\nc\r\ntail").expect("write");
 
-        let info = scan_large_file(path.to_str().unwrap(), &|_, _| {}).expect("scan");
+        let info = scan_large_file(
+            path.to_str().unwrap(),
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("scan");
         assert_eq!(info.line_count, 4);
         assert_eq!(info.eol, "crlf");
 
@@ -1265,7 +1375,12 @@ mod tests {
         content.extend_from_slice(b"tail");
         std::fs::write(&path, &content).expect("write");
 
-        let info = scan_large_file(path.to_str().unwrap(), &|_, _| {}).expect("scan");
+        let info = scan_large_file(
+            path.to_str().unwrap(),
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("scan");
         assert_eq!(info.eol, "crlf");
         assert_eq!(info.line_count, 2);
 
@@ -1278,7 +1393,12 @@ mod tests {
         let path = dir.join("qraft_empty_info.txt");
         std::fs::write(&path, b"").expect("write");
 
-        let info = scan_large_file(path.to_str().unwrap(), &|_, _| {}).expect("scan");
+        let info = scan_large_file(
+            path.to_str().unwrap(),
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("scan");
         assert_eq!(info.line_count, 0);
         assert_eq!(info.size, 0);
         assert!(info.calibration.is_empty());
@@ -1292,7 +1412,12 @@ mod tests {
         let path = dir.join("qraft_oneline_info.txt");
         std::fs::write(&path, b"only line").expect("write");
 
-        let info = scan_large_file(path.to_str().unwrap(), &|_, _| {}).expect("scan");
+        let info = scan_large_file(
+            path.to_str().unwrap(),
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("scan");
         assert_eq!(info.line_count, 1);
 
         let _ = std::fs::remove_file(&path);
@@ -1310,7 +1435,12 @@ mod tests {
         }
         std::fs::write(&path, &bytes).expect("write");
 
-        let info = scan_large_file(path.to_str().unwrap(), &|_, _| {}).expect("scan");
+        let info = scan_large_file(
+            path.to_str().unwrap(),
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("scan");
         assert_eq!(info.encoding, "utf-16le");
         assert_eq!(info.line_count, 3);
         assert_eq!(info.calibration[0].offset, 2);
@@ -1328,7 +1458,12 @@ mod tests {
         }
         std::fs::write(&path, &bytes).expect("write");
 
-        let info = scan_large_file(path.to_str().unwrap(), &|_, _| {}).expect("scan");
+        let info = scan_large_file(
+            path.to_str().unwrap(),
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("scan");
         assert_eq!(info.encoding, "utf-16be");
         assert_eq!(info.line_count, 2);
         assert_eq!(info.eol, "crlf");
@@ -1344,10 +1479,14 @@ mod tests {
 
         // 进度计数用 Cell(Fn 闭包内可变)
         let calls = Cell::new(0);
-        let info = scan_large_file(path.to_str().unwrap(), &|_s, total| {
-            calls.set(calls.get() + 1);
-            assert_eq!(total, 256);
-        })
+        let info = scan_large_file(
+            path.to_str().unwrap(),
+            &|_s, total| {
+                calls.set(calls.get() + 1);
+                assert_eq!(total, 256);
+            },
+            &CancellationToken::new(),
+        )
         .expect("scan");
         assert_eq!(info.line_count, 1);
         assert!(
@@ -1372,7 +1511,12 @@ mod tests {
         }
         std::fs::write(&path, &content).expect("write");
 
-        let info = scan_large_file(path.to_str().unwrap(), &|_, _| {}).expect("scan");
+        let info = scan_large_file(
+            path.to_str().unwrap(),
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .expect("scan");
         assert_eq!(info.line_count, 4000);
         // 校准点:首项 (1,0) + 采样点;小文件目标 64 点,但等距标记
         // 按字节推进,首块(1MB)内就可能越过多个标记 —— 数量以标记总数为准
@@ -1658,7 +1802,57 @@ mod tests {
 
     #[test]
     fn scan_missing_file_errors_as_io() {
-        let err = scan_large_file("Z:/definitely/not/here.txt", &|_, _| {}).unwrap_err();
+        let err = scan_large_file(
+            "Z:/definitely/not/here.txt",
+            &|_, _| {},
+            &CancellationToken::new(),
+        )
+        .unwrap_err();
         assert_eq!(err.code(), "ERR_FILE_IO");
+    }
+
+    #[test]
+    fn cancelled_token_aborts_before_opening_the_file() {
+        // 取消先于读盘:连文件都不打开,故不存在的路径也报 ERR_CANCELLED 而非
+        // ERR_FILE_IO —— 关掉 Tab 后取消已死任务,不会被误读成「文件打不开」
+        let cancel = CancellationToken::new();
+        cancel.cancel();
+        let err = scan_large_file("Z:/definitely/not/here.txt", &|_, _| {}, &cancel).unwrap_err();
+        assert_eq!(err.code(), "ERR_CANCELLED");
+
+        let err = search_large_file(
+            "Z:/definitely/not/here.txt",
+            "x",
+            false,
+            10,
+            &|_, _| {},
+            &cancel,
+        )
+        .unwrap_err();
+        assert_eq!(err.code(), "ERR_CANCELLED");
+    }
+
+    #[test]
+    fn index_scan_checks_cancel_at_every_chunk_boundary() {
+        // 直接驱动扫描循环:取消的令牌要在读到任何数据前就中断,
+        // 证明块边界(1MB 节奏)的检查确实挂在循环入口而非仅函数入口
+        let dir = std::env::temp_dir();
+        let path = dir.join("qraft_cancel_chunks.txt");
+        std::fs::write(&path, "a\nb\nc\n").expect("write");
+        let mut file = std::fs::File::open(&path).expect("open");
+        let cancel = CancellationToken::new();
+        cancel.cancel();
+
+        let err = build_line_index(
+            &mut file,
+            6,
+            &LargeFileEncoding::from_id("utf-8"),
+            &|_, _| {},
+            &cancel,
+        )
+        .unwrap_err();
+        assert_eq!(err.code(), "ERR_CANCELLED");
+
+        let _ = std::fs::remove_file(&path);
     }
 }

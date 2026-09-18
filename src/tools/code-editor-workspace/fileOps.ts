@@ -270,22 +270,43 @@ export interface LargeFileSearchProgressPayload {
 }
 
 /**
+ * 大文件后台任务(索引扫描 / 全文搜索)的取消标识,由前端生成:
+ * 后端按它登记 `CancellationToken`,故同一文件的两次任务互不误伤
+ * (按路径取消会在快速重发时取消错任务)。
+ */
+export function newLargeFileScanId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `lf-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * 请求取消在飞的大文件扫描 / 搜索(幂等:任务已结束或未登记时静默返回)。
+ * 后端在下一个 1MB 节奏点停止读盘并回 ERR_CANCELLED。
+ */
+export async function cancelLargeFileScan(scanId: string): Promise<void> {
+  await safeInvoke<boolean>('fs_cancel_large_file_scan', { scanId });
+}
+
+/**
  * 大文件流式全文搜索(只读视图 Ctrl+F 入口):
  * `caseSensitive` 决定匹配口径(默认 false 不敏感,与编辑器跨文件搜索一致),
  * 命中数达上限(服务端钳制)即停并在 truncated 标记。
  * 扫描期间经 `app:large-file-search-progress` 事件上报进度。
+ * `scanId` 见 `newLargeFileScanId`:被新搜索取代时经 `cancelLargeFileScan` 中断。
  */
 export async function largeFileSearch(
   path: string,
   needle: string,
-  caseSensitive = false,
-  maxHits?: number,
+  caseSensitive: boolean,
+  scanId: string,
 ): Promise<LargeFileSearchResult> {
   return invokeCommand<LargeFileSearchResult>('fs_large_file_search', {
     path,
     needle,
     caseSensitive,
-    maxHits: maxHits ?? null,
+    scanId,
   });
 }
 
@@ -293,9 +314,13 @@ export async function largeFileSearch(
  * 大文件索引扫描:一次顺序扫描建立行校准点(10GB 文件数秒完成),
  * 期间经 `app:large-file-progress` 事件上报进度。
  * 返回元数据 + 校准点,供 LargeFileViewer 做行号 → 偏移折算与窗口读取。
+ * `scanId` 用于 Tab 关闭时取消尚未完成的扫描。
  */
-export async function largeFileInfo(path: string): Promise<LargeFileMeta> {
-  const result = await invokeCommand<LargeFileInfoResult>('fs_large_file_info', { path });
+export async function largeFileInfo(path: string, scanId: string): Promise<LargeFileMeta> {
+  const result = await invokeCommand<LargeFileInfoResult>('fs_large_file_info', {
+    path,
+    scanId,
+  });
   return {
     size: result.size,
     encoding: result.encoding,

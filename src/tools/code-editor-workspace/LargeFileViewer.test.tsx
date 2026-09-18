@@ -10,7 +10,7 @@
  * anchorForLine 纯函数直接覆盖:校准点选取边界。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
 import { toast } from 'sonner';
 import { anchorForLine, type LineCalibrationPoint, type LinesWindowResult } from './fileOps';
 import { LargeFileViewer } from './LargeFileViewer';
@@ -23,8 +23,10 @@ vi.mock('@/lib/ipc', () => ({
   safeInvoke: vi.fn(),
 }));
 
-import { invokeCommand } from '@/lib/ipc';
+import { invokeCommand, safeInvoke } from '@/lib/ipc';
 const invokeMock = invokeCommand as unknown as ReturnType<typeof vi.fn>;
+// cancelLargeFileScan 走 safeInvoke:断言取消指令的落点
+const safeInvokeMock = safeInvoke as unknown as ReturnType<typeof vi.fn>;
 
 // mock 剪贴板
 vi.mock('@/lib/clipboard', () => ({
@@ -285,6 +287,7 @@ describe('LargeFileViewer', () => {
 describe('LargeFileViewer 全文搜索', () => {
   beforeEach(() => {
     invokeMock.mockReset();
+    safeInvokeMock.mockReset();
     toastSpy.mockClear();
     toastSuccessSpy.mockClear();
   });
@@ -418,5 +421,91 @@ describe('LargeFileViewer 全文搜索', () => {
         expect.objectContaining({ needle: 'ERROR', caseSensitive: true }),
       ),
     );
+  });
+
+  /** 最近一次 fs_large_file_search 载荷里的 scanId(后端取消令牌的登记键) */
+  function lastSearchScanId(): string {
+    const calls = invokeMock.mock.calls.filter((c) => c[0] === 'fs_large_file_search');
+    const last = calls[calls.length - 1] as [string, { scanId: string }];
+    return last[1].scanId;
+  }
+
+  it('提交新搜索时按 scanId 取消上一趟在飞扫描', async () => {
+    invokeMock.mockImplementation((cmd: string, args: Record<string, unknown>) => {
+      if (cmd === 'fs_read_file_lines') {
+        return Promise.resolve(windowFor(args.targetLine as number, 3));
+      }
+      // needle=slow 的那趟永不完成(模拟 10GB grep 仍在跑),另一趟立即返回
+      if (cmd === 'fs_large_file_search') {
+        return args.needle === 'slow'
+          ? new Promise(() => {})
+          : Promise.resolve({ hits: [], truncated: false });
+      }
+      return Promise.resolve({});
+    });
+    render(
+      <LargeFileViewer
+        tab={makeLargeTab({ largeFileInfo: makeInfo(), largeFileProgress: null })}
+        data-testid="lv"
+      />,
+    );
+
+    const input = screen.getByTestId('lv-search-input');
+    fireEvent.change(input, { target: { value: 'slow' } });
+    fireEvent.submit(input.closest('form') ?? input);
+    await waitFor(() => expect(lastSearchScanId()).toBeTruthy());
+    const pendingId = lastSearchScanId();
+
+    fireEvent.change(input, { target: { value: 'fast' } });
+    fireEvent.submit(input.closest('form') ?? input);
+
+    await waitFor(() =>
+      expect(safeInvokeMock).toHaveBeenCalledWith('fs_cancel_large_file_scan', {
+        scanId: pendingId,
+      }),
+    );
+    // 新趟用新生成的 id,不沿用刚取消掉的那个
+    expect(lastSearchScanId()).not.toBe(pendingId);
+  });
+
+  it('卸载中断在飞搜索,取消导致的 rejection 不弹错误提示', async () => {
+    let rejectSearch: ((e: Error) => void) | undefined;
+    invokeMock.mockImplementation((cmd: string, args: Record<string, unknown>) => {
+      if (cmd === 'fs_read_file_lines') {
+        return Promise.resolve(windowFor(args.targetLine as number, 3));
+      }
+      if (cmd === 'fs_large_file_search') {
+        return new Promise((_resolve, reject) => {
+          rejectSearch = reject;
+        });
+      }
+      return Promise.resolve({});
+    });
+    const errSpy = vi.spyOn(toast, 'error').mockImplementation(() => ({}) as never);
+    const { unmount } = render(
+      <LargeFileViewer
+        tab={makeLargeTab({ largeFileInfo: makeInfo(), largeFileProgress: null })}
+        data-testid="lv"
+      />,
+    );
+    const input = screen.getByTestId('lv-search-input');
+    fireEvent.change(input, { target: { value: 'error' } });
+    fireEvent.submit(input.closest('form') ?? input);
+    await waitFor(() => expect(lastSearchScanId()).toBeTruthy());
+    const scanId = lastSearchScanId();
+
+    // 后端语义:令牌置位后任务以 ERR_CANCELLED 收尾
+    safeInvokeMock.mockImplementation(() => {
+      rejectSearch?.(new Error('cancelled by user'));
+      return Promise.resolve({ ok: true, value: false });
+    });
+    unmount();
+
+    expect(safeInvokeMock).toHaveBeenCalledWith('fs_cancel_large_file_scan', { scanId });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(errSpy).not.toHaveBeenCalled();
+    errSpy.mockRestore();
   });
 });

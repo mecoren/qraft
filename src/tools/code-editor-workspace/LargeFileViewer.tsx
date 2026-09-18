@@ -11,7 +11,7 @@
  * - 全文搜索:`fs_large_file_search` 流式扫描(Rust 侧大小写不敏感、
  *   命中上限钳制),进度经 `app:large-file-search-progress` 事件上报;
  *   命中列表点击经虚拟定位跳转(10GB 级 grep 是编辑器/VSCode 做不到的
- *   差异化能力)
+ *   差异化能力);新搜索取代旧请求与组件卸载都按 scanId 取消,不留僵尸扫描
  * - 只读:不支持编辑/保存;支持选中行复制、转到行、超长行截断标记
  *
  * 行窗口缓存(LRU 分片池):Map<文件键, Map<窗口起始行号, 结果>>,
@@ -31,7 +31,9 @@ import { listen } from '@/lib/ipc';
 import type { EditorTab } from './schema';
 import {
   anchorForLine,
+  cancelLargeFileScan,
   largeFileSearch,
+  newLargeFileScanId,
   readFileLines,
   type LargeFileSearchProgressPayload,
   type LargeFileSearchResult,
@@ -340,6 +342,50 @@ export function LargeFileViewer({
   const [searchCaseSensitive, setSearchCaseSensitive] = useState(false);
   /** 搜索请求代次:仅最新请求的结果生效(快速连续搜索防竞态串台) */
   const searchSeqRef = useRef(0);
+  /** 在飞搜索的后端任务标识:被取代 / 卸载时据此取消,不再占用磁盘带宽 */
+  const searchIdRef = useRef<string | null>(null);
+
+  /** 发起一次流式搜索:先取消上一趟,过期响应(含 ERR_CANCELLED)一律丢弃 */
+  const runSearch = useCallback(
+    (query: string, caseSensitive: boolean) => {
+      if (!tab.path) return;
+      const seq = ++searchSeqRef.current;
+      const superseded = searchIdRef.current;
+      const scanId = newLargeFileScanId();
+      searchIdRef.current = scanId;
+      if (superseded) void cancelLargeFileScan(superseded);
+      setSearching(true);
+      setSearchProgress(0);
+      void largeFileSearch(tab.path, query, caseSensitive, scanId)
+        .then((result) => {
+          if (seq !== searchSeqRef.current) return; // 过期响应丢弃
+          setSearchResult(result);
+        })
+        .catch((err) => {
+          if (seq !== searchSeqRef.current) return;
+          toast.error(err instanceof Error ? err.message : t('tools.text_editor.err_open_file'));
+        })
+        .finally(() => {
+          if (seq !== searchSeqRef.current) return;
+          searchIdRef.current = null;
+          setSearching(false);
+          setSearchProgress(null);
+        });
+    },
+    [tab.path, t],
+  );
+
+  // 卸载(关闭 Tab / 切走工具):中断在飞搜索。代次自增让迟到回调作废,
+  // 取消产生的 ERR_CANCELLED 不会弹成错误提示
+  useEffect(
+    () => () => {
+      searchSeqRef.current += 1;
+      const pending = searchIdRef.current;
+      searchIdRef.current = null;
+      if (pending) void cancelLargeFileScan(pending);
+    },
+    [],
+  );
 
   /** 订阅搜索进度事件(组件级,载荷带 path 校验归属) */
   useEffect(() => {
@@ -368,27 +414,10 @@ export function LargeFileViewer({
       e.preventDefault();
       const query = searchQuery.trim();
       if (!query || !tab.path) return;
-      const seq = ++searchSeqRef.current;
-      setSearching(true);
-      setSearchProgress(0);
       setSearchOpen(true);
-      void largeFileSearch(tab.path, query, searchCaseSensitive)
-        .then((result) => {
-          if (seq !== searchSeqRef.current) return; // 过期响应丢弃
-          setSearchResult(result);
-        })
-        .catch((err) => {
-          if (seq !== searchSeqRef.current) return;
-          toast.error(err instanceof Error ? err.message : t('tools.text_editor.err_open_file'));
-        })
-        .finally(() => {
-          if (seq === searchSeqRef.current) {
-            setSearching(false);
-            setSearchProgress(null);
-          }
-        });
+      runSearch(query, searchCaseSensitive);
     },
-    [searchQuery, searchCaseSensitive, tab.path, t],
+    [searchQuery, searchCaseSensitive, tab.path, runSearch],
   );
 
   /** 切换大小写口径后立即按新口径重跑一次(有查询时) */
@@ -397,25 +426,8 @@ export function LargeFileViewer({
     setSearchCaseSensitive(next);
     const query = searchQuery.trim();
     if (!query || !tab.path) return;
-    const seq = ++searchSeqRef.current;
-    setSearching(true);
-    setSearchProgress(0);
-    void largeFileSearch(tab.path, query, next)
-      .then((result) => {
-        if (seq !== searchSeqRef.current) return;
-        setSearchResult(result);
-      })
-      .catch((err) => {
-        if (seq !== searchSeqRef.current) return;
-        toast.error(err instanceof Error ? err.message : t('tools.text_editor.err_open_file'));
-      })
-      .finally(() => {
-        if (seq === searchSeqRef.current) {
-          setSearching(false);
-          setSearchProgress(null);
-        }
-      });
-  }, [searchQuery, searchCaseSensitive, tab.path, t]);
+    runSearch(query, next);
+  }, [searchQuery, searchCaseSensitive, tab.path, runSearch]);
 
   // —— 状态层 ——
   if (error) {

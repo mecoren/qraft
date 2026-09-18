@@ -89,7 +89,7 @@ pub fn run() -> anyhow::Result<()> {
         fs_write_file, fs_write_file_encoded,
     };
     use crate::commands::fs_large_file::{
-        fs_large_file_info, fs_large_file_search, fs_read_file_lines,
+        fs_cancel_large_file_scan, fs_large_file_info, fs_large_file_search, fs_read_file_lines,
     };
     use crate::commands::history::{history_clear, history_list};
     use crate::commands::image::{gif_encode, png_compress};
@@ -296,6 +296,7 @@ pub fn run() -> anyhow::Result<()> {
             fs_large_file_info,
             fs_read_file_lines,
             fs_large_file_search,
+            fs_cancel_large_file_scan,
             fs_reveal_in_explorer,
             png_compress,
             gif_encode,
