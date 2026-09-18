@@ -84,6 +84,20 @@ export interface DiffBlock {
   modEnd: number | null;
 }
 
+/**
+ * 差异快照(导出补丁用):某次差异计算的输入原文 + 生效选项 + 产出块。
+ * 调用方存 ref,导出时比对新鲜度——新鲜即按显示块生成补丁,过期回退
+ * jsdiff 独立计算,避免异步滞后导致「补丁与当前文本不符」。
+ */
+export interface DiffSnapshot {
+  original: string;
+  modified: string;
+  ignoreWhitespace: boolean;
+  ignoreCase: boolean;
+  ignoreEol: boolean;
+  blocks: DiffBlock[];
+}
+
 export interface ComputeLineDiffOptions {
   /** 是否计算行内词级差异(大文档可关闭以省时),默认 true */
   includeWordDiff?: boolean;
@@ -146,13 +160,20 @@ function computeWordSpans(
   return { origSpans, modSpans };
 }
 
-/** 比较前预处理:剥掉每行行尾空白(保留换行结构) */
-function stripTrailingWhitespacePerLine(text: string): string {
+/**
+ * 比较前预处理:剥掉每行行尾空白(保留换行结构)。
+ * jsdiff 兜底路的空白忽略手段;原生路走 ignoreTrimWhitespace(首尾全忽略,
+ * 与 VSCode 默认同义),兜底命中时行首缩进差异仍会显形,属已知小口径差。
+ */
+export function stripTrailingWhitespacePerLine(text: string): string {
   return text.replace(/[ \t]+(?=\r?\n|$)/g, '');
 }
 
-/** 比较前预处理:CRLF 归一为 LF(仅用于比较,不回写编辑器内容) */
-function normalizeEol(text: string): string {
+/**
+ * 比较前预处理:CRLF 归一为 LF(仅用于比较,不回写编辑器内容)。
+ * monaco-diff-service 的隐藏 DiffEditor 做同款预处理,保证原生/兜底两路口径一致。
+ */
+export function normalizeEol(text: string): string {
   return text.includes('\r\n') ? text.split('\r\n').join('\n') : text;
 }
 
@@ -337,6 +358,338 @@ export function applyDiffBlockCopy(
   if (from > to) return toText;
   const next = [...toLines.slice(0, from - 1), ...srcLines, ...toLines.slice(to)];
   return next.join(toEol);
+}
+
+/**
+ * 差异块归一化(内部):纯增/纯删块的空侧按邻块等价游程推导对齐锚点,
+ * 输出双侧半开区间(1-based:起 inclusive、止 exclusive),供补丁 hunk、
+ * 行号映射、隐藏区间三处复用。输入块须有序且不重叠(两路引擎天然保证)。
+ */
+interface AnchoredBlock {
+  /** 原始侧区间;纯新增块为空区间 [anchor, anchor)(anchor=其前原始行数) */
+  origStart: number;
+  origEnd: number;
+  /** 修改侧区间;纯删除块为空区间,语义同上 */
+  modStart: number;
+  modEnd: number;
+}
+
+function resolveBlockAnchors(blocks: readonly DiffBlock[]): AnchoredBlock[] {
+  const out: AnchoredBlock[] = [];
+  // 已消费行数(上一块的结束行,0 起):等价游程长度双侧相等是锚点推导前提
+  let consumedOrig = 0;
+  let consumedMod = 0;
+  for (const b of blocks) {
+    if (b.origStart !== null && b.modStart !== null) {
+      const origEnd = b.origEnd ?? b.origStart;
+      const modEnd = b.modEnd ?? b.modStart;
+      out.push({
+        origStart: b.origStart,
+        origEnd: origEnd + 1,
+        modStart: b.modStart,
+        modEnd: modEnd + 1,
+      });
+      consumedOrig = origEnd;
+      consumedMod = modEnd;
+    } else if (b.modStart !== null) {
+      // 纯新增:修改侧等价游程长度平移到原始侧即插入锚点
+      const modEnd = b.modEnd ?? b.modStart;
+      const anchor = consumedOrig + Math.max(0, b.modStart - 1 - consumedMod);
+      out.push({ origStart: anchor, origEnd: anchor, modStart: b.modStart, modEnd: modEnd + 1 });
+      consumedMod = modEnd;
+    } else if (b.origStart !== null) {
+      // 纯删除:对称
+      const origEnd = b.origEnd ?? b.origStart;
+      const anchor = consumedMod + Math.max(0, b.origStart - 1 - consumedOrig);
+      out.push({ origStart: b.origStart, origEnd: origEnd + 1, modStart: anchor, modEnd: anchor });
+      consumedOrig = origEnd;
+    }
+  }
+  return out;
+}
+
+/**
+ * 块级行号映射(滚动对齐用):等价区间 1:1 平移,变更块内按比例落点,
+ * 块外尾部按整体漂移。返回行号恒为 1-based,调用方仍需夹取到模型行数。
+ */
+export interface BlockLineMapper {
+  /** 原始侧行号 → 修改侧行号 */
+  origToMod(line: number): number;
+  /** 修改侧行号 → 原始侧行号 */
+  modToOrig(line: number): number;
+}
+
+export function createBlockLineMapper(blocks: readonly DiffBlock[]): BlockLineMapper {
+  const segs = resolveBlockAnchors(blocks);
+
+  const map = (line: number, from: 'orig' | 'mod'): number => {
+    // 下一段未处理的等价行(1-based);游程内双侧行数相等,差值平移即对齐
+    let sCursor = 1;
+    let tCursor = 1;
+    for (const s of segs) {
+      const ss = from === 'orig' ? s.origStart : s.modStart;
+      const se = from === 'orig' ? s.origEnd : s.modEnd;
+      const ts = from === 'orig' ? s.modStart : s.origStart;
+      const te = from === 'orig' ? s.modEnd : s.origEnd;
+      // 空区间(纯增删在本侧无行):锚点行仍归属其前等价游程,不判入块内
+      if (line < ss || (line === ss && ss === se)) return line + (tCursor - sCursor);
+      if (line < se) {
+        // 变更块内:按块内比例落到对侧区间;对侧空区间落插入锚点
+        const sLen = se - ss;
+        const tLen = te - ts;
+        if (sLen <= 0 || tLen <= 0) return ts;
+        const mapped = ts + Math.round(((line - ss) * tLen) / sLen);
+        return Math.min(Math.max(mapped, ts), te - 1);
+      }
+      sCursor = se;
+      tCursor = te;
+    }
+    // 尾部等价游程:按整体漂移(方向相关,正反各算各的差值)
+    return line + (tCursor - sCursor);
+  };
+
+  return {
+    origToMod: (line: number) => map(line, 'orig'),
+    modToOrig: (line: number) => map(line, 'mod'),
+  };
+}
+
+/** 未变更隐藏区间(1-based inclusive),两侧各自的行号 */
+/**
+ * 行对齐垫块(VSCode 式空白占位):短侧在 anchor 行后垫出高度差,
+ * 使等价行垂直同高。afterLineNumber 允许 0(文件首行前垫块)。
+ */
+export interface AlignZone {
+  afterLineNumber: number;
+  heightInLines: number;
+}
+
+export interface AlignmentZones {
+  original: AlignZone[];
+  modified: AlignZone[];
+}
+
+/**
+ * 由差异块推导两侧对齐垫块:等长块无需垫;不等长块在短侧垫出行数差;
+ * 纯增/纯删块在空侧锚点垫出整段高度。返回已按 afterLineNumber 排序,
+ * 调用方可直喂 changeViewZones。
+ */
+export function computeAlignmentZones(blocks: readonly DiffBlock[]): AlignmentZones {
+  const original: AlignZone[] = [];
+  const modified: AlignZone[] = [];
+  for (const s of resolveBlockAnchors(blocks)) {
+    const oLen = s.origEnd - s.origStart;
+    const mLen = s.modEnd - s.modStart;
+    if (oLen === mLen) continue;
+    if (oLen > mLen) {
+      // 修改侧短:垫在块末行后;空区间(纯删除)锚点即 afterLineNumber(可为 0)
+      modified.push({
+        afterLineNumber: s.modEnd > s.modStart ? s.modEnd - 1 : s.modStart,
+        heightInLines: oLen - mLen,
+      });
+    } else {
+      original.push({
+        afterLineNumber: s.origEnd > s.origStart ? s.origEnd - 1 : s.origStart,
+        heightInLines: mLen - oLen,
+      });
+    }
+  }
+  return { original, modified };
+}
+
+export interface HiddenLineRange {
+  start: number;
+  end: number;
+}
+
+export interface HiddenRanges {
+  original: HiddenLineRange[];
+  modified: HiddenLineRange[];
+}
+
+/** 「只看差异」在等价游程两端各保留的上下文行数(与行内折叠 3 行对齐) */
+export const HIDE_UNCHANGED_CONTEXT = 3;
+
+/**
+ * 由差异块推导两侧可隐藏的等价行区间:等价游程掐头去尾各留 context 行,
+ * 短游程(≤2×context)全留。返回区间已按起止排序,调用方可直转
+ * setHiddenAreas(列取整行)。
+ */
+export function computeHiddenRanges(
+  blocks: readonly DiffBlock[],
+  origLineCount: number,
+  modLineCount: number,
+  context: number = HIDE_UNCHANGED_CONTEXT,
+): HiddenRanges {
+  const segs = resolveBlockAnchors(blocks);
+  const original: HiddenLineRange[] = [];
+  const modified: HiddenLineRange[] = [];
+  // 下一段未处理的等价行(1-based);半开块的止即下一游程的起
+  let oNext = 1;
+  let mNext = 1;
+  /** 单侧等价游程掐头去尾(短游程全留) */
+  const hideSide = (list: HiddenLineRange[], start: number, end: number): void => {
+    const hideStart = start + context;
+    const hideEnd = end - context;
+    if (hideStart <= hideEnd) list.push({ start: hideStart, end: hideEnd });
+  };
+  for (const s of segs) {
+    // 空侧(纯增/纯删的对侧)不切分游程:锚点无可见行,其两侧等价行合并算上下文
+    if (s.origEnd > s.origStart) {
+      hideSide(original, oNext, s.origStart - 1);
+      oNext = s.origEnd;
+    }
+    if (s.modEnd > s.modStart) {
+      hideSide(modified, mNext, s.modStart - 1);
+      mNext = s.modEnd;
+    }
+  }
+  // 尾部等价游程(块后剩余行)
+  hideSide(original, oNext, origLineCount);
+  hideSide(modified, mNext, modLineCount);
+  return { original, modified };
+}
+
+export interface BuildPatchFromBlocksOptions {
+  originalName?: string;
+  modifiedName?: string;
+  /** 每个 hunk 两侧保留的上下文行数,缺省 3(git 默认) */
+  context?: number;
+}
+
+interface PatchBodyLine {
+  prefix: ' ' | '-' | '+' | '\\';
+  text: string;
+  /** 该行归属:上下文行双侧共有,增删行各归一侧(末尾换行标记定位用) */
+  side: 'orig' | 'mod' | 'both' | 'marker';
+}
+
+/**
+ * 按当前差异块生成统一格式补丁(与界面高亮同源)。
+ *
+ * 与 buildUnifiedPatch(jsdiff 独立计算)的区别:块边界、增删归属与界面
+ * 完全一致,避免两路算法在疑难输入上分组分叉导致「补丁与所见不符」。
+ * 行内容取传入原文(块只提供行号,ignore 预处理不改行数故行号通用)。
+ *
+ * 格式细节(git 对齐):
+ * - hunk 头 `@@ -a,b +c,d @@`,上下文缺省 3 行,相邻 hunk 合并;
+ * - 文件末尾缺换行时追加 `\ No newline at end of file` 标记;
+ * - 输出换行统一 LF;无差异时只有 `---`/`+++` 文件头。
+ */
+export function buildUnifiedPatchFromBlocks(
+  original: string,
+  modified: string,
+  blocks: readonly DiffBlock[],
+  options: BuildPatchFromBlocksOptions = {},
+): string {
+  const { originalName = 'original', modifiedName = 'modified', context = 3 } = options;
+  const ctx = Math.max(0, context);
+  const origLines = splitChunkLines(original);
+  const modLines = splitChunkLines(modified);
+  const out: string[] = [`--- ${originalName}`, `+++ ${modifiedName}`];
+  if (blocks.length === 0) return `${out.join('\n')}\n`;
+
+  // 0-based 半开区间:起 = 行号-1,止 = 归一止-1
+  interface Hunk {
+    oStart: number;
+    oEnd: number;
+    mStart: number;
+    mEnd: number;
+  }
+  const hunks: Hunk[] = [];
+  for (const s of resolveBlockAnchors(blocks)) {
+    const h: Hunk = {
+      oStart: Math.max(0, s.origStart - 1 - ctx),
+      oEnd: Math.min(origLines.length, s.origEnd - 1 + ctx),
+      mStart: Math.max(0, s.modStart - 1 - ctx),
+      mEnd: Math.min(modLines.length, s.modEnd - 1 + ctx),
+    };
+    const prev = hunks[hunks.length - 1];
+    if (prev && h.oStart <= prev.oEnd && h.mStart <= prev.mEnd) {
+      // 重叠/相接即合并,避免无意义的连续 hunk 头
+      prev.oEnd = Math.max(prev.oEnd, h.oEnd);
+      prev.mEnd = Math.max(prev.mEnd, h.mEnd);
+    } else {
+      hunks.push(h);
+    }
+  }
+
+  // hunk 内覆盖的变更段(归一区间与 hunk 求交,顺序即块序)
+  const segs = resolveBlockAnchors(blocks);
+  for (const h of hunks) {
+    const oCount = h.oEnd - h.oStart;
+    const mCount = h.mEnd - h.mStart;
+    out.push(`@@ -${h.oStart + 1},${oCount} +${h.mStart + 1},${mCount} @@`);
+    const body: PatchBodyLine[] = [];
+    let oCursor = h.oStart;
+    let mCursor = h.mStart;
+    for (const s of segs) {
+      const sOs = s.origStart - 1;
+      const sOe = s.origEnd - 1;
+      const sMs = s.modStart - 1;
+      const sMe = s.modEnd - 1;
+      if (sOe <= h.oStart && sMe <= h.mStart) continue;
+      if (sOs >= h.oEnd && sMs >= h.mEnd) break;
+      // 段前上下文(等价行,双侧同文本,取原始侧)
+      while (oCursor < Math.min(sOs, h.oEnd) && mCursor < Math.min(sMs, h.mEnd)) {
+        body.push({ prefix: ' ', text: origLines[oCursor] ?? '', side: 'both' });
+        oCursor += 1;
+        mCursor += 1;
+      }
+      // 段内:先全部删除行,再全部新增行(git 同款分组)
+      while (oCursor < Math.min(sOe, h.oEnd)) {
+        body.push({ prefix: '-', text: origLines[oCursor] ?? '', side: 'orig' });
+        oCursor += 1;
+      }
+      while (mCursor < Math.min(sMe, h.mEnd)) {
+        body.push({ prefix: '+', text: modLines[mCursor] ?? '', side: 'mod' });
+        mCursor += 1;
+      }
+    }
+    // 段后尾部上下文(双侧等长;单侧兜底防非常规块丢行)
+    while (oCursor < h.oEnd && mCursor < h.mEnd) {
+      body.push({ prefix: ' ', text: origLines[oCursor] ?? '', side: 'both' });
+      oCursor += 1;
+      mCursor += 1;
+    }
+    while (oCursor < h.oEnd) {
+      body.push({ prefix: ' ', text: origLines[oCursor] ?? '', side: 'orig' });
+      oCursor += 1;
+    }
+    while (mCursor < h.mEnd) {
+      body.push({ prefix: ' ', text: modLines[mCursor] ?? '', side: 'mod' });
+      mCursor += 1;
+    }
+    // 末尾换行标记:hunk 覆盖到文件末行且原文缺换行时追加
+    const origNoNl = original !== '' && !original.endsWith('\n');
+    const modNoNl = modified !== '' && !modified.endsWith('\n');
+    if (origNoNl && h.oEnd === origLines.length && oCount > 0) {
+      for (let i = body.length - 1; i >= 0; i--) {
+        if (body[i].side === 'orig' || body[i].side === 'both') {
+          body.splice(i + 1, 0, {
+            prefix: '\\',
+            text: ' No newline at end of file',
+            side: 'marker',
+          });
+          break;
+        }
+      }
+    }
+    if (modNoNl && h.mEnd === modLines.length && mCount > 0) {
+      for (let i = body.length - 1; i >= 0; i--) {
+        if (body[i].side === 'mod' || body[i].side === 'both') {
+          body.splice(i + 1, 0, {
+            prefix: '\\',
+            text: ' No newline at end of file',
+            side: 'marker',
+          });
+          break;
+        }
+      }
+    }
+    for (const l of body) out.push(`${l.prefix}${l.text}`);
+  }
+  return `${out.join('\n')}\n`;
 }
 
 /**

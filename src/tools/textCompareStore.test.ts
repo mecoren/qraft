@@ -7,7 +7,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
 
-import { DOCS_CONFIG_KEY, MAX_PERSIST_SIDE_CHARS, useTextCompareStore } from './textCompareStore';
+import {
+  DEFAULT_COMPARE_OPTIONS,
+  DOCS_CONFIG_KEY,
+  MAX_PERSIST_SIDE_CHARS,
+  normalizeOptions,
+  OPTIONS_CONFIG_KEY,
+  useTextCompareStore,
+} from './textCompareStore';
 
 const invokeMock = invoke as unknown as ReturnType<typeof vi.fn>;
 
@@ -24,6 +31,7 @@ function resetStore(): void {
       },
     ],
     activeDocId: 'default',
+    options: { ...DEFAULT_COMPARE_OPTIONS },
     ready: false,
     userTouched: false,
     error: null,
@@ -94,6 +102,78 @@ describe('swapDocSides', () => {
     // 标题/pinned 等其余字段不动
     expect(doc.title).toBe('t');
     expect(doc.pinned).toBe(false);
+  });
+});
+
+describe('normalizeOptions', () => {
+  it('缺字段/类型错误逐项回退默认,未知字段忽略', () => {
+    expect(normalizeOptions(null)).toEqual(DEFAULT_COMPARE_OPTIONS);
+    expect(normalizeOptions({})).toEqual(DEFAULT_COMPARE_OPTIONS);
+    expect(normalizeOptions({ ignoreWhitespace: false })).toEqual({
+      ...DEFAULT_COMPARE_OPTIONS,
+      ignoreWhitespace: false,
+    });
+    expect(
+      normalizeOptions({ ignoreWhitespace: 'yes', ignoreCase: 1, ignoreEol: true, extra: 1 }),
+    ).toEqual({ ...DEFAULT_COMPARE_OPTIONS, ignoreEol: true });
+  });
+});
+
+describe('setOptions / persistOptions', () => {
+  it('部分更新并置位 userTouched,其余项不动', () => {
+    useTextCompareStore.getState().setOptions({ ignoreCase: true });
+    const { options, userTouched } = useTextCompareStore.getState();
+    expect(options).toEqual({ ...DEFAULT_COMPARE_OPTIONS, ignoreCase: true });
+    expect(userTouched).toBe(true);
+  });
+
+  it('ready 前不落盘,避免默认值覆盖已存偏好', async () => {
+    useTextCompareStore.getState().setOptions({ ignoreEol: true });
+    await useTextCompareStore.getState().persistOptions();
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it('落盘载荷为独立 key,内容与内存态一致', async () => {
+    useTextCompareStore.setState({ ready: true });
+    useTextCompareStore.getState().setOptions({ ignoreWhitespace: false, ignoreEol: true });
+    invokeMock.mockResolvedValue({ success: true, data: true });
+    await useTextCompareStore.getState().persistOptions();
+    const calls = invokeMock.mock.calls as unknown[][];
+    const payload = calls[calls.length - 1]![1] as {
+      key: string;
+      value: Record<string, unknown>;
+    };
+    expect(payload.key).toBe(OPTIONS_CONFIG_KEY);
+    expect(payload.value).toEqual({
+      ignoreWhitespace: false,
+      ignoreCase: false,
+      ignoreEol: true,
+    });
+  });
+
+  it('hydrate 同时还原选项;损坏数据回退默认', async () => {
+    invokeMock.mockImplementation((_cmd: string, args: { key: string }) => {
+      if (args.key === OPTIONS_CONFIG_KEY) {
+        return Promise.resolve({ success: true, data: { ignoreCase: true, bogus: 1 } });
+      }
+      return Promise.resolve({ success: true, data: { docs: [], activeDocId: null } });
+    });
+    await useTextCompareStore.getState().hydrate();
+    const { options, ready } = useTextCompareStore.getState();
+    expect(ready).toBe(true);
+    expect(options).toEqual({ ...DEFAULT_COMPARE_OPTIONS, ignoreCase: true });
+  });
+
+  it('hydrate 前用户已操作时保留用户选项,不覆盖', async () => {
+    invokeMock.mockImplementation((_cmd: string, args: { key: string }) => {
+      if (args.key === OPTIONS_CONFIG_KEY) {
+        return Promise.resolve({ success: true, data: { ignoreWhitespace: true } });
+      }
+      return Promise.resolve({ success: true, data: { docs: [], activeDocId: null } });
+    });
+    useTextCompareStore.getState().setOptions({ ignoreWhitespace: false });
+    await useTextCompareStore.getState().hydrate();
+    expect(useTextCompareStore.getState().options.ignoreWhitespace).toBe(false);
   });
 });
 

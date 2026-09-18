@@ -5,6 +5,8 @@
  * - 并排布局:双 CodeEditor + ResizablePanelGroup 可拖分隔条;
  * - 差异渲染四件套:行级红/绿背景、行内词级高亮、gutter 色条 + 行号加粗、
  *   右缘概览标尺刻度(差异计算见 ./diff-utils);
+ * - 行对齐:短侧按行数差垫 view zone(斜线占位),等价行垂直同高(VSCode 式),
+ *   只看差异开启时不对齐;
  * - 工具栏:差异统计徽标 / 相似度 / 降级提示 / 差异导航(上一处/下一处+
  *   位置计数,并排 F7/Shift+F7 快捷键)/ 行内开关 / 滚动同步开关,
  *   内联在「修改侧标题旁」(VSCode 风格);
@@ -29,6 +31,7 @@ import { createPortal } from 'react-dom';
 import {
   ChevronDown,
   ChevronUp,
+  EyeOff,
   FoldVertical,
   Link2,
   Link2Off,
@@ -42,6 +45,7 @@ import {
   type Monaco,
 } from '@monaco-editor/react';
 import { editor } from 'monaco-editor';
+import type { IRange } from 'monaco-editor';
 import { useTranslation } from 'react-i18next';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { CodeEditor, type EditorLanguage } from '@/components/ui/code-editor';
@@ -54,15 +58,24 @@ import { DEFAULT_SHORTCUTS } from '@/types/config';
 import { cn } from '@/lib/utils';
 import {
   buildDiffDecorations,
+  computeAlignmentZones,
+  computeHiddenRanges,
+  createBlockLineMapper,
   WORD_DIFF_MAX_CHARS,
+  type AlignZone,
   type DiffBlock,
   type DiffRulerColors,
+  type DiffSnapshot,
+  type HiddenLineRange,
   type LineDiffResult,
 } from './diff-utils';
 import { createDiffService, type DiffService } from './diff-service';
 
 // Monaco loader 路径配置(import 即执行,保证任何编辑器挂载前就绪;详见模块内注释)
 import '@/lib/monaco-loader-config';
+
+/** 行对齐垫块上限(两侧 zone 总数):病态大文件上万块时跳过对齐,防抖动 */
+const ALIGN_ZONES_MAX = 1000;
 
 /** 空差异结果(初始态:双侧内容尚未计算) */
 const EMPTY_DIFF_RESULT: LineDiffResult = {
@@ -115,6 +128,12 @@ export interface TextDiffViewProps {
    * 不显示。side 为动作发起侧,block 标识块的两侧行号区间。
    */
   onCopyBlock?: (side: 'original' | 'modified', block: DiffBlock) => void;
+  /**
+   * 差异快照回调(导出补丁用):每次差异结果就绪时上报本次计算的输入、
+   * 选项与块(见 DiffSnapshot)。调用方存 ref,导出时比对新鲜度——新鲜
+   * 即按显示块生成补丁,过期回退 jsdiff 独立计算。
+   */
+  onDiffSnapshot?: (snapshot: DiffSnapshot) => void;
   /** 左(原始)侧文件级外观 */
   leftChrome?: TextDiffSideChrome;
   /** 右(修改)侧文件级外观 */
@@ -224,6 +243,32 @@ function GutterCopyOverlay({
   );
 }
 
+/**
+ * 未变更隐藏的底层调用:monaco 0.56 公开类型未导出 setHiddenAreas,但实现
+ * 常驻(codeEditorWidget.js:480,行内 DiffEditor 的 hideUnchangedRegions
+ * 走同一入口),此处经结构化调用,不做 ESM 深路径 import(双实例禁区)。
+ */
+function setEditorHiddenAreas(
+  ed: MonacoEditor,
+  ranges: readonly {
+    startLineNumber: number;
+    endLineNumber: number;
+    endColumn: number;
+  }[],
+): void {
+  const withHidden = ed as MonacoEditor & {
+    setHiddenAreas(ranges: IRange[]): void;
+  };
+  withHidden.setHiddenAreas(
+    ranges.map((r) => ({
+      startLineNumber: r.startLineNumber,
+      startColumn: 1,
+      endLineNumber: r.endLineNumber,
+      endColumn: r.endColumn,
+    })),
+  );
+}
+
 /** 找行号所属的块(无则 null);块区间为本侧有差异行的连续段 */
 function blockAtLine(
   blocks: readonly DiffBlock[],
@@ -249,10 +294,13 @@ export function TextDiffView({
   modifiedLanguage = 'plaintext',
   folding = false,
   defaultInline = false,
-  ignoreWhitespace = false,
+  // 默认忽略空白差异(VSCode DiffEditor 默认 ignoreTrimWhitespace:true 同义;
+  // 关掉开关即严格比对,缩进/行尾空格也会标红)
+  ignoreWhitespace = true,
   ignoreCase = false,
   ignoreEol = false,
   onCopyBlock,
+  onDiffSnapshot,
   leftChrome,
   rightChrome,
   toolbarActions,
@@ -282,8 +330,9 @@ export function TextDiffView({
     deferredOriginal.length <= WORD_DIFF_MAX_CHARS &&
     deferredModified.length <= WORD_DIFF_MAX_CHARS;
 
-  // 差异结果异步到达:小输入同步快路径(微任务即达,体感同步),大输入在
-  // worker 内计算不阻塞主线程;计算期间保留上一次结果,统计与高亮不清空
+  // 差异结果异步到达:优先隐藏 DiffEditor 原生计算(与行内同源),不可用时
+  // 回退 jsdiff(小输入同步微任务即达,大输入走 worker 不阻塞主线程);
+  // 计算期间保留上一次结果,统计与高亮不清空
   const [diffResult, setDiffResult] = useState<LineDiffResult>(EMPTY_DIFF_RESULT);
   useEffect(() => {
     const service = serviceRef.current;
@@ -395,56 +444,160 @@ export function TextDiffView({
     }
   }, [inlineMode]);
 
-  // —— 左右竖向滚动镜像同步(可开关;等值判断自收敛,防事件回环)——
+  // —— 左右滚动按差异对齐同步(可开关;等值判断自收敛,防事件回环)——
+  // 不再镜像 scrollTop:增删不等长时同 scrollTop 指向毫不相干的内容。
+  // 以发起侧首个可见行经块映射落到对侧同义行,再补行内偏移;
+  // getTopForLineNumber 归一了换行/折叠/隐藏行的高度差。
+  const blockMapper = useMemo(() => createBlockLineMapper(diffResult.blocks), [diffResult]);
   const [syncScroll, setSyncScroll] = useState(true);
   const syncingRef = useRef(false);
   useEffect(() => {
     if (!origEditor || !modEditor) return;
-    const mirror = (from: MonacoEditor, to: MonacoEditor) => {
+    const syncFrom = (from: MonacoEditor, to: MonacoEditor, mapLine: (line: number) => number) => {
       if (!syncScroll || syncingRef.current) return;
+      const toModel = to.getModel();
+      if (!from.getModel() || !toModel) return;
       const top = from.getScrollTop();
-      if (to.getScrollTop() !== top) {
+      const visible = from.getVisibleRanges();
+      const firstLine = visible[0]?.startLineNumber ?? 1;
+      const mapped = Math.min(Math.max(1, mapLine(firstLine)), toModel.getLineCount());
+      const target = to.getTopForLineNumber(mapped) + (top - from.getTopForLineNumber(firstLine));
+      if (to.getScrollTop() !== target) {
         syncingRef.current = true;
-        to.setScrollTop(top);
+        to.setScrollTop(target);
         syncingRef.current = false;
       }
     };
-    const d1 = origEditor.onDidScrollChange(() => mirror(origEditor, modEditor));
-    const d2 = modEditor.onDidScrollChange(() => mirror(modEditor, origEditor));
+    const d1 = origEditor.onDidScrollChange(() =>
+      syncFrom(origEditor, modEditor, (line) => blockMapper.origToMod(line)),
+    );
+    const d2 = modEditor.onDidScrollChange(() =>
+      syncFrom(modEditor, origEditor, (line) => blockMapper.modToOrig(line)),
+    );
     return () => {
       d1.dispose();
       d2.dispose();
     };
-  }, [origEditor, modEditor, syncScroll]);
+  }, [origEditor, modEditor, syncScroll, blockMapper]);
+
+  // —— 只看差异(可开关;仅并排模式)——
+  // 等价行游程掐头去尾隐藏(上下文行保留),大文件少量差异一目了然;
+  // 藏的是整模型行,不碰装饰与行号,差异行永不隐藏,导航/复制块/
+  // 滚动映射照常工作(getTopForLineNumber 已归一高度)。
+  const [hideUnchanged, setHideUnchanged] = useState(false);
+  useEffect(() => {
+    if (!origEditor || !modEditor || inlineMode) return;
+    const applySide = (ed: MonacoEditor, ranges: readonly HiddenLineRange[]) => {
+      const model = ed.getModel();
+      if (!model) return;
+      const lineCount = model.getLineCount();
+      setEditorHiddenAreas(
+        ed,
+        ranges.flatMap((r) => {
+          const start = Math.max(1, r.start);
+          const end = Math.min(r.end, lineCount);
+          return start <= end
+            ? [
+                {
+                  startLineNumber: start,
+                  endLineNumber: end,
+                  endColumn: model.getLineMaxColumn(end),
+                },
+              ]
+            : [];
+        }),
+      );
+    };
+    if (!hideUnchanged) {
+      applySide(origEditor, []);
+      applySide(modEditor, []);
+      return;
+    }
+    const hidden = computeHiddenRanges(
+      diffResult.blocks,
+      origEditor.getModel()?.getLineCount() ?? 0,
+      modEditor.getModel()?.getLineCount() ?? 0,
+    );
+    applySide(origEditor, hidden.original);
+    applySide(modEditor, hidden.modified);
+  }, [hideUnchanged, diffResult, origEditor, modEditor, inlineMode]);
+
+  // —— 两侧行对齐(VSCode 式空白占位 + 斜线,仅并排全量模式)——
+  // 短侧按行数差垫 view zone,使等价行垂直同高,不再靠滚动映射"追"对齐;
+  // 只看差异(隐藏行)开启时高度语义变化,此时不对齐(折叠视图本就压缩);
+  // 超长 zone 列表(病态大文件上万块)跳过对齐,回退无垫层旧观感,防抖动。
+  // 注意:wordWrap 换行会让"行"高度不一,两侧换行位置不同时仍有像素级
+  // 漂移(VSCode 同款局限),行号级对齐不受影响。
+  useEffect(() => {
+    if (!origEditor || !modEditor || inlineMode || hideUnchanged) return;
+    const zones = computeAlignmentZones(diffResult.blocks);
+    const total = zones.original.length + zones.modified.length;
+    if (total === 0 || total > ALIGN_ZONES_MAX) return;
+    const applySide = (ed: MonacoEditor, list: readonly AlignZone[]): string[] => {
+      let ids: string[] = [];
+      ed.changeViewZones((accessor) => {
+        ids = list.map((z) => {
+          const domNode = document.createElement('div');
+          domNode.className = 'text-compare-align-zone';
+          return accessor.addZone({
+            afterLineNumber: z.afterLineNumber,
+            heightInLines: z.heightInLines,
+            domNode,
+            // 占位区不抢光标:点击不移动光标
+            suppressMouseDown: true,
+          });
+        });
+      });
+      return ids;
+    };
+    const origIds = applySide(origEditor, zones.original);
+    const modIds = applySide(modEditor, zones.modified);
+    return () => {
+      try {
+        origEditor.changeViewZones((accessor) => {
+          for (const id of origIds) accessor.removeZone(id);
+        });
+        modEditor.changeViewZones((accessor) => {
+          for (const id of modIds) accessor.removeZone(id);
+        });
+      } catch {
+        // 卸载期编辑器已销毁,zone 随之释放,无需清理
+      }
+    };
+  }, [diffResult, origEditor, modEditor, inlineMode, hideUnchanged]);
 
   // —— 差异导航(仅并排模式;行内 DiffEditor 无装饰行号,导航不可用)——
-  // 差异行序列取两侧行号的并集(排序去重):一段差异往往双侧行号相邻,
-  // 以并集为粒度计数,导航在两侧间自然衔接,计数与概览标尺观感一致。
-  const diffLinesList = useMemo(() => {
-    if (inlineMode) return [];
-    const seen = new Set<number>();
-    for (const d of diffResult.originalDecos) seen.add(d.line);
-    for (const d of diffResult.modifiedDecos) seen.add(d.line);
-    return [...seen].sort((a, b) => a - b);
-  }, [diffResult, inlineMode]);
-  const diffCount = diffLinesList.length;
+  // 按差异块跳转(VSCode 语义):50 行大块只占一站,不再逐行卡住;块内两侧
+  // 起始行各自定位,纯增/纯删块的对侧落到对齐锚点(夹取到模型行数内)。
+  const navBlocks = useMemo(() => (inlineMode ? [] : diffResult.blocks), [diffResult, inlineMode]);
+  const diffCount = navBlocks.length;
 
   const [navIndexRaw, setNavIndexRaw] = useState(0);
   // 差异集变化(内容编辑/切换)时当前导航位置可能越界:渲染期直接夹取,
   // 不用 effect(setState-in-effect 会级联渲染),越界值也无需回写状态
   const navIndex = Math.min(navIndexRaw, Math.max(0, diffCount - 1));
 
+  /** 目标行夹取到模型行数内(纯增删块的对侧锚点可能越界一行) */
+  const revealClamped = useCallback(
+    (ed: MonacoEditor | null, line: number | null, fallback: number | null) => {
+      if (!ed) return;
+      const count = Math.max(1, ed.getModel()?.getLineCount() ?? 1);
+      ed.revealLineInCenter(Math.min(Math.max(1, line ?? fallback ?? 1), count));
+    },
+    [],
+  );
+
   const revealDiffAt = useCallback(
     (index: number) => {
-      if (diffLinesList.length === 0) return;
-      const clamped =
-        ((index % diffLinesList.length) + diffLinesList.length) % diffLinesList.length;
+      if (navBlocks.length === 0) return;
+      const clamped = ((index % navBlocks.length) + navBlocks.length) % navBlocks.length;
       setNavIndexRaw(clamped);
-      const line = diffLinesList[clamped];
-      origEditor?.revealLineInCenter(line);
-      modEditor?.revealLineInCenter(line);
+      const block = navBlocks[clamped];
+      if (!block) return;
+      revealClamped(origEditor, block.origStart, block.modStart);
+      revealClamped(modEditor, block.modStart, block.origStart);
     },
-    [diffLinesList, origEditor, modEditor],
+    [navBlocks, origEditor, modEditor, revealClamped],
   );
   const goToPrevDiff = useCallback(() => revealDiffAt(navIndex - 1), [revealDiffAt, navIndex]);
   const goToNextDiff = useCallback(() => revealDiffAt(navIndex + 1), [revealDiffAt, navIndex]);
@@ -498,6 +651,23 @@ export function TextDiffView({
   const handleCopyBlockClick = useCallback((side: 'original' | 'modified', block: DiffBlock) => {
     onCopyBlockRef.current?.(side, block);
   }, []);
+
+  // 差异快照上报(导出补丁的新鲜度依据):与 onCopyBlockRef 同模式经 ref
+  // 取最新回调;快照内容随每次计算结果更新,调用方只存 ref 不 setState
+  const onDiffSnapshotRef = useRef(onDiffSnapshot);
+  useEffect(() => {
+    onDiffSnapshotRef.current = onDiffSnapshot;
+  });
+  useEffect(() => {
+    onDiffSnapshotRef.current?.({
+      original: deferredOriginal,
+      modified: deferredModified,
+      ignoreWhitespace,
+      ignoreCase,
+      ignoreEol,
+      blocks: diffResult.blocks,
+    });
+  }, [deferredOriginal, deferredModified, diffResult, ignoreWhitespace, ignoreCase, ignoreEol]);
   // 行内模式写回经 ref 取最新回调:监听只在挂载时注册一次,直接闭包会
   // 滞留首次渲染的回调(多 Tab/多对比切换时写错目标);受控 prop 同步更新
   // 模型时监听同样触发,getValue 与受控值相等,写回为幂等 no-op,不会成环
@@ -730,6 +900,28 @@ export function TextDiffView({
     </button>
   );
 
+  /** 只看差异开关(并排专属;行内由原生折叠开关覆盖,此处不渲染) */
+  const hideUnchangedButton = !inlineMode ? (
+    <button
+      type="button"
+      data-testid={`${testIdPrefix}-hide-unchanged`}
+      aria-pressed={hideUnchanged}
+      title={
+        hideUnchanged
+          ? t('tools.text_compare.hide_unchanged_off')
+          : t('tools.text_compare.hide_unchanged_on')
+      }
+      aria-label={t('tools.text_compare.hide_unchanged_aria')}
+      onClick={() => setHideUnchanged((v) => !v)}
+      className={cn(
+        'flex items-center gap-1 rounded px-1.5 py-1 text-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        hideUnchanged ? 'text-primary' : 'text-muted-foreground',
+      )}
+    >
+      <EyeOff aria-hidden className="size-3.5" />
+    </button>
+  ) : null;
+
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col', className)}>
       {inlineMode ? (
@@ -828,6 +1020,7 @@ export function TextDiffView({
                   {diffNav}
                   {inlineToggle}
                   {syncScrollButton}
+                  {hideUnchangedButton}
                   {toolbarActions}
                 </span>
               }

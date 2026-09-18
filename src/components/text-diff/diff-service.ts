@@ -1,19 +1,24 @@
 /**
- * 差异计算服务 —— 小输入同步快路径 + 大输入 Web Worker 异步路径
+ * 差异计算服务 —— Monaco 原生优先 + jsdiff 同步/Worker 兜底
  *
- * 背景(见 prd/text-diff-perf-worker/): jsdiff 行级 diff 是 O(ND),30k 行/
- * 1000 处修改实测单次 ~630ms,在主线程执行必然阻塞输入;worker 化是根因级解法。
+ * 背景:并排差异之前全走 jsdiff,同 hunk 内无关增删会被硬配成「修改行」,
+ * 词级还是整词粒度。现优先隐藏 DiffEditor(advanced 算法,字符级
+ * innerChanges),分组与词级精度与行内原生 DiffEditor 同源;Monaco 不可用
+ * (jsdom/SSR/加载失败/单次超时)时回退原快慢路径,功能不缺失。
  *
  * 路由策略:
- * - 双侧输入均 <= DIFF_SYNC_MAX_CHARS 时同步计算(小文档 < 数 ms,异步往返
- *   反而增加延迟,且 jsdom 测试环境无 Worker,同步路径保证既有测试稳定);
- * - 大输入走 module worker(diff.worker.ts),Worker 惰性创建、单例复用;
- * - Worker 构造失败(资源加载失败等)时永久降级为同步计算,功能不缺失;
+ * - 先试 Monaco 原生(monaco-diff-service,隐藏实例串行计算);
+ * - 失败即回退 jsdiff:双侧输入均 <= DIFF_SYNC_MAX_CHARS 时同步计算
+ *   (小文档 < 数 ms,且 jsdom 测试环境无 Monaco/Worker,同步路径保证
+ *   既有测试稳定);大输入走 module worker(diff.worker.ts),Worker 惰性
+ *   创建、单例复用;
+ * - Worker 构造失败(资源加载失败等)时永久降级为同步计算;
  * - 响应按请求 id 路由,支持乱序;调用方(视图层)自行只采纳最新请求结果。
  */
 import { computeLineDiff, type ComputeLineDiffOptions } from './diff-utils';
 import type { LineDiffResult } from './diff-utils';
 import type { DiffWorkerRequest, DiffWorkerResponse } from './diff.worker';
+import { createMonacoDiffService, isMonacoDiffUsable } from './monaco-diff-service';
 
 /** 小输入同步阈值(单侧字符数):低于该值同步计算更快、无感知延迟 */
 export const DIFF_SYNC_MAX_CHARS = 30_000;
@@ -45,7 +50,11 @@ export interface DiffService {
   dispose(): void;
 }
 
-export function createDiffService(): DiffService {
+/**
+ * jsdiff 快慢路径服务(混合调度的兜底分支):小输入同步,大输入 Worker。
+ * 单测可直接构造本分支验证路由语义,不依赖 Monaco 是否可用。
+ */
+export function createJsDiffService(): DiffService {
   let worker: Worker | null = null;
   /** Worker 构造/运行失败后置 true,永久走同步降级,避免反复失败 */
   let workerDisabled = false;
@@ -108,6 +117,37 @@ export function createDiffService(): DiffService {
     worker?.terminate();
     worker = null;
     pendingMap.clear();
+  };
+
+  return { compute, dispose };
+}
+
+/**
+ * 混合差异服务(默认入口):Monaco 原生优先,失败回退 jsdiff 快慢路径。
+ * dispose 后不再重建 Monaco(自动走 jsdiff,与 Worker 永久降级同模式);
+ * TextDiffView 只在卸载时 dispose,无重建需求。
+ */
+export function createDiffService(): DiffService {
+  const monacoService = createMonacoDiffService();
+  const jsdiffService = createJsDiffService();
+
+  const compute = (
+    original: string,
+    modified: string,
+    diffOptions: ComputeLineDiffOptions,
+  ): Promise<LineDiffResult> => {
+    // Monaco 明确不可用(jsdom/SSR)时同步直走 jsdiff:保持原快慢路径的
+    // 同步时序语义(首个大请求同步建 Worker),单测与旧行为零漂移
+    if (!isMonacoDiffUsable()) return jsdiffService.compute(original, modified, diffOptions);
+    return monacoService.compute(original, modified, diffOptions).catch(() => {
+      // Monaco 加载失败/单次超时:回退 jsdiff,差异功能不缺失(精度回到旧口径)
+      return jsdiffService.compute(original, modified, diffOptions);
+    });
+  };
+
+  const dispose = (): void => {
+    monacoService.dispose();
+    jsdiffService.dispose();
   };
 
   return { compute, dispose };

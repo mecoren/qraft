@@ -22,9 +22,15 @@ vi.mock('@/lib/ipc', () => {
   };
 });
 
+// 补丁下载内容断言(downloadText mock 捕获参数;其余导出原样透传)
+vi.mock('@/lib/file-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/file-utils')>();
+  return { ...actual, downloadText: vi.fn() };
+});
+
 // 导入必须在 mock 声明之后,确保组件拿到的是 mocked 模块
 import { TextCompare } from './TextCompare';
-import { useTextCompareStore } from './textCompareStore';
+import { DEFAULT_COMPARE_OPTIONS, useTextCompareStore } from './textCompareStore';
 import { requestHandoff, useHandoffStore } from '@/store/handoffStore';
 import { useToolStateStore } from '@/store/toolStateStore';
 import { applyDiffBlockCopy, computeLineDiff } from '@/components/text-diff/diff-utils';
@@ -46,6 +52,7 @@ describe('TextCompare', () => {
         },
       ],
       activeDocId: 'default',
+      options: { ...DEFAULT_COMPARE_OPTIONS },
       ready: false,
       userTouched: false,
       error: null,
@@ -179,18 +186,32 @@ describe('TextCompare', () => {
     expect(header).toContainElement(screen.getByTestId('diff-sync-scroll'));
   });
 
-  it('忽略行尾空白开关:仅空白差异时统计归零', async () => {
+  it('空白忽略默认开启(VSCode 同义):仅空白差异时直接无差异,关闭后显形', async () => {
     render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    // 开关默认按下
+    expect(screen.getByTestId('diff-ignore-ws')).toHaveAttribute('aria-pressed', 'true');
     fireEvent.change(getOriginalEditor(), { target: { value: 'a   \nb' } });
     fireEvent.change(getModifiedEditor(), { target: { value: 'a\nb' } });
     await waitFor(() => {
-      expect(screen.getByTestId('diff-stats')).toHaveTextContent('~1');
-    });
-    // 打开忽略行尾空白 → 该差异被忽略
-    fireEvent.click(screen.getByTestId('diff-ignore-ws'));
-    await waitFor(() => {
       expect(screen.getByTestId('diff-stats')).toHaveTextContent('无差异');
     });
+    // 关闭忽略 → 空白差异显形为修改
+    fireEvent.click(screen.getByTestId('diff-ignore-ws'));
+    await waitFor(() => {
+      expect(screen.getByTestId('diff-stats')).toHaveTextContent('~1');
+    });
+  });
+
+  it('重启还原已持久化的比较选项(按钮按下态跟随 store)', () => {
+    // hydrate 把 Rust config 的选项写进 store(此处直接置 store 模拟还原后);
+    // 开关只读 store,无本地 state,天然跟随
+    useTextCompareStore.setState({
+      options: { ignoreWhitespace: false, ignoreCase: true, ignoreEol: false },
+    });
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    expect(screen.getByTestId('diff-ignore-ws')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByTestId('diff-ignore-case')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('diff-ignore-eol')).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('忽略大小写开关:仅大小写差异时统计归零', async () => {
@@ -267,7 +288,7 @@ describe('TextCompare', () => {
     expect(doc.modifiedFileName).toBe('left.rs');
   });
 
-  it('导出补丁:触发 .patch 文件下载,含统一格式头', () => {
+  it('导出补丁:触发 .patch 文件下载,含统一格式头', async () => {
     useTextCompareStore.setState({
       docs: [
         {
@@ -283,23 +304,41 @@ describe('TextCompare', () => {
       activeDocId: 'patch-doc',
       ready: true,
     });
-    const downloads: Array<{ name: string }> = [];
-    // downloadText 走 Blob+createObjectURL+<a download>;jsdom 的 <a download>
-    // 不导航,拦截 HTMLAnchorElement.click 即捕获下载动作;内容正确性由
-    // buildUnifiedPatch 单测覆盖,此处验证触发与文件名
-    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
-      this: HTMLAnchorElement,
-    ) {
-      downloads.push({ name: this.download });
+    // downloadText 已在文件顶部 mock:内容正确性由 buildUnifiedPatch 单测
+    // 覆盖,此处验证触发与文件名
+    const { downloadText } = await import('@/lib/file-utils');
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    fireEvent.click(screen.getByTestId('diff-export-patch'));
+    expect(downloadText).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(downloadText).mock.calls[0]?.[0]).toBe('demo.patch');
+  });
+
+  it('导出补丁新鲜时按显示块生成(含 hunk 头与增删行)', async () => {
+    useTextCompareStore.setState({
+      docs: [
+        {
+          id: 'fresh-doc',
+          title: 't',
+          pinned: false,
+          original: 'a\nold\nc\n',
+          modified: 'a\nnew\nc\n',
+        },
+      ],
+      activeDocId: 'fresh-doc',
+      ready: true,
     });
-    try {
-      render(<TextCompare toolId="text_compare" metadata={null as never} />);
-      fireEvent.click(screen.getByTestId('diff-export-patch'));
-      expect(downloads).toHaveLength(1);
-      expect(downloads[0]!.name).toBe('demo.patch');
-    } finally {
-      clickSpy.mockRestore();
-    }
+    const { downloadText } = await import('@/lib/file-utils');
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    // 等差异计算就绪(快照新鲜),再导出才走按块生成路径
+    await waitFor(() => {
+      expect(screen.getByTestId('diff-stats')).toHaveTextContent('~1');
+    });
+    fireEvent.click(screen.getByTestId('diff-export-patch'));
+    expect(downloadText).toHaveBeenCalledTimes(1);
+    const patch = vi.mocked(downloadText).mock.calls[0]?.[1] as string;
+    expect(patch).toContain('@@ -1,3 +1,3 @@');
+    expect(patch).toContain('-old');
+    expect(patch).toContain('+new');
   });
 
   it('文件装入后:标题显示文件名,语言按扩展名推断', async () => {
@@ -340,6 +379,27 @@ describe('TextCompare', () => {
     // 下一处(循环回绕)仍停留在唯一差异
     fireEvent.click(screen.getByTestId('diff-nav-next'));
     expect(screen.getByTestId('diff-nav-count')).toHaveTextContent('1/1');
+  });
+
+  it('并排模式差异导航按块计数:多行单块只占一站', async () => {
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    fireEvent.change(getOriginalEditor(), { target: { value: 'a\nX1\nX2\nb' } });
+    fireEvent.change(getModifiedEditor(), { target: { value: 'a\nY1\nY2\nc' } });
+    await waitFor(() => {
+      expect(screen.getByTestId('diff-nav')).toBeInTheDocument();
+      // 两行修改同属一块(旧按行计数会显示 1/2)
+      expect(screen.getByTestId('diff-nav-count')).toHaveTextContent('1/1');
+    });
+  });
+
+  it('只看差异开关:渲染并可切换按下态', async () => {
+    render(<TextCompare toolId="text_compare" metadata={null as never} />);
+    const toggle = screen.getByTestId('diff-hide-unchanged');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('相似度随差异内容出现在统计徽标中', async () => {

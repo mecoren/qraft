@@ -41,7 +41,9 @@ import { TextDiffView } from '@/components/text-diff/TextDiffView';
 import {
   applyDiffBlockCopy,
   buildUnifiedPatch,
+  buildUnifiedPatchFromBlocks,
   type DiffBlock,
+  type DiffSnapshot,
 } from '@/components/text-diff/diff-utils';
 import { downloadText } from '@/lib/file-utils';
 import { inferLanguageFromPath } from './code-editor-workspace/languageMap';
@@ -133,10 +135,11 @@ export function TextCompare({ toolId }: ToolProps): JSX.Element {
     [activeDocId, setDocContent],
   );
 
-  // —— 比较 ignore 选项(会话级,不持久化进文档结构)——
-  const [ignoreWhitespace, setIgnoreWhitespace] = useState(false);
-  const [ignoreCase, setIgnoreCase] = useState(false);
-  const [ignoreEol, setIgnoreEol] = useState(false);
+  // —— 比较 ignore 选项(会话级偏好,经 store 独立 key 持久化到 Rust config,重启保留)——
+  const ignoreWhitespace = useTextCompareStore((s) => s.options.ignoreWhitespace);
+  const ignoreCase = useTextCompareStore((s) => s.options.ignoreCase);
+  const ignoreEol = useTextCompareStore((s) => s.options.ignoreEol);
+  const setOptions = useTextCompareStore((s) => s.setOptions);
 
   const swapDocSides = useTextCompareStore((s) => s.swapDocSides);
   const setDocSideFile = useTextCompareStore((s) => s.setDocSideFile);
@@ -187,19 +190,38 @@ export function TextCompare({ toolId }: ToolProps): JSX.Element {
     [modifiedFileName],
   );
 
-  /** 导出统一格式补丁(.patch):与界面高亮同口径(含 ignore 选项) */
+  /**
+   * 最新差异快照(存 ref,不进 state):差异计算异步到达,导出瞬间未必新鲜。
+   * 由 TextDiffView 经 onDiffSnapshot 回填。
+   */
+  const diffSnapRef = useRef<DiffSnapshot | null>(null);
+
+  /** 导出统一格式补丁(.patch):快照新鲜时按显示块生成(与所见一致),过期回退 jsdiff 独立计算 */
   const handleExportPatch = useCallback(() => {
     if (!original.trim() && !modified.trim()) {
       toast.info(t('tools.text_compare.patch_empty_toast'));
       return;
     }
-    const patch = buildUnifiedPatch(original, modified, {
-      ignoreWhitespace,
-      ignoreCase,
-      ignoreEol,
+    const snap = diffSnapRef.current;
+    const fresh =
+      snap !== null &&
+      snap.original === original &&
+      snap.modified === modified &&
+      snap.ignoreWhitespace === ignoreWhitespace &&
+      snap.ignoreCase === ignoreCase &&
+      snap.ignoreEol === ignoreEol;
+    const names = {
       originalName: activeDoc?.originalFileName ?? 'original',
       modifiedName: activeDoc?.modifiedFileName ?? 'modified',
-    });
+    };
+    const patch = fresh
+      ? buildUnifiedPatchFromBlocks(original, modified, snap.blocks, names)
+      : buildUnifiedPatch(original, modified, {
+          ignoreWhitespace,
+          ignoreCase,
+          ignoreEol,
+          ...names,
+        });
     downloadText(`${activeDoc?.title ?? 'compare'}.patch`, patch, 'text/x-diff');
   }, [original, modified, ignoreWhitespace, ignoreCase, ignoreEol, activeDoc, t]);
 
@@ -243,6 +265,13 @@ export function TextCompare({ toolId }: ToolProps): JSX.Element {
     );
     return () => clearTimeout(timer);
   }, [docs, ready, userTouched]);
+
+  // 比较选项变更即时持久化(载荷极小无需防抖;hydrate 前/用户未操作时不写,
+  // 避免默认值回写覆盖已存偏好)
+  useEffect(() => {
+    if (!ready || !userTouched) return;
+    void useTextCompareStore.getState().persistOptions();
+  }, [ignoreWhitespace, ignoreCase, ignoreEol, ready, userTouched]);
 
   // 关闭确认(锚定 Tab 的小 Popover)与重命名对话框
   const [closeTarget, setCloseTarget] = useState<CompareDoc | null>(null);
@@ -461,7 +490,7 @@ export function TextCompare({ toolId }: ToolProps): JSX.Element {
           aria-pressed={ignoreWhitespace}
           title={t('tools.text_compare.ignore_whitespace')}
           aria-label={t('tools.text_compare.ignore_whitespace')}
-          onClick={() => setIgnoreWhitespace((v) => !v)}
+          onClick={() => setOptions({ ignoreWhitespace: !ignoreWhitespace })}
           className={cn(
             'flex size-7 shrink-0 items-center justify-center transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
             ignoreWhitespace ? 'text-primary' : 'text-muted-foreground',
@@ -477,7 +506,7 @@ export function TextCompare({ toolId }: ToolProps): JSX.Element {
           aria-pressed={ignoreCase}
           title={t('tools.text_compare.ignore_case')}
           aria-label={t('tools.text_compare.ignore_case')}
-          onClick={() => setIgnoreCase((v) => !v)}
+          onClick={() => setOptions({ ignoreCase: !ignoreCase })}
           className={cn(
             'flex size-7 shrink-0 items-center justify-center transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
             ignoreCase ? 'text-primary' : 'text-muted-foreground',
@@ -493,7 +522,7 @@ export function TextCompare({ toolId }: ToolProps): JSX.Element {
           aria-pressed={ignoreEol}
           title={t('tools.text_compare.ignore_eol')}
           aria-label={t('tools.text_compare.ignore_eol')}
-          onClick={() => setIgnoreEol((v) => !v)}
+          onClick={() => setOptions({ ignoreEol: !ignoreEol })}
           className={cn(
             'flex size-7 shrink-0 items-center justify-center transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
             ignoreEol ? 'text-primary' : 'text-muted-foreground',
@@ -551,6 +580,9 @@ export function TextCompare({ toolId }: ToolProps): JSX.Element {
         ignoreCase={ignoreCase}
         ignoreEol={ignoreEol}
         onCopyBlock={handleCopyBlock}
+        onDiffSnapshot={(snap) => {
+          diffSnapRef.current = snap;
+        }}
         leftChrome={{
           showPaste: true,
           showOpenFile: true,

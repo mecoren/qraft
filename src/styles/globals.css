@@ -820,6 +820,13 @@
   font-weight: 600;
 }
 
+/* 行对齐占位斜线(VSCode diffEditor.diagonalFill 同款观感):
+ * 短侧垫出的 view zone 空白区挂本类;中性灰半透明,亮暗主题通用 */
+.text-compare-align-zone {
+  height: 100%;
+  background: repeating-linear-gradient(-45deg, transparent 0 5px, rgb(127 127 127 / 0.16) 5px 6px);
+}
+
 /* ============================================================
  * 文本比较 —— 差异块「复制到对侧」gutter 按钮(WinMerge 式)
  * 悬停差异行时浮层定位在行号槽右侧(portal 进编辑器 DOM,absolute);

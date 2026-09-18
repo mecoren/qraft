@@ -50,6 +50,45 @@ export interface CompareDocs {
 
 export const DOCS_CONFIG_KEY = 'tool_prefs.text_compare_docs_v1';
 
+/**
+ * 比较选项(工具栏三个 ignore 开关)。
+ *
+ * 持久化在独立 key(`tool_prefs.text_compare_options_v1`),不进文档载荷:
+ * 已发布的文档契约不动,选项缺失/损坏时逐项回退默认,天然前向兼容。
+ */
+export interface CompareOptions {
+  /** 忽略空白差异(默认开,VSCode DiffEditor 默认行为) */
+  ignoreWhitespace: boolean;
+  /** 忽略大小写差异 */
+  ignoreCase: boolean;
+  /** 忽略换行符差异(CRLF/LF) */
+  ignoreEol: boolean;
+}
+
+export const OPTIONS_CONFIG_KEY = 'tool_prefs.text_compare_options_v1';
+
+/** 选项默认值(UI 初始态同源,保持一致) */
+export const DEFAULT_COMPARE_OPTIONS: CompareOptions = {
+  ignoreWhitespace: true,
+  ignoreCase: false,
+  ignoreEol: false,
+};
+
+/** 将任意反序列化值规整为合法选项,缺字段/类型错误逐项回退默认 */
+export function normalizeOptions(raw: unknown): CompareOptions {
+  if (typeof raw !== 'object' || raw === null) return { ...DEFAULT_COMPARE_OPTIONS };
+  const t = raw as Record<string, unknown>;
+  return {
+    ignoreWhitespace:
+      typeof t.ignoreWhitespace === 'boolean'
+        ? t.ignoreWhitespace
+        : DEFAULT_COMPARE_OPTIONS.ignoreWhitespace,
+    ignoreCase:
+      typeof t.ignoreCase === 'boolean' ? t.ignoreCase : DEFAULT_COMPARE_OPTIONS.ignoreCase,
+    ignoreEol: typeof t.ignoreEol === 'boolean' ? t.ignoreEol : DEFAULT_COMPARE_OPTIONS.ignoreEol,
+  };
+}
+
 /** 未命名 Tab 标题的最大显示长度(超出截断加省略号) */
 const TITLE_MAX = 32;
 /**
@@ -139,6 +178,8 @@ export function normalizeDocs(raw: unknown): CompareDocs {
 interface TextCompareWorkspaceState {
   docs: CompareDoc[];
   activeDocId: string | null;
+  /** 工具栏比较选项(会话级偏好,独立 key 持久化) */
+  options: CompareOptions;
 
   /** 是否已完成 hydrate;false 时禁止持久化 */
   ready: boolean;
@@ -174,8 +215,12 @@ interface TextCompareWorkspaceState {
   ) => void;
   /** 交换文档两侧内容与文件名(反向验证对照) */
   swapDocSides: (id: string) => void;
+  /** 更新比较选项(部分更新,工具栏开关调用);置位 userTouched */
+  setOptions: (patch: Partial<CompareOptions>) => void;
   /** 将当前文档列表写入 Rust config(组件防抖后调用) */
   persistDocs: () => Promise<void>;
+  /** 将当前比较选项写入 Rust config(载荷极小,开关切换后直接调用) */
+  persistOptions: () => Promise<void>;
 }
 
 /**
@@ -219,6 +264,7 @@ function createDefaultDocs(): CompareDocs {
 
 export const useTextCompareStore = create<TextCompareWorkspaceState>((set, get) => ({
   ...createDefaultDocs(),
+  options: { ...DEFAULT_COMPARE_OPTIONS },
   ready: false,
   userTouched: false,
   error: null,
@@ -228,14 +274,21 @@ export const useTextCompareStore = create<TextCompareWorkspaceState>((set, get) 
     // force=true 仅用于弹出窗口关闭后的回写:忽略幂等与 userTouched,
     // 直接以持久化数据为准(弹窗的最后落盘状态胜出)
     if (get().ready && !force) return;
-    const res = await safeInvoke<unknown>('config_get', { key: DOCS_CONFIG_KEY });
-    const restored = res.ok ? normalizeDocs(res.value) : null;
+    const [docsRes, optsRes] = await Promise.all([
+      safeInvoke<unknown>('config_get', { key: DOCS_CONFIG_KEY }),
+      safeInvoke<unknown>('config_get', { key: OPTIONS_CONFIG_KEY }),
+    ]);
+    const restored = docsRes.ok ? normalizeDocs(docsRes.value) : null;
+    const restoredOpts = optsRes.ok ? normalizeOptions(optsRes.value) : null;
+    // 诊断错误取首个失败项(文档优先);任一路失败不影响另一路还原
+    const error = !docsRes.ok ? docsRes.error.message : !optsRes.ok ? optsRes.error.message : null;
     set((s) => ({
       ready: true,
-      error: res.ok ? null : res.error.message,
+      error,
       ...(restored && (force || !s.userTouched)
         ? { docs: restored.docs, activeDocId: restored.activeDocId }
         : {}),
+      ...(restoredOpts && (force || !s.userTouched) ? { options: restoredOpts } : {}),
     }));
   },
 
@@ -344,6 +397,13 @@ export const useTextCompareStore = create<TextCompareWorkspaceState>((set, get) 
     }));
   },
 
+  setOptions: (patch) => {
+    set((s) => ({
+      options: { ...s.options, ...patch },
+      userTouched: true,
+    }));
+  },
+
   persistDocs: async () => {
     // hydrate 完成前不写,避免覆盖已存数据
     const { ready, docs, activeDocId } = get();
@@ -355,6 +415,17 @@ export const useTextCompareStore = create<TextCompareWorkspaceState>((set, get) 
         docs: docs.map(capDocForPersist),
         activeDocId,
       } satisfies CompareDocs,
+    });
+    if (!r.ok) set({ error: r.error.message });
+  },
+
+  persistOptions: async () => {
+    // hydrate 完成前不写,避免用默认值覆盖已存偏好
+    const { ready, options } = get();
+    if (!ready) return;
+    const r = await safeInvoke<boolean>('config_set', {
+      key: OPTIONS_CONFIG_KEY,
+      value: { ...options } satisfies CompareOptions,
     });
     if (!r.ok) set({ error: r.error.message });
   },

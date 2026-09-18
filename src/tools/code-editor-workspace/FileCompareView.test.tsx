@@ -15,9 +15,15 @@
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FileCompareView } from './EditorWorkbench';
+import { DEFAULT_COMPARE_OPTIONS, useTextCompareStore } from '@/tools/textCompareStore';
 import type { EditorTab } from './schema';
+
+// 开关读写共享偏好:每个用例前复位,避免跨用例污染
+beforeEach(() => {
+  useTextCompareStore.setState({ options: { ...DEFAULT_COMPARE_OPTIONS } });
+});
 
 const left: EditorTab = {
   id: 't1',
@@ -86,6 +92,26 @@ describe('FileCompareView 工具栏动作', () => {
     await user.click(screen.getByTestId('compare-view-export-patch'));
 
     expect(handlers.onExportPatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('渲染三个 ignore 开关,按下态跟随共享偏好默认值', () => {
+    setup();
+
+    expect(screen.getByTestId('compare-view-ignore-ws')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('compare-view-ignore-case')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByTestId('compare-view-ignore-eol')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('点开关写入共享偏好(与文本比较工具同一份,两处跟随)', async () => {
+    setup();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByTestId('compare-view-ignore-case'));
+    expect(useTextCompareStore.getState().options.ignoreCase).toBe(true);
+    expect(screen.getByTestId('compare-view-ignore-case')).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(screen.getByTestId('compare-view-ignore-ws'));
+    expect(useTextCompareStore.getState().options.ignoreWhitespace).toBe(false);
   });
 
   it('内容经两侧编辑器受控回写(onChangeLeft/Right 透传)', () => {
