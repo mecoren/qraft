@@ -68,6 +68,7 @@ import { useConfigStore } from '@/store/configStore';
 import { DEFAULT_SHORTCUTS, type ShortcutKey } from '@/types/config';
 import { listen, safeInvoke, CommandError } from '@/lib/ipc';
 import { writeClipboardText } from '@/lib/clipboard';
+import { persistDelayFor } from '@/lib/persist-debounce';
 import type { ToolProps } from '@/tools/registry';
 import { useTextCompareStore } from '@/tools/textCompareStore';
 import { MarkdownEditorPane, isMarkdownDocument } from '@/tools/markdown-editor-pane';
@@ -161,9 +162,6 @@ function revealEditLocation(loc: EditLocation, attempts = 0): void {
 /** 批量关闭意图:用于未保存确认通过后执行对应 store 动作 */
 type BatchCloseAction = 'close-others' | 'close-right' | 'close-all';
 
-/** workspace 变更后持久化防抖间隔(ms) */
-const PERSIST_DEBOUNCE_MS = 400;
-
 /** 超过该字符数的 Tab 不渲染 minimap(超大内容下缩略图无导航价值且渲染开销大) */
 const MINIMAP_DISABLE_CONTENT_CHARS = 200_000;
 
@@ -245,7 +243,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
    * 窗口关闭守卫:工作区内容已通过防抖 effect 实时写入 Rust config 缓存
    * (`tool_prefs.editor_workspace_v1`),再次启动会自动还原,因此不再弹
    * 「未保存更改」确认框。后端拦截关闭后,前端只需立即冲刷待落盘数据
-   * 并退出,避免 400ms 防抖窗口内的最后改动丢失。
+   * 并退出,避免防抖窗口尚未到点时的最后改动丢失。
    *
    * 仅在 Tauri 运行时生效(浏览器 dev / 测试环境跳过)。
    */
@@ -275,14 +273,19 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     return () => unlisten?.();
   }, []);
 
-  // workspace 变更 → 防抖持久化(ready 前 persist 为 no-op,不会覆盖已存数据)
+  // workspace 变更 → 防抖持久化(ready 前 persist 为 no-op,不会覆盖已存数据)。
+  // 防抖窗口按各 Tab 内容总长度自适应:工作区落盘是整份 config 的全量重写,
+  // 数 MB 载荷下固定短窗口会在每次打字停顿处重写整份文件,拉长窗口把连续
+  // 编辑合并为一次磁盘写(关闭与卸载仍有立即冲刷兜底,不丢最后一次改动)
   useEffect(() => {
     if (!ready) return;
+    let totalChars = 0;
+    for (const t of workspace.tabs) totalChars += t.content.length;
     if (persistTimer.current) clearTimeout(persistTimer.current);
     persistTimer.current = setTimeout(() => {
       persistTimer.current = null;
       void useEditorWorkspaceStore.getState().persist();
-    }, PERSIST_DEBOUNCE_MS);
+    }, persistDelayFor(totalChars));
     return () => {
       if (persistTimer.current) clearTimeout(persistTimer.current);
     };

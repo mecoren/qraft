@@ -277,35 +277,42 @@ impl ConfigStore for JsonConfigStore {
     }
 
     async fn set(&self, key: &str, value: Value) -> Result<(), ToolError> {
+        let segments: Vec<&str> = key.split('.').filter(|s| !s.is_empty()).collect();
+        if segments.is_empty() {
+            return Err(ToolError::InvalidInput("empty config key".into()));
+        }
+
         {
             let mut config = self.config.write();
-            let mut root = serde_json::to_value(&*config)
-                .map_err(|e| ToolError::Internal(format!("serialize config: {e}")))?;
-
-            let segments: Vec<&str> = key.split('.').filter(|s| !s.is_empty()).collect();
-            if segments.is_empty() {
-                return Err(ToolError::InvalidInput("empty config key".into()));
-            }
-
-            // 遍历到倒数第二段,每段必须存在且为对象
-            let mut current = &mut root;
-            for seg in &segments[..segments.len() - 1] {
-                current = current.get_mut(*seg).ok_or_else(|| {
-                    ToolError::InvalidInput(format!("invalid config path: {key}"))
-                })?;
-            }
-            // segments 已在上方 is_empty 检查中保证非空,直接取末位元素
-            let last = segments[segments.len() - 1];
-            if let Some(obj) = current.as_object_mut() {
-                obj.insert(last.to_string(), value);
+            // 工具会话缓存热路径:`tool_prefs.<name>` 单次载荷可达数 MB,直接落到
+            // HashMap,避免为改一个键把整份配置(含其它工具的大载荷)序列化再
+            // 反序列化两轮。更深的路径(tool_prefs.a.b)仍走通用分支
+            if segments.len() == 2 && segments[0] == "tool_prefs" {
+                config.tool_prefs.insert(segments[1].to_string(), value);
             } else {
-                return Err(ToolError::InvalidInput(format!(
-                    "config path not an object: {key}"
-                )));
-            }
+                let mut root = serde_json::to_value(&*config)
+                    .map_err(|e| ToolError::Internal(format!("serialize config: {e}")))?;
 
-            *config = serde_json::from_value(root)
-                .map_err(|e| ToolError::Internal(format!("deserialize config: {e}")))?;
+                // 遍历到倒数第二段,每段必须存在且为对象
+                let mut current = &mut root;
+                for seg in &segments[..segments.len() - 1] {
+                    current = current.get_mut(*seg).ok_or_else(|| {
+                        ToolError::InvalidInput(format!("invalid config path: {key}"))
+                    })?;
+                }
+                // segments 已在上方 is_empty 检查中保证非空,直接取末位元素
+                let last = segments[segments.len() - 1];
+                if let Some(obj) = current.as_object_mut() {
+                    obj.insert(last.to_string(), value);
+                } else {
+                    return Err(ToolError::InvalidInput(format!(
+                        "config path not an object: {key}"
+                    )));
+                }
+
+                *config = serde_json::from_value(root)
+                    .map_err(|e| ToolError::Internal(format!("deserialize config: {e}")))?;
+            }
         }
         self.persist()
     }
@@ -369,6 +376,69 @@ mod tests {
         store.set("theme.mode", json!("light")).await.unwrap();
         let val = store.get("theme.mode").await.unwrap().unwrap();
         assert_eq!(val, "light");
+    }
+
+    /// `tool_prefs.<name>` 是工具会话缓存的写入键(编辑器工作区、Markdown 文档等),
+    /// 走 `HashMap` 直写快路径:覆盖写只替换目标键,且与其它工具的载荷互不影响
+    #[tokio::test]
+    async fn test_tool_prefs_blob_replaces_only_its_own_key() {
+        let (_tmp, path) = temp_config_path();
+        let store = JsonConfigStore::new(path.clone());
+        store
+            .set("tool_prefs.editor_workspace_v1", json!({"tabs": [1, 2, 3]}))
+            .await
+            .unwrap();
+        store
+            .set("tool_prefs.markdown_preview_docs_v1", json!({"docs": []}))
+            .await
+            .unwrap();
+        store
+            .set("tool_prefs.editor_workspace_v1", json!({"tabs": []}))
+            .await
+            .unwrap();
+
+        let overwritten = store
+            .get("tool_prefs.editor_workspace_v1")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(overwritten, json!({"tabs": []}));
+        let untouched = store
+            .get("tool_prefs.markdown_preview_docs_v1")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(untouched, json!({"docs": []}));
+
+        // 快路径同样落盘:新实例可从同一文件还原
+        let reopened = JsonConfigStore::new(path);
+        let restored = reopened
+            .get("tool_prefs.markdown_preview_docs_v1")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(restored, json!({"docs": []}));
+    }
+
+    /// 更深的 `tool_prefs.a.b` 路径不进快路径,仍由通用分支逐层下钻写入
+    #[tokio::test]
+    async fn test_tool_prefs_deeper_path_nests_via_generic_route() {
+        let (_tmp, path) = temp_config_path();
+        let store = JsonConfigStore::new(path);
+        store
+            .set("tool_prefs.json_formatter", json!({"values": {}}))
+            .await
+            .unwrap();
+        store
+            .set("tool_prefs.json_formatter.values.indent", json!(4))
+            .await
+            .unwrap();
+        let val = store
+            .get("tool_prefs.json_formatter.values.indent")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(val, 4);
     }
 
     #[tokio::test]

@@ -83,7 +83,6 @@ describe('configStore.applyConfigChanged', () => {
     useConfigStore.setState({ config: { ...DEFAULT_USER_CONFIG } });
     const p: ConfigChangedPayload = {
       key: 'theme.mode',
-      oldValue: 'dark',
       newValue: 'light',
     };
     useConfigStore.getState().applyConfigChanged(p);

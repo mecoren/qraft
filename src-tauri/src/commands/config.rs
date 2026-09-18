@@ -17,7 +17,6 @@ use crate::store::config::UserConfig;
 #[serde(rename_all = "camelCase")]
 pub struct ConfigChangedPayload {
     pub key: String,
-    pub old_value: Value,
     pub new_value: Value,
 }
 
@@ -51,24 +50,17 @@ pub async fn config_set_inner(
     state: &AppState,
     app_handle: &tauri::AppHandle,
 ) -> Result<CommandResponse<()>, AppError> {
-    // 读取旧值用于事件 payload(NotFound 或 Err 时均回退到 Null)
-    let old_value = state
-        .config_store
-        .get(key)
-        .await
-        .unwrap_or(None)
-        .unwrap_or(Value::Null);
-
     state
         .config_store
         .set(key, value.clone())
         .await
         .map_err(|e| AppError::config(e.to_string()))?;
 
-    // emit config_changed 事件
+    // emit config_changed 事件:只带新值。旧值曾在此前额外读一次整份配置来拼,
+    // 而工具会话缓存的单次载荷可达数 MB,这次预读与多一份拷贝纯属浪费,
+    // 前端订阅方(主窗/弹窗)一律按新值回填 configStore,从不消费旧值
     let payload = ConfigChangedPayload {
         key: key.to_string(),
-        old_value,
         new_value: value,
     };
     let _ = app_handle.emit("config_changed", &payload);
@@ -102,22 +94,15 @@ pub async fn config_reset_inner(
     state: &AppState,
     app_handle: &tauri::AppHandle,
 ) -> Result<CommandResponse<()>, AppError> {
-    let old_value = state
-        .config_store
-        .get(key)
-        .await
-        .unwrap_or(None)
-        .unwrap_or(Value::Null);
-
     state
         .config_store
         .reset(key)
         .await
         .map_err(|e| AppError::config(e.to_string()))?;
 
+    // new_value 为 Null 即「恢复默认」,前端据此走全量刷新,无需回传旧值
     let payload = ConfigChangedPayload {
         key: key.to_string(),
-        old_value,
         new_value: Value::Null,
     };
     let _ = app_handle.emit("config_changed", &payload);

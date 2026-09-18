@@ -41,6 +41,7 @@ import {
 import { RenameDialog } from '@/components/RenameDialog';
 import { CopyAction } from '@/components/copy-action';
 import { invokeCommand } from '@/lib/ipc';
+import { persistDelayFor } from '@/lib/persist-debounce';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { useUiStore } from '@/store/uiStore';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
@@ -114,13 +115,6 @@ import { JsonTreeView } from './JsonTreeView';
 
 type QuickAction = 'minify' | 'entity';
 type OutputViewMode = 'text' | 'tree' | 'jsonpath';
-
-/** 按载荷规模自适应的持久化防抖窗口(ms):载荷越大合并越久,降低全量重写的 IO 放大 */
-function persistDelayFor(totalChars: number): number {
-  if (totalChars > 1024 * 1024) return 5000;
-  if (totalChars > 256 * 1024) return 2000;
-  return 500;
-}
 
 // ============================================================
 // 转义 / 去除转义(纯前端同步实现,导出供单元测试复用)

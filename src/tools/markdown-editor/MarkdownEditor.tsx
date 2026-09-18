@@ -57,6 +57,7 @@ import './tiptap.css';
 import { cn } from '@/lib/utils';
 import { formatBytes } from '@/lib/file-utils';
 import { writeClipboardRichText, writeClipboardText } from '@/lib/clipboard';
+import { persistDelayFor } from '@/lib/persist-debounce';
 import { showAlert } from '@/lib/toast-alert';
 import { useToolHandoff } from '@/hooks/useToolHandoff';
 import { useToolShortcut } from '@/hooks/useShortcut';
@@ -154,13 +155,6 @@ function computeStats(source: string): {
   const latin = (source.match(/[A-Za-z0-9][A-Za-z0-9'’_-]*/g) ?? []).length;
   const words = cjk + latin;
   return { words, chars, lines, minutes: Math.max(1, Math.ceil(words / 250)) };
-}
-
-/** 按载荷自适应的持久化防抖窗口(与旧页同策略,降低写放大) */
-function persistDelayFor(totalChars: number): number {
-  if (totalChars > 1024 * 1024) return 5000;
-  if (totalChars > 256 * 1024) return 2000;
-  return 500;
 }
 
 /** CSS.escape 兜底(旧 WebView / 测试环境) */

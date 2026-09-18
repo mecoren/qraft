@@ -522,10 +522,9 @@ Qraft 的 Command 接口整体版本化，版本号在 `ResponseMeta.version` �
 Rust 侧推送事件：
 
 ```rust
-// 配置变更广播
+// 配置变更广播(仅携带新值;旧值曾随事件回传,订阅方从不消费已移除)
 app_handle.emit("config_changed", &ConfigChangedPayload {
     key: "theme.mode".to_string(),
-    old_value: "dark".to_string(),
     new_value: "light".to_string(),
 })?;
 ```
@@ -537,7 +536,6 @@ import { listen } from '@tauri-apps/api/event';
 
 interface ConfigChangedPayload {
   key: string;
-  oldValue: unknown;
   newValue: unknown;
 }
 
@@ -556,7 +554,7 @@ useEffect(() => {
 
 | 事件名 | Payload | 触发时机 |
 |--------|---------|----------|
-| `config_changed` | `{ key, oldValue, newValue }` | 配置写入成功后 |
+| `config_changed` | `{ key, newValue }` | 配置写入成功后 |
 | `history_added` | `HistoryEntry` | 历史记录写入后 |
 | `tool_progress` | `{ taskId, processed, total }` | 流式工具进度更新 |
 | `tool_completed` | `{ taskId, output }` | 流式工具完成 |

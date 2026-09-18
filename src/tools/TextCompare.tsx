@@ -47,20 +47,12 @@ import {
 } from '@/components/text-diff/diff-utils';
 import { downloadText } from '@/lib/file-utils';
 import { inferLanguageFromPath } from './code-editor-workspace/languageMap';
+import { persistDelayFor } from '@/lib/persist-debounce';
 import { cn } from '@/lib/utils';
 import { consumeHandoffPayload } from '@/store/handoffStore';
 import { useToolStateStore } from '@/store/toolStateStore';
 import { useTextCompareStore, type CompareDoc } from './textCompareStore';
 import type { ToolProps } from './registry';
-
-/**
- * 持久化防抖窗口按载荷规模自适应(ms):载荷越大合并越久,降低全量重写的 IO 放大。
- */
-function persistDelayFor(totalChars: number): number {
-  if (totalChars > 1024 * 1024) return 5000;
-  if (totalChars > 256 * 1024) return 2000;
-  return 500;
-}
 
 export function TextCompare({ toolId }: ToolProps): JSX.Element {
   const { t } = useTranslation();

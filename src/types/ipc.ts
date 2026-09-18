@@ -38,7 +38,7 @@ export interface CommandResponse<T> {
 /** 事件 payload 类型 */
 export interface ConfigChangedPayload {
   key: string;
-  oldValue: unknown;
+  /** 新值;reset 后为 null,前端据此走全量刷新(旧值曾随事件回传,订阅方从不消费已移除) */
   newValue: unknown;
 }
 
