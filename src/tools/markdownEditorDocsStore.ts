@@ -208,13 +208,25 @@ interface MdDocsState {
     encoding?: string;
     mtimeMs?: number;
   }) => void;
-  /** 「另存为」成功后绑定路径:写回 path/encoding/mtimeMs/savedContent 快照 */
-  attachPath: (id: string, path: string, encoding: string, mtimeMs: number | undefined) => void;
   /**
-   * 标记文档已保存到磁盘(保存成功后调用):刷新 savedContent 快照与
-   * mtime 基准,并把 Tab 名更新为文件名(有路径的文档以文件名展示)。
+   * 「另存为」成功后绑定路径:写回 path/encoding/mtimeMs,并把 savedContent
+   * 快照置为**实际写入磁盘的内容**(调用方在 await 前捕获的快照),而非 live
+   * doc.content——避免异步写盘期间的编辑被误判为已保存(丢脏标记竞态)。
    */
-  markSaved: (id: string, mtimeMs?: number) => void;
+  attachPath: (
+    id: string,
+    path: string,
+    encoding: string,
+    savedContent: string,
+    mtimeMs: number | undefined,
+  ) => void;
+  /**
+   * 标记文档已保存到磁盘(保存成功后调用):把 savedContent 快照置为
+   * **实际写入的内容**(调用方 await 前捕获的快照,非 live doc.content),刷新
+   * mtime 基准并把 Tab 名更新为文件名。异步落盘期间的新输入因快照不等于当前
+   * content 而保持 dirty(修复丢脏标记竞态,与文本编辑器同口径)。
+   */
+  markSaved: (id: string, savedContent: string, mtimeMs?: number) => void;
   /** 将当前文档列表写入 Rust config(组件防抖后调用) */
   persistDocs: () => Promise<void>;
 }
@@ -477,8 +489,10 @@ export const useMdEditorDocsStore = create<MdDocsState>((set, get) => ({
   },
 
   // 「另存为」成功后绑定路径:文档从纯草稿转正为磁盘文件。autoTitle/
-  // 内容派生标题让位于文件名(有路径的文档 Tab 名恒为文件名)
-  attachPath: (id, path, encoding, mtimeMs) => {
+  // 内容派生标题让位于文件名(有路径的文档 Tab 名恒为文件名)。
+  // savedContent 取调用方传入的「实际写入快照」,而非 live doc.content——
+  // await 写盘期间若有新输入,快照不等于当前内容,dirty 保持为真(防丢脏)
+  attachPath: (id, path, encoding, savedContent, mtimeMs) => {
     set((s) => ({
       docs: s.docs.map((d) =>
         d.id === id
@@ -489,7 +503,7 @@ export const useMdEditorDocsStore = create<MdDocsState>((set, get) => ({
               path,
               encoding,
               ...(mtimeMs !== undefined ? { mtimeMs } : {}),
-              savedContent: d.content,
+              savedContent,
             }
           : d,
       ),
@@ -497,10 +511,10 @@ export const useMdEditorDocsStore = create<MdDocsState>((set, get) => ({
     }));
   },
 
-  // 保存成功:刷新 savedContent 快照与 mtime 基准(下次保存据此判定外部
-  // 修改),Tab 名同步为文件名(磁盘名可能被用户/外部改名,保存时以
-  // 绑定路径为准刷新展示)
-  markSaved: (id, mtimeMs) => {
+  // 保存成功:把 savedContent 快照刷新为调用方传入的「实际写入内容」
+  // (非 live doc.content,异步落盘期间的新输入据此保持 dirty),同步刷新
+  // mtime 基准(下次保存据此判定外部修改)与 Tab 名(磁盘名可能经外部改名)
+  markSaved: (id, savedContent, mtimeMs) => {
     set((s) => ({
       docs: s.docs.map((d) => {
         if (d.id !== id) return d;
@@ -508,7 +522,7 @@ export const useMdEditorDocsStore = create<MdDocsState>((set, get) => ({
           ...d,
           ...(d.path ? { title: fileNameFromPath(d.path) } : {}),
           ...(mtimeMs !== undefined ? { mtimeMs } : {}),
-          savedContent: d.content,
+          savedContent,
         };
       }),
       userTouched: true,

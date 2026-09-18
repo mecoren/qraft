@@ -819,9 +819,9 @@ export function MarkdownEditor({ toolId }: ToolProps): JSX.Element {
           const expect = overwrite || doc.mtimeMs === undefined ? undefined : doc.mtimeMs;
           await saveToPathEncoded(doc.path, doc.content, doc.encoding ?? 'utf-8', expect);
           try {
-            useMdEditorDocsStore.getState().markSaved(id, await fileMtimeMs(doc.path));
+            useMdEditorDocsStore.getState().markSaved(id, doc.content, await fileMtimeMs(doc.path));
           } catch {
-            useMdEditorDocsStore.getState().markSaved(id);
+            useMdEditorDocsStore.getState().markSaved(id, doc.content);
           }
           toast.success(t('tools.markdown_editor.toast_saved', { name: doc.title }));
           return 'saved';
@@ -836,7 +836,7 @@ export function MarkdownEditor({ toolId }: ToolProps): JSX.Element {
         } catch {
           // 新路径 mtime 读不到:下次保存不校验
         }
-        useMdEditorDocsStore.getState().attachPath(id, path, 'utf-8', mtime);
+        useMdEditorDocsStore.getState().attachPath(id, path, 'utf-8', doc.content, mtime);
         toast.success(t('tools.markdown_editor.toast_saved', { name: fileName }));
         return 'saved';
       } catch (e) {
@@ -878,7 +878,7 @@ export function MarkdownEditor({ toolId }: ToolProps): JSX.Element {
       } catch {
         // 忽略,下次保存不校验
       }
-      s.attachPath(doc.id, path, 'utf-8', mtime);
+      s.attachPath(doc.id, path, 'utf-8', doc.content, mtime);
       toast.success(t('tools.markdown_editor.toast_saved', { name: fileName }));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('tools.markdown_editor.err_save'));

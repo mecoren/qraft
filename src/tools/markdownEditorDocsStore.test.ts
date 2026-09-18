@@ -262,7 +262,9 @@ describe('文件绑定(openFileAsDoc / attachPath / markSaved)', () => {
     const s0 = useMdEditorDocsStore.getState();
     useMdEditorDocsStore.getState().setDocContent(s0.activeDocId!, '# 草稿标题');
     const id = useMdEditorDocsStore.getState().activeDocId!;
-    useMdEditorDocsStore.getState().attachPath(id, 'C:\\docs\\saved.md', 'utf-8', 999);
+    useMdEditorDocsStore
+      .getState()
+      .attachPath(id, 'C:\\docs\\saved.md', 'utf-8', '# 草稿标题', 999);
     const doc = useMdEditorDocsStore.getState().docs.find((d) => d.id === id);
     expect(doc?.path).toBe('C:\\docs\\saved.md');
     expect(doc?.title).toBe('saved.md');
@@ -288,12 +290,30 @@ describe('文件绑定(openFileAsDoc / attachPath / markSaved)', () => {
     useMdEditorDocsStore.getState().setDocContent(id, 'base 改');
     doc = useMdEditorDocsStore.getState().docs.find((d) => d.id === id);
     expect(doc?.content !== doc?.savedContent).toBe(true);
-    // 保存成功 → 快照刷新、dirty 消除
-    useMdEditorDocsStore.getState().markSaved(id, 42);
+    // 保存成功 → 快照刷新为实际写入内容、dirty 消除
+    useMdEditorDocsStore.getState().markSaved(id, 'base 改', 42);
     doc = useMdEditorDocsStore.getState().docs.find((d) => d.id === id);
     expect(doc?.savedContent).toBe('base 改');
     expect(doc?.mtimeMs).toBe(42);
     expect(doc?.content === doc?.savedContent).toBe(true);
+  });
+
+  it('markSaved 用写入快照:异步保存期间的新输入保持 dirty(防丢脏竞态)', () => {
+    useMdEditorDocsStore.getState().openFileAsDoc({
+      path: 'C:\\docs\\race.md',
+      content: 'written',
+      encoding: 'utf-8',
+      mtimeMs: 1,
+    });
+    const id = useMdEditorDocsStore.getState().activeDocId!;
+    // 模拟落盘进行中的内容为 'written',随后用户又输入新内容
+    useMdEditorDocsStore.getState().setDocContent(id, 'written + 新行');
+    // markSaved 收到实际写入磁盘的快照 'written'(非 live doc.content)
+    useMdEditorDocsStore.getState().markSaved(id, 'written');
+    const doc = useMdEditorDocsStore.getState().docs.find((d) => d.id === id);
+    // 快照停在 'written',当前 content 更新 → dirty 仍为真,新输入不被吞
+    expect(doc?.savedContent).toBe('written');
+    expect(doc?.content !== doc?.savedContent).toBe(true);
   });
 
   it('持久化往返:path/encoding/mtimeMs/savedContent 一并还原(sanitizeDoc)', async () => {
