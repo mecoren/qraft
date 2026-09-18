@@ -626,7 +626,7 @@ describe('useEditorWorkspaceStore content & dirty', () => {
       const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
 
       s.setTabContent(id, 'draft line');
-      s.markSaved(id, '/notes/draft line.md');
+      s.markSaved(id, '/notes/draft line.md', 'draft line');
       s.setTabContent(id, 'new content');
 
       const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
@@ -651,7 +651,7 @@ describe('useEditorWorkspaceStore content & dirty', () => {
     s.newBlankTab();
     const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
     s.setTabContent(id, 'hello');
-    s.markSaved(id, '/saved/untitled-1.txt');
+    s.markSaved(id, '/saved/untitled-1.txt', 'hello');
 
     const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
     expect(tab.path).toBe('/saved/untitled-1.txt');
@@ -659,12 +659,26 @@ describe('useEditorWorkspaceStore content & dirty', () => {
     expect(tab.title).toBe('untitled-1.txt');
   });
 
+  it('markSaved 用写盘快照:异步保存期间的新输入保持 dirty', () => {
+    const s = useEditorWorkspaceStore.getState();
+    s.newBlankTab();
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+    s.setTabContent(id, 'written to disk');
+    // 模拟竞态:取快照后、写盘完成前用户又输入了新内容
+    s.setTabContent(id, 'written to disk + typed during save');
+    s.markSaved(id, '/saved/race.txt', 'written to disk');
+
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
+    expect(tab.savedContent).toBe('written to disk');
+    expect(tab.content).not.toBe(tab.savedContent);
+  });
+
   it('markSaved re-infers language when path changes (save as .py)', () => {
     const s = useEditorWorkspaceStore.getState();
     s.newBlankTab();
     const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
     s.setTabContent(id, 'print(1)');
-    s.markSaved(id, '/saved/app.py');
+    s.markSaved(id, '/saved/app.py', 'print(1)');
 
     const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
     expect(tab.path).toBe('/saved/app.py');
@@ -677,7 +691,7 @@ describe('useEditorWorkspaceStore content & dirty', () => {
     const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
     // 用户手动改语言后覆盖保存:语言应保留用户选择
     s.setTabLanguage(id, 'javascript');
-    s.markSaved(id, '/app.ts');
+    s.markSaved(id, '/app.ts', 'const x = 1');
 
     const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id)!;
     expect(tab.language).toBe('javascript');
@@ -1124,19 +1138,19 @@ describe('useEditorWorkspaceStore 语言自动检测', () => {
     const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
 
     // 自动模式:首次保存绑定 .json 路径 → 按扩展名推断 json
-    useEditorWorkspaceStore.getState().markSaved(id, 'C:\\a\\data.json');
+    useEditorWorkspaceStore.getState().markSaved(id, 'C:\\a\\data.json', '');
     expect(useEditorWorkspaceStore.getState().workspace.tabs[0].language).toBe('json');
 
     // 手动改为 yaml 后覆盖保存(路径不变)→ 不覆盖手动选择
     useEditorWorkspaceStore.getState().setTabLanguage(id, 'yaml');
-    useEditorWorkspaceStore.getState().markSaved(id, 'C:\\a\\data.json');
+    useEditorWorkspaceStore.getState().markSaved(id, 'C:\\a\\data.json', '');
     const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
     expect(tab.languageAuto).toBe(false);
     expect(tab.language).toBe('yaml');
 
     // 切回自动检测后另存到 .sql → 按新路径推断为 sql
     useEditorWorkspaceStore.getState().setTabLanguageAuto(id);
-    useEditorWorkspaceStore.getState().markSaved(id, 'C:\\a\\data.sql');
+    useEditorWorkspaceStore.getState().markSaved(id, 'C:\\a\\data.sql', '');
     const tab2 = useEditorWorkspaceStore.getState().workspace.tabs[0];
     expect(tab2.languageAuto).toBe(true);
     expect(tab2.language).toBe('sql');
@@ -1233,7 +1247,7 @@ describe('useEditorWorkspaceStore.openLargeFile', () => {
       encoding: 'utf-8',
       eol: 'lf',
       lineCount: 33722759,
-      calibration: [[1, 0]] as Array<[number, number]>,
+      calibration: [{ line: 1, offset: 0 }],
     };
     useEditorWorkspaceStore.getState().setLargeFileInfo(id, meta);
     const done = useEditorWorkspaceStore.getState().workspace.tabs[0];
@@ -1274,7 +1288,7 @@ describe('useEditorWorkspaceStore.openLargeFile', () => {
       encoding: 'utf-8',
       eol: 'lf',
       lineCount: 10,
-      calibration: [[1, 0]] as Array<[number, number]>,
+      calibration: [{ line: 1, offset: 0 }],
     });
     safeInvokeMock.mockResolvedValueOnce({ ok: true, value: true });
 

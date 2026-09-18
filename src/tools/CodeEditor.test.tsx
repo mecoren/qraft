@@ -1062,7 +1062,7 @@ describe('CodeEditorTool 全局快捷键', () => {
     act(() => {
       const s = useEditorWorkspaceStore.getState();
       const id = s.workspace.tabs[0]?.id as string;
-      s.markSaved(id, '/draft.txt');
+      s.markSaved(id, '/draft.txt', 'draft');
     });
     fireShortcut({ key: 'W', ctrlKey: true });
     await waitForTabCount(0);

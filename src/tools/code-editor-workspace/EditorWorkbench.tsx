@@ -17,7 +17,15 @@
  * - 保存:已绑定路径直接 fs_write_file;untitled 弹「另存为」对话框
  * - 卸载时清空 Titlebar 菜单栏(由 useToolMenus effect cleanup 自动处理)
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type JSX,
+} from 'react';
 import type { editor } from 'monaco-editor';
 import type { Monaco } from '@monaco-editor/react';
 import {
@@ -51,7 +59,7 @@ import {
   toggleCaseShortcutHandler,
 } from './namingCaseCommand';
 import { registerTabEditor, clearTabEditors, getTabEditor } from '@/lib/editor-search-registry';
-import { registerMonacoInstance, disposeModel } from './editorModelRegistry';
+import { registerMonacoInstance, disposeModel, disposePooledModels } from './editorModelRegistry';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
 import { useToolShortcut } from '@/hooks/useShortcut';
@@ -328,12 +336,13 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   // 大文件 Tab:激活时自动触发行索引扫描(进度事件订阅在 hook 内)
   useLargeFileScan(activeTab);
 
-  // 状态栏文件大小:当前内容按 UTF-8 编码的字节长度,随编辑实时更新
-  // (非磁盘文件实际大小:编码为 GBK 等时与磁盘字节数有差异)
+  // 状态栏文件大小:当前内容按 UTF-8 编码的字节长度。全文编码是 O(n)
+  // 开销,经 deferred 值降为低优先级渲染,大文档快速输入时不抢占输入帧
+  const statContent = useDeferredValue(activeTab?.content);
   const activeContentSizeBytes = useMemo(() => {
-    if (!activeTab) return undefined;
-    return new TextEncoder().encode(activeTab.content).length;
-  }, [activeTab]);
+    if (statContent === undefined) return undefined;
+    return new TextEncoder().encode(statContent).length;
+  }, [statContent]);
 
   // —— Markdown 分屏预览:md 文档(路径后缀或 untitled 切语言)显示视图切换 ——
   const isMarkdownTab = activeTab
@@ -433,6 +442,9 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       // 工作台卸载 = 全部 tab 的编辑器实例均已销毁,清空整个 tabId→实例注册表,
       // 避免残留已销毁实例引用(跳转重试时 getModel() 返回 null 会误判)。
       clearTabEditors();
+      // 池化 model 的兜底清理:库卸载只 dispose 当前 model,非激活 Tab 的
+      // model(全文 + undo 栈)会残留全局注册表,反复进出工具即单调泄漏
+      disposePooledModels();
     };
   }, []);
 
@@ -599,7 +611,8 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
           const expect =
             overwrite || tab.openedMtimeMs === undefined ? undefined : tab.openedMtimeMs;
           await saveToPathEncoded(tab.path, tab.content, tab.encoding ?? 'utf-8', expect);
-          state.markSaved(id, tab.path);
+          // 传写盘快照而非"此刻内容":await 期间的新输入应保持 dirty
+          state.markSaved(id, tab.path, tab.content);
           // 刷新乐观校验基准:下一次保存以新 mtime 判定外部修改
           try {
             state.setTabMtime(id, await fileMtimeMs(tab.path));
@@ -613,7 +626,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         const fileName = tab.title.endsWith('.txt') ? tab.title : `${tab.title}.txt`;
         const path = await saveWithDialog(fileName, tab.content);
         if (path) {
-          state.markSaved(id, path);
+          state.markSaved(id, path, tab.content);
           toast.success(t('tools.text_editor.toast_saved', { name: fileName }));
           return true;
         }
@@ -662,7 +675,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         state.setTabEncoding(tab.id, result.encoding ?? encodingId);
         // 重读即以磁盘为准:刷新乐观校验基准到当前磁盘 mtime
         state.setTabMtime(tab.id, result.mtimeMs);
-        state.markSaved(tab.id, tab.path);
+        state.markSaved(tab.id, tab.path, result.content);
         toast.success(t('tools.text_editor.toast_reopened', { encoding: result.encoding }));
       } catch (e) {
         toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_open_file'));
@@ -687,7 +700,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
           const expect =
             overwrite || tab.openedMtimeMs === undefined ? undefined : tab.openedMtimeMs;
           await saveToPathEncoded(tab.path, tab.content, encodingId, expect);
-          state.markSaved(tab.id, tab.path);
+          state.markSaved(tab.id, tab.path, tab.content);
           try {
             state.setTabMtime(tab.id, await fileMtimeMs(tab.path));
           } catch {
@@ -698,7 +711,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
           const path = await saveWithDialogEncoded(fileName, tab.content, encodingId);
           // 用户取消另存为:编码已记录,内容保持 dirty
           if (!path) return;
-          state.markSaved(tab.id, path);
+          state.markSaved(tab.id, path, tab.content);
         }
         toast.success(t('tools.text_editor.toast_saved', { name: tab.title }));
       } catch (e) {
@@ -991,7 +1004,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         state.setTabContent(tabId, result.content);
         state.setTabEncoding(tabId, result.encoding ?? tab.encoding ?? 'utf-8');
         state.setTabMtime(tabId, result.mtimeMs);
-        state.markSaved(tabId, path);
+        state.markSaved(tabId, path, result.content);
         toast.success(t('tools.text_editor.toast_reloaded', { name: tab.title }));
       } catch (e) {
         toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_open_file'));

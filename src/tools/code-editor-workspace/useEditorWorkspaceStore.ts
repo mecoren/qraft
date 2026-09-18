@@ -349,10 +349,13 @@ interface WorkspaceState {
   toggleTabWordWrap: (id: string) => void;
   /**
    * 保存成功后绑定路径并固化内容快照(清 dirty)。
+   * `savedContent` 必须传**实际写盘的内容快照**:写盘是异步的,期间
+   * 用户可能继续输入,若以"此刻最新内容"作快照会静默丢失脏标记。
+   * 快照与最新内容不一致时 Tab 保持 dirty,由后续保存接续。
    * 路径变化(首次另存为/另存为到新扩展名)时按新路径重新推断语言,
    * 让 Monaco 高亮与文件类型保持同步;覆盖保存保留当前语言。
    */
-  markSaved: (id: string, path: string) => void;
+  markSaved: (id: string, path: string, savedContent: string) => void;
   /**
    * 文件树重命名后的 Tab 路径重定向:内容与 dirty 状态原样保留,
    * 仅改 path/title 并按新路径重新推断语言(自动检测模式下)。
@@ -830,7 +833,7 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ workspace: { ...workspace, tabs }, userTouched: true });
   },
 
-  markSaved: (id, path) => {
+  markSaved: (id, path, savedContent) => {
     const { workspace } = get();
     const tabs = workspace.tabs.map((t) => {
       if (t.id !== id) return t;
@@ -839,11 +842,12 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
       // 避免覆盖用户手动选择。自动检测模式下始终按(新)路径推断。
       const language =
         (t.languageAuto ?? true) || t.path !== path ? inferLanguageFromPath(path) : t.language;
-      // 保存后 title 绑定为真实文件名,内容派生标题的生命周期结束
+      // 保存后 title 绑定为真实文件名,内容派生标题的生命周期结束。
+      // savedContent 用调用方传入的写盘快照:写盘期间的新输入保持 dirty。
       return {
         ...t,
         path,
-        savedContent: t.content,
+        savedContent,
         title: fileNameFromPath(path),
         autoTitle: undefined,
         language,

@@ -45,6 +45,21 @@ export function disposeModel(tabId: string): void {
   model?.dispose();
 }
 
+/**
+ * 释放池中的全部 model(工作台整体卸载时调用)。
+ *
+ * @monaco-editor/react 卸载只 dispose **当前** model,非激活 Tab 的池化
+ * model(整份文本 + undo 栈)会残留在全局 ModelServices 注册表;反复
+ * 进出编辑器工具即单调泄漏。uriFor 的 `inmemory://tab/` 前缀是本模块与
+ * 库 `path` prop 的共用约定,按同一约定反查清理,不误伤其它来源的 model。
+ */
+export function disposePooledModels(): void {
+  if (!monacoInstance) return;
+  for (const model of monacoInstance.editor.getModels()) {
+    if (model.uri.toString().startsWith('inmemory://tab/')) model.dispose();
+  }
+}
+
 /** 供测试诊断:当前 monaco 实例是否已注册 */
 export function isMonacoRegistered(): boolean {
   return monacoInstance !== null;

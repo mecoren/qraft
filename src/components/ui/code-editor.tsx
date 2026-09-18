@@ -22,6 +22,7 @@
 
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -343,6 +344,112 @@ function ToolbarButton({
   );
 }
 
+/** 按 Unicode 码点数统计字符(代理对计 1),口径与 Array.from(s).length 一致但不物化数组 */
+function countCodePoints(s: string): number {
+  let pairs = 0;
+  for (let i = 0; i < s.length - 1; i += 1) {
+    const c = s.charCodeAt(i);
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const n = s.charCodeAt(i + 1);
+      if (n >= 0xdc00 && n <= 0xdfff) {
+        pairs += 1;
+        i += 1;
+      }
+    }
+  }
+  return s.length - pairs;
+}
+
+/**
+ * 文本文件装入上限(字节):超过即拒绝并提示,防止超大文件把内容
+ * 整体塞进 Monaco 与依赖方(如 diff worker)拖垮应用。
+ * 10MB 对纯文本对比/编辑场景已远超常见体量。
+ */
+const MAX_TEXT_FILE_BYTES = 10 * 1024 * 1024;
+
+/** 文本类文件扩展名白名单:拖放时过滤,双击目录/可执行文件拒绝装入 */
+const TEXT_FILE_EXT = new Set([
+  'txt',
+  'md',
+  'json',
+  'jsonc',
+  'json5',
+  'yml',
+  'yaml',
+  'toml',
+  'ini',
+  'cfg',
+  'conf',
+  'js',
+  'jsx',
+  'mjs',
+  'cjs',
+  'ts',
+  'tsx',
+  'vue',
+  'svelte',
+  'html',
+  'htm',
+  'css',
+  'scss',
+  'less',
+  'svg',
+  'py',
+  'rb',
+  'rs',
+  'go',
+  'java',
+  'kt',
+  'kts',
+  'c',
+  'h',
+  'cpp',
+  'hpp',
+  'cs',
+  'php',
+  'sh',
+  'bash',
+  'zsh',
+  'ps1',
+  'bat',
+  'cmd',
+  'sql',
+  'graphql',
+  'gql',
+  'xml',
+  'csv',
+  'tsv',
+  'log',
+  'env',
+  'gitignore',
+  'editorconfig',
+  'patch',
+  'diff',
+  'dart',
+  'swift',
+  'scala',
+  'lua',
+  'pl',
+  'r',
+  'jl',
+  'ex',
+  'exs',
+  'erl',
+  'hs',
+  'vim',
+  'gd',
+  'proto',
+  'tf',
+  'hcl',
+]);
+
+function isTextFileName(name: string): boolean {
+  const dot = name.lastIndexOf('.');
+  // 无扩展名文件(如 LICENSE、Makefile)按文本接受
+  if (dot < 0) return true;
+  return TEXT_FILE_EXT.has(name.slice(dot + 1).toLowerCase());
+}
+
 export function CodeEditor({
   value,
   onChange,
@@ -437,8 +544,11 @@ export function CodeEditor({
   // —— 缩进方式(作用于当前编辑器模型;状态栏徽章展示值)——
   const [indent, setIndent] = useState<IndentStyle>({ insertSpaces: true, tabSize: 2 });
 
-  // 行尾序列:由内容推导(CRLF 存在即视为 CRLF),与 VSCode 展示一致
-  const eolLabel = value.includes('\r\n') ? 'CRLF' : 'LF';
+  // 行尾序列:由内容推导(CRLF 存在即视为 CRLF),与 VSCode 展示一致。
+  // 状态栏统计(本行与 charCount)统一读 deferred 值:全文扫描降为
+  // 低优先级渲染,大文档快速输入时不抢占输入帧
+  const statValue = useDeferredValue(value);
+  const eolLabel = statValue.includes('\r\n') ? 'CRLF' : 'LF';
 
   // 编辑器字号:跟随设置中的字号档位等比缩放(标准档 13px,见 theme.ts)。
   // options 对象随渲染重建,@monaco-editor/react 检测到变化后会自动
@@ -521,9 +631,84 @@ export function CodeEditor({
   }, [value, onChange]);
 
   // 按 Unicode 码点统计字符数(emoji / 生僻字等代理对计 1 个),与 TextAnalyzer 口径一致。
-  // useMemo 隔离重算:大输入下 Array.from 会物化百万级码点数组,
-  // 若在函数体每轮渲染执行,将成为输入卡顿的直接来源
-  const charCount = useMemo(() => Array.from(value).length, [value]);
+  // countCodePoints 免物化数组;deferred 值隔离重算:大输入下全文扫描
+  // 不再随每次按键进入输入关键路径
+  const charCount = useMemo(() => countCodePoints(statValue), [statValue]);
+
+  // Monaco options 稳定引用:库内以对象标识为依赖调 updateOptions,
+  // 每渲染新建字面量会让编辑器在每次按键/移动光标后都全量刷新配置
+  const editorOptions = useMemo<editor.IStandaloneEditorConstructionOptions>(
+    () => ({
+      readOnly,
+      // Monaco 默认 useShadowDOM: true,编辑器(含右键菜单)渲染在 Shadow DOM 内,
+      // 应用样式无法穿透 shadow 边界覆盖菜单。关闭后菜单回到普通 DOM,
+      // 由 monaco-menu-style.ts 注入的 shadcn 化覆盖样式即可生效。
+      useShadowDOM: false,
+      // 通过 CSS 变量 --app-mono-font-family 跟随用户在设置中选择的代码字体
+      // (由 theme.ts 的 applyMonoFontFamily 注入,未设置时回退到 JetBrains Mono 栈)
+      fontFamily:
+        "var(--app-mono-font-family, 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace)",
+      fontLigatures: true,
+      fontSize: monacoFontSize,
+      lineHeight: editorFontSize.lineHeight,
+      lineNumbers: lineNumbers ? 'on' : 'off',
+      glyphMargin: false,
+      // 代码折叠:gutter 单击折叠/展开 + 右键菜单折叠组(经 folding prop 可关)
+      folding,
+      minimap: { enabled: minimap },
+      scrollBeyondLastLine: false,
+      automaticLayout: true,
+      // 自动换行:默认开启,可经右键菜单「自动换行」按当前编辑器切换
+      wordWrap: wordWrapOn ? 'on' : 'off',
+      // 缩进宽度:设置 → 文本编辑器(新建 model 的默认缩进)
+      tabSize: display.tabSize,
+      // 当前行高亮:'all' 覆盖整行(含 gutter),类似 VS Code。
+      // 背景色使用柔和浅灰(#f3f3f3 / #2f2f2f,见 defineThemeFor),
+      // 边框为全透明,视觉温和不刺眼。
+      renderLineHighlight: 'all',
+      renderWhitespace: 'selection',
+      smoothScrolling: true,
+      cursorBlinking: 'smooth',
+      cursorSmoothCaretAnimation: 'on',
+      padding: { top: 10, bottom: 10 },
+      scrollbar: {
+        // 滚动条尺寸与全局美化一致:轨道 10px、滑块可见 6px
+        // (全局 thumb = 10px - 2px×2 透明 border 内缩)
+        verticalScrollbarSize: 10,
+        horizontalScrollbarSize: 10,
+        verticalSliderSize: 6,
+        horizontalSliderSize: 6,
+        useShadows: false,
+      },
+      guides: {
+        indentation: display.indentationGuides,
+        highlightActiveIndentation: display.indentationGuides,
+      },
+      stickyScroll: { enabled: display.stickyScroll },
+      bracketPairColorization: { enabled: display.bracketPairColorization },
+      roundedSelection: true,
+      // 默认 0 隐藏右缘标尺;文本比较等场景经 prop 开启以显示差异刻度
+      overviewRulerLanes,
+      scrollBeyondLastColumn: 0,
+      // 禁用 Monaco 自带的英文右键菜单,改用 MonacoContextMenu 中文菜单
+      contextmenu: false,
+      fixedOverflowWidgets: true,
+    }),
+    [
+      readOnly,
+      monacoFontSize,
+      editorFontSize.lineHeight,
+      lineNumbers,
+      folding,
+      minimap,
+      wordWrapOn,
+      display.tabSize,
+      display.indentationGuides,
+      display.stickyScroll,
+      display.bracketPairColorization,
+      overviewRulerLanes,
+    ],
+  );
 
   const updateStatus = (): void => {
     const editor = editorRef.current;
@@ -690,97 +875,6 @@ export function CodeEditor({
     }
   };
 
-  /**
-   * 文本文件装入上限(字节):超过即拒绝并提示,防止超大文件把内容
-   * 整体塞进 Monaco 与依赖方(如 diff worker)拖垮应用。
-   * 10MB 对纯文本对比/编辑场景已远超常见体量。
-   */
-  const MAX_TEXT_FILE_BYTES = 10 * 1024 * 1024;
-
-  /** 文本类文件扩展名白名单:拖放时过滤,双击目录/可执行文件拒绝装入 */
-  const TEXT_FILE_EXT = new Set([
-    'txt',
-    'md',
-    'json',
-    'jsonc',
-    'json5',
-    'yml',
-    'yaml',
-    'toml',
-    'ini',
-    'cfg',
-    'conf',
-    'js',
-    'jsx',
-    'mjs',
-    'cjs',
-    'ts',
-    'tsx',
-    'vue',
-    'svelte',
-    'html',
-    'htm',
-    'css',
-    'scss',
-    'less',
-    'svg',
-    'py',
-    'rb',
-    'rs',
-    'go',
-    'java',
-    'kt',
-    'kts',
-    'c',
-    'h',
-    'cpp',
-    'hpp',
-    'cs',
-    'php',
-    'sh',
-    'bash',
-    'zsh',
-    'ps1',
-    'bat',
-    'cmd',
-    'sql',
-    'graphql',
-    'gql',
-    'xml',
-    'csv',
-    'tsv',
-    'log',
-    'env',
-    'gitignore',
-    'editorconfig',
-    'patch',
-    'diff',
-    'dart',
-    'swift',
-    'scala',
-    'lua',
-    'pl',
-    'r',
-    'jl',
-    'ex',
-    'exs',
-    'erl',
-    'hs',
-    'vim',
-    'gd',
-    'proto',
-    'tf',
-    'hcl',
-  ]);
-
-  /** 判断文件是否为可装入的文本文件(按扩展名白名单) */
-  const isTextFileName = (name: string): boolean => {
-    const dot = name.lastIndexOf('.');
-    // 无扩展名文件(如 LICENSE、Makefile)按文本接受
-    if (dot < 0) return true;
-    return TEXT_FILE_EXT.has(name.slice(dot + 1).toLowerCase());
-  };
-
   /** 装入一个文本文件:大小守卫 + 扩展名过滤 + onFileLoad/onChange 双路径 */
   const loadTextFile = async (file: File) => {
     if (!isTextFileName(file.name)) {
@@ -924,62 +1018,7 @@ export function CodeEditor({
               {t('chrome.code_editor.loading')}
             </div>
           }
-          options={{
-            readOnly,
-            // Monaco 默认 useShadowDOM: true,编辑器(含右键菜单)渲染在 Shadow DOM 内,
-            // 应用样式无法穿透 shadow 边界覆盖菜单。关闭后菜单回到普通 DOM,
-            // 由 monaco-menu-style.ts 注入的 shadcn 化覆盖样式即可生效。
-            useShadowDOM: false,
-            // 通过 CSS 变量 --app-mono-font-family 跟随用户在设置中选择的代码字体
-            // (由 theme.ts 的 applyMonoFontFamily 注入,未设置时回退到 JetBrains Mono 栈)
-            fontFamily:
-              "var(--app-mono-font-family, 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace)",
-            fontLigatures: true,
-            fontSize: monacoFontSize,
-            lineHeight: editorFontSize.lineHeight,
-            lineNumbers: lineNumbers ? 'on' : 'off',
-            glyphMargin: false,
-            // 代码折叠:gutter 单击折叠/展开 + 右键菜单折叠组(经 folding prop 可关)
-            folding,
-            minimap: { enabled: minimap },
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            // 自动换行:默认开启,可经右键菜单「自动换行」按当前编辑器切换
-            wordWrap: wordWrapOn ? 'on' : 'off',
-            // 缩进宽度:设置 → 文本编辑器(新建 model 的默认缩进)
-            tabSize: display.tabSize,
-            // 当前行高亮:'all' 覆盖整行(含 gutter),类似 VS Code。
-            // 背景色使用柔和浅灰(#f3f3f3 / #2f2f2f,见 defineThemeFor),
-            // 边框为全透明,视觉温和不刺眼。
-            renderLineHighlight: 'all',
-            renderWhitespace: 'selection',
-            smoothScrolling: true,
-            cursorBlinking: 'smooth',
-            cursorSmoothCaretAnimation: 'on',
-            padding: { top: 10, bottom: 10 },
-            scrollbar: {
-              // 滚动条尺寸与全局美化一致:轨道 10px、滑块可见 6px
-              // (全局 thumb = 10px - 2px×2 透明 border 内缩)
-              verticalScrollbarSize: 10,
-              horizontalScrollbarSize: 10,
-              verticalSliderSize: 6,
-              horizontalSliderSize: 6,
-              useShadows: false,
-            },
-            guides: {
-              indentation: display.indentationGuides,
-              highlightActiveIndentation: display.indentationGuides,
-            },
-            stickyScroll: { enabled: display.stickyScroll },
-            bracketPairColorization: { enabled: display.bracketPairColorization },
-            roundedSelection: true,
-            // 默认 0 隐藏右缘标尺;文本比较等场景经 prop 开启以显示差异刻度
-            overviewRulerLanes,
-            scrollBeyondLastColumn: 0,
-            // 禁用 Monaco 自带的英文右键菜单,改用 MonacoContextMenu 中文菜单
-            contextmenu: false,
-            fixedOverflowWidgets: true,
-          }}
+          options={editorOptions}
         />
         {/* Placeholder overlay:空值时显示提示文本 */}
         {placeholder && !value && (

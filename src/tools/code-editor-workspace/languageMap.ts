@@ -228,7 +228,9 @@ export function detectLanguageFromContent(content: string): EditorLanguage | nul
   //    键不带引号,不会误判
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
     try {
-      JSON.parse(content);
+      // 只解析嗅探片段(与函数头注释口径一致):全文超上限时截断片段
+      // 解析失败会落到下方宽松特征兜底,大 JSON 仍能识别为 json
+      JSON.parse(head);
       return 'json';
     } catch {
       if (/"[^"\n]+"\s*:/m.test(head)) return 'json';
