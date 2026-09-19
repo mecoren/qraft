@@ -12,6 +12,7 @@ Qraft 是本地优先(Local-first)的跨平台开发者工具箱(DevToys 类应�
 - **双语同步**:zh-CN 为源语言,en-US 必须同步补齐,`src/en-locale-sweep.test.tsx` 会强制扫描英文缺失。
 - **版本单一来源**:版本号只在 `package.json` 维护,经 `scripts/bump-version.sh` 同步到 `src-tauri/Cargo.toml` 与 `src-tauri/tauri.conf.json`,不要手改后两处;「改版本号」请求按下方[版本发布流程](#版本发布流程改版本号时自动执行)全流程执行(脚本 + 双日志 + CI 绿),不是只改数字。
 - **已发布数据契约**:`config.json`(配置)、`history.jsonl`(历史)、localStorage(收藏/最近使用)的结构变更必须有兼容或迁移策略,不直接覆盖已发布格式。
+- **提交即 CI 绿**:交付的代码必须能让 CI 跑通——提交/推送前本地跑通 CI 的同等检查(见[常用命令](#常用命令)),前端改动含**全量** `pnpm test`(单文件/单用例通过不代表全量,并行负载会暴露只在 CI 出现的时序问题);红了先定位修复,不得靠重跑碰运气。本地怎么跑都绿、只在 CI 红的,见下文前端约定「测试」小节的时序竞态条目。
 - **尊重 dirty worktree**:不要回滚或覆盖非本轮改动;需要动到已修改文件时先读清楚。
 - **提交信息**:单行 Conventional Commits + 中文描述,如 `feat(text-editor): …`、`fix(base64): …`。
 
@@ -108,7 +109,7 @@ cargo test
 ```
 
 - dev 端口为 **14200** 而非 Tauri 惯例的 1420(规避 Windows Hyper-V 保留端口段);改端口需同步 `tauri.conf.json` 的 `devUrl` 与 `devCsp`。
-- CI(`.github/workflows/ci.yml`)执行 cargo fmt --check、clippy -D warnings、cargo test --locked、prettier、eslint、typecheck、vitest;提交前本地跑通同等检查。
+- CI(`.github/workflows/ci.yml`)执行 cargo fmt --check、clippy -D warnings、cargo test --locked、prettier、eslint、typecheck、vitest;这套就是「提交即 CI 绿」(见[快速原则](#快速原则))的本地等价清单,vitest 跑全量。
 
 ## 版本发布流程(改版本号时自动执行)
 
@@ -181,6 +182,7 @@ cargo test
 - 写测试前先读 `src/test/setup.ts`:Tauri API 已 mock、Monaco 以 textarea shim、虚拟列表依赖(ResizeObserver、非零 clientHeight)已铺。
 - Monaco shim 渲染为容器内**受控 textarea 且不带 testid**:对可编辑 CodeEditor 输入用 `screen.getByTestId('<容器testid>').querySelector('textarea')` 再 `fireEvent.change`;真实浏览器验证时 Monaco 内容读 `monaco.editor.getModels()`,`querySelector('textarea')` 拿到的 inputarea 恒空。
 - 改 IPC / 命令契约时,前端跑 `pnpm typecheck` + `pnpm test`,Rust 跑 `cargo test`。
+- **只在本机绿的时序竞态**:CI 单红而本地单跑/全量跑都绿,基本都是负载拉开的时序窗口(本机 CPU 快,慢机器上顺序反过来)。定位方式:临时把可疑的一侧推迟(如把挂载即 `focus` 改成 `setTimeout(…, 50)`),人为放大窗口逼出与 CI **一字不差**的报错,确认假设后落地守卫,再撤掉临时改动;不要用重跑变绿、`retry`、加 `waitFor` 碰运气了事。典型坑:shadcn `Popover` 是 Radix **非 modal** 分支,`DismissableLayer` 对任何外部 `focusin` 都直接 dismiss,所以点击触发它之前必须先等编辑器/挂载侧的 focus 落定(`MarkdownEditor.test.tsx` 的 Tab 关闭两例即此模式)。
 
 ## 通用代码规范
 
