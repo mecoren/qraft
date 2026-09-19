@@ -113,6 +113,12 @@ pub enum AppError {
     #[error("file modified since opened: current mtime {mtime_ms}ms")]
     FileModified { mtime_ms: u64 },
 
+    /// 目标文件已不在磁盘上(打开后被外部删除或移动)。
+    /// 与 `Io` 区分开:保存的 mtime 乐观校验命中本错误表示「校验基准已无对应
+    /// 实体」而非读写故障,前端据此在原路径重建文件而非报通用 IO 失败。
+    #[error("file not found: {0}")]
+    FileNotFound(String),
+
     #[error("permission denied: {0}")]
     Permission(String),
 
@@ -147,6 +153,7 @@ impl AppError {
             Self::Unsupported(_) => "ERR_FILE_UNSUPPORTED",
             Self::FileTooLarge { .. } => "ERR_FILE_TOO_LARGE",
             Self::FileModified { .. } => "ERR_FILE_MODIFIED",
+            Self::FileNotFound(_) => "ERR_FILE_NOT_FOUND",
             Self::Permission(_) | Self::Forbidden(_) => "ERR_PERMISSION_DENIED",
             Self::AlreadyExists(_) => "ERR_ALREADY_EXISTS",
             Self::Internal(_) | Self::Unknown(_) => "ERR_INTERNAL",
@@ -204,6 +211,7 @@ impl Serialize for AppError {
             | Self::Forbidden(s)
             | Self::Unsupported(s)
             | Self::AlreadyExists(s)
+            | Self::FileNotFound(s)
             | Self::Unknown(s) => {
                 map.serialize_entry("detail", s)?;
             }

@@ -144,9 +144,11 @@ async fn writes_without_expected_mtime_by_default() {
     let _ = std::fs::remove_file(&path);
 }
 
-/// 文件在打开后被删除:带 `expected_mtime` 保存应报错(而非静默新建空文件)
+/// 文件在打开后被删除:带 `expected_mtime` 保存返回 `ERR_FILE_NOT_FOUND`
+/// (而非通用 `ERR_FILE_IO`)——前端据此区分「基准已无实体」与读写故障,
+/// 去掉基准重试即可在原路径重建
 #[tokio::test]
-async fn errors_when_file_deleted_since_open() {
+async fn reports_not_found_when_file_deleted_since_open() {
     let path = temp_file("qraft_it_mtime_deleted.txt", "original");
     let path_str = path.to_str().unwrap();
 
@@ -166,8 +168,29 @@ async fn errors_when_file_deleted_since_open() {
     )
     .await
     .unwrap_err();
-    // 文件不存在:io::NotFound → ERR_FILE_IO(不误报为 mtime 冲突)
-    assert_eq!(err.code(), "ERR_FILE_IO");
+    assert_eq!(err.code(), "ERR_FILE_NOT_FOUND");
+    // 校验拒绝即止:不凭空建出目标文件
+    assert!(!path.exists());
+
+    let _ = std::fs::remove_file(&path);
+}
+
+/// 消失后的重建出口:不带 `expected_mtime` 的保存在原路径凭空建出文件
+/// (前端捕获 `ERR_FILE_NOT_FOUND` 后正是按此重试)
+#[tokio::test]
+async fn recreates_deleted_file_without_expected_mtime() {
+    let path = temp_file("qraft_it_mtime_recreate.txt", "original");
+    let path_str = path.to_str().unwrap();
+
+    let authorized = AuthorizedPaths::new();
+    authorized.authorize(path_str);
+    std::fs::remove_file(&path).unwrap();
+
+    let resp = fs_write_file_encoded_inner(path_str, "mine", "utf-8", None, &authorized, None)
+        .await
+        .unwrap();
+    assert!(resp.success);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "mine");
 
     let _ = std::fs::remove_file(&path);
 }

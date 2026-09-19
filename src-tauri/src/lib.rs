@@ -91,6 +91,7 @@ pub fn run() -> anyhow::Result<()> {
     use crate::commands::fs_large_file::{
         fs_cancel_large_file_scan, fs_large_file_info, fs_large_file_search, fs_read_file_lines,
     };
+    use crate::commands::fs_watch::fs_watch_open_files;
     use crate::commands::history::{history_clear, history_list};
     use crate::commands::image::{gif_encode, png_compress};
     // IP 归属地查询(零网络原则的登记例外,见 net/mod.rs 与 PRD 13-security.md §3.1)
@@ -179,6 +180,16 @@ pub fn run() -> anyhow::Result<()> {
             app.manage(AuthorizedPaths::new());
             app.manage(PendingOpenFiles::new());
             app.manage(WindowCloseGuard::default());
+            // 外部文件变更监视:编辑器把打开的文件注册进来,原生 watcher 命中后
+            // 经这个 emit 闭包推给前端(media::fs_watch 本身不依赖 Tauri 类型)。
+            // 事件只带路径,是否真的算「外部修改」由前端按 mtime 基准复核。
+            {
+                let handle = app.handle().clone();
+                let hub = crate::media::fs_watch::FsWatchHub::new(move |path: String| {
+                    let _ = handle.emit("fs:external-change", serde_json::json!({ "path": path }));
+                });
+                app.manage(std::sync::Arc::new(hub));
+            }
 
             // 应用原生窗口材质效果(Windows: Mica / macOS: vibrancy / Linux: 无原生,前端 CSS 回退)
             // 失败仅 warn,不阻塞启动;窗口仍可用,只是无模糊质感
@@ -297,6 +308,7 @@ pub fn run() -> anyhow::Result<()> {
             fs_read_file_lines,
             fs_large_file_search,
             fs_cancel_large_file_scan,
+            fs_watch_open_files,
             fs_reveal_in_explorer,
             png_compress,
             gif_encode,

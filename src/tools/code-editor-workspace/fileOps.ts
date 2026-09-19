@@ -11,7 +11,8 @@
  *   code=`ERR_FILE_UNSUPPORTED` 的 CommandError,超大抛 `ERR_FILE_TOO_LARGE`,
  *   均可经 `forceOpenFile` 强制打开(按探测编码有损解码)。
  * - `saveToPath`:直接覆盖写回已授权路径(`fs_write_file`,恒 UTF-8)。
- * - `saveToPathEncoded`:以指定编码写回(`fs_write_file_encoded`)。
+ * - `saveToPathEncoded`:以指定编码写回(`fs_write_file_encoded`);文件已被
+ *   外部删除时去基准重试,在原路径重建。
  * - `saveWithDialog`:弹「另存为」对话框(`fs_save_bytes`),保存后路径同样被授权。
  * - `encodeTextToBase64`:文本 → UTF-8 base64(`fs_save_bytes` 的输入格式)。
  */
@@ -171,6 +172,15 @@ export async function deleteTreeEntry(path: string): Promise<void> {
 /** 读取文件的 mtime(epoch 毫秒);供保存前刷新乐观校验基准 */
 export async function fileMtimeMs(path: string): Promise<number> {
   return invokeCommand<number>('fs_file_mtime', { path });
+}
+
+/**
+ * 全量替换后端监视的文件路径集合(`fs_watch_open_files`)。
+ * 集合中任一文件被外部改写 / 删除时,后端推 `fs:external-change` 事件;
+ * 事件只带路径,是否算外部修改由前端按 mtime 基准复核。
+ */
+export async function watchOpenFiles(paths: string[]): Promise<void> {
+  await invokeCommand<unknown>('fs_watch_open_files', { paths });
 }
 
 /**
@@ -379,25 +389,43 @@ export async function saveToPath(path: string, content: string): Promise<boolean
   return true;
 }
 
+/** 写盘结果:`recreated` 表示磁盘文件已被外部删除,本次保存顺带在原路径重建 */
+export type SaveOutcome = 'written' | 'recreated';
+
+/**
+ * IPC 错误的错误码(即 `CommandError.code`)。
+ * 结构化取值而非 `instanceof CommandError`:测试对 `@/lib/ipc` 多为部分 mock,
+ * 那里拿不到类引用。
+ */
+function ipcErrorCode(e: unknown): string | undefined {
+  return e instanceof Error && 'code' in e && typeof e.code === 'string' ? e.code : undefined;
+}
+
 /**
  * 以指定编码写回已授权路径(utf-8-bom 自动补 BOM)。
  * `expectedMtime` 提供时做乐观并发校验:磁盘文件被外部修改则抛
  * CommandError(code=`ERR_FILE_MODIFIED`,details.mtimeMs 为磁盘当前值),
- * 不写盘;缺省直接覆盖(既有语义)。成功返回 true。
+ * 不写盘;缺省直接覆盖(既有语义)。
+ *
+ * 文件在打开后被外部删除时抛 `ERR_FILE_NOT_FOUND`:校验基准已无对应实体,
+ * 带基准永远存不上,故去掉基准重试一次——后端的原子写直接在原路径重建文件,
+ * 返回 `recreated` 供调用方换提示语。重试仍失败则抛该错误。
  */
 export async function saveToPathEncoded(
   path: string,
   content: string,
   encoding: string = DEFAULT_ENCODING_ID,
   expectedMtime?: number,
-): Promise<boolean> {
-  await invokeCommand<boolean>('fs_write_file_encoded', {
-    path,
-    content,
-    encoding,
-    expectedMtime: expectedMtime ?? null,
-  });
-  return true;
+): Promise<SaveOutcome> {
+  const args = { path, content, encoding, expectedMtime: expectedMtime ?? null };
+  try {
+    await invokeCommand<boolean>('fs_write_file_encoded', args);
+    return 'written';
+  } catch (e) {
+    if (expectedMtime === undefined || ipcErrorCode(e) !== 'ERR_FILE_NOT_FOUND') throw e;
+    await invokeCommand<boolean>('fs_write_file_encoded', { ...args, expectedMtime: null });
+    return 'recreated';
+  }
 }
 
 /** 在系统文件管理器中定位指定文件;成功返回 true,失败抛 CommandError */

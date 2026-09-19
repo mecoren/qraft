@@ -461,16 +461,24 @@ fn detect_encoding_forced(bytes: &[u8]) -> &'static str {
     }
 }
 
-/// 读取文件的 mtime(epoch 毫秒);文件不存在/不可访问时返回 `AppError::Io`
+/// 读取文件的 mtime(epoch 毫秒)
 ///
 /// 编辑器打开文件时记录该值,保存时经 `expected_mtime` 回传做乐观并发校验。
+/// `NotFound` 单独分流成 `AppError::FileNotFound`:文件被外部删除时校验基准
+/// 已无对应实体,与「外部改写」「读写故障」三者要能分开,前端才知该重建。
 ///
 /// # Errors
 ///
-/// - 元数据读取失败(不存在/权限不足)时返回 `AppError::Io`(`ERR_FILE_IO`)
+/// - 文件不存在时返回 `AppError::FileNotFound`(`ERR_FILE_NOT_FOUND`)
+/// - 元数据不可访问(权限不足等)时返回 `AppError::Io`(`ERR_FILE_IO`)
 async fn file_mtime_ms(path: &str) -> Result<u64, AppError> {
     use std::time::SystemTime;
-    let meta = tokio::fs::metadata(path).await.map_err(AppError::from)?;
+    let meta = tokio::fs::metadata(path)
+        .await
+        .map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => AppError::FileNotFound(path.to_string()),
+            _ => AppError::Io(e),
+        })?;
     let duration = meta
         .modified()
         .map_err(|e| AppError::Io(std::io::Error::other(format!("mtime unavailable: {e}"))))?
@@ -493,6 +501,8 @@ async fn file_mtime_ms(path: &str) -> Result<u64, AppError> {
 /// - 编码不受支持时返回 `AppError::Unsupported`
 /// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
 /// - 磁盘 mtime 与 `expected_mtime` 不一致时返回 `AppError::FileModified`(`ERR_FILE_MODIFIED`)
+/// - 文件在打开后被外部删除(校验基准已无对应实体)时返回
+///   `AppError::FileNotFound`(`ERR_FILE_NOT_FOUND`)
 /// - 文件写入失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 pub async fn fs_write_file_encoded_inner(
     path: &str,
@@ -1054,6 +1064,8 @@ pub async fn fs_read_text_file_encoded(
 /// - 编码不受支持时返回 `AppError::Unsupported`
 /// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
 /// - 磁盘 mtime 与 `expected_mtime` 不一致时返回 `AppError::FileModified`(`ERR_FILE_MODIFIED`)
+/// - 文件在打开后被外部删除(校验基准已无对应实体)时返回
+///   `AppError::FileNotFound`(`ERR_FILE_NOT_FOUND`)
 /// - 文件写入失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 #[tauri::command]
 pub async fn fs_write_file_encoded(
@@ -1183,7 +1195,8 @@ pub async fn fs_file_history_clear(
 /// # Errors
 ///
 /// - 路径未授权时返回 `AppError::Permission`(`ERR_PERMISSION_DENIED`)
-/// - 文件不存在/元数据读取失败时返回 `AppError::Io`(`ERR_FILE_IO`)
+/// - 文件不存在(已被外部删除)时返回 `AppError::FileNotFound`(`ERR_FILE_NOT_FOUND`)
+/// - 元数据不可访问时返回 `AppError::Io`(`ERR_FILE_IO`)
 #[tauri::command]
 pub async fn fs_file_mtime(
     path: String,
