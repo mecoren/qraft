@@ -16,7 +16,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FileCompareView } from './EditorWorkbench';
+import { FileCompareView } from './FileCompareView';
 import { DEFAULT_COMPARE_OPTIONS, useTextCompareStore } from '@/tools/textCompareStore';
 import type { EditorTab } from './schema';
 

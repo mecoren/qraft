@@ -1,5 +1,5 @@
 /**
- * 编辑器工作区 —— VSCode 风格多文件工作区主组件
+ * 编辑器工作区 —— VSCode 风格多文件工作区主组件(布局与 Tab 编排)
  *
  * 布局(自上而下 / 自左而右):
  * - 顶部操作区:原工具栏已迁移到 Titlebar 菜单栏(File / View 菜单)
@@ -7,130 +7,66 @@
  * - 主体:左栏「打开的编辑器」列表 + 中央 Monaco 编辑器
  * - 编辑器自带底部状态栏(行/列/字符数),右侧追加可点击的语言徽章
  *
- * 菜单栏(由 Titlebar 渲染):
- * - File:新建 / 打开 / 保存 / 全部保存 / 关闭 / 全部关闭
- * - View:切换左栏显隐
+ * 本组件只做「装配」:状态来自 useEditorWorkspaceStore,行为来自同目录
+ * 的内聚 hook —— 持久化 useWorkspacePersistence、Monaco 实例登记
+ * useEditorInstanceRegistry、菜单栏 useEditorWorkbenchMenus、外部变更提示
+ * useExternalChangeHint、打开 useFileOpenActions、保存与冲突 useFileSaveActions、
+ * 对比 useFileCompare、历史版本 useFileHistoryActions、文件树操作 useFileTreeOperations。
+ * 留在本文件的是与布局/快捷键/未保存确认直接相关的编排逻辑。
  *
  * 生命周期:
- * - 挂载时 hydrate(从 Rust config 还原工作区)
- * - workspace 变更后 400ms 防抖持久化(config_set),仅 ready 后生效
- * - 保存:已绑定路径直接 fs_write_file;untitled 弹「另存为」对话框
+ * - 挂载时 hydrate(从 Rust config 还原工作区),workspace 变更后防抖落盘
+ * - 保存:已绑定路径按 Tab 编码写回(带 mtime 乐观校验);untitled 弹「另存为」
  * - 卸载时清空 Titlebar 菜单栏(由 useToolMenus effect cleanup 自动处理)
  */
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type JSX,
-} from 'react';
-import type { editor } from 'monaco-editor';
-import type { Monaco } from '@monaco-editor/react';
-import {
-  Columns2,
-  Eye,
-  FilePlus2,
-  Folder,
-  FolderOpen,
-  PenLine,
-  ArrowLeftRight,
-  Save,
-} from 'lucide-react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState, type JSX } from 'react';
+import { Columns2, Eye, FilePlus2, Folder, FolderOpen, PenLine } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { CodeEditor } from '@/components/ui/code-editor';
-import { TextDiffView } from '@/components/text-diff/TextDiffView';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { RenameDialog } from '@/components/RenameDialog';
-import {
-  registerActiveEditor,
-  unregisterActiveEditor,
-  cycleNamingCaseShortcutHandler,
-  toggleCaseShortcutHandler,
-} from './namingCaseCommand';
-import { registerTabEditor, clearTabEditors, getTabEditor } from '@/lib/editor-search-registry';
-import { registerMonacoInstance, disposeModel, disposePooledModels } from './editorModelRegistry';
+import { cycleNamingCaseShortcutHandler, toggleCaseShortcutHandler } from './namingCaseCommand';
+import { getTabEditor } from '@/lib/editor-search-registry';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
 import { useToolShortcut } from '@/hooks/useShortcut';
 import { useEditorDisplay } from '@/hooks/useEditorDisplay';
-import { useConfigStore } from '@/store/configStore';
-import { DEFAULT_SHORTCUTS, type ShortcutKey } from '@/types/config';
-import { listen, safeInvoke, CommandError } from '@/lib/ipc';
 import { writeClipboardText } from '@/lib/clipboard';
-import { persistDelayFor } from '@/lib/persist-debounce';
 import type { ToolProps } from '@/tools/registry';
-import { useTextCompareStore } from '@/tools/textCompareStore';
 import { MarkdownEditorPane, isMarkdownDocument } from '@/tools/markdown-editor-pane';
 import { useMarkdownEditorStore, type MdViewMode } from '@/tools/markdownEditorStore';
-import {
-  buildUnifiedPatch,
-  buildUnifiedPatchFromBlocks,
-  type DiffSnapshot,
-} from '@/components/text-diff/diff-utils';
-import { downloadText } from '@/lib/file-utils';
-import { useEditorWorkspaceStore, folderNameFromPath } from './useEditorWorkspaceStore';
+import { useEditorWorkspaceStore } from './useEditorWorkspaceStore';
 import { useLargeFileScan } from './useLargeFileScan';
+import { useExternalChangeHint } from './useExternalChangeHint';
+import { useWorkspacePersistence } from './useWorkspacePersistence';
+import { useEditorInstanceRegistry } from './useEditorInstanceRegistry';
+import { useEditorWorkbenchMenus } from './useEditorWorkbenchMenus';
+import { useFileCompare } from './useFileCompare';
+import { useFileHistoryActions } from './useFileHistoryActions';
+import { useFileTreeOperations } from './useFileTreeOperations';
+import { useFileSaveActions } from './useFileSaveActions';
+import { useFileOpenActions } from './useFileOpenActions';
 import {
   goBackEditLocation,
   goForwardEditLocation,
-  recordEditLocation,
   type EditLocation,
 } from './editLocationHistory';
 import { LargeFileViewer } from './LargeFileViewer';
 import { EditorTabsBar } from './EditorTabsBar';
 import { EditorLeftSidebar } from './EditorLeftSidebar';
+import { FileCompareView } from './FileCompareView';
+import { SidebarResizeHandle } from './SidebarResizeHandle';
+import { TreeOperationDialogs } from './TreeOperationDialogs';
 import { PathBreadcrumb } from './PathBreadcrumb';
 import { FileModifiedDialog } from './FileModifiedDialog';
 import { type UnsavedMode, type UnsavedSource } from './UnsavedPopover';
 import { EditorLanguagePicker } from './EditorLanguagePicker';
-import { LANGUAGE_LABELS, fileNameFromPath, inferLanguageFromPath } from './languageMap';
+import { LANGUAGE_LABELS } from './languageMap';
 import { LanguageIcon } from './languageIcons';
-import {
-  OPEN_REASON_BINARY,
-  OPEN_REASON_TOO_LARGE,
-  clearFileHistory,
-  createTreeEntry,
-  deleteTreeEntry,
-  forceOpenFile,
-  listFileHistory,
-  openTextFileDialog,
-  openFolderDialog,
-  readFileHistorySnapshot,
-  readTextFileEncoded,
-  renameTreeEntry,
-  revealInExplorer,
-  saveToPathEncoded,
-  saveWithDialog,
-  saveWithDialogEncoded,
-  windowCloseReady,
-  type DirEntry,
-  type OpenFileFailure,
-} from './fileOps';
-import { fileMtimeMs } from './fileOps';
-import type { FileSnapshotMeta } from './fileOps';
+import { revealInExplorer } from './fileOps';
 import { FileHistoryDialog } from './FileHistoryDialog';
-import { formatBytes } from '@/lib/file-utils';
-import { useToolMenus } from '@/store/toolMenubarStore';
-import type { ToolMenu } from '@/types/tool-menu';
-import {
-  resolveSidebarResize,
-  SIDEBAR_HIDE_DELTA,
-  SIDEBAR_MAX_WIDTH,
-  SIDEBAR_MIN_WIDTH,
-  type ComparePair,
-  type EditorTab,
-} from './schema';
 
 // Monaco loader 路径配置(import 即执行,保证任何 DiffEditor 挂载前就绪;详见模块内注释)
 import '@/lib/monaco-loader-config';
@@ -165,14 +101,6 @@ type BatchCloseAction = 'close-others' | 'close-right' | 'close-all';
 /** 超过该字符数的 Tab 不渲染 minimap(超大内容下缩略图无导航价值且渲染开销大) */
 const MINIMAP_DISABLE_CONTENT_CHARS = 200_000;
 
-/** 生成稳定唯一对比 id */
-function createCompareId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return `compare-${crypto.randomUUID()}`;
-  }
-  return `compare-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const { t } = useTranslation();
   const workspace = useEditorWorkspaceStore((s) => s.workspace);
@@ -191,31 +119,78 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   } | null>(null);
   /** 重命名对话框目标(null = 关闭);打开时预填该 Tab 当前显示名 */
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
-  /**
-   * 保存冲突状态(null = 关闭):保存命中 ERR_FILE_MODIFIED(磁盘文件已被
-   * 外部修改)时记录目标 Tab,弹「覆盖 / 对比 / 重新加载」三选。
-   */
-  const [modifiedConflict, setModifiedConflict] = useState<string | null>(null);
-  /**
-   * 左栏 Ctrl+多选选中的文件(id 集合,不含激活 Tab 自身)。
-   * 存储层不落盘(纯会话内 UI 状态),关闭文件时同步剔除失效 id。
-   */
-  const [selectedTabIds, setSelectedTabIds] = useState<string[]>([]);
-  /** 已创建的对比项列表(不落盘,纯会话内 UI 状态) */
-  const [compares, setCompares] = useState<ComparePair[]>([]);
-  /** 当前激活的对比项 id(主区域显示其 diff) */
-  const [activeCompareId, setActiveCompareId] = useState<string | null>(null);
+
+  // —— 文件对比(左栏多选 → 组成对比 → 差异视图)——
+  const {
+    selectedTabIds,
+    compares,
+    activeCompareId,
+    compareLeft,
+    compareRight,
+    showCompare,
+    clearActiveCompare,
+    handleSelectTab,
+    handleSelectMany,
+    handleCompareSelected,
+    handleSelectCompare,
+    handleCloseCompare,
+    handleCloseAllCompares,
+    swapCompareSides,
+    compareWithLatestTab,
+    exportComparePatch,
+    compareSnapRef,
+  } = useFileCompare({ tabs: workspace.tabs, activeTabId: workspace.activeTabId });
+
+  // —— 保存链路(写盘 / 编码另存 / 外部修改冲突三选)——
+  const {
+    modifiedConflict,
+    closeConflict,
+    conflictTab,
+    saveTabById,
+    handleSave,
+    handleSaveAll,
+    reopenWithEncoding,
+    saveWithEncoding,
+    handleConflictOverwrite,
+    handleConflictReload,
+    handleConflictCompare,
+  } = useFileSaveActions({ compareWithLatestTab });
+
+  // —— 打开链路(文件对话框 / 文件夹树节点 / 失败分流)——
+  const { handleOpen, handleOpenFolder, handleOpenTreeFile } = useFileOpenActions({
+    clearActiveCompare,
+  });
+
   /** 语言模式选择对话框(右下角语言徽章触发) */
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
-  /**
-   * 「历史版本」对话框:目标 Tab id(打开即非 null,条件渲染挂载;
-   * 关闭即卸载,下次打开重新拉取快照列表)。
-   */
-  const [historyTabId, setHistoryTabId] = useState<string | null>(null);
-  /** 历史快照元数据(打开对话框时拉取;null = 加载中) */
-  const [historySnapshots, setHistorySnapshots] = useState<FileSnapshotMeta[] | null>(null);
-  /** 当前选中的历史版本 id(缺省自动选最新) */
-  const [historySelectedId, setHistorySelectedId] = useState<string | null>(null);
+
+  // —— 「历史版本」对话框(列表 / 对比 / 恢复 / 清空)——
+  const {
+    historyTabId,
+    historySnapshots,
+    historySelectedId,
+    setHistorySelectedId,
+    handleOpenHistory,
+    handleHistoryCancel,
+    handleHistoryCompare,
+    handleHistoryRestore,
+    handleHistoryClear,
+  } = useFileHistoryActions({ compareWithLatestTab });
+
+  // —— 文件树三操作(新建 / 重命名 / 删除;右键菜单发起)——
+  const {
+    treeRefreshKey,
+    treeOp,
+    treeDelete,
+    openTreeCreate,
+    openTreeRename,
+    openTreeDelete,
+    closeTreeOp,
+    closeTreeDelete,
+    handleTreeCreate,
+    handleTreeRename,
+    handleTreeDeleteConfirmed,
+  } = useFileTreeOperations();
 
   // —— Markdown 视图模式(编辑/分屏/预览;仅 md 文档生效,与工具页共享偏好)——
   const mdViewMode = useMarkdownEditorStore((s) => s.viewMode);
@@ -229,112 +204,21 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   const [handleHovered, setHandleHovered] = useState(false);
   const [handleActive, setHandleActive] = useState(false);
 
-  // 首次挂载从 Rust config 还原工作区
-  useEffect(() => {
-    void hydrate();
-  }, [hydrate]);
-
-  /** workspace 变更防抖持久化的定时器句柄;同时给窗口关闭守卫复用 */
-  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** 上一帧已知的 Tab id 集合:Tab 关闭时对消失项释放 Monaco model(池化清理) */
-  const knownTabIdsRef = useRef<string[]>([]);
-
-  /**
-   * 窗口关闭守卫:工作区内容已通过防抖 effect 实时写入 Rust config 缓存
-   * (`tool_prefs.editor_workspace_v1`),再次启动会自动还原,因此不再弹
-   * 「未保存更改」确认框。后端拦截关闭后,前端只需立即冲刷待落盘数据
-   * 并退出,避免防抖窗口尚未到点时的最后改动丢失。
-   *
-   * 仅在 Tauri 运行时生效(浏览器 dev / 测试环境跳过)。
-   */
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
-    void windowCloseReady();
-    let unlisten: (() => void) | undefined;
-    void (async () => {
-      try {
-        unlisten = await listen('app:close-requested', async () => {
-          // 取消待执行的防抖 persist,立即写一次最新工作区到缓存
-          if (persistTimer.current) {
-            clearTimeout(persistTimer.current);
-            persistTimer.current = null;
-          }
-          try {
-            await useEditorWorkspaceStore.getState().persist();
-          } catch {
-            // 持久化异常不影响退出,避免阻塞关闭流程
-          }
-          void safeInvoke('app_quit');
-        });
-      } catch {
-        // 非 Tauri 环境或事件系统不可用:不拦截窗口关闭
-      }
-    })();
-    return () => unlisten?.();
-  }, []);
-
-  // workspace 变更 → 防抖持久化(ready 前 persist 为 no-op,不会覆盖已存数据)。
-  // 防抖窗口按各 Tab 内容总长度自适应:工作区落盘是整份 config 的全量重写,
-  // 数 MB 载荷下固定短窗口会在每次打字停顿处重写整份文件,拉长窗口把连续
-  // 编辑合并为一次磁盘写(关闭与卸载仍有立即冲刷兜底,不丢最后一次改动)
-  useEffect(() => {
-    if (!ready) return;
-    let totalChars = 0;
-    for (const t of workspace.tabs) totalChars += t.content.length;
-    if (persistTimer.current) clearTimeout(persistTimer.current);
-    persistTimer.current = setTimeout(() => {
-      persistTimer.current = null;
-      void useEditorWorkspaceStore.getState().persist();
-    }, persistDelayFor(totalChars));
-    return () => {
-      if (persistTimer.current) clearTimeout(persistTimer.current);
-    };
-  }, [workspace, ready]);
-
-  // 卸载时(切换工具/关闭面板)立即写入未落盘的改动,避免防抖窗口内数据丢失;
-  // 空依赖数组的 cleanup 仅在组件真正卸载时执行
-  useEffect(() => {
-    return () => {
-      if (persistTimer.current) {
-        clearTimeout(persistTimer.current);
-        persistTimer.current = null;
-        void useEditorWorkspaceStore.getState().persist();
-      }
-    };
-  }, []);
+  // —— 工作区持久化(hydrate 还原 / 防抖落盘 / 关闭与卸载冲刷)——
+  useWorkspacePersistence({ workspace, ready, hydrate });
 
   const activeTab = workspace.tabs.find((t) => t.id === workspace.activeTabId) ?? null;
-  const activeEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
-  // —— 外部修改激活轮询(P1 轻方案)——
-  // 激活 Tab 切换时,对「绑定磁盘路径且记录了 mtime 基准」的 Tab 做一次
-  // 轻量 mtime 比对:磁盘已被外部程序改写时 toast 提示(每 Tab 会话内只提示
-  // 一次)。不做定时轮询/自动弹窗——保存路径已有 ERR_FILE_MODIFIED 三选兜底,
-  // 这里只是把「保存时才发现」提前为「切回 Tab 即知晓」,不打断用户。
-  const mtimeNotifiedRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (!ready || !activeTab) return;
-    const { path, openedMtimeMs, largeFile } = activeTab;
-    // 大文件 Tab 只读;无路径/无基准(旧数据兼容)时无从比较
-    if (!path || openedMtimeMs === undefined || largeFile) return;
-    // 同一 Tab 一次会话只提示一次(用户已知悉,重复提示只是噪音)
-    const key = `${path}:${openedMtimeMs}`;
-    if (mtimeNotifiedRef.current.has(key)) return;
-    mtimeNotifiedRef.current.add(key);
-    let cancelled = false;
-    void fileMtimeMs(path)
-      .then((current) => {
-        if (cancelled) return;
-        if (current === openedMtimeMs) return;
-        toast.warning(t('tools.text_editor.external_modified_hint', { title: activeTab.title }));
-      })
-      .catch(() => {
-        // mtime 读取失败(文件被移动/删除等):静默,保存时的错误处理会接住
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [ready, activeTab, t]);
+  // —— Monaco 实例与 model 登记(onMount / 切 Tab / 关 Tab / 卸载)——
+  const { handleEditorMount } = useEditorInstanceRegistry({
+    tabs: workspace.tabs,
+    activeTabId: workspace.activeTabId,
+  });
+
+  // —— 外部变更提示(watcher 推送 + 激活比对)——
+  // 打开的文件被其它程序改写/删除时 toast 提示;不打断用户,也不自动弹窗,
+  // 覆盖/重新加载仍由保存时的 ERR_FILE_MODIFIED 三选对话框决定。
+  useExternalChangeHint({ ready, activeTab });
 
   // 大文件 Tab:激活时自动触发行索引扫描(进度事件订阅在 hook 内)
   useLargeFileScan(activeTab);
@@ -380,353 +264,6 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       ))}
     </div>
   ) : undefined;
-
-  // 挂载时把编辑器实例注册到全局「激活编辑器」注册表,供 cycle_naming_case
-  // 全局快捷键(useShortcut)使用;并按当前 tab 注册到 tabId→实例注册表,
-  // 供全局搜索文本跳转定位高亮;卸载时同时注销。
-  // 光标变化 → 记录位置历史(Alt+Left/Right 后退/前进的输入源)。
-  const handleEditorMount = useCallback(
-    (editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) => {
-      activeEditorRef.current = editorInstance;
-      registerActiveEditor(editorInstance);
-      // model 池化配套:monaco 实例注入注册表,供 Tab 关闭时按 tabId 释放 model
-      registerMonacoInstance(monaco as unknown as typeof import('monaco-editor'));
-      const tabId = useEditorWorkspaceStore.getState().workspace.activeTabId;
-      if (tabId) registerTabEditor(tabId, editorInstance);
-      // 位置历史:光标/选区变化时记录(模块内部做时间与跳距合并节流)
-      editorInstance.onDidChangeCursorPosition((e) => {
-        const current = useEditorWorkspaceStore.getState().workspace.activeTabId;
-        if (current) {
-          recordEditLocation({
-            tabId: current,
-            line: e.position.lineNumber,
-            column: e.position.column,
-          });
-        }
-      });
-    },
-    [],
-  );
-
-  /**
-   * Tab 关闭时释放对应 model(model 池化的清理侧):
-   * 监听 workspace.tabs,对消失的 tabId 调 disposeModel——undo 栈随 model
-   * 释放,防止已关闭 Tab 的 model 常驻内存。批量关闭(全部关闭/关闭其他)
-   * 同样经此 effect 逐个释放。
-   */
-  useEffect(() => {
-    const valid = new Set(useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.id));
-    for (const tabId of knownTabIdsRef.current) {
-      if (!valid.has(tabId)) disposeModel(tabId);
-    }
-    knownTabIdsRef.current = [...valid];
-  }, [workspace.tabs]);
-
-  /**
-   * 激活 Tab 变化 → 同步 tabId→编辑器实例注册表(池化配套):
-   * 切 Tab 不重挂编辑器(onMount 不再触发),注册表停留在挂载那一刻的
-   * tabId——按 tabId 取实例的调用方(全局搜索跳转 / 位置历史恢复)在
-   * 其它 Tab 上会拿到 null 而重试失败。这里随 activeTabId 把当前唯一
-   * 实例重新注册到新 tabId(旧 tabId 条目保留无害:实例相同,getModel
-   * 经 modelKey 切换恒命中当前 model)。
-   */
-  useEffect(() => {
-    const ed = activeEditorRef.current;
-    if (workspace.activeTabId && ed) {
-      registerTabEditor(workspace.activeTabId, ed);
-    }
-  }, [workspace.activeTabId]);
-
-  useEffect(() => {
-    return () => {
-      const ed = activeEditorRef.current;
-      if (ed) unregisterActiveEditor(ed);
-      activeEditorRef.current = null;
-      // 工作台卸载 = 全部 tab 的编辑器实例均已销毁,清空整个 tabId→实例注册表,
-      // 避免残留已销毁实例引用(跳转重试时 getModel() 返回 null 会误判)。
-      clearTabEditors();
-      // 池化 model 的兜底清理:库卸载只 dispose 当前 model,非激活 Tab 的
-      // model(全文 + undo 栈)会残留全局注册表,反复进出工具即单调泄漏
-      disposePooledModels();
-    };
-  }, []);
-
-  /** 当前激活的对比项及左右文件(引用失效时回退 null) */
-  const activeCompare =
-    (activeCompareId && compares.find((cp) => cp.id === activeCompareId)) ?? null;
-  const compareLeft = activeCompare
-    ? (workspace.tabs.find((t) => t.id === activeCompare.leftTabId) ?? null)
-    : null;
-  const compareRight = activeCompare
-    ? (workspace.tabs.find((t) => t.id === activeCompare.rightTabId) ?? null)
-    : null;
-  const showCompare = Boolean(activeCompare && compareLeft && compareRight);
-
-  /**
-   * 打开文件失败的统一提示(仿 VSCode 二进制文件占位编辑器):
-   * - `binary`:可恢复,toast 带「仍要打开」动作按钮,点击经 `forceOpenFile`
-   *   按探测编码有损解码打开(VSCode Open Anyway)
-   * - `too-large`:不可恢复,仅提示文件大小与上限
-   * - 其余读取错误:展示后端真实错误消息
-   */
-  const showOpenFailure = useCallback(
-    (failure: OpenFileFailure | { path: string; reason?: undefined; message?: string }) => {
-      const name = fileNameFromPath(failure.path);
-      if ('reason' in failure && failure.reason === OPEN_REASON_TOO_LARGE) {
-        // 超限文件切换到大文件只读查看模式(fs_large_file_info 流式打开)
-        useEditorWorkspaceStore.getState().openLargeFile(failure.path);
-        toast.info(
-          t('tools.text_editor.toast_large_opened', { name, size: formatBytes(failure.size ?? 0) }),
-        );
-        return;
-      }
-      if ('reason' in failure && failure.reason === OPEN_REASON_BINARY) {
-        toast.error(t('tools.text_editor.err_file_binary', { name }), {
-          duration: 10_000,
-          action: {
-            label: t('tools.text_editor.open_anyway'),
-            onClick: () => {
-              void forceOpenFile(failure.path)
-                .then((result) => {
-                  useEditorWorkspaceStore
-                    .getState()
-                    .openLocalFile(result.path, result.content, result.encoding, result.mtimeMs);
-                  setActiveCompareId(null);
-                })
-                .catch((e) => {
-                  toast.error(
-                    e instanceof Error ? e.message : t('tools.text_editor.err_open_file'),
-                  );
-                });
-            },
-          },
-        });
-        return;
-      }
-      toast.error(t('tools.text_editor.err_open_file'));
-    },
-    [t],
-  );
-
-  /** 打开本地文件对话框并载入(或激活已打开的同路径 Tab);编码随文件探测结果记录 */
-  const handleOpen = useCallback(async () => {
-    try {
-      const result = await openTextFileDialog();
-      if (result?.file) {
-        useEditorWorkspaceStore
-          .getState()
-          .openLocalFile(
-            result.file.path,
-            result.file.content,
-            result.file.encoding,
-            result.file.mtimeMs,
-          );
-        setActiveCompareId(null);
-      } else if (result?.failed) {
-        showOpenFailure(result.failed);
-      }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_open_file'));
-    }
-  }, [showOpenFailure, t]);
-
-  /** 打开文件夹:加入左栏「文件夹」树(多根并存),默认展开根 */
-  const handleOpenFolder = useCallback(async () => {
-    try {
-      const rootPath = await openFolderDialog();
-      if (!rootPath) return; // 用户取消:静默
-      useEditorWorkspaceStore.getState().openFolder(rootPath);
-      toast.success(
-        t('tools.text_editor.toast_folder_opened', { name: folderNameFromPath(rootPath) }),
-      );
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_open_folder'));
-    }
-  }, [t]);
-
-  /**
-   * 点击文件夹树中的文件:
-   * - 已有同路径 Tab → 直接激活(不重复读取)
-   * - 否则经 `fs_read_text_file_encoded` 读取并载入(编码自动探测);
-   *   二进制(ERR_FILE_UNSUPPORTED)→ 弹「仍要打开」提示(仿 VSCode),
-   *   超大(ERR_FILE_TOO_LARGE)→ 提示文件过大,
-   *   文件节点保留在树中(组件层不做剔除)
-   */
-  const handleOpenTreeFile = useCallback(
-    async (path: string) => {
-      const state = useEditorWorkspaceStore.getState();
-      const existing = state.workspace.tabs.find((t) => t.path === path);
-      if (existing) {
-        state.switchTab(existing.id);
-        setActiveCompareId(null);
-        return;
-      }
-      try {
-        const result = await readTextFileEncoded(path);
-        state.openLocalFile(result.path, result.content, result.encoding, result.mtimeMs);
-        setActiveCompareId(null);
-      } catch (e) {
-        const name = fileNameFromPath(path);
-        if (e instanceof CommandError && e.code === 'ERR_FILE_UNSUPPORTED') {
-          showOpenFailure({ path, reason: OPEN_REASON_BINARY });
-        } else if (e instanceof CommandError && e.code === 'ERR_FILE_TOO_LARGE') {
-          // 超限文件:切换大文件只读查看模式(details 形如 { size, max })
-          const detail = e.details as { size?: number; max?: number } | undefined;
-          useEditorWorkspaceStore.getState().openLargeFile(path);
-          toast.info(
-            t('tools.text_editor.toast_large_opened', {
-              name,
-              size: formatBytes(detail?.size ?? 0),
-            }),
-          );
-        } else {
-          // 其余失败(未授权/不存在等):展示后端返回的真实错误信息
-          toast.error(
-            t('tools.text_editor.err_open_named', {
-              name,
-              reason: e instanceof Error ? e.message : t('tools.text_editor.err_unknown'),
-            }),
-          );
-        }
-      }
-    },
-    [showOpenFailure, t],
-  );
-
-  /**
-   * 保存指定 Tab:已绑定路径直接写回(按 Tab 记录的编码),untitled 弹「另存为」。
-   * 乐观并发校验:有路径且记录了打开时 mtime 的 Tab,保存携带 expectedMtime;
-   * 磁盘已被外部修改(ERR_FILE_MODIFIED)时不写盘,弹冲突三选对话框。
-   * `overwrite` 为 true 时跳过校验(冲突对话框「覆盖」入口)。
-   * 返回是否成功(用户取消另存为 / 保存失败 / 命中冲突返回 false)。
-   */
-  const saveTabById = useCallback(
-    async (id: string, overwrite = false): Promise<boolean> => {
-      const state = useEditorWorkspaceStore.getState();
-      const tab = state.workspace.tabs.find((t) => t.id === id);
-      if (!tab) return false;
-      // 大文件 Tab 恒只读:保存是 no-op(菜单项已禁用,防御性守卫)
-      if (tab.largeFile) return false;
-      try {
-        if (tab.path) {
-          // 按 Tab 记录的编码写回(状态栏可切换;缺省 UTF-8);带打开时
-          // mtime 做外部修改校验(未记录基准或覆盖模式时不校验)
-          const expect =
-            overwrite || tab.openedMtimeMs === undefined ? undefined : tab.openedMtimeMs;
-          await saveToPathEncoded(tab.path, tab.content, tab.encoding ?? 'utf-8', expect);
-          // 传写盘快照而非"此刻内容":await 期间的新输入应保持 dirty
-          state.markSaved(id, tab.path, tab.content);
-          // 刷新乐观校验基准:下一次保存以新 mtime 判定外部修改
-          try {
-            state.setTabMtime(id, await fileMtimeMs(tab.path));
-          } catch {
-            // mtime 刷新失败不阻塞保存成功路径(基准保持旧值,至多下次误报冲突)
-          }
-          toast.success(t('tools.text_editor.toast_saved', { name: tab.title }));
-          return true;
-        }
-        // 未绑定路径:文件名缺扩展名时补 .txt,供保存对话框使用
-        const fileName = tab.title.endsWith('.txt') ? tab.title : `${tab.title}.txt`;
-        const path = await saveWithDialog(fileName, tab.content);
-        if (path) {
-          state.markSaved(id, path, tab.content);
-          toast.success(t('tools.text_editor.toast_saved', { name: fileName }));
-          return true;
-        }
-        // 用户取消保存对话框:保持 dirty 状态
-        return false;
-      } catch (e) {
-        if (e instanceof CommandError && e.code === 'ERR_FILE_MODIFIED') {
-          // 外部修改冲突:不写盘、不弹错误 toast,交给三选对话框
-          setModifiedConflict(id);
-          return false;
-        }
-        toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_save'));
-        return false;
-      }
-    },
-    [t],
-  );
-
-  /** 保存激活 Tab(菜单「保存」/ Ctrl+S 快捷键) */
-  const handleSave = useCallback(() => {
-    const state = useEditorWorkspaceStore.getState();
-    if (!state.workspace.activeTabId) return;
-    void saveTabById(state.workspace.activeTabId);
-  }, [saveTabById]);
-
-  /**
-   * 通过编码重新打开(仿 VSCode):按所选编码重读磁盘文件并覆盖当前 Tab 内容,
-   * 顺带更新 Tab 编码记录并标记已保存(以磁盘为准)。无磁盘路径时为 no-op。
-   */
-  const reopenWithEncoding = useCallback(
-    async (encodingId: string): Promise<void> => {
-      const state = useEditorWorkspaceStore.getState();
-      const tab = state.workspace.tabs.find((t) => t.id === state.workspace.activeTabId);
-      if (!tab?.path) return;
-      // 有未保存改动时先确认:重新打开将以磁盘内容覆盖,当前改动会丢失
-      if (tab.content !== tab.savedContent) {
-        const ok = window.confirm(
-          t('tools.text_editor.reopen_discard_confirm', { title: tab.title }),
-        );
-        if (!ok) return;
-      }
-      try {
-        const result = await readTextFileEncoded(tab.path, encodingId);
-        state.setTabContent(tab.id, result.content);
-        // 指定编码重读时后端按所选编码解码,编码标识回退用户所选
-        state.setTabEncoding(tab.id, result.encoding ?? encodingId);
-        // 重读即以磁盘为准:刷新乐观校验基准到当前磁盘 mtime
-        state.setTabMtime(tab.id, result.mtimeMs);
-        state.markSaved(tab.id, tab.path, result.content);
-        toast.success(t('tools.text_editor.toast_reopened', { encoding: result.encoding }));
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_open_file'));
-      }
-    },
-    [t],
-  );
-
-  /**
-   * 通过编码保存(仿 VSCode):记录所选编码后立即写盘。
-   * 有路径直接按该编码写回(带 mtime 乐观校验,冲突弹三选);
-   * untitled 弹「另存为」并以该编码写入。
-   */
-  const saveWithEncoding = useCallback(
-    async (encodingId: string, overwrite = false): Promise<void> => {
-      const state = useEditorWorkspaceStore.getState();
-      const tab = state.workspace.tabs.find((t) => t.id === state.workspace.activeTabId);
-      if (!tab) return;
-      state.setTabEncoding(tab.id, encodingId);
-      try {
-        if (tab.path) {
-          const expect =
-            overwrite || tab.openedMtimeMs === undefined ? undefined : tab.openedMtimeMs;
-          await saveToPathEncoded(tab.path, tab.content, encodingId, expect);
-          state.markSaved(tab.id, tab.path, tab.content);
-          try {
-            state.setTabMtime(tab.id, await fileMtimeMs(tab.path));
-          } catch {
-            // mtime 刷新失败不阻塞保存成功路径
-          }
-        } else {
-          const fileName = tab.title.endsWith('.txt') ? tab.title : `${tab.title}.txt`;
-          const path = await saveWithDialogEncoded(fileName, tab.content, encodingId);
-          // 用户取消另存为:编码已记录,内容保持 dirty
-          if (!path) return;
-          state.markSaved(tab.id, path, tab.content);
-        }
-        toast.success(t('tools.text_editor.toast_saved', { name: tab.title }));
-      } catch (e) {
-        if (e instanceof CommandError && e.code === 'ERR_FILE_MODIFIED') {
-          if (tab.id) setModifiedConflict(tab.id);
-          return;
-        }
-        toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_save'));
-      }
-    },
-    [t],
-  );
 
   // Ctrl+S(Cmd+S)保存当前 Tab,阻止浏览器默认的「保存页面」行为。
   // 快捷键字符串可到设置里自定义;无激活 Tab 时是安全的 no-op。
@@ -843,542 +380,10 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     [t],
   );
 
-  // —— 文件树三操作(新建 / 重命名 / 删除;右键菜单发起)——
-
-  /** 树操作缓存刷新信号:任一操作落盘成功后递增,FolderTreeSection 清缓存重载 */
-  const [treeRefreshKey, setTreeRefreshKey] = useState(0);
-  /**
-   * 树操作名称输入对话框(null = 关闭)。
-   * - mode='create':dirPath 为目标目录,isDir 区分文件/文件夹,初始值空
-   * - mode='rename':oldPath 为被重命名条目,初始值为当前名
-   */
-  const [treeOp, setTreeOp] = useState<
-    | { mode: 'create'; dirPath: string; isDir: boolean }
-    | { mode: 'rename'; oldPath: string; name: string; isDir: boolean }
-    | null
-  >(null);
-  /** 删除确认对话框目标(null = 关闭;树删除影响磁盘,一律确认) */
-  const [treeDelete, setTreeDelete] = useState<DirEntry | null>(null);
-
-  const refreshTree = useCallback(() => {
-    setTreeRefreshKey((k) => k + 1);
-  }, []);
-
-  /** 统一错误提示:重名冲突给专门文案,其余透传 CommandError message */
-  const reportTreeOpError = useCallback(
-    (e: unknown, kind: 'create' | 'rename' | 'delete') => {
-      if (e instanceof CommandError && e.code === 'ERR_ALREADY_EXISTS') {
-        toast.error(t('tools.text_editor.tree_err_exists'));
-        return;
-      }
-      if (
-        e instanceof CommandError &&
-        e.code === 'ERR_FILE_UNSUPPORTED' &&
-        String(e.message).includes('not empty')
-      ) {
-        toast.error(t('tools.text_editor.tree_err_dir_not_empty'));
-        return;
-      }
-      const key =
-        kind === 'create'
-          ? 'tools.text_editor.tree_err_create'
-          : kind === 'rename'
-            ? 'tools.text_editor.tree_err_rename'
-            : 'tools.text_editor.tree_err_delete';
-      toast.error(e instanceof Error ? e.message : t(key));
-    },
-    [t],
-  );
-
-  /** 创建条目(名称对话框确认后):拼路径 → IPC → 展开父目录并刷新树 */
-  const handleTreeCreate = useCallback(
-    (name: string) => {
-      const op = treeOp;
-      setTreeOp(null);
-      if (op?.mode !== 'create') return;
-      const trimmed = name.trim();
-      if (!trimmed) return;
-      const sep = op.dirPath.includes('\\') && !op.dirPath.includes('/') ? '\\' : '/';
-      const target = `${op.dirPath}${sep}${trimmed}`;
-      void createTreeEntry(target, op.isDir)
-        .then(() => {
-          // 父目录若未展开则展开(新条目立即可见),再刷新缓存
-          useEditorWorkspaceStore.getState().toggleDirExpanded(op.dirPath);
-          refreshTree();
-          toast.success(
-            op.isDir
-              ? t('tools.text_editor.tree_created_folder', { name: trimmed })
-              : t('tools.text_editor.tree_created_file', { name: trimmed }),
-          );
-        })
-        .catch((e) => reportTreeOpError(e, 'create'));
-    },
-    [treeOp, refreshTree, reportTreeOpError, t],
-  );
-
-  /** 重命名条目(名称对话框确认后):拼新路径 → IPC → Tab 路径重定向 + 刷新树 */
-  const handleTreeRename = useCallback(
-    (name: string) => {
-      const op = treeOp;
-      setTreeOp(null);
-      if (op?.mode !== 'rename') return;
-      const trimmed = name.trim();
-      if (!trimmed || trimmed === op.name) return;
-      const sep = op.oldPath.includes('\\') && !op.oldPath.includes('/') ? '\\' : '/';
-      const parent = op.oldPath.slice(0, op.oldPath.lastIndexOf(sep));
-      const newPath = `${parent}${sep}${trimmed}`;
-      void renameTreeEntry(op.oldPath, newPath)
-        .then(() => {
-          // 已打开 Tab 的路径随迁移(目录重命名时子树内全部 Tab),
-          // 内容与 dirty 状态原样保留
-          useEditorWorkspaceStore.getState().retargetTabPath(op.oldPath, newPath);
-          refreshTree();
-          toast.success(t('tools.text_editor.tree_renamed', { name: trimmed }));
-        })
-        .catch((e) => reportTreeOpError(e, 'rename'));
-    },
-    [treeOp, refreshTree, reportTreeOpError, t],
-  );
-
-  /** 确认删除(对话框确认后):IPC → 关联 Tab/展开状态清理 + 刷新树 */
-  const handleTreeDeleteConfirmed = useCallback(() => {
-    const entry = treeDelete;
-    setTreeDelete(null);
-    if (!entry) return;
-    void deleteTreeEntry(entry.path)
-      .then(() => {
-        const store = useEditorWorkspaceStore.getState();
-        if (entry.isDir) {
-          // 子树内 Tab 关闭(数量提示);展开状态清理;工作区引用的对比项不动
-          const closed = store.closeTabsUnderPath(entry.path);
-          store.pruneExpandedDirs(entry.path);
-          if (closed > 0) {
-            toast.success(
-              t('tools.text_editor.tree_deleted_dir_tabs', {
-                name: entry.name,
-                count: closed,
-              }),
-            );
-          } else {
-            toast.success(t('tools.text_editor.tree_deleted', { name: entry.name }));
-          }
-        } else {
-          store.closeTabByPath(entry.path);
-          toast.success(t('tools.text_editor.tree_deleted', { name: entry.name }));
-        }
-        refreshTree();
-      })
-      .catch((e) => reportTreeOpError(e, 'delete'));
-  }, [treeDelete, refreshTree, reportTreeOpError, t]);
-
-  // —— 保存冲突三选(磁盘文件已被外部修改)——
-
-  /** 冲突目标 Tab(null = 关闭对话框时的瞬时读取) */
-  const conflictTab = modifiedConflict
-    ? (useEditorWorkspaceStore.getState().workspace.tabs.find((tb) => tb.id === modifiedConflict) ??
-      null)
-    : null;
-
-  /**
-   * 「覆盖」:跳过 mtime 校验,以当前编辑内容写盘(丢弃外部修改)。
-   * 覆盖前不再刷新基准(若两次操作间文件又被改,下次保存还会拦)。
-   */
-  const handleConflictOverwrite = useCallback(() => {
-    const id = modifiedConflict;
-    setModifiedConflict(null);
-    if (id) void saveTabById(id, true);
-  }, [modifiedConflict, saveTabById]);
-
-  /**
-   * 「重新加载」:读磁盘最新内容覆盖编辑器并清 dirty(本地未保存改动丢弃)。
-   * 已有 reopenWithEncoding 的「磁盘覆盖」语义,复用其实现(编码按 Tab 记录)。
-   */
-  const handleConflictReload = useCallback(() => {
-    const id = modifiedConflict;
-    setModifiedConflict(null);
-    if (!id) return;
-    const state = useEditorWorkspaceStore.getState();
-    const tab = state.workspace.tabs.find((tb) => tb.id === id);
-    if (!tab?.path) return;
-    const { path, id: tabId } = tab;
-    void (async () => {
-      try {
-        const result = await readTextFileEncoded(path);
-        state.setTabContent(tabId, result.content);
-        state.setTabEncoding(tabId, result.encoding ?? tab.encoding ?? 'utf-8');
-        state.setTabMtime(tabId, result.mtimeMs);
-        state.markSaved(tabId, path, result.content);
-        toast.success(t('tools.text_editor.toast_reloaded', { name: tab.title }));
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_open_file'));
-      }
-    })();
-  }, [modifiedConflict, t]);
-
-  /**
-   * 「对比」:读磁盘最新内容生成快照 Tab,与当前编辑 Tab 组成对比视图,
-   * 用户看完差异后自行决定去留(快照标题标注来源,不与原文件同路径混淆)。
-   */
-  const handleConflictCompare = useCallback(() => {
-    const id = modifiedConflict;
-    setModifiedConflict(null);
-    if (!id) return;
-    const state = useEditorWorkspaceStore.getState();
-    const tab = state.workspace.tabs.find((tb) => tb.id === id);
-    if (!tab?.path) return;
-    const { path, id: tabId, title } = tab;
-    void (async () => {
-      try {
-        const disk = await readTextFileEncoded(path);
-        // 磁盘快照 Tab:无路径(不被当作本地文件),标题标注磁盘来源
-        state.openDroppedText(
-          t('tools.text_editor.modified_disk_copy', { name: title }),
-          disk.content,
-        );
-        // 快照 Tab 是刚追加的最后一个;组成「当前编辑(左) vs 磁盘快照(右)」对比并激活
-        const tabsNow = useEditorWorkspaceStore.getState().workspace.tabs;
-        const snapshotId = tabsNow[tabsNow.length - 1]?.id;
-        if (snapshotId) {
-          const pair: ComparePair = {
-            id: createCompareId(),
-            leftTabId: tabId,
-            rightTabId: snapshotId,
-          };
-          setCompares((prev) => {
-            const next = [...prev, pair];
-            setActiveCompareId(pair.id);
-            return next;
-          });
-        }
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_open_file'));
-      }
-    })();
-  }, [modifiedConflict, t]);
-
-  /**
-   * 打开「历史版本」对话框(Tab 右键菜单触发)。
-   * 拉取该文件全部本地快照(保存前快照,新 → 旧);加载失败以空列表
-   * 呈现(空态文案),不阻塞对话框打开。
-   */
-  const handleOpenHistory = useCallback(
-    (tabId: string) => {
-      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === tabId);
-      const path = tab?.path;
-      if (!path) return;
-      setHistoryTabId(tabId);
-      setHistorySnapshots(null);
-      setHistorySelectedId(null);
-      void (async () => {
-        try {
-          const snapshots = await listFileHistory(path);
-          setHistorySnapshots(snapshots);
-        } catch (e) {
-          toast.error(e instanceof Error ? e.message : t('tools.text_editor.history_load_error'));
-          setHistorySnapshots([]);
-        }
-      })();
-    },
-    [t],
-  );
-
-  /** 关闭历史对话框(遮罩 / Esc / 取消):清空选中与列表,下次打开重拉 */
-  const handleHistoryCancel = useCallback(() => {
-    setHistoryTabId(null);
-    setHistorySnapshots(null);
-    setHistorySelectedId(null);
-  }, []);
-
-  /**
-   * 「对比当前」:读取选中快照内容 → 打开为历史快照 Tab(无 path,不被
-   * 当作本地文件)→ 组成「当前编辑(左) vs 历史版本(右)」对比并激活。
-   * 与外部修改冲突的「对比」(handleConflictCompare)同款动线。
-   */
-  const handleHistoryCompare = useCallback(
-    (snapshotId: string) => {
-      const id = historyTabId;
-      if (!id) return;
-      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id);
-      if (!tab?.path) return;
-      const { path, title } = tab;
-      void (async () => {
-        try {
-          const content = await readFileHistorySnapshot(path, snapshotId);
-          const time = new Date(Number(snapshotId)).toLocaleTimeString();
-          // 快照 Tab:无路径,标题标注版本时间(与磁盘快照 Tab 命名同款)
-          useEditorWorkspaceStore
-            .getState()
-            .openDroppedText(
-              t('tools.text_editor.history_snapshot_title', { name: title, time }),
-              content,
-            );
-          const tabsNow = useEditorWorkspaceStore.getState().workspace.tabs;
-          const snapshotTabId = tabsNow[tabsNow.length - 1]?.id;
-          if (snapshotTabId) {
-            const pair: ComparePair = {
-              id: createCompareId(),
-              leftTabId: id,
-              rightTabId: snapshotTabId,
-            };
-            setCompares((prev) => {
-              const next = [...prev, pair];
-              setActiveCompareId(pair.id);
-              return next;
-            });
-          }
-          handleHistoryCancel();
-        } catch (e) {
-          toast.error(e instanceof Error ? e.message : t('tools.text_editor.history_load_error'));
-        }
-      })();
-    },
-    [historyTabId, t, handleHistoryCancel],
-  );
-
-  /**
-   * 「恢复内容」:把历史内容读进一个新 Tab(不动原文件;
-   * 用户确认后再自行保存,避免一键覆盖磁盘)。
-   */
-  const handleHistoryRestore = useCallback(
-    (snapshotId: string) => {
-      const id = historyTabId;
-      if (!id) return;
-      const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id);
-      if (!tab?.path) return;
-      const { path, title } = tab;
-      void (async () => {
-        try {
-          const content = await readFileHistorySnapshot(path, snapshotId);
-          const time = new Date(Number(snapshotId)).toLocaleTimeString();
-          useEditorWorkspaceStore
-            .getState()
-            .openDroppedText(
-              t('tools.text_editor.history_snapshot_title', { name: title, time }),
-              content,
-            );
-          handleHistoryCancel();
-        } catch (e) {
-          toast.error(e instanceof Error ? e.message : t('tools.text_editor.history_load_error'));
-        }
-      })();
-    },
-    [historyTabId, t, handleHistoryCancel],
-  );
-
-  /** 「清空历史」:删除该文件全部快照(确认后执行,列表回到空态) */
-  const handleHistoryClear = useCallback(() => {
-    const id = historyTabId;
-    if (!id) return;
-    const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id);
-    const path = tab?.path;
-    if (!path) return;
-    void (async () => {
-      try {
-        await clearFileHistory(path);
-        setHistorySnapshots([]);
-        setHistorySelectedId(null);
-        toast.success(t('tools.text_editor.history_cleared'));
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : t('tools.text_editor.history_load_error'));
-      }
-    })();
-  }, [historyTabId, t]);
-
-  /**
-   * 左栏选中处理(单击 / Ctrl+点击)。
-   *
-   * 「选中集合」= selectedTabIds ∪ {activeTabId}(去重),表示当前参与对比的候选文件。
-   * - additive=false(普通点击):仅激活该文件,清空多选(选中集合=仅该文件)
-   * - additive=true(Ctrl/Cmd+点击):**先把原先高亮(激活)的文件纳入选中集**,
-   *   再切换点击的文件在选中集中的存在,避免激活文件在切 Tab 后丢失
-   *
-   * 选中集合最多 2 个文件:
-   * - 第 3 个时**直接报错**并拒绝加入,避免选中过多后对比时静默只取前两个
-   */
-  const handleSelectMany = useCallback(
-    (id: string, additive: boolean) => {
-      const state = useEditorWorkspaceStore.getState();
-      const tab = state.workspace.tabs.find((t) => t.id === id);
-      if (!tab) return;
-      if (additive) {
-        // 基准选中集:当前激活 Tab 必须计入(去重),保证"原先高亮的"不丢失
-        const base = selectedTabIds.includes(workspace.activeTabId ?? '')
-          ? selectedTabIds
-          : [...selectedTabIds, ...(workspace.activeTabId ? [workspace.activeTabId] : [])];
-        // 点击的文件已在选中集 → 取消;否则加入
-        const next = base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
-        if (new Set(next).size > 2) {
-          toast.error(t('tools.text_editor.err_max_two_compare'));
-          return;
-        }
-        state.switchTab(id);
-        setActiveCompareId(null);
-        setSelectedTabIds(next);
-        return;
-      }
-      // 普通点击:仅激活该文件,清空多选
-      state.switchTab(id);
-      setActiveCompareId(null);
-      setSelectedTabIds([]);
-    },
-    [selectedTabIds, workspace.activeTabId, t],
-  );
-
-  /** 点击左栏普通文件:激活该 Tab 并退出对比视图 */
-  const handleSelectTab = useCallback((id: string) => {
-    useEditorWorkspaceStore.getState().switchTab(id);
-    setActiveCompareId(null);
-  }, []);
-
-  /** 关闭文件后,从选中集合剔除已关闭的 Tab,避免残留失效 id */
-  useEffect(() => {
-    const valid = new Set(useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.id));
-    // 订阅 store.tabs 变化后清理本地选择缓存:store 即外部状态源,
-    // 此处同步是「订阅外部系统变更后修正本地缓存」的必要同步,非普通渲染副作用。
-    // eslint-disable-next-line react-hooks/set-state-in-effect, react-x/set-state-in-effect
-    setSelectedTabIds((prev) => prev.filter((x) => valid.has(x)));
-  }, [workspace.tabs]);
-
-  /**
-   * 比较所选内容:从多选集合中取参与对比的两个文件。
-   *
-   * 选择集为「恰好 2 个」时直接对比;不足 2 个提示需选中两个;
-   * 超过 2 个时**直接报错**,避免静默只取前两个造成困惑。
-   */
-  const handleCompareSelected = useCallback(() => {
-    const state = useEditorWorkspaceStore.getState();
-    const { tabs } = state.workspace;
-    // 参与对比的候选 = 多选集合 + 激活 Tab(去重)
-    const chosen: EditorTab[] = [];
-    for (const id of selectedTabIds) {
-      const tab = tabs.find((t) => t.id === id);
-      if (tab && !chosen.some((c) => c.id === tab.id)) chosen.push(tab);
-    }
-    const active = tabs.find((t) => t.id === state.workspace.activeTabId);
-    if (active && !chosen.some((c) => c.id === active.id)) chosen.push(active);
-    if (chosen.length < 2) {
-      toast.info(t('tools.text_editor.info_select_two'));
-      return;
-    }
-    if (chosen.length > 2) {
-      toast.error(t('tools.text_editor.err_only_two_compare'));
-      return;
-    }
-    const pair: ComparePair = {
-      id: createCompareId(),
-      leftTabId: chosen[0].id,
-      rightTabId: chosen[1].id,
-    };
-    setCompares((prev) => [...prev, pair]);
-    setActiveCompareId(pair.id);
-  }, [selectedTabIds, t]);
-
-  /** 点击左栏对比项:切换激活该对比 */
-  const handleSelectCompare = useCallback((id: string) => {
-    setActiveCompareId(id);
-  }, []);
-
-  /** 关闭对比项:移除该对比,激活态自动跳到相邻(或清空) */
-  const handleCloseCompare = useCallback((id: string) => {
-    setCompares((prev) => {
-      const next = prev.filter((cp) => cp.id !== id);
-      setActiveCompareId((active) => {
-        if (active !== id) return active;
-        const idx = prev.findIndex((cp) => cp.id === id);
-        return next[Math.min(idx, next.length - 1)]?.id ?? null;
-      });
-      return next;
-    });
-  }, []);
-
-  /** 关闭整个「对比差异」分组:清空全部对比项并退出对比视图 */
-  const handleCloseAllCompares = useCallback(() => {
-    setCompares([]);
-    setActiveCompareId(null);
-  }, []);
-
-  /**
-   * 交换对比两侧(对齐文本比较工具「交换两侧内容」):把对比项的左右
-   * Tab id 互换。内容在 Tab 本身,不拷贝数据;渲染层标题/语言各自跟随。
-   */
-  const swapCompareSides = useCallback((compareId: string) => {
-    setCompares((prev) =>
-      prev.map((cp) =>
-        cp.id === compareId ? { ...cp, leftTabId: cp.rightTabId, rightTabId: cp.leftTabId } : cp,
-      ),
-    );
-  }, []);
-
-  /**
-   * 最新差异快照(存 ref,不进 state):FileCompareView 经 onDiffSnapshot 回填。
-   * 对比视图 key 到对比项,切换对比即重挂,快照天然跟随当前对比,不串台。
-   */
-  const compareSnapRef = useRef<DiffSnapshot | null>(null);
-
-  /**
-   * 导出当前对比的统一格式补丁(.patch):快照新鲜时按显示块生成(与所见
-   * 一致),过期(如刚编辑完计算未到)回退 jsdiff 独立计算。文件名取两侧
-   * Tab 名。
-   */
-  const exportComparePatch = useCallback(
-    async (left: EditorTab, right: EditorTab) => {
-      if (!left.content.trim() && !right.content.trim()) {
-        toast.info(t('tools.text_compare.patch_empty_toast'));
-        return;
-      }
-      const snap = compareSnapRef.current;
-      const opts = useTextCompareStore.getState().options;
-      const fresh =
-        snap !== null &&
-        snap.original === left.content &&
-        snap.modified === right.content &&
-        snap.ignoreWhitespace === opts.ignoreWhitespace &&
-        snap.ignoreCase === opts.ignoreCase &&
-        snap.ignoreEol === opts.ignoreEol;
-      const names = { originalName: left.title, modifiedName: right.title };
-      const patch = fresh
-        ? buildUnifiedPatchFromBlocks(left.content, right.content, snap.blocks, names)
-        : buildUnifiedPatch(left.content, right.content, names);
-      downloadText(`${left.title}-${right.title}.patch`, patch, 'text/x-diff');
-    },
-    [t],
-  );
-
-  /** 对比项引用的 Tab 被关闭时,自动清理该对比项 */
-  useEffect(() => {
-    // 同上文:订阅 store.tabs 变化后清理对比缓存(外部状态源同步),非普通渲染副作用。
-    // eslint-disable-next-line react-hooks/set-state-in-effect, react-x/set-state-in-effect
-    setCompares((prev) => {
-      const valid = new Set(useEditorWorkspaceStore.getState().workspace.tabs.map((t) => t.id));
-      const next = prev.filter((cp) => valid.has(cp.leftTabId) && valid.has(cp.rightTabId));
-      if (next.length !== prev.length) {
-        setActiveCompareId((active) =>
-          active && next.some((cp) => cp.id === active) ? active : (next[0]?.id ?? null),
-        );
-      }
-      return next;
-    });
-  }, [workspace.tabs]);
-
-  /**
-   * 全部保存:遍历 dirty Tab 逐个保存。
-   * - 已绑定路径 → 写回
-   * - untitled → 弹另存为,用户取消则跳过该 Tab(保持 dirty 状态)
-   * 全部独立执行,单 Tab 失败不影响其它
-   */
-  const handleSaveAll = useCallback(async () => {
-    const state = useEditorWorkspaceStore.getState();
-    const dirtyTabs = state.workspace.tabs.filter((t) => t.content !== t.savedContent);
-    for (const tab of dirtyTabs) {
-      // 跳过用户取消的另存为(返回 false),继续下一个 dirty Tab
-      await saveTabById(tab.id);
-    }
-  }, [saveTabById]);
-
   const handleNewTab = useCallback(() => {
     useEditorWorkspaceStore.getState().newBlankTab();
-    setActiveCompareId(null);
-  }, []);
+    clearActiveCompare();
+  }, [clearActiveCompare]);
 
   /** 切换左栏显隐(菜单「视图」) */
   const handleToggleSidebar = useCallback(() => {
@@ -1391,9 +396,9 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
    */
   const reopenClosedTab = useCallback(() => {
     if (useEditorWorkspaceStore.getState().reopenClosedTab()) {
-      setActiveCompareId(null);
+      clearActiveCompare();
     }
-  }, []);
+  }, [clearActiveCompare]);
 
   /**
    * 循环切换激活 Tab(Ctrl+Tab / Ctrl+Shift+Tab):跨 Tab 循环导航。
@@ -1457,141 +462,23 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, []);
 
-  /**
-   * 注册 Titlebar 菜单栏 —— 工具挂载即注册,卸载自动清空。
-   *
-   * 菜单结构:
-   * - File:
-   *   - 新建 tab(快捷键 Ctrl+N)        → toolbar-new
-   *   - 打开...(快捷键 Ctrl+O)      → toolbar-open
-   *   - 打开文件夹...                    → toolbar-open-folder
-   *   - 分隔线
-   *   - 保存(快捷键 Ctrl+S)             → toolbar-save(disabled 无激活 tab)
-   *   - 全部保存(快捷键 Ctrl+Shift+S)
-   *   - 分隔线
-   *   - 关闭(disabled 无激活 tab)
-   *   - 全部关闭(disabled 无 tab)       → toolbar-close-all
-   * - View:
-   *   - 切换左栏(快捷键 Ctrl+B)         → toolbar-toggle-sidebar
-   *
-   * testId 沿用旧工具栏命名,保证现有测试无需修改。
-   */
-  const menus = useMemo<ToolMenu[]>(() => {
-    /** 菜单快捷键标签:与快捷键绑定同源(用户自定义后菜单即时跟随);
-     *  空串(禁用)不显示标签,避免出现「显示但不生效」的欺骗性提示 */
-    const shortcutLabel = (key: ShortcutKey): string | undefined => {
-      const combo = useConfigStore.getState().config?.shortcuts[key] ?? DEFAULT_SHORTCUTS[key];
-      return combo || undefined;
-    };
-    return [
-      {
-        id: 'file',
-        label: t('tools.text_editor.menu_file'),
-        groups: [
-          {
-            items: [
-              {
-                id: 'new',
-                label: t('tools.text_editor.menu_new'),
-                shortcut: shortcutLabel('new_file'),
-                icon: FilePlus2,
-                onSelect: handleNewTab,
-                testId: 'toolbar-new',
-              },
-              {
-                id: 'open',
-                label: t('tools.text_editor.menu_open'),
-                shortcut: shortcutLabel('open_file'),
-                icon: FolderOpen,
-                onSelect: () => void handleOpen(),
-                testId: 'toolbar-open',
-              },
-              {
-                id: 'open-folder',
-                label: t('tools.text_editor.menu_open_folder'),
-                icon: Folder,
-                onSelect: () => void handleOpenFolder(),
-                testId: 'toolbar-open-folder',
-              },
-            ],
-          },
-          {
-            items: [
-              {
-                id: 'save',
-                label: t('tools.text_editor.save'),
-                shortcut: shortcutLabel('save_file'),
-                onSelect: handleSave,
-                // 大文件 Tab 恒只读,保存不可用
-                disabled: !activeTab || activeTab.largeFile,
-                testId: 'toolbar-save',
-              },
-              {
-                id: 'save-all',
-                label: t('tools.text_editor.save_all'),
-                shortcut: shortcutLabel('save_all'),
-                onSelect: () => void handleSaveAll(),
-                disabled: workspace.tabs.every((t) => t.content === t.savedContent),
-              },
-            ],
-          },
-          {
-            items: [
-              {
-                id: 'close',
-                label: t('tools.text_editor.close'),
-                shortcut: shortcutLabel('close_editor'),
-                onSelect: handleCloseCurrent,
-                disabled: !activeTab,
-              },
-              {
-                id: 'close-all',
-                label: t('tools.text_editor.close_all'),
-                shortcut: shortcutLabel('close_all_editors'),
-                // 显式传 'tabs':菜单 onSelect 会带首个参数,不能让它误当 source
-                onSelect: () => requestCloseAll('tabs'),
-                disabled: workspace.tabs.length === 0,
-                testId: 'toolbar-close-all',
-              },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'view',
-        label: t('tools.text_editor.menu_view'),
-        groups: [
-          {
-            items: [
-              {
-                id: 'toggle-sidebar',
-                label: workspace.leftSidebarVisible
-                  ? t('tools.text_editor.menu_hide_sidebar')
-                  : t('tools.text_editor.menu_show_sidebar'),
-                shortcut: shortcutLabel('toggle_editor_sidebar'),
-                onSelect: handleToggleSidebar,
-                testId: 'toolbar-toggle-sidebar',
-              },
-            ],
-          },
-        ],
-      },
-    ];
-  }, [
+  // —— Titlebar 菜单栏:工具挂载即注册,卸载自动清空(声明见 hook 内注释)——
+  useEditorWorkbenchMenus({
+    toolId,
     activeTab,
-    workspace.leftSidebarVisible,
-    workspace.tabs,
-    handleCloseCurrent,
-    handleNewTab,
-    handleOpen,
-    handleOpenFolder,
-    handleSave,
-    handleSaveAll,
-    handleToggleSidebar,
-    requestCloseAll,
-    t,
-  ]);
-  useToolMenus(toolId, menus);
+    tabs: workspace.tabs,
+    leftSidebarVisible: workspace.leftSidebarVisible,
+    actions: {
+      newTab: handleNewTab,
+      open: handleOpen,
+      openFolder: handleOpenFolder,
+      save: handleSave,
+      saveAll: handleSaveAll,
+      closeCurrent: handleCloseCurrent,
+      closeAll: requestCloseAll,
+      toggleSidebar: handleToggleSidebar,
+    },
+  });
 
   /**
    * 右键菜单自定义分组(按页面定制显示):文本编辑器页注入
@@ -1780,18 +667,11 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
               onCloseFolder={(rootPath) => useEditorWorkspaceStore.getState().closeFolder(rootPath)}
               onOpenTreeFile={(path) => void handleOpenTreeFile(path)}
               // 文件树右键三操作:新建 / 重命名 / 删除(树内右键菜单发起,
-              // handler 在工作台内做 IPC + Tab/展开状态同步 + 树刷新)
+              // hook 内做 IPC + Tab/展开状态同步 + 树刷新)
               treeRefreshKey={treeRefreshKey}
-              onCreateTreeEntry={(dirPath, isDir) => setTreeOp({ mode: 'create', dirPath, isDir })}
-              onRenameTreeEntry={(entry) =>
-                setTreeOp({
-                  mode: 'rename',
-                  oldPath: entry.path,
-                  name: entry.name,
-                  isDir: entry.isDir,
-                })
-              }
-              onDeleteTreeEntry={(entry) => setTreeDelete(entry)}
+              onCreateTreeEntry={openTreeCreate}
+              onRenameTreeEntry={openTreeRename}
+              onDeleteTreeEntry={openTreeDelete}
               onRevealTreeEntry={(entry) => {
                 void revealInExplorer(entry.path).catch((e) => {
                   toast.error(e instanceof Error ? e.message : t('tools.text_editor.err_reveal'));
@@ -1991,78 +871,16 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
           />
         )}
 
-        {/* 文件树操作名称输入(新建文件/文件夹、重命名;复用 RenameDialog 交互) */}
-        {treeOp?.mode === 'create' && (
-          <RenameDialog
-            open
-            title={
-              treeOp.isDir
-                ? t('tools.text_editor.tree_new_folder')
-                : t('tools.text_editor.tree_new_file')
-            }
-            placeholder={
-              treeOp.isDir
-                ? t('tools.text_editor.tree_name_placeholder_folder')
-                : t('tools.text_editor.tree_name_placeholder_file')
-            }
-            onConfirm={handleTreeCreate}
-            onCancel={() => setTreeOp(null)}
-            data-testid="tree-create-dialog"
-          />
-        )}
-        {treeOp?.mode === 'rename' && (
-          <RenameDialog
-            open
-            title={t('tools.text_editor.rename')}
-            initialValue={treeOp.name}
-            onConfirm={handleTreeRename}
-            onCancel={() => setTreeOp(null)}
-            data-testid="tree-rename-dialog"
-          />
-        )}
-
-        {/* 文件树删除确认:影响磁盘且无回收站兜底,一律确认 */}
-        {treeDelete && (
-          <Dialog
-            open
-            onOpenChange={(next) => {
-              if (!next) setTreeDelete(null);
-            }}
-          >
-            <DialogContent
-              data-testid="tree-delete-dialog"
-              className="max-w-sm gap-4 border border-border bg-background p-5 shadow-lg"
-            >
-              <DialogHeader>
-                <DialogTitle>{t('tools.text_editor.tree_delete_confirm_title')}</DialogTitle>
-              </DialogHeader>
-              <p className="text-sm text-muted-foreground">
-                {treeDelete.isDir
-                  ? t('tools.text_editor.tree_delete_confirm_dir', { name: treeDelete.name })
-                  : t('tools.text_editor.tree_delete_confirm_file', { name: treeDelete.name })}
-              </p>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setTreeDelete(null)}
-                >
-                  {t('tools.text_editor.tree_delete_cancel')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  data-testid="tree-delete-confirm"
-                  onClick={handleTreeDeleteConfirmed}
-                >
-                  {t('tools.text_editor.tree_delete_confirm')}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
+        {/* 文件树操作:名称输入(新建/重命名)+ 删除确认 */}
+        <TreeOperationDialogs
+          treeOp={treeOp}
+          treeDelete={treeDelete}
+          onCreateConfirm={handleTreeCreate}
+          onRenameConfirm={handleTreeRename}
+          onDeleteConfirm={handleTreeDeleteConfirmed}
+          onCloseOp={closeTreeOp}
+          onCloseDelete={closeTreeDelete}
+        />
 
         {/* 保存冲突三选(磁盘文件已被外部修改):覆盖 / 对比 / 重新加载 */}
         {modifiedConflict && (
@@ -2072,7 +890,7 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
             onOverwrite={handleConflictOverwrite}
             onCompare={() => void handleConflictCompare()}
             onReload={handleConflictReload}
-            onCancel={() => setModifiedConflict(null)}
+            onCancel={closeConflict}
             data-testid="file-modified-dialog"
           />
         )}
@@ -2116,316 +934,5 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
         )}
       </div>
     </TooltipProvider>
-  );
-}
-
-/**
- * 文件对比差异视图 —— 两个已打开文件的内容并排 Diff(直接嵌入主区域)
- *
- * - 渲染复用共享组件 TextDiffView(components/text-diff),与文本比较工具
- *   同一套观感:行级红绿背景 + 词级高亮 + gutter 色条 + 右缘标尺刻度 +
- *   差异统计 / 行内切换 / 滚动同步。
- * - 工具栏同样提供三个 ignore 开关(空白/大小写/换行),读写文本比较工具
- *   的同一份持久化偏好(textCompareStore.options),两处互相跟随。
- * - 两侧均可直接编辑,编辑内容实时写回对应文件 Tab(onChangeLeft/Right)。
- * - 语言按各文件扩展名分别推断(旧实现写死 plaintext,此处顺带修复),
- *   未识别扩展名回退纯文本。
- */
-export function FileCompareView({
-  left,
-  right,
-  onChangeLeft,
-  onChangeRight,
-  onSwap,
-  onExportPatch,
-  onDiffSnapshot,
-  'data-testid': dataTestId,
-}: {
-  left: EditorTab;
-  right: EditorTab;
-  /** 左侧(原文件)内容变化回调(写回对应 Tab) */
-  onChangeLeft: (value: string) => void;
-  /** 右侧(目标文件)内容变化回调(写回对应 Tab) */
-  onChangeRight: (value: string) => void;
-  /** 交换两侧(对比项左右 Tab id 互换) */
-  onSwap: () => void;
-  /** 导出统一格式补丁(.patch) */
-  onExportPatch: () => void;
-  /** 差异快照回调(导出补丁的新鲜度依据,透传 TextDiffView) */
-  onDiffSnapshot?: (snapshot: DiffSnapshot) => void;
-  'data-testid'?: string;
-}): JSX.Element {
-  const { t } = useTranslation();
-  // 比较选项读写共享偏好(textCompareStore,独立 key 持久化):与文本比较
-  // 工具的开关是同一份,两处切换互相跟随,重启保留
-  const ignoreWhitespace = useTextCompareStore((s) => s.options.ignoreWhitespace);
-  const ignoreCase = useTextCompareStore((s) => s.options.ignoreCase);
-  const ignoreEol = useTextCompareStore((s) => s.options.ignoreEol);
-  const ready = useTextCompareStore((s) => s.ready);
-  const userTouched = useTextCompareStore((s) => s.userTouched);
-  const setOptions = useTextCompareStore((s) => s.setOptions);
-
-  // 文本比较工具未必挂载过:此处同样 hydrate(幂等),否则偏好读不到已存值;
-  // 选项变更即时落盘(载荷极小;hydrate 前/用户未操作时不写)
-  useEffect(() => {
-    void useTextCompareStore.getState().hydrate();
-  }, []);
-  useEffect(() => {
-    if (!ready || !userTouched) return;
-    void useTextCompareStore.getState().persistOptions();
-  }, [ignoreWhitespace, ignoreCase, ignoreEol, ready, userTouched]);
-
-  return (
-    <div data-testid={dataTestId} className="flex h-full min-h-0 w-full min-w-0 flex-col">
-      <TextDiffView
-        original={left.content}
-        modified={right.content}
-        onOriginalChange={onChangeLeft}
-        onModifiedChange={onChangeRight}
-        originalTitle={left.title}
-        modifiedTitle={right.title}
-        originalLanguage={inferLanguageFromPath(left.path ?? left.title)}
-        modifiedLanguage={inferLanguageFromPath(right.path ?? right.title)}
-        folding
-        ignoreWhitespace={ignoreWhitespace}
-        ignoreCase={ignoreCase}
-        ignoreEol={ignoreEol}
-        onDiffSnapshot={onDiffSnapshot}
-        toolbarActions={
-          <>
-            <button
-              type="button"
-              data-testid={`${dataTestId}-ignore-ws`}
-              aria-pressed={ignoreWhitespace}
-              title={t('tools.text_compare.ignore_whitespace')}
-              aria-label={t('tools.text_compare.ignore_whitespace')}
-              onClick={() => setOptions({ ignoreWhitespace: !ignoreWhitespace })}
-              className={cn(
-                'flex items-center rounded px-1.5 py-1 text-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                ignoreWhitespace ? 'text-primary' : 'text-muted-foreground',
-              )}
-            >
-              <span aria-hidden className="font-mono text-xs font-semibold">
-                ␣≠
-              </span>
-            </button>
-            <button
-              type="button"
-              data-testid={`${dataTestId}-ignore-case`}
-              aria-pressed={ignoreCase}
-              title={t('tools.text_compare.ignore_case')}
-              aria-label={t('tools.text_compare.ignore_case')}
-              onClick={() => setOptions({ ignoreCase: !ignoreCase })}
-              className={cn(
-                'flex items-center rounded px-1.5 py-1 text-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                ignoreCase ? 'text-primary' : 'text-muted-foreground',
-              )}
-            >
-              <span aria-hidden className="font-mono text-xs font-semibold">
-                Aa
-              </span>
-            </button>
-            <button
-              type="button"
-              data-testid={`${dataTestId}-ignore-eol`}
-              aria-pressed={ignoreEol}
-              title={t('tools.text_compare.ignore_eol')}
-              aria-label={t('tools.text_compare.ignore_eol')}
-              onClick={() => setOptions({ ignoreEol: !ignoreEol })}
-              className={cn(
-                'flex items-center rounded px-1.5 py-1 text-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                ignoreEol ? 'text-primary' : 'text-muted-foreground',
-              )}
-            >
-              <span aria-hidden className="font-mono text-xs font-semibold">
-                ⇥≠
-              </span>
-            </button>
-            <button
-              type="button"
-              data-testid={`${dataTestId}-swap-sides`}
-              title={t('tools.text_compare.swap_sides')}
-              aria-label={t('tools.text_compare.swap_sides')}
-              onClick={onSwap}
-              className="flex items-center rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <ArrowLeftRight aria-hidden className="size-3.5" />
-            </button>
-            <button
-              type="button"
-              data-testid={`${dataTestId}-export-patch`}
-              title={t('tools.text_compare.export_patch')}
-              aria-label={t('tools.text_compare.export_patch')}
-              onClick={onExportPatch}
-              className="flex items-center rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Save aria-hidden className="size-3.5" />
-            </button>
-          </>
-        }
-        testIdPrefix={dataTestId ?? 'compare-view'}
-      />
-    </div>
-  );
-}
-
-/**
- * 左栏拖拽分隔条 —— 自管理拖拽 handle
- *
- * 替代 react-resizable-panels 的 ResizablePanelGroup:
- * - mousedown 记录拖拽基准:可见时为「当前宽度+光标X」;隐藏时以侧栏
- *   左缘为零点锚定(startWidth=0)
- * - mousemove 经 resolveSidebarResize 推导动作:夹在 MIN~MAX 之间调宽;
- *   越过「MIN - 隐藏阈值」继续左移 → 隐藏左栏;隐藏中右移 → 先以最小
- *   宽度展示,光标越过「左缘 + MIN」才跟手放宽
- * - hide 时把基准重锚为 -滞回带,防止在阈值附近震荡;show 不动基准
- * - mouseup 结束并隐藏全局光标样式
- * - 拖拽中通过 setSidebarWidth / setLeftSidebarVisible 写入 store,
- *   经 persist 防抖持久化
- *
- * 优势:不受容器宽度百分比 layout 限制,左栏始终有明确的像素宽度。
- *
- * 视觉反馈:
- * - 默认:完全透明 — 两卡片之间只有窄间距,没有分割线
- * - hover/focus/active:显示一条与分割空间同宽(4px)的主色蓝线,
- *   同时出现 grip 图标,用户一眼即可识别「此处可拖动调整宽度」;
- *   左栏隐藏后该反馈保留,提示「右拖可恢复显示」
- */
-function SidebarResizeHandle({
-  onHoverChange,
-  onActiveChange,
-}: {
-  /** hover 状态变化回调(父组件用于联动侧栏动作按钮显隐) */
-  onHoverChange?: (v: boolean) => void;
-  /** 拖拽中状态变化回调(同上) */
-  onActiveChange?: (v: boolean) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const startWidthRef = useRef<number>(0);
-  const startXRef = useRef<number>(0);
-  /** 最小宽度钉住阶段:隐藏态按下,或刚由拖拽恢复、尚未越过最小宽度边界。
-   * 此阶段隐藏判定改用左缘零点规则,避免钉住区误触标准隐藏阈值 */
-  const pinnedRef = useRef<boolean>(false);
-  const [active, setActive] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  /** 订阅当前左栏宽度,用于可访问性 aria-valuenow 实时跟随拖拽更新 */
-  const sidebarWidth = useEditorWorkspaceStore((s) => s.workspace.sidebarWidth);
-  /** 订阅可见性:决定 mousedown 基准宽度与 handle 的提示文案 */
-  const sidebarVisible = useEditorWorkspaceStore((s) => s.workspace.leftSidebarVisible);
-
-  /** 统一的 hover 状态更新:内部 state + 外部回调保持同步 */
-  const updateHovered = (v: boolean): void => {
-    setHovered(v);
-    onHoverChange?.(v);
-  };
-  /** 统一的拖拽中状态更新:内部 state + 外部回调保持同步 */
-  const updateActive = (v: boolean): void => {
-    setActive(v);
-    onActiveChange?.(v);
-  };
-
-  const onMouseDown = (e: React.MouseEvent<HTMLDivElement>): void => {
-    e.preventDefault();
-    const { sidebarWidth: width, leftSidebarVisible } =
-      useEditorWorkspaceStore.getState().workspace;
-    if (leftSidebarVisible) {
-      // 可见:从当前宽度起算(夹取防越界),分隔条即侧栏右缘
-      startWidthRef.current = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, width));
-      startXRef.current = e.clientX;
-      pinnedRef.current = false;
-    } else {
-      // 隐藏:以侧栏左缘为零点锚定(startWidth=0),raw = 光标到左缘距离,
-      // 并进入钉住阶段。恢复后光标越过「左缘 + 最小宽度」前 clamp 恒为
-      // 最小宽度,越过该边界才跟手放宽
-      startWidthRef.current = 0;
-      startXRef.current = e.clientX;
-      pinnedRef.current = true;
-    }
-    // eslint-disable-next-line react-hooks/immutability
-    document.body.style.cursor = 'col-resize';
-    // eslint-disable-next-line react-hooks/immutability
-    document.body.style.userSelect = 'none';
-    updateActive(true);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-
-  function handleMouseMove(ev: MouseEvent): void {
-    const st = useEditorWorkspaceStore.getState();
-    const next = resolveSidebarResize(
-      startWidthRef.current,
-      ev.clientX,
-      startXRef.current,
-      st.workspace.leftSidebarVisible,
-      pinnedRef.current,
-    );
-    if (next.action === 'resize') {
-      st.setSidebarWidth(next.width);
-      // 越过最小宽度边界后离开钉住阶段,回归标准隐藏判定
-      if (next.width > SIDEBAR_MIN_WIDTH) pinnedRef.current = false;
-    } else if (next.action === 'hide') {
-      // 仅切换可见性,不覆盖已存宽度:菜单/Ctrl+B 恢复时仍回原宽度。
-      // 同时把基准重锚为「-滞回带」:同手势需右移回该带宽(越过零点)
-      // 才允许恢复显示,避免在隐藏阈值附近来回震荡
-      st.setLeftSidebarVisible(false);
-      startWidthRef.current = -SIDEBAR_HIDE_DELTA;
-      startXRef.current = ev.clientX;
-    } else if (next.action === 'show') {
-      // 以最小宽度恢复显示并进入钉住阶段;基准已在按下/hide 时锚定到
-      // 侧栏左缘零点,无需重置
-      st.setLeftSidebarVisible(true);
-      st.setSidebarWidth(SIDEBAR_MIN_WIDTH);
-      pinnedRef.current = true;
-    }
-    // idle:隐藏期间继续左移,不做任何写入
-  }
-
-  function handleMouseUp(): void {
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-    pinnedRef.current = false;
-    // eslint-disable-next-line react-hooks/immutability
-    document.body.style.cursor = '';
-    // eslint-disable-next-line react-hooks/immutability
-    document.body.style.userSelect = '';
-    updateActive(false);
-  }
-
-  const highlighted = hovered || active;
-
-  return (
-    <div
-      data-testid="editor-split-handle"
-      onMouseDown={onMouseDown}
-      onMouseEnter={() => updateHovered(true)}
-      onMouseLeave={() => updateHovered(false)}
-      role="separator"
-      aria-orientation="vertical"
-      aria-valuenow={sidebarVisible ? sidebarWidth : SIDEBAR_MIN_WIDTH}
-      aria-valuemin={SIDEBAR_MIN_WIDTH}
-      aria-valuemax={SIDEBAR_MAX_WIDTH}
-      tabIndex={0}
-      title={
-        sidebarVisible ? t('tools.text_editor.resize_hint') : t('tools.text_editor.restore_hint')
-      }
-      className={cn(
-        // 2px 宽点击区,恰好填满 gap-0.5 分割空间;默认完全透明,悬浮时才高亮
-        'group relative flex h-full w-0.5 shrink-0 cursor-col-resize items-center justify-center self-stretch bg-transparent focus-visible:outline-none',
-      )}
-    >
-      {/*
-       * 高亮竖线:默认透明(中间无分割线);hover/focus/active 时变为 4px 主色蓝线。
-       * 固定 4px 不随分割空间(gap-0.5)变窄,保持易识别的悬浮/拖拽目标;
-       * shrink-0 防止被 2px 窄容器压缩,由父级 justify-center 居中向两侧各溢出 1px。
-       * rounded-md 对齐项目圆角 token(--radius-md,由 globals.css 的 --radius 派生)。
-       */}
-      <div
-        aria-hidden
-        className={cn(
-          'h-full w-1 shrink-0 rounded-md transition-colors duration-150 ease-out',
-          highlighted ? 'bg-primary' : 'bg-transparent',
-        )}
-      />
-    </div>
   );
 }

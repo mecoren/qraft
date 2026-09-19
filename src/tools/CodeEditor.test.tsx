@@ -115,6 +115,7 @@ vi.mock('./code-editor-workspace/fileOps', () => ({
   encodeTextToBase64: vi.fn((t: string) => `b64:${t}`),
   windowCloseReady: vi.fn(),
   fileMtimeMs: vi.fn().mockResolvedValue(1234),
+  watchOpenFiles: vi.fn().mockResolvedValue(undefined),
   largeFileInfo: vi.fn(),
   readFileLines: vi.fn(),
   forceOpenFile: vi.fn(),
@@ -1236,6 +1237,25 @@ describe('CodeEditorTool 保存冲突(外部修改保护)', () => {
     expect(useEditorWorkspaceStore.getState().workspace.tabs[0]?.content).toBe('my edit');
   });
 
+  it('文件被外部删除后保存:按重建结果提示「重新创建」并清 dirty', async () => {
+    const { toast } = await import('sonner');
+    renderTool();
+    await screen.findByTestId('editor-empty');
+    await openLocalFile('hello');
+    fireEvent.change(screen.getByTestId('editor-textarea'), { target: { value: 'my edit' } });
+
+    // fileOps 捕获 ERR_FILE_NOT_FOUND 后去基准重试成功,回报 recreated
+    (saveToPathEncoded as unknown as Mock).mockResolvedValueOnce('recreated');
+    await clickToolbarItem('toolbar-save');
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('重新创建')),
+    );
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab?.content).toBe('my edit');
+    expect(tab?.savedContent).toBe('my edit');
+  });
+
   it('选择「覆盖」:带 force 绕过 mtime 校验重新保存成功', async () => {
     renderTool();
     await screen.findByTestId('editor-empty');
@@ -1447,7 +1467,7 @@ describe('CodeEditorTool 菜单快捷键标签', () => {
   });
 });
 
-describe('外部修改激活轮询(mtime 比对提前提示)', () => {
+describe('外部变更提示(watcher 推送 + 激活比对)', () => {
   it('激活 Tab 的磁盘 mtime 与基准不一致时 toast.warning 提示(一次)', async () => {
     const { fileMtimeMs } = await import('./code-editor-workspace/fileOps');
     const { toast } = await import('sonner');
@@ -1489,6 +1509,43 @@ describe('外部修改激活轮询(mtime 比对提前提示)', () => {
     cleanup();
   });
 
+  it('磁盘文件已被外部删除时提示「已不在磁盘上」(保存将重建)', async () => {
+    const { fileMtimeMs } = await import('./code-editor-workspace/fileOps');
+    const { toast } = await import('sonner');
+    const mtimeMock = fileMtimeMs as unknown as Mock;
+
+    useEditorWorkspaceStore.setState({
+      workspace: {
+        ...DEFAULT_WORKSPACE,
+        tabs: [
+          {
+            id: 'tab-gone',
+            title: 'gone.txt',
+            path: 'C:\\proj\\gone.txt',
+            language: 'plaintext',
+            content: 'v1',
+            savedContent: 'v1',
+            pinned: false,
+            openedMtimeMs: 1000,
+          },
+        ],
+        activeTabId: 'tab-gone',
+      },
+      ready: true,
+      userTouched: true,
+      recentlyClosed: [],
+    });
+
+    mtimeMock.mockRejectedValue(new CommandError('ERR_FILE_NOT_FOUND', 'file not found'));
+    renderTool();
+
+    await waitFor(() =>
+      expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('已不在磁盘上')),
+    );
+
+    cleanup();
+  });
+
   it('mtime 一致时静默(无提示);大文件/无基准 Tab 跳过比对', async () => {
     const { fileMtimeMs } = await import('./code-editor-workspace/fileOps');
     const { toast } = await import('sonner');
@@ -1524,6 +1581,179 @@ describe('外部修改激活轮询(mtime 比对提前提示)', () => {
     });
     expect(toast.warning).not.toHaveBeenCalled();
 
+    cleanup();
+  });
+
+  it('把可比对的 Tab 路径全量注册给后端 watcher', async () => {
+    const { watchOpenFiles } = await import('./code-editor-workspace/fileOps');
+    const watchMock = watchOpenFiles as unknown as Mock;
+
+    useEditorWorkspaceStore.setState({
+      workspace: {
+        ...DEFAULT_WORKSPACE,
+        tabs: [
+          {
+            id: 'tab-w1',
+            title: 'watched.txt',
+            path: 'C:\\proj\\watched.txt',
+            language: 'plaintext',
+            content: 'v1',
+            savedContent: 'v1',
+            pinned: false,
+            openedMtimeMs: 1000,
+          },
+          // 无基准(旧数据)与只读大文件 Tab 都不必注册
+          {
+            id: 'tab-w2',
+            title: 'legacy.txt',
+            path: 'C:\\proj\\legacy.txt',
+            language: 'plaintext',
+            content: 'v1',
+            savedContent: 'v1',
+            pinned: false,
+          },
+          {
+            id: 'tab-w3',
+            title: 'big.log',
+            path: 'C:\\proj\\big.log',
+            language: 'plaintext',
+            content: '',
+            savedContent: '',
+            pinned: false,
+            openedMtimeMs: 1000,
+            largeFile: true,
+          },
+        ],
+        activeTabId: 'tab-w1',
+      },
+      ready: true,
+      userTouched: true,
+      recentlyClosed: [],
+    });
+
+    renderTool();
+    // 注册带 250ms 防抖(连续开关 Tab 不该各打一次 IPC)
+    await waitFor(() => {
+      expect(watchMock).toHaveBeenCalledWith(['C:\\proj\\watched.txt']);
+    });
+
+    cleanup();
+  });
+
+  it('watcher 事件:命中注册路径才复核 mtime,未注册路径不打扰', async () => {
+    const { fileMtimeMs, watchOpenFiles } = await import('./code-editor-workspace/fileOps');
+    const { toast } = await import('sonner');
+    const mtimeMock = fileMtimeMs as unknown as Mock;
+    const watchMock = watchOpenFiles as unknown as Mock;
+    const listenMock = listen as unknown as Mock;
+    // 捕获 hook 注册的事件回调,用例内手动投递事件
+    const handlers = new Map<string, (payload: unknown) => void>();
+    listenMock.mockImplementation((event: string, cb: (payload: unknown) => void) => {
+      handlers.set(event, cb);
+      return Promise.resolve(() => {});
+    });
+
+    useEditorWorkspaceStore.setState({
+      workspace: {
+        ...DEFAULT_WORKSPACE,
+        tabs: [
+          {
+            id: 'tab-e1',
+            title: 'pushed.txt',
+            path: 'C:\\proj\\pushed.txt',
+            language: 'plaintext',
+            content: 'v1',
+            savedContent: 'v1',
+            pinned: false,
+            openedMtimeMs: 1000,
+          },
+        ],
+        activeTabId: 'tab-e1',
+      },
+      ready: true,
+      userTouched: true,
+      recentlyClosed: [],
+    });
+
+    // 激活比对先跑一轮且结果一致(本应用自写盘已刷新基准):静默
+    mtimeMock.mockResolvedValue(1000);
+    renderTool();
+    await waitFor(() => {
+      expect(watchMock).toHaveBeenCalledWith(['C:\\proj\\pushed.txt']);
+    });
+
+    // 外部程序改写:事件只带路径,mtime 变了才提示
+    mtimeMock.mockResolvedValue(9999);
+    act(() => handlers.get('fs:external-change')?.({ path: 'C:\\proj\\pushed.txt' }));
+    await waitFor(() => {
+      expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('pushed.txt'));
+    });
+
+    // 同目录其它文件的改动被后端滤掉;前端也不为未注册路径 stat
+    mtimeMock.mockClear();
+    act(() => handlers.get('fs:external-change')?.({ path: 'C:\\proj\\other.txt' }));
+    expect(mtimeMock).not.toHaveBeenCalled();
+
+    listenMock.mockReset();
+    cleanup();
+  });
+
+  it('自写盘事件不提示,也不吃掉该基准后续真实改动的提示', async () => {
+    const { fileMtimeMs, watchOpenFiles } = await import('./code-editor-workspace/fileOps');
+    const { toast } = await import('sonner');
+    const mtimeMock = fileMtimeMs as unknown as Mock;
+    const watchMock = watchOpenFiles as unknown as Mock;
+    const listenMock = listen as unknown as Mock;
+    const handlers = new Map<string, (payload: unknown) => void>();
+    listenMock.mockImplementation((event: string, cb: (payload: unknown) => void) => {
+      handlers.set(event, cb);
+      return Promise.resolve(() => {});
+    });
+
+    useEditorWorkspaceStore.setState({
+      workspace: {
+        ...DEFAULT_WORKSPACE,
+        tabs: [
+          {
+            id: 'tab-s1',
+            title: 'self.txt',
+            path: 'C:\\proj\\self.txt',
+            language: 'plaintext',
+            content: 'v1',
+            savedContent: 'v1',
+            pinned: false,
+            openedMtimeMs: 2000,
+          },
+        ],
+        activeTabId: 'tab-s1',
+      },
+      ready: true,
+      userTouched: true,
+      recentlyClosed: [],
+    });
+
+    mtimeMock.mockResolvedValue(2000);
+    renderTool();
+    await waitFor(() => {
+      expect(watchMock).toHaveBeenCalled();
+    });
+    const fire = (): void => {
+      act(() => handlers.get('fs:external-change')?.({ path: 'C:\\proj\\self.txt' }));
+    };
+    // 保存自身触发的磁盘事件:mtime 与刷新后的基准一致 → 不提示
+    fire();
+    await waitFor(() => {
+      expect(mtimeMock).toHaveBeenCalledTimes(2);
+    });
+    expect(toast.warning).not.toHaveBeenCalled();
+    // 之后外部真改了:同一路径仍然提示(上一次没占用名额)
+    mtimeMock.mockResolvedValue(7777);
+    fire();
+    await waitFor(() => {
+      expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('self.txt'));
+    });
+
+    listenMock.mockReset();
     cleanup();
   });
 });
