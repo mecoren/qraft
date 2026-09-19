@@ -244,6 +244,11 @@ describe('MarkdownEditor', () => {
     });
     render(<MarkdownEditor toolId="markdown_editor" metadata={{} as never} />);
     await screen.findByTestId('md-wysiwyg');
+    // 同「固定 Tab」用例:先等挂载 focus 落定再点关闭。非 modal Popover 会把
+    // 之后任何外部 focusin 当作 dismiss,编辑器抢焦点会让确认框刚开即关
+    await waitFor(() =>
+      expect(document.activeElement?.getAttribute('data-testid')).toBe('md-wysiwyg'),
+    );
     // 取消:文档保持
     await act(async () => {
       const btn = screen.getAllByTestId('md-doc-tab-close')[0];
