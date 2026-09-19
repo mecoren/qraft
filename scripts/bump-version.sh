@@ -48,6 +48,11 @@ console.log('tauri.conf.json:', oldTc, '->', v);
 EOF
 node "$BUMP_TMP" "$NEW_VERSION"
 
+# JSON.stringify 会把短数组逐元素换行展开,和 prettier 的「能放一行就放一行」
+# 冲突;每次升版本都因此把整个 tauri.conf.json 重排一遍(数十行无关 diff)。
+# 写完立刻交回 prettier 收敛,让 bump 只留下 version 那一行改动。
+pnpm exec prettier --write package.json src-tauri/tauri.conf.json >/dev/null
+
 # Cargo.toml 用 awk 在 [package] 段内替换 version 字段,不影响 [dependencies] 中的版本
 OLD_CARGO=$(grep -E '^version\s*=' src-tauri/Cargo.toml | head -n 1 | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
 awk -v new="\"$NEW_VERSION\"" '
