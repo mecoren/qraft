@@ -9,7 +9,7 @@ import { rebuildSearchIndex } from '@/lib/search-index';
 /**
  * 用默认值回填持久化配置中缺失的字段。
  *
- * 旧版本保存的配置可能缺少新增字段(如 toolPrefs),
+ * 旧版本保存的配置可能缺少新增字段(如 tool_prefs),
  * 直接读取其 undefined 子字段会触发
  * "Cannot read properties of undefined (reading 'xxx')" 崩溃。
  * 这里与默认配置做一次深合并做兜底。
@@ -33,7 +33,7 @@ function normalizeConfig(raw: UserConfig): UserConfig {
     general: { ...DEFAULT_USER_CONFIG.general, ...raw.general },
     theme: { ...DEFAULT_USER_CONFIG.theme, ...raw.theme },
     shortcuts,
-    toolPrefs: { ...DEFAULT_USER_CONFIG.toolPrefs, ...(raw.toolPrefs ?? {}) },
+    tool_prefs: { ...DEFAULT_USER_CONFIG.tool_prefs, ...(raw.tool_prefs ?? {}) },
     favorites: raw.favorites ?? DEFAULT_USER_CONFIG.favorites,
     editor: {
       ...DEFAULT_EDITOR_CONFIG,
@@ -115,7 +115,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         general: { ...current.general },
         theme: { ...current.theme },
         shortcuts: { ...current.shortcuts },
-        toolPrefs: { ...(current.toolPrefs ?? {}) },
+        tool_prefs: { ...(current.tool_prefs ?? {}) },
         favorites: [...(current.favorites ?? [])],
         editor: {
           ...current.editor,
@@ -159,7 +159,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       general: { ...current.general },
       theme: { ...current.theme },
       shortcuts: { ...current.shortcuts },
-      toolPrefs: { ...(current.toolPrefs ?? {}) },
+      tool_prefs: { ...(current.tool_prefs ?? {}) },
       favorites: [...(current.favorites ?? [])],
       editor: {
         ...current.editor,

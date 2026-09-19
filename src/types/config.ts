@@ -4,14 +4,22 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 
 export interface ThemeConfig {
   mode: ThemeMode;
-  accentColor: string;
+  accent_color: string;
 }
 
+/**
+ * 通用配置。
+ *
+ * 键名与 Rust `store/config.rs` 的 `GeneralConfig` / `ThemeConfig` / `UserConfig`
+ * 严格一致:那几个结构体没有 `rename_all = "camelCase"`,线格式就是 snake_case。
+ * 名称不一致时读侧只会拿到默认值(静默失真),写侧 `config_set` 则报
+ * `invalid config path`(恒失败),故按线格式命名(同 `ShortcutBinding`)。
+ */
 export interface GeneralConfig {
   language: string;
-  fontSize: number;
-  maxHistory: number;
-  confirmOnClear: boolean;
+  font_size: number;
+  max_history: number;
+  confirm_on_clear: boolean;
 }
 
 export interface NamingConventionConfig {
@@ -128,7 +136,8 @@ export interface UserConfig {
   general: GeneralConfig;
   theme: ThemeConfig;
   shortcuts: ShortcutBinding;
-  toolPrefs: Record<string, ToolPref>;
+  /** 工具偏好槽(线格式键 `tool_prefs`);点分键首段必须与之同字面量 */
+  tool_prefs: Record<string, ToolPref>;
   favorites: Favorite[];
   editor: EditorConfig;
 }
@@ -192,16 +201,16 @@ export const DEFAULT_USER_CONFIG: UserConfig = {
   general: {
     // 现状为中文优先应用;早期 PRD「MVP 仅英文」口径已演进,见 docs/i18n 计划
     language: 'zh-CN',
-    fontSize: 14,
-    maxHistory: 100,
-    confirmOnClear: true,
+    font_size: 14,
+    max_history: 100,
+    confirm_on_clear: true,
   },
   theme: {
     mode: 'dark',
-    accentColor: '#3b82f6',
+    accent_color: '#3b82f6',
   },
   shortcuts: DEFAULT_SHORTCUTS,
-  toolPrefs: {},
+  tool_prefs: {},
   favorites: [],
   editor: DEFAULT_EDITOR_CONFIG,
 };

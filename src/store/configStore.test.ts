@@ -64,8 +64,8 @@ describe('configStore.setConfig', () => {
   it('optimistically updates nested config when loaded', async () => {
     useConfigStore.setState({ config: { ...DEFAULT_USER_CONFIG } });
     invokeMock.mockResolvedValueOnce({ success: true, data: true });
-    await useConfigStore.getState().setConfig('general.fontSize', 18);
-    expect(useConfigStore.getState().config?.general.fontSize).toBe(18);
+    await useConfigStore.getState().setConfig('general.font_size', 18);
+    expect(useConfigStore.getState().config?.general.font_size).toBe(18);
   });
 
   it('returns error info on failure without throwing', async () => {

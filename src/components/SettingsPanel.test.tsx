@@ -47,8 +47,8 @@ describe('SettingsPanel', () => {
     }
   });
 
-  it('renders without crashing when config lacks toolPrefs (legacy persisted config)', () => {
-    // 模拟旧版本持久化配置缺少 toolPrefs 字段的场景,回归此前
+  it('renders without crashing when config lacks tool_prefs (legacy persisted config)', () => {
+    // 模拟旧版本持久化配置缺少 tool_prefs 字段的场景,回归此前
     // "Cannot read properties of undefined (reading 'json_formatter')" 崩溃
     useConfigStore.setState({
       config: {
@@ -57,7 +57,7 @@ describe('SettingsPanel', () => {
         theme: { ...DEFAULT_USER_CONFIG.theme },
         shortcuts: { ...DEFAULT_USER_CONFIG.shortcuts },
         favorites: [],
-        // 故意不提供 toolPrefs,构造缺失字段的旧配置
+        // 故意不提供 tool_prefs,构造缺失字段的旧配置
       } as unknown as typeof DEFAULT_USER_CONFIG,
       loading: false,
       error: null,
@@ -95,6 +95,50 @@ describe('SettingsPanel', () => {
       expect.objectContaining({
         key: 'general.max_history',
         value: 50,
+      }),
+    );
+    // 缩进必须写整个 tool_prefs.json_formatter 槽(两段键走 Rust 的 HashMap 直写),
+    // 且首段字面量要和持久化的 tool_prefs 一致:写成 toolPrefs.… 或
+    // tool_prefs.json_formatter.values.indent 都会让这次保存恒失败。
+    expect(invokeMock).toHaveBeenCalledWith(
+      'config_set',
+      expect.objectContaining({
+        key: 'tool_prefs.json_formatter',
+        value: { values: { indent: 2 } },
+      }),
+    );
+  });
+
+  it('保存缩进时保留同一 tool_prefs 槽内的其它偏好', async () => {
+    const user = userEvent.setup();
+    invokeMock.mockImplementation((cmd: string) =>
+      cmd === 'list_system_fonts'
+        ? Promise.resolve([])
+        : Promise.resolve({ success: true, data: true }),
+    );
+    // 整槽覆盖语义:提交前必须把已有的 layout 与 values 兄弟键并进载荷
+    useConfigStore.setState({
+      config: {
+        ...DEFAULT_USER_CONFIG,
+        tool_prefs: {
+          json_formatter: { layout: 'split', values: { indent: 4, sort_keys: true } },
+        },
+      },
+      loading: false,
+      error: null,
+    });
+    render(<SettingsPanel />);
+    const input = screen.getByLabelText(/JSON 默认缩进/) as HTMLInputElement;
+    // 表单从 tool_prefs 槽回填出 4,改成 2 后保存
+    expect(input.value).toBe('4');
+    await user.clear(input);
+    await user.type(input, '2');
+    await user.click(screen.getByRole('button', { name: '保存' }));
+    expect(invokeMock).toHaveBeenCalledWith(
+      'config_set',
+      expect.objectContaining({
+        key: 'tool_prefs.json_formatter',
+        value: { layout: 'split', values: { indent: 2, sort_keys: true } },
       }),
     );
   });

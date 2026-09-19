@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { changeLocale } from '@/i18n';
-import type { ShortcutBinding } from '@/types/config';
+import type { ShortcutBinding, ToolPref } from '@/types/config';
 import {
   type PaletteId,
   getStoredPaletteId,
@@ -531,11 +531,12 @@ export function GeneralSection(): JSX.Element {
     if (!config) return;
     const language = configLanguage;
     form.reset({
-      maxHistory: config.general.maxHistory,
-      // jsonIndent 来自 toolPrefs.json_formatter.values.indent,缺省 2
-      // 用可选链保护 toolPrefs 本身,防止旧配置缺少该字段时崩溃
-      jsonIndent: (config.toolPrefs?.['json_formatter']?.values?.indent as number | undefined) ?? 2,
-      confirmOnClear: config.general.confirmOnClear,
+      maxHistory: config.general.max_history,
+      // jsonIndent 来自 tool_prefs.json_formatter.values.indent,缺省 2
+      // 用可选链保护 tool_prefs 本身,防止旧配置缺少该字段时崩溃
+      jsonIndent:
+        (config.tool_prefs?.['json_formatter']?.values?.indent as number | undefined) ?? 2,
+      confirmOnClear: config.general.confirm_on_clear,
       language,
     });
   }, [config, form, configLanguage]);
@@ -544,7 +545,14 @@ export function GeneralSection(): JSX.Element {
     await setConfig('general.max_history', values.maxHistory);
     await setConfig('general.confirm_on_clear', values.confirmOnClear);
     await setConfig('general.language', values.language);
-    await setConfig('toolPrefs.json_formatter.values.indent', values.jsonIndent);
+    // 缩进写整个 `tool_prefs.json_formatter`(两段键 → Rust 的 HashMap 直写快路径)。
+    // 不能写成 tool_prefs.json_formatter.values.indent:通用分支要求沿途每层已存在,
+    // 而首次保存时 json_formatter 这个槽还没建出来,config_set 会直接报 invalid path。
+    const pref: ToolPref = config?.tool_prefs?.['json_formatter'] ?? {};
+    await setConfig('tool_prefs.json_formatter', {
+      ...pref,
+      values: { ...pref.values, indent: values.jsonIndent },
+    });
     toast.success(t('settings.saved_toast'));
   };
 
