@@ -19,14 +19,16 @@ describe('nextPdfAutoNumber', () => {
 
   it('取既有 pdf-N 的最大序号 +1', () => {
     const docs = [
-      { id: 'a', title: 'pdf-1', path: null, base64: '', size: 0, dirty: false },
-      { id: 'b', title: 'pdf-3', path: null, base64: '', size: 0, dirty: false },
+      { id: 'a', title: 'pdf-1', path: null, base64: '', size: 0, dirty: false, rev: 0 },
+      { id: 'b', title: 'pdf-3', path: null, base64: '', size: 0, dirty: false, rev: 0 },
     ];
     expect(nextPdfAutoNumber(docs)).toBe(4);
   });
 
   it('文件名 Tab 不影响序号', () => {
-    const docs = [{ id: 'a', title: '合同.pdf', path: null, base64: '', size: 0, dirty: false }];
+    const docs = [
+      { id: 'a', title: '合同.pdf', path: null, base64: '', size: 0, dirty: false, rev: 0 },
+    ];
     expect(nextPdfAutoNumber(docs)).toBe(1);
   });
 });
@@ -100,7 +102,7 @@ describe('pdfDocsStore', () => {
     expect(s.activeDocId).toBe(s.docs[1].id);
   });
 
-  it('markDirty 置位;commitSaved 清除并更新字节', () => {
+  it('markDirty 置位;commitSaved 快照未过期时清除并更新字节', () => {
     usePdfDocsStore.getState().openPdfFromSystem({
       path: 'C:\\a.pdf',
       base64: 'A',
@@ -110,11 +112,30 @@ describe('pdfDocsStore', () => {
     usePdfDocsStore.getState().markDirty(id);
     expect(usePdfDocsStore.getState().docs[0].dirty).toBe(true);
 
-    usePdfDocsStore.getState().commitSaved(id, 'SAVED', 5);
+    const revAtSave = usePdfDocsStore.getState().docs[0].rev;
+    usePdfDocsStore.getState().commitSaved(id, 'SAVED', 5, null, revAtSave);
     const doc = usePdfDocsStore.getState().docs[0];
     expect(doc.dirty).toBe(false);
     expect(doc.base64).toBe('SAVED');
     expect(doc.size).toBe(5);
+  });
+
+  it('commitSaved 遇到保存期间的新编辑:保留 dirty 与既有字节', () => {
+    usePdfDocsStore.getState().openPdfFromSystem({ path: 'C:\\a.pdf', base64: 'A', size: 1 });
+    const id = usePdfDocsStore.getState().docs[0].id;
+    usePdfDocsStore.getState().markDirty(id);
+    const revAtSave = usePdfDocsStore.getState().docs[0].rev;
+    // 写盘 await 期间用户又改了一次(已 dirty 仍需推进 rev,否则看不出快照过期)
+    usePdfDocsStore.getState().markDirty(id);
+
+    usePdfDocsStore.getState().commitSaved(id, 'STALE', 5, 'C:\\b.pdf', revAtSave);
+    const doc = usePdfDocsStore.getState().docs[0];
+    expect(doc.dirty).toBe(true);
+    // 字节不回写:base64 变化会触发按新内容重载并把在途编辑清掉
+    expect(doc.base64).toBe('A');
+    expect(doc.size).toBe(1);
+    // 另存为的目标路径仍然采纳
+    expect(doc.path).toBe('C:\\b.pdf');
   });
 
   it('closeDoc 后激活态跳到相邻 Tab', () => {

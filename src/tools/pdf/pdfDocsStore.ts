@@ -26,6 +26,11 @@ export interface PdfDoc {
   size: number;
   /** 未保存的修改(表单值 / 叠加文本)标记 */
   dirty: boolean;
+  /**
+   * 编辑序号:markDirty 与字节替换时递增,供 commitSaved 判断落盘快照是否已过期。
+   * PDF 的在途编辑态在组件本地(values / overlays),store 无内容可比对,只能用序号。
+   */
+  rev: number;
 }
 
 /** 系统打开载荷:openPdfFromSystem 的入参 */
@@ -52,8 +57,18 @@ interface PdfDocsState {
   switchDoc: (id: string) => void;
   /** 标记文档已修改(表单值变更 / 叠加编辑) */
   markDirty: (id: string) => void;
-  /** 写回保存成功后:更新字节与大小,清除 dirty */
-  commitSaved: (id: string, base64: string, size: number, path?: string) => void;
+  /**
+   * 写回保存结果:仅当 `savedRev` 仍是文档当前序号(即 await 写入期间没有新编辑)时,
+   * 才更新字节与大小并清除 dirty;否则磁盘上是过期快照,保留 dirty 与原字节
+   * (字节变化会触发按新内容重载,把在途编辑冲掉),只采纳 path。
+   */
+  commitSaved: (
+    id: string,
+    base64: string,
+    size: number,
+    path: string | null,
+    savedRev: number,
+  ) => void;
 }
 
 /** 生成稳定唯一 id(crypto.randomUUID 不可用时降级为时间戳+随机) */
@@ -104,7 +119,9 @@ export const usePdfDocsStore = create<PdfDocsState>((set, get) => ({
     if (existing) {
       // 已打开:重新读取即视为刷新(用户重开文件想看最新内容),覆盖字节并激活
       set((s) => ({
-        docs: s.docs.map((d) => (d.id === existing.id ? { ...d, base64, size, dirty: false } : d)),
+        docs: s.docs.map((d) =>
+          d.id === existing.id ? { ...d, base64, size, dirty: false, rev: d.rev + 1 } : d,
+        ),
         activeDocId: existing.id,
       }));
       return;
@@ -116,6 +133,7 @@ export const usePdfDocsStore = create<PdfDocsState>((set, get) => ({
       base64,
       size,
       dirty: false,
+      rev: 0,
     };
     set((s) => ({
       docs: [...s.docs, doc],
@@ -130,7 +148,7 @@ export const usePdfDocsStore = create<PdfDocsState>((set, get) => ({
       if (existing) {
         set((s) => ({
           docs: s.docs.map((d) =>
-            d.id === existing.id ? { ...d, base64, size, dirty: false } : d,
+            d.id === existing.id ? { ...d, base64, size, dirty: false, rev: d.rev + 1 } : d,
           ),
           activeDocId: existing.id,
         }));
@@ -144,6 +162,7 @@ export const usePdfDocsStore = create<PdfDocsState>((set, get) => ({
       base64,
       size,
       dirty: false,
+      rev: 0,
     };
     set((s) => ({
       docs: [...s.docs, doc],
@@ -159,6 +178,7 @@ export const usePdfDocsStore = create<PdfDocsState>((set, get) => ({
       base64,
       size,
       dirty: false,
+      rev: 0,
     };
     set((s) => ({
       docs: [...s.docs, doc],
@@ -183,24 +203,29 @@ export const usePdfDocsStore = create<PdfDocsState>((set, get) => ({
   },
 
   markDirty: (id) => {
+    // 已 dirty 也要递增 rev:否则「dirty 后再次编辑」在保存 await 期间发生时,
+    // commitSaved 看不出快照过期,会把新改动清成已保存。
     set((s) => ({
-      docs: s.docs.map((d) => (d.id === id && !d.dirty ? { ...d, dirty: true } : d)),
+      docs: s.docs.map((d) => (d.id === id ? { ...d, dirty: true, rev: d.rev + 1 } : d)),
     }));
   },
 
-  commitSaved: (id, base64, size, path) => {
+  commitSaved: (id, base64, size, path, savedRev) => {
     set((s) => ({
-      docs: s.docs.map((d) =>
-        d.id === id
-          ? {
-              ...d,
-              base64,
-              size,
-              dirty: false,
-              ...(path !== undefined && path ? { path } : {}),
-            }
-          : d,
-      ),
+      docs: s.docs.map((d) => {
+        if (d.id !== id) return d;
+        if (d.rev !== savedRev) {
+          // 写入的是过期快照:保持 dirty 与既有字节,仅认下新的保存路径
+          return path ? { ...d, path } : d;
+        }
+        return {
+          ...d,
+          base64,
+          size,
+          dirty: false,
+          ...(path ? { path } : {}),
+        };
+      }),
     }));
   },
 }));

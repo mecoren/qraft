@@ -327,6 +327,9 @@ function PdfWorkspace({
       if (saving) return { saved: false };
       setSaving(true);
       try {
+        // 编辑序号快照:合并与写盘都是 async 的,期间的用户编辑会让这份快照过期;
+        // 经 getState() 取实时序号,commitSaved 据此拒绝把在途编辑清成已保存。
+        const savedRev = usePdfDocsStore.getState().docs.find((d) => d.id === docId)?.rev ?? -1;
         let base64 = doc.base64;
         // 表单值优先(写回 AcroForm),叠加绘制在其结果上
         if (fields.length > 0 && hasChangedValues(fields, values)) {
@@ -354,11 +357,11 @@ function PdfWorkspace({
             bytes,
           );
           if (saved === null) return { saved: false }; // 用户取消
-          commitSaved(docId, base64, bytes.length, saved);
+          commitSaved(docId, base64, bytes.length, saved, savedRev);
           toast.success(t('tools.pdf_editor.saved'));
           return { saved: true };
         }
-        commitSaved(docId, base64, bytes.length);
+        commitSaved(docId, base64, bytes.length, null, savedRev);
         toast.success(t('tools.pdf_editor.saved'));
         return { saved: true };
       } catch (e) {
