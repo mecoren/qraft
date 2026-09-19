@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use crate::core::context::HistoryEntry;
 use crate::core::error::ToolError;
+use crate::media::fs_write::write_bytes_atomic;
 use crate::store::config::ConfigStore;
 
 /// 触发文件裁剪的行数缓冲倍数(超过 `max_history * TRIM_FACTOR` 才重写,降低裁剪频率)
@@ -77,9 +78,16 @@ impl JsonlHistoryStore {
             return;
         }
         let keep = &lines[lines.len() - max..];
-        let trimmed = keep.join("\n");
-        let _ = std::fs::write(&self.path, format!("{trimmed}\n"));
-        *self.line_count.write() = keep.len();
+        let payload = format!("{}\n", keep.join("\n"));
+        // 裁剪是整文件重写,走原子替换:写中途失败(磁盘满 / 崩溃)时文件保持
+        // 裁剪前的完整内容,不会把用户全部历史留成半截。写成功才同步计数,
+        // 失败时计数偏高,下次 add 会重读并再次尝试裁剪。
+        if write_bytes_atomic(&self.path, payload.as_bytes())
+            .await
+            .is_ok()
+        {
+            *self.line_count.write() = keep.len();
+        }
     }
 }
 
@@ -314,6 +322,14 @@ mod tests {
         };
         assert_eq!(total.len(), list.len(), "on-disk lines match list");
         assert!(total.len() <= 50 * TRIM_FACTOR);
+
+        // 裁剪经原子替换:临时文件写在同目录,成功后必须已被 rename 掉
+        let residue = std::fs::read_dir(store.path.parent().unwrap())
+            .unwrap()
+            .filter_map(std::result::Result::ok)
+            .filter(|e| e.file_name().to_string_lossy().contains(".qraft-tmp-"))
+            .count();
+        assert_eq!(residue, 0, "裁剪后数据目录不留原子写临时文件");
     }
 
     #[tokio::test]

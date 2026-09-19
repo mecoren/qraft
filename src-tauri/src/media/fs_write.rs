@@ -23,10 +23,10 @@ static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
 /// # Errors
 ///
 /// 创建 / 写入 / fsync / rename 任一失败时返回 `AppError::Io`(`ERR_FILE_IO`)
-pub async fn write_bytes_atomic(path: &str, bytes: &[u8]) -> Result<(), AppError> {
+pub async fn write_bytes_atomic(path: impl AsRef<Path>, bytes: &[u8]) -> Result<(), AppError> {
     use tokio::io::AsyncWriteExt as _;
 
-    let target = Path::new(path);
+    let target: &Path = path.as_ref();
     // 临时文件落在目标同目录:保证 rename 为同分区原子替换
     let parent = target.parent().unwrap_or_else(|| Path::new("."));
     let base = target

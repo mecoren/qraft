@@ -171,13 +171,13 @@ fn now_epoch_ms() -> u64 {
         .map_or(0, |d| d.as_millis() as u64)
 }
 
-/// 将字节写入指定路径
+/// 将字节写入指定路径(原子替换,见 `media::fs_write`)
 ///
 /// # Errors
 ///
 /// - 文件写入失败时返回 `AppError::Io`(`ERR_FILE_IO`)
 pub async fn save_bytes_to_path(path: &str, bytes: &[u8]) -> Result<(), AppError> {
-    tokio::fs::write(path, bytes).await.map_err(AppError::from)
+    write_bytes_atomic(path, bytes).await
 }
 
 /// NUL 字节检测窗口(字节):与 VS Code `ZERO_BYTE_DETECTION_BUFFER_MAX_LEN`
@@ -623,7 +623,7 @@ pub async fn fs_save_bytes(
 
 /// 弹出保存对话框并按指定编码写入文本(untitled Tab「通过编码保存」使用)
 ///
-/// 用户在保存对话框中显式选择路径后,该路径被授权并按 `encoding` 编码写入
+/// 用户在保存对话框中显式选择路径后,该路径被授权并按 `encoding` 编码原子写入
 /// (`utf-8-bom` 自动补 BOM)。用户取消对话框时返回 `Ok(CommandResponse::ok(None))`。
 ///
 /// # Errors
@@ -663,9 +663,7 @@ pub async fn fs_save_text_file_encoded(
     let path_str = path_buf.to_string_lossy().into_owned();
     // 保存路径由用户显式选择,加入授权集合(与 fs_save_bytes 沙箱语义一致)
     authorized.authorize(&path_str);
-    tokio::fs::write(&path_str, bytes)
-        .await
-        .map_err(AppError::from)?;
+    write_bytes_atomic(&path_str, &bytes).await?;
     Ok(CommandResponse::ok(Some(path_str)))
 }
 
@@ -1646,23 +1644,6 @@ mod tests {
         assert!(result.is_err());
         // io::Error → AppError::Io → code "ERR_FILE_IO"
         assert_eq!(result.unwrap_err().code(), "ERR_FILE_IO");
-    }
-
-    #[tokio::test]
-    async fn test_save_bytes_to_path_round_trip() {
-        let dir = std::env::temp_dir();
-        let path = dir.join("qraft_test_save_bytes.bin");
-        let path_str = path.to_str().unwrap();
-        let _ = std::fs::remove_file(&path);
-
-        save_bytes_to_path(path_str, &[0x00, 0x01, 0x02, 0xff])
-            .await
-            .expect("save should succeed");
-
-        let content = std::fs::read(&path).expect("file should exist");
-        assert_eq!(content, vec![0x00, 0x01, 0x02, 0xff]);
-
-        let _ = std::fs::remove_file(path);
     }
 
     #[test]
