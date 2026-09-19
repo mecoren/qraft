@@ -5,6 +5,30 @@ All notable changes to Qraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2026-09-19
+
+### Added
+
+- 文本编辑器感知文件的外部变更:后端新增 `notify` 父目录 watcher(`fs_watch_open_files` 注册 + `fs:external-change` 事件),打开的文件被其它程序改写或删除时 toast 提示;事件只带路径,是否算外部修改由前端按 mtime 基准复核,并保留激活时比对作为 watcher 不可用 / 离线改动时的兜底
+- 文件在打开后被外部删除时保存不再失败:后端把「文件已消失」单独分流为 `ERR_FILE_NOT_FOUND`,前端去掉并发校验基准重试一次、在原路径重建文件,提示语换「已重新创建」
+
+### Changed
+
+- 保存链路全面改原子写入(目标同目录临时文件 + fsync + rename):覆盖写回、按编码保存、另存为与 `history.jsonl` 裁剪不再因磁盘满 / 崩溃残留半截文件,历史裁剪改为写成功才更新计数
+- 编辑器工作区持久化防抖按载荷大小自适应(500 / 2000 / 5000ms,与 JSON、文本比较、Markdown 同策略);Rust 侧 `config_set` 去掉为拼事件 payload 而做的整份配置预读,`tool_prefs.<name>` 增加 HashMap 直写快路径
+- 大文件行索引扫描与全文搜索按 scanId 支持取消,切 Tab / 关闭视图后不再继续空跑
+- 打开拖放与系统关联进来的文件合并为一次读取(不再先探测二进制再重读)
+- 「检查更新」从设置页迁入「关于」弹窗,改为版本徽标行的胶囊小按钮
+- `EditorWorkbench.tsx` 按内聚块拆为 11 个 hook 与子组件(约 2400 行降至约 940 行,行为不变)
+
+### Fixed
+
+- 修复保存丢脏竞态:异步落盘期间的新输入不再被误判已保存(Markdown 编辑器按写入快照回写、代码编辑器 `markSaved` 收写盘快照、PDF 编辑器用编辑序号 `rev` 守卫)
+- 修复编辑器逐键性能:状态栏统计经 deferred 降级、码点计数零分配、JSON 探测只解析头部、Monaco options 稳定引用,消除每次按键的全文 O(n) 扫描
+- 修复大文件读取错行:前后端校准点统一为 `{ line, offset }` 对象(原按元组消费致锚点恒退到 offset 0),行窗口缓存按 `path:lineCount` 分片 LRU 防跨文件串台,Rust 行窗口读取由逐字节热循环改为按块批量扫描
+- 修复 Monaco model 池化下的全局泄漏:工作台卸载时释放 `inmemory://tab/*` model
+- 修复设置项写入恒失败:前端配置键名与 Rust 线格式不一致(`toolPrefs` / `fontSize` / `maxHistory` / `confirmOnClear` 实为 `tool_prefs` / `font_size` / `max_history` / `confirm_on_clear`),`config_set` 报 `invalid config path` 且读侧静默取默认值;工具偏好(如 JSON 缩进)改按整槽写入以保留同槽其它偏好
+
 ## [0.3.2] - 2026-09-18
 
 ### Changed
@@ -290,6 +314,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tauri Updater 签名验证(ed25519)
 - MVP 阶段:Windows/macOS 使用占位签名(ad-hoc),正式发布需 EV 证书与 Apple Developer ID
 
+[0.3.3]: https://github.com/qraft/qraft/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/qraft/qraft/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/qraft/qraft/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/qraft/qraft/compare/v0.2.9...v0.3.0

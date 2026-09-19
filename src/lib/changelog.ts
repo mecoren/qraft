@@ -21,6 +21,7 @@
  * v0.3.0 内容基于 git log 与工作区改动(v0.2.9 标签之后至 2026-09-15)提炼,
  * v0.3.1 内容基于 git log(v0.3.0 标签之后至 2026-09-16)提炼,
  * v0.3.2 内容基于 git log(v0.3.1 标签之后至 2026-09-18)提炼,
+ * v0.3.3 内容基于 git log(v0.3.2 标签之后至 2026-09-19)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -49,6 +50,58 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.3.3',
+    date: '2026-09-19',
+    summary: {
+      zh: '文本编辑器开始感知文件外部变更:watcher 推送 + mtime 复核提示,文件被外部删除后保存直接在原路径重建;保存链路全面改原子写入,并修掉保存丢脏竞态与设置项写入恒失败',
+      en: 'The text editor now reacts to external file changes: watcher pushes with mtime re-check toasts, and saving a file deleted outside recreates it in place. The whole save path switched to atomic writes, plus fixes for lost-dirty save races and settings that never persisted',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: '文本编辑器感知文件的外部变更:后端新增 notify 父目录 watcher,打开的文件被其它程序改写或删除时 toast 提示(事件只带路径,是否算外部修改由前端按 mtime 基准复核,并保留激活时比对兜底);文件在打开后被外部删除时保存不再失败,后端单独分流 ERR_FILE_NOT_FOUND,前端去掉校验基准重试一次并在原路径重建,提示「已重新创建」',
+          en: 'The text editor now notices external changes: a backend notify parent-directory watcher toasts when an open file is rewritten or deleted by another program (events carry only the path; the frontend re-checks mtime, with the on-activation comparison kept as fallback). Saving a file deleted after opening no longer fails — ERR_FILE_NOT_FOUND is routed separately and the frontend retries without the mtime baseline, recreating the file in place with a "recreated" toast',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '写盘改原子替换(目标同目录临时文件 + fsync + rename),覆盖写回、按编码保存、另存为与 history.jsonl 裁剪不再因磁盘满或崩溃残留半截文件;打开拖放/关联进来的文件合并为一次读取;编辑器工作区持久化防抖按载荷大小自适应,config_set 去掉整份配置预读并为 tool_prefs.<name> 加直写快路径;大文件行索引扫描与全文搜索按 scanId 支持取消',
+          en: 'Disk writes became atomic replacements (temp file in the target directory + fsync + rename), so overwrite saves, encoded saves, save-as and history.jsonl trimming no longer leave half-written files on a full disk or crash; opening dropped/associated files collapsed into a single read; workspace persistence debounce now scales with payload size, config_set dropped its full-config pre-read and gained a HashMap fast path for tool_prefs.<name>; large-file index scans and full-text search are now cancellable by scanId',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '编辑器工作区主组件按内聚块拆为 11 个 hook 与子组件(约 2400 行降到约 940 行,行为不变);「检查更新」从设置页迁入「关于」弹窗,改为版本徽标行的胶囊小按钮',
+          en: 'The editor workbench component was split by cohesive block into 11 hooks and child components (about 2,400 lines down to about 940, behavior unchanged); "check for updates" moved from Settings into the About dialog as a pill button on the version badge row',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复保存丢脏竞态:异步落盘期间的新输入不再被误判已保存(Markdown 编辑器按写入快照回写、代码编辑器 markSaved 收写盘快照、PDF 编辑器用编辑序号 rev 守卫);修复 Monaco model 池化下的全局泄漏(工作台卸载时释放 inmemory://tab/* model);消除每次按键的全文 O(n) 扫描(状态栏统计 deferred 降级、码点计数零分配、JSON 探测只解析头部、Monaco options 稳定引用)',
+          en: 'Fixed lost-dirty save races: edits typed while an async write is in flight are no longer treated as saved (Markdown editor writes back the snapshot, code editor markSaved takes the written snapshot, PDF editor guards with an edit revision counter); fixed a global Monaco model leak by disposing pooled inmemory://tab/* models on workbench unmount; removed the per-keystroke O(n) full-text scan (deferred status-bar stats, allocation-free code point counting, JSON probe parsing only the head, stable Monaco options)',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复大文件读取错行:前后端校准点统一为 { line, offset } 对象(原按元组消费致锚点恒退到 offset 0),行窗口缓存按 path:lineCount 分片 LRU 防跨文件串台,Rust 行窗口读取由逐字节热循环改为按块批量扫描',
+          en: 'Fixed wrong lines on large files: the anchor contract between front and back end is now a { line, offset } object (tuples made anchors always fall back to offset 0), the line-window cache is sharded by path:lineCount in an LRU to avoid cross-file bleed, and Rust line-window reads scan in blocks instead of a byte-at-a-time hot loop',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复设置项写入恒失败:前端配置键名与 Rust 线格式不一致(toolPrefs / fontSize / maxHistory / confirmOnClear 实为 tool_prefs / font_size / max_history / confirm_on_clear),config_set 报 invalid config path 且读侧静默取默认值;工具偏好(如 JSON 缩进)改按整槽写入,保留同一偏好槽内的其它设置',
+          en: 'Fixed settings writes that always failed: frontend config keys disagreed with the Rust wire format (toolPrefs / fontSize / maxHistory / confirmOnClear are really tool_prefs / font_size / max_history / confirm_on_clear), so config_set returned invalid config path while reads silently fell back to defaults; tool preferences (e.g. JSON indent) are now written per slot, keeping other preferences in the same slot',
+        },
+      },
+    ],
+  },
   {
     version: '0.3.2',
     date: '2026-09-18',
