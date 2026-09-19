@@ -36,6 +36,16 @@ const META: LargeFileMeta = {
   calibration: [{ line: 1, offset: 0 }],
 };
 
+/**
+ * renderHook 会按 initialProps 把 Props 推成非空 `EditorTab`,rerender 就传不了 null
+ * (模拟关闭 Tab);经此包装固定可空分支。
+ */
+function renderScan(active: EditorTab | null) {
+  return renderHook((props: { active: EditorTab | null }) => useLargeFileScan(props.active), {
+    initialProps: { active },
+  });
+}
+
 function makeLargeTab(overrides: Partial<EditorTab> = {}): EditorTab {
   return {
     id: 'tab-large',
@@ -91,10 +101,7 @@ describe('useLargeFileScan', () => {
     // 永不完成:模拟 10GB 索引仍在读盘时用户关掉 Tab
     infoMock.mockReturnValue(new Promise(() => {}));
 
-    const { rerender } = renderHook(
-      (props: { active: EditorTab | null }) => useLargeFileScan(props.active),
-      { initialProps: { active: tab } },
-    );
+    const { rerender } = renderScan(tab);
     await waitFor(() => expect(infoMock).toHaveBeenCalledTimes(1));
 
     // store 变更会驱动 hook 重渲染,须包在 act 内
@@ -112,10 +119,7 @@ describe('useLargeFileScan', () => {
     setTabs([scanning, other]);
     infoMock.mockReturnValue(new Promise(() => {}));
 
-    const { rerender } = renderHook(
-      (props: { active: EditorTab | null }) => useLargeFileScan(props.active),
-      { initialProps: { active: scanning } },
-    );
+    const { rerender } = renderScan(scanning);
     await waitFor(() => expect(infoMock).toHaveBeenCalledTimes(1));
 
     rerender({ active: other });
@@ -128,10 +132,7 @@ describe('useLargeFileScan', () => {
     const normal = makeLargeTab({ id: 'tab-plain', largeFile: false });
     setTabs([scanned, normal]);
 
-    const { rerender } = renderHook(
-      (props: { active: EditorTab | null }) => useLargeFileScan(props.active),
-      { initialProps: { active: scanned } },
-    );
+    const { rerender } = renderScan(scanned);
     rerender({ active: normal });
     rerender({ active: null });
 
