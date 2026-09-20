@@ -1,4 +1,7 @@
 {
+  "tools.cron_parser.section_hint": "Seconds field, run count and timezone",
+  "tools.cron_parser.caption_seconds": "Seconds",
+  "tools.cron_parser.caption_count": "Runs",
   "tools.cron_parser.include_seconds": "Include seconds",
   "tools.cron_parser.include_seconds_hint": "6-field mode (sec min hour day month weekday)",
   "tools.cron_parser.task_count": "Number of scheduled runs",

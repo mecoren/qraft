@@ -1,4 +1,6 @@
 {
+  "tools.lorem_ipsum.section_hint": "Granularity, count and leading text",
+  "tools.lorem_ipsum.caption_start_with_lorem": "Start text",
   "tools.lorem_ipsum.label_type": "Type",
   "tools.lorem_ipsum.hint_granularity": "Generation granularity",
   "tools.lorem_ipsum.granularity_words": "Words",

@@ -1,4 +1,8 @@
 {
+  "tools.json_csv_converter.section_hint": "方向、分隔符与表头 / 展平选项",
+  "tools.json_csv_converter.caption_header": "表头",
+  "tools.json_csv_converter.caption_inference": "类型推断",
+  "tools.json_csv_converter.caption_flatten": "深展平",
   "tools.json_csv_converter.direction": "方向",
   "tools.json_csv_converter.direction_hint": "JSON→CSV 需对象或对象数组",
   "tools.json_csv_converter.json_input": "JSON 输入",

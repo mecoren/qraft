@@ -1,4 +1,6 @@
 {
+  "tools.image_converter.section_hint": "Format, quality, scale and background",
+  "tools.image_converter.caption_format": "Format",
   "tools.image_converter.only_image_files": "Only image files are supported",
   "tools.image_converter.error_decode": "Failed to decode image",
   "tools.image_converter.error_image_load": "Failed to load image",

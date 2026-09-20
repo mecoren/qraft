@@ -170,11 +170,14 @@ export function NumberBaseConverter(_props: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="number-base-converter"
     >
-      <ConfigSection title="" searchAnchor="number_base_converter:config">
+      <ConfigSection
+        headerHint={t('tools.number_base_converter.section_hint')}
+        searchAnchor="number_base_converter:config"
+      >
         <ConfigRow
           icon={LayoutList}
-          label={t('tools.number_base_converter.group_formatted')}
-          hint={t('tools.number_base_converter.group_formatted_hint')}
+          caption={t('tools.number_base_converter.caption_grouping')}
+          captionHint={t('tools.number_base_converter.group_formatted_hint')}
         >
           <Switch
             checked={grouped}
@@ -183,9 +186,9 @@ export function NumberBaseConverter(_props: ToolProps): JSX.Element {
             data-testid="nb-grouped"
           />
         </ConfigRow>
-        <ConfigRow icon={Hash} label={t('tools.number_base_converter.input_base')}>
+        <ConfigRow icon={Hash} caption={t('tools.number_base_converter.input_base')}>
           <Select value={String(inputBase)} onValueChange={(v) => setInputBase(Number(v))}>
-            <SelectTrigger data-testid="nb-input-base" className="w-32">
+            <SelectTrigger data-testid="nb-input-base" className="h-7 w-32 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -199,11 +202,11 @@ export function NumberBaseConverter(_props: ToolProps): JSX.Element {
         </ConfigRow>
         <ConfigRow
           icon={Info}
-          label={t('tools.number_base_converter.bit_width')}
-          hint={t('tools.number_base_converter.bit_width_hint')}
+          caption={t('tools.number_base_converter.bit_width')}
+          captionHint={t('tools.number_base_converter.bit_width_hint')}
         >
           <Select value={String(width)} onValueChange={(v) => setWidth(Number(v) as BitWidth)}>
-            <SelectTrigger data-testid="nb-width" className="w-32">
+            <SelectTrigger data-testid="nb-width" className="h-7 w-32 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

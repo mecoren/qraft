@@ -165,14 +165,29 @@ cargo test
   - 输入框、Select、开关等**非编辑器控件一律用 UI 字体**(默认继承,不要加 `font-mono`,密钥 / secret / 字母表这类"内容像代码"的输入框也不例外);
   - `font-mono` / `code` / `pre` **仅限代码与等宽内容场景**:编辑器(Monaco、行号编辑器)、代码片段、快捷键 kbd、哈希 / 时间戳 / IP / 编码结果等技术性只读展示。
 
+**工具配置栏标准**(全仓库统一,新工具一律遵守)
+
+- 配置区一律用 `ConfigSection` + `ConfigRow` **caption 微标签模式**(只传 `caption` / `captionHint`,不传 `label` / `hint`):左侧 96px 定宽小标签列,控件列占满剩余宽度、从左缘铺开并 `flex-wrap` 流动换行。基准实现见 `src/tools/TextProcessor.tsx` 配置区。
+- `ConfigSection` 传 `headerHint` 即启用 `h-7` 紧凑标题行(左侧「配置」+ 右侧一行说明);`headerAction` 只在配置区有折叠/展开等动作时才用。栏级共性说明写进 `headerHint`,行级说明写进 `captionHint`(悬浮展示),不再使用 `label` + `hint` 双行写法。
+- 行内控件统一紧凑尺寸:`Input` / `SelectTrigger` 用 `h-7 text-xs`,按钮用 `Button size="sm"`(`gap-1 px-3.5`、图标 `size-3.5`),`Switch` 必须包在带可读文字的 `<label className="flex items-center gap-1.5 text-xs text-muted-foreground">` 内或带 `aria-label`;组间间距 `gap-x-3 gap-y-2.5`。
+- 配置项一律留在配置栏:会撑高面板标题栏的表单控件不得内嵌标题栏,应上移到配置区。
+
 **工具主区左右分栏标准**(全仓库统一布局契约,新工具一律遵守)
 
 - 凡工具主区为「输入 → 输出」或「参数 → 结果」形态(转换器 / 编解码器 / 生成器类),主区用 `ResizablePanelGroup orientation="horizontal"` 左右分栏,参照 GzipCodec(双编辑器)与 QrcodeTool(编辑器 + 非编辑器面板)两档基准,不是上下堆叠或固定 grid 对半。
 - 配置项(密钥 / 算法 / 方向开关等)不进分栏,统一收进顶部 `ConfigSection / ConfigRow`;会撑高标题栏的控件(如默认 h-9 的 SelectTrigger)禁止内嵌面板标题栏,压到 h-6 或上移配置区。
 - 分栏结构:`<ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">`(尺寸用**字符串**百分比,数字会被 react-resizable-panels v4 当作像素);左面板朝分隔缝一侧 `border-r`,右面板 `border-l`;`CodeEditor` 用 `className="h-full rounded-none border-0 border-r"`(或 `border-l`)贴缝。
-- 非编辑器面板(预览 / 参数摘要 / 大字号结果等)做成与 CodeEditor 同构的「编辑框」:标题栏 `flex h-[26px] min-w-0 items-center justify-between gap-x-2 border-b border-input px-2`,标题 `pl-1 text-xs font-medium text-foreground` + truncate;动作区只放纯文字/图标按钮(图标 size-3.5 + text-xs),不用 Button 组件;底部状态栏可按需用 `border-t border-input px-2 py-0.5 text-xs tabular-nums text-muted-foreground`。
+- 非编辑器面板(预览 / 参数摘要 / 结果 / 大字号展示等)做成与 CodeEditor 同构的「编辑框」,三层结构照抄基准实现 `src/tools/CertificateDecoder.tsx` 右侧结果区:
+  - 外壳 `flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 border-l`(`border-l` / `border-r` 取朝向分隔缝的那一侧);`min-h-0` 与 `overflow-hidden` **必须带**,否则长结果把面板撑破、标题栏被挤出可视区。
+  - 标题栏固定 `flex h-[26px] min-w-0 items-center justify-between gap-x-2 border-b border-input px-2`,标题 `min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground`。**标题的 `min-w-0 flex-1` 不可省**:少了它标题只占内容宽,`justify-between` 形同失效,动作区紧贴标题而非右对齐(公钥解析器曾如此,复制按钮跑到标题右边);也不要自创 `shrink-0 items-center gap-2` 之类的标题栏变体。
+  - 内容区 `min-h-0 flex-1 overflow-auto`;动作区只放纯文字/图标按钮(图标 `size-3.5` + `text-xs`,如 `CopyAction`),不用 Button 组件;底部状态栏可按需用 `border-t border-input px-2 py-0.5 text-xs tabular-nums text-muted-foreground`。
 - 满高预览区不要嵌 Radix ScrollArea(其 viewport 的 table 包裹会打断高度链),用普通 `div.min-h-0 flex-1 overflow-auto` + flex 居中。
-- 模式/方向切换照 Base64Codec 的 ConfigRow 分段控件,忌通栏 Tab 条与自创标题栏样式。
+- **二选一语义(方向 / 模式)一律用 ConfigRow 分段控件,不得用 `Switch` 或只有两项的 `Select`**:`Switch` 只能表达「开 / 关」布尔态,读不出「生成 / 解码」「加密 / 解密」「TOTP / HOTP」这类互斥方向语义(BasicAuth / AES / GZip 曾用开关表达方向);两项下拉还会把可比选项藏进点开才见的浮层(PngCompressor 的无损 / 有损曾如此)。基准实现是 `src/tools/Base64Codec.tsx` 的方向行,已统一到 BasicAuthGenerator / AesCrypto / GzipCodec / HtmlCodec / OtpGenerator / JsonCsvConverter / HashCalculator / QrcodeTool / PngCompressor。
+  - 结构:`<Tabs value={...} onValueChange={...}><TabsList className="h-7 w-fit">` + 每个 `<TabsTrigger className="gap-1 px-2 py-0.5 text-xs">`(无图标的省 `gap-1`)。
+  - `h-7` + `text-xs` 必须显式覆盖(shadcn 原语默认 `h-10` / `text-sm` 会撑高整行,与同行 `h-7` 的 Switch / SelectTrigger 明显不齐);`w-fit` 也必须带——曾写死 `w-36` / `w-40`,固定宽度会在段内留下大片左右留白,`inline-flex` 随内容收缩才是期望形态。
+  - tab 图标 `size-3.5`;编码 / 解码类方向用 `ArrowUpFromLine` / `ArrowDownToLine`,其余按语义取(`Lock` / `Unlock`、`Package` / `PackageOpen` 等)。
+  - 边界:判断依据是「互斥的语义模式」还是「无方向的取值档位」。方向 / 模式(生成↔解码、加密↔解密、压缩↔解压、无损↔有损、TOTP↔HOTP)用分段控件;数值 / 算法 / 格式类取值(缩进 2 与 4 空格、进制、算法、UUID 版本、时区)即使只有两项也仍走 `Select`,便于后续扩展选项。忌通栏 Tab 条与自创标题栏样式。
+  - 测试:Radix Tabs 在 `onMouseDown` 时激活(不是 `click`),断言写 `fireEvent.mouseDown(screen.getByTestId('dir-xxx'))`;每个 `TabsTrigger` 保留稳定 `data-testid`(如 `dir-encode` / `dir-decode`)。
 - ConfigRow 的 caption 微标签(96px 定宽小标签列)放不下行级说明:该行描述统一经 `captionHint` 传 i18n 文案,渲染为标签文本上的原生 `title`——浮层样式由全局 title 接管层(`global-title-tooltip`,main.tsx 挂载)统一渲染,勿自引 Radix Tooltip 或塞回 hint 行。title 挂可见文本而非外层容器,悬停空白不弹。
 - CodeEditor 的 `actions` 插槽是**无 gap 容器**:纯文本徽标 / 状态行(自身无内边距,如统计徽标)与按钮组相邻时,在按钮组上手动加 `ml-2`(8px,与树形等自带 `gap-2` 的标题栏对齐);不要改共享 CodeEditor 加全局 gap(影响全部工具标题栏)。
 

@@ -1,4 +1,7 @@
 {
+  "tools.gzip_codec.section_hint": "压缩 / 解压方向、压缩率与文件通道",
+  "tools.gzip_codec.caption_convert": "转换",
+  "tools.gzip_codec.caption_ratio": "压缩率",
   "tools.gzip_codec.label_convert": "GZip 转换",
   "tools.gzip_codec.hint_mode": "选择压缩或解压缩",
   "tools.gzip_codec.mode_compress": "压缩",

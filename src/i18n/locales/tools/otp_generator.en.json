@@ -1,4 +1,7 @@
 {
+  "tools.otp_generator.section_hint": "Secret, mode and parameters",
+  "tools.otp_generator.caption_secret": "Secret",
+  "tools.otp_generator.caption_verify": "Verify",
   "tools.otp_generator.secret": "Base32 secret",
   "tools.otp_generator.secret_hint": "RFC 4648 Base32; lowercase, spaces and hyphens tolerated. Computed locally only; never stored or uploaded",
   "tools.otp_generator.mode": "OTP mode",

@@ -197,14 +197,17 @@ export function VideoToGif(_props: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="video-to-gif"
     >
-      <ConfigSection title="" searchAnchor="video_to_gif:config">
-        <ConfigRow icon={Clapperboard} label={t('tools.video_to_gif.label_range')}>
+      <ConfigSection
+        headerHint={t('tools.video_to_gif.section_hint')}
+        searchAnchor="video_to_gif:config"
+      >
+        <ConfigRow icon={Clapperboard} caption={t('tools.video_to_gif.label_range')}>
           <div className="flex items-center gap-1">
             <Input
               type="number"
               min={0}
               step="0.1"
-              className="w-20"
+              className="h-7 w-20 text-xs"
               data-testid="vtg-start"
               aria-label={t('tools.video_to_gif.label_start')}
               value={startSec}
@@ -216,7 +219,7 @@ export function VideoToGif(_props: ToolProps): JSX.Element {
               type="number"
               min={0}
               step="0.1"
-              className="w-20"
+              className="h-7 w-20 text-xs"
               data-testid="vtg-end"
               aria-label={t('tools.video_to_gif.label_end')}
               value={endSec}
@@ -228,9 +231,9 @@ export function VideoToGif(_props: ToolProps): JSX.Element {
             </span>
           </div>
         </ConfigRow>
-        <ConfigRow icon={Clapperboard} label={t('tools.video_to_gif.label_fps')}>
+        <ConfigRow icon={Clapperboard} caption={t('tools.video_to_gif.label_fps')}>
           <Select value={String(fps)} onValueChange={(v) => setFps(Number(v))}>
-            <SelectTrigger data-testid="vtg-fps" className="w-28">
+            <SelectTrigger data-testid="vtg-fps" className="h-7 w-28 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -242,9 +245,9 @@ export function VideoToGif(_props: ToolProps): JSX.Element {
             </SelectContent>
           </Select>
         </ConfigRow>
-        <ConfigRow icon={Clapperboard} label={t('tools.video_to_gif.label_width')}>
+        <ConfigRow icon={Clapperboard} caption={t('tools.video_to_gif.caption_width')}>
           <Select value={String(width)} onValueChange={(v) => setWidth(Number(v))}>
-            <SelectTrigger data-testid="vtg-width" className="w-28">
+            <SelectTrigger data-testid="vtg-width" className="h-7 w-28 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

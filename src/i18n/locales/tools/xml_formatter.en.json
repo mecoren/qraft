@@ -1,10 +1,12 @@
 {
+  "tools.xml_formatter.section_hint": "Indent and attribute wrapping options",
   "tools.xml_formatter.indent": "Indent",
   "tools.xml_formatter.indent_2": "2 spaces",
   "tools.xml_formatter.indent_4": "4 spaces",
   "tools.xml_formatter.indent_tab": "Tabs",
   "tools.xml_formatter.indent_minify": "Minify",
   "tools.xml_formatter.attr_newline": "Attributes on new lines",
+  "tools.xml_formatter.caption_attr_newline": "Attributes",
   "tools.xml_formatter.attr_newline_hint": "Put each attribute on its own line when there are several",
   "tools.xml_formatter.input_title": "Input",
   "tools.xml_formatter.output_title": "Output",

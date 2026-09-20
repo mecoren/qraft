@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { base64ToBytes, downloadBlob, formatBytes, readFileAsDataUrl } from '@/lib/file-utils';
@@ -227,30 +228,46 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="png-compressor"
     >
-      <ConfigSection title="" searchAnchor="png_compressor:config">
+      <ConfigSection
+        headerHint={t('tools.png_compressor.section_hint')}
+        searchAnchor="png_compressor:config"
+      >
         <ConfigRow
           icon={FileImage}
-          label={t('tools.png_compressor.label_mode')}
-          hint={t('tools.png_compressor.hint_mode')}
+          caption={t('tools.png_compressor.caption_mode')}
+          captionHint={t('tools.png_compressor.hint_mode')}
         >
-          <Select value={lossless ? '1' : '0'} onValueChange={(v) => setLossless(v === '1')}>
-            <SelectTrigger data-testid="pc-mode" className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1">{t('tools.png_compressor.mode_lossless')}</SelectItem>
-              <SelectItem value="0">{t('tools.png_compressor.mode_lossy')}</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* 二选一模式用分段控件而非下拉,与 Base64Codec 基准同形态 */}
+          <Tabs
+            value={lossless ? 'lossless' : 'lossy'}
+            onValueChange={(v) => setLossless(v === 'lossless')}
+          >
+            <TabsList className="h-7 w-fit">
+              <TabsTrigger
+                value="lossless"
+                data-testid="pc-mode-lossless"
+                className="px-2 py-0.5 text-xs"
+              >
+                {t('tools.png_compressor.mode_lossless')}
+              </TabsTrigger>
+              <TabsTrigger
+                value="lossy"
+                data-testid="pc-mode-lossy"
+                className="px-2 py-0.5 text-xs"
+              >
+                {t('tools.png_compressor.mode_lossy')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </ConfigRow>
         {lossless ? (
           <ConfigRow
             icon={FileImage}
-            label={t('tools.png_compressor.label_level')}
-            hint={t('tools.png_compressor.hint_level')}
+            caption={t('tools.png_compressor.caption_level')}
+            captionHint={t('tools.png_compressor.hint_level')}
           >
             <Select value={level} onValueChange={setLevel}>
-              <SelectTrigger data-testid="pc-level" className="w-40">
+              <SelectTrigger data-testid="pc-level" className="h-7 w-40 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -266,11 +283,11 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
           <>
             <ConfigRow
               icon={FileImage}
-              label={t('tools.png_compressor.label_colors')}
-              hint={t('tools.png_compressor.hint_colors')}
+              caption={t('tools.png_compressor.label_colors')}
+              captionHint={t('tools.png_compressor.hint_colors')}
             >
               <Select value={colors} onValueChange={setColors}>
-                <SelectTrigger data-testid="pc-colors" className="w-40">
+                <SelectTrigger data-testid="pc-colors" className="h-7 w-40 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -284,10 +301,15 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
             </ConfigRow>
             <ConfigRow
               icon={FileImage}
-              label={t('tools.png_compressor.label_dither')}
-              hint={t('tools.png_compressor.hint_dither')}
+              caption={t('tools.png_compressor.label_dither')}
+              captionHint={t('tools.png_compressor.hint_dither')}
             >
-              <Switch checked={dither} onCheckedChange={setDither} data-testid="pc-dither" />
+              <Switch
+                checked={dither}
+                onCheckedChange={setDither}
+                aria-label={t('tools.png_compressor.label_dither')}
+                data-testid="pc-dither"
+              />
             </ConfigRow>
           </>
         )}

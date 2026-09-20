@@ -1,4 +1,7 @@
 {
+  "tools.gzip_codec.section_hint": "Direction, ratio and file pipeline",
+  "tools.gzip_codec.caption_convert": "Convert",
+  "tools.gzip_codec.caption_ratio": "Ratio",
   "tools.gzip_codec.label_convert": "GZip Conversion",
   "tools.gzip_codec.hint_mode": "Choose compression or decompression",
   "tools.gzip_codec.mode_compress": "Compress",

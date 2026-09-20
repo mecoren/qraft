@@ -1,4 +1,6 @@
 {
+  "tools.video_to_gif.section_hint": "Clip range, frame rate and width",
+  "tools.video_to_gif.caption_width": "Width",
   "tools.video_to_gif.choose_video": "Choose video",
   "tools.video_to_gif.clear": "Clear",
   "tools.video_to_gif.convert": "Convert to GIF",

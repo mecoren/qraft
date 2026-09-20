@@ -1,4 +1,6 @@
 {
+  "tools.video_to_gif.section_hint": "片段范围、帧率与输出宽度",
+  "tools.video_to_gif.caption_width": "输出宽度",
   "tools.video_to_gif.choose_video": "选择视频",
   "tools.video_to_gif.clear": "清除",
   "tools.video_to_gif.convert": "转换为 GIF",

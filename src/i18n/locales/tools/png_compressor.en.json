@@ -1,4 +1,7 @@
 {
+  "tools.png_compressor.section_hint": "Mode, level, colors and dithering",
+  "tools.png_compressor.caption_mode": "Mode",
+  "tools.png_compressor.caption_level": "Level",
   "tools.png_compressor.level_1": "Fast (Level 1)",
   "tools.png_compressor.level_2": "Standard (Level 2)",
   "tools.png_compressor.level_4": "High quality (Level 4)",

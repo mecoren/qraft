@@ -10,11 +10,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeftRight, FileUp, Gauge } from 'lucide-react';
+import { ArrowLeftRight, FileUp, Gauge, Package, PackageOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { CodeEditor } from '@/components/ui/code-editor';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
@@ -174,26 +174,42 @@ export function GzipCodec({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="gzip-codec"
     >
-      <ConfigSection title="" searchAnchor="gzip_codec:config">
+      <ConfigSection
+        headerHint={t('tools.gzip_codec.section_hint')}
+        searchAnchor="gzip_codec:config"
+      >
         <ConfigRow
           icon={ArrowLeftRight}
-          label={t('tools.gzip_codec.label_convert')}
-          hint={t('tools.gzip_codec.hint_mode')}
+          caption={t('tools.gzip_codec.caption_convert')}
+          captionHint={t('tools.gzip_codec.hint_mode')}
         >
-          <span className="text-xs text-muted-foreground">
-            {compressMode
-              ? t('tools.gzip_codec.mode_compress')
-              : t('tools.gzip_codec.mode_decompress')}
-          </span>
-          <Switch
-            data-testid="gzip-mode-switch"
-            aria-label={t('tools.gzip_codec.aria_mode_toggle')}
-            checked={compressMode}
-            onCheckedChange={setCompressMode}
-          />
+          {/* 二选一方向用分段控件而非开关,与 Base64Codec 基准同形态 */}
+          <Tabs
+            value={compressMode ? 'compress' : 'decompress'}
+            onValueChange={(v) => setCompressMode(v === 'compress')}
+          >
+            <TabsList className="h-7 w-fit">
+              <TabsTrigger
+                value="compress"
+                data-testid="dir-compress"
+                className="gap-1 px-2 py-0.5 text-xs"
+              >
+                <Package aria-hidden className="size-3.5" />
+                {t('tools.gzip_codec.mode_compress')}
+              </TabsTrigger>
+              <TabsTrigger
+                value="decompress"
+                data-testid="dir-decompress"
+                className="gap-1 px-2 py-0.5 text-xs"
+              >
+                <PackageOpen aria-hidden className="size-3.5" />
+                {t('tools.gzip_codec.mode_decompress')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </ConfigRow>
         {ratioText ? (
-          <ConfigRow icon={Gauge} label={t('tools.gzip_codec.label_ratio')}>
+          <ConfigRow icon={Gauge} caption={t('tools.gzip_codec.caption_ratio')}>
             <span data-testid="gzip-ratio" className="text-xs text-muted-foreground">
               {ratioText}
             </span>
@@ -202,8 +218,8 @@ export function GzipCodec({ toolId }: ToolProps): JSX.Element {
         {/* 文件通道:拖拽或点击选择文件,压缩/解压结果一键下载 */}
         <ConfigRow
           icon={FileUp}
-          label={t('tools.gzip_codec.label_file_mode')}
-          hint={t('tools.gzip_codec.hint_file_mode')}
+          caption={t('tools.gzip_codec.label_file_mode')}
+          captionHint={t('tools.gzip_codec.hint_file_mode')}
         >
           <input
             ref={fileRef}

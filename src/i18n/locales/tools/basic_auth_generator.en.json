@@ -1,4 +1,6 @@
 {
+  "tools.basic_auth_generator.section_hint": "Generate or decode an Authorization header",
+  "tools.basic_auth_generator.caption_encoded_input": "Header",
   "tools.basic_auth_generator.username": "Username",
   "tools.basic_auth_generator.password": "Password",
   "tools.basic_auth_generator.privacy_hint": "Computed locally in memory only; never stored or uploaded",

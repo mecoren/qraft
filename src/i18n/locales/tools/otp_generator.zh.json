@@ -1,4 +1,7 @@
 {
+  "tools.otp_generator.section_hint": "密钥、口令模式与参数",
+  "tools.otp_generator.caption_secret": "密钥",
+  "tools.otp_generator.caption_verify": "校验口令",
   "tools.otp_generator.secret": "Base32 密钥",
   "tools.otp_generator.secret_hint": "RFC 4648 Base32,容忍小写、空格与连字符;仅在本机计算,不落盘不上传",
   "tools.otp_generator.mode": "口令模式",

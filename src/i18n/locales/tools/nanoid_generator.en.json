@@ -1,4 +1,5 @@
 {
+  "tools.nanoid_generator.section_hint": "Count, size and alphabet",
   "tools.nanoid_generator.count": "Count",
   "tools.nanoid_generator.count_hint": "Batch generation, up to 500 at once",
   "tools.nanoid_generator.count_aria": "Count to generate",

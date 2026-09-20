@@ -89,8 +89,8 @@ describe('OtpGenerator', () => {
     fireEvent.change(screen.getByLabelText('Base32 密钥'), {
       target: { value: RFC_SECRET_B32 },
     });
-    // 切到 HOTP:开关 aria-label 为「口令模式」
-    fireEvent.click(screen.getByRole('switch', { name: '口令模式' }));
+    // 切到 HOTP(radix Tabs 在 onMouseDown 时激活 tab)
+    fireEvent.mouseDown(screen.getByTestId('dir-hotp'));
     await waitFor(() => {
       expect(screen.getByTestId('otp-code').textContent).toBe('755224'); // counter=0 的 RFC 向量
     });

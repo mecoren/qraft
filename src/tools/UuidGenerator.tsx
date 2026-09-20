@@ -81,14 +81,20 @@ export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="uuid-generator"
     >
-      <ConfigSection title="" searchAnchor="uuid_generator:config">
+      <ConfigSection
+        headerHint={t('tools.uuid_generator.section_hint')}
+        searchAnchor="uuid_generator:config"
+      >
         <ConfigRow
           icon={Fingerprint}
-          label={t('tools.uuid_generator.version')}
-          hint={t('tools.uuid_generator.version_hint')}
+          caption={t('tools.uuid_generator.version')}
+          captionHint={t('tools.uuid_generator.version_hint')}
         >
           <Select value={version} onValueChange={(v) => setVersion(v as 'v4' | 'v7')}>
-            <SelectTrigger className="w-24" aria-label={t('tools.uuid_generator.version')}>
+            <SelectTrigger
+              className="h-7 w-24 text-xs"
+              aria-label={t('tools.uuid_generator.version')}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -97,7 +103,7 @@ export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
             </SelectContent>
           </Select>
         </ConfigRow>
-        <ConfigRow icon={Hash} label={t('tools.uuid_generator.count')} hint="1 ~ 1000">
+        <ConfigRow icon={Hash} caption={t('tools.uuid_generator.count')} captionHint="1 ~ 1000">
           <Input
             id="count-input"
             type="number"
@@ -105,24 +111,34 @@ export function UuidGenerator({ toolId }: ToolProps): JSX.Element {
             max={1000}
             value={count}
             onChange={(e) => setCount(Number(e.target.value))}
-            className="w-24"
+            className="h-7 w-24 text-xs"
             aria-label={t('tools.uuid_generator.count')}
           />
         </ConfigRow>
         <ConfigRow
           icon={Type}
-          label={t('tools.uuid_generator.format')}
-          hint={t('tools.uuid_generator.format_hint')}
+          caption={t('tools.uuid_generator.format')}
+          captionHint={t('tools.uuid_generator.format_hint')}
         >
           <div className="flex items-center gap-2">
-            <Switch id="uppercase" checked={uppercase} onCheckedChange={setUppercase} />
+            <Switch
+              id="uppercase"
+              aria-label={t('tools.uuid_generator.uppercase')}
+              checked={uppercase}
+              onCheckedChange={setUppercase}
+            />
             <Label htmlFor="uppercase" className="text-xs">
               {t('tools.uuid_generator.uppercase')}
             </Label>
           </div>
           <span className="h-4 w-px bg-border" aria-hidden />
           <div className="flex items-center gap-2">
-            <Switch id="hyphens" checked={hyphens} onCheckedChange={setHyphens} />
+            <Switch
+              id="hyphens"
+              aria-label={t('tools.uuid_generator.hyphens')}
+              checked={hyphens}
+              onCheckedChange={setHyphens}
+            />
             <Label htmlFor="hyphens" className="text-xs">
               {t('tools.uuid_generator.hyphens')}
             </Label>

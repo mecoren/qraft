@@ -168,11 +168,14 @@ export function ColorConverter({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="color-converter"
     >
-      <ConfigSection title="" searchAnchor="color_converter:config">
+      <ConfigSection
+        headerHint={t('tools.color_converter.section_hint')}
+        searchAnchor="color_converter:config"
+      >
         <ConfigRow
           icon={Palette}
-          label={t('tools.color_converter.color_value')}
-          hint={t('tools.color_converter.color_value_hint')}
+          caption={t('tools.color_converter.color_value')}
+          captionHint={t('tools.color_converter.color_value_hint')}
           searchAnchor="color_converter:input"
         >
           <Input
@@ -180,7 +183,7 @@ export function ColorConverter({ toolId }: ToolProps): JSX.Element {
             placeholder={t('tools.color_converter.input_placeholder')}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="w-72 text-sm"
+            className="h-7 w-72 text-xs"
             data-testid="input"
           />
           {/* 原生取色器:选择后以 HEX 填入输入框 */}
@@ -200,11 +203,14 @@ export function ColorConverter({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
         <ConfigRow
           icon={Palette}
-          label={t('tools.color_converter.input_format')}
-          hint={t('tools.color_converter.input_format_hint')}
+          caption={t('tools.color_converter.caption_format')}
+          captionHint={t('tools.color_converter.input_format_hint')}
         >
           <Select value={fromFormat} onValueChange={(v) => setFromFormat(v as ColorFormat)}>
-            <SelectTrigger className="w-40" aria-label={t('tools.color_converter.input_format')}>
+            <SelectTrigger
+              className="h-7 w-40 text-xs"
+              aria-label={t('tools.color_converter.input_format')}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

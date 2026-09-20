@@ -58,10 +58,13 @@ export function XmlFormatter({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="xml-formatter"
     >
-      <ConfigSection title="" searchAnchor="xml_formatter:config">
-        <ConfigRow icon={IndentIncrease} label={t('tools.xml_formatter.indent')}>
+      <ConfigSection
+        headerHint={t('tools.xml_formatter.section_hint')}
+        searchAnchor="xml_formatter:config"
+      >
+        <ConfigRow icon={IndentIncrease} caption={t('tools.xml_formatter.indent')}>
           <Select value={mode} onValueChange={(v) => setMode(v as IndentMode)}>
-            <SelectTrigger data-testid="xml-indent" className="w-32">
+            <SelectTrigger data-testid="xml-indent" className="h-7 w-32 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -74,8 +77,8 @@ export function XmlFormatter({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
         <ConfigRow
           icon={WrapText}
-          label={t('tools.xml_formatter.attr_newline')}
-          hint={t('tools.xml_formatter.attr_newline_hint')}
+          caption={t('tools.xml_formatter.caption_attr_newline')}
+          captionHint={t('tools.xml_formatter.attr_newline_hint')}
         >
           <Switch
             data-testid="xml-attr-newline"

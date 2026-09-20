@@ -1,4 +1,6 @@
 {
+  "tools.color_converter.section_hint": "颜色值与输入格式",
+  "tools.color_converter.caption_format": "输入格式",
   "tools.color_converter.color_value": "颜色值",
   "tools.color_converter.color_value_hint": "如 #ff5733 / rgb(255,87,51) / hsl(11,100%,60%) / tomato / cmyk(0,66,80,0)",
   "tools.color_converter.input_placeholder": "输入颜色值...",

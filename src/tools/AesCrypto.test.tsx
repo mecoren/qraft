@@ -76,8 +76,8 @@ describe('AesCrypto', () => {
     await waitFor(() => expect(out.value).not.toBe(''));
     const envelope = out.value;
 
-    // 切到解密模式,输入密文
-    fireEvent.click(screen.getByRole('switch', { name: '转换方向' }));
+    // 切到解密模式,输入密文(radix Tabs 在 onMouseDown 时激活 tab)
+    fireEvent.mouseDown(screen.getByTestId('dir-decrypt'));
     await waitFor(() => {
       expect(screen.getByLabelText('口令')).toBeInTheDocument(); // 仍是口令模式
     });
@@ -91,8 +91,8 @@ describe('AesCrypto', () => {
 
   it('错误口令解密显示密钥不匹配错误', async () => {
     render(<AesCrypto toolId="aes_crypto" metadata={null as never} />);
-    // 先切到解密方向(开关默认 on = 加密)
-    fireEvent.click(screen.getByRole('switch', { name: '转换方向' }));
+    // 先切到解密方向(分段控件默认停在加密段)
+    fireEvent.mouseDown(screen.getByTestId('dir-decrypt'));
     fireEvent.change(screen.getByLabelText('口令'), { target: { value: 'right' } });
     const input = screen.getByTestId('aes-input').querySelector('textarea')!;
     fireEvent.change(input, { target: { value: 'not-an-envelope' } });

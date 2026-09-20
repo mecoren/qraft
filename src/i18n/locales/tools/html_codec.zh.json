@@ -1,4 +1,6 @@
 {
+  "tools.html_codec.section_hint": "转换方向与转义范围",
+  "tools.html_codec.caption_escape_level": "编码级别",
   "tools.html_codec.label_convert": "转换",
   "tools.html_codec.hint_mode": "选择要使用的转换模式",
   "tools.html_codec.mode_encode": "编码",

@@ -4,12 +4,12 @@
  */
 import { useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeftRight, KeyRound } from 'lucide-react';
+import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, KeyRound } from 'lucide-react';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import { SendToMenu } from '@/components/send-to-menu';
@@ -62,42 +62,60 @@ export function BasicAuthGenerator({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="basic-auth-generator"
     >
-      <ConfigSection title="" searchAnchor="basic_auth_generator:config">
+      <ConfigSection
+        headerHint={t('tools.basic_auth_generator.section_hint')}
+        searchAnchor="basic_auth_generator:config"
+      >
         <ConfigRow
           icon={ArrowLeftRight}
-          label={t('tools.basic_auth_generator.label_direction')}
-          hint={t('tools.basic_auth_generator.hint_direction')}
+          caption={t('tools.basic_auth_generator.label_direction')}
+          captionHint={t('tools.basic_auth_generator.hint_direction')}
         >
-          <span className="text-xs text-muted-foreground">
-            {encodeMode
-              ? t('tools.basic_auth_generator.mode_encode')
-              : t('tools.basic_auth_generator.mode_decode')}
-          </span>
-          <Switch
-            data-testid="auth-direction-switch"
-            aria-label={t('tools.basic_auth_generator.label_direction')}
-            checked={encodeMode}
-            onCheckedChange={setEncodeMode}
-          />
+          <Tabs
+            value={encodeMode ? 'encode' : 'decode'}
+            onValueChange={(v) => setEncodeMode(v === 'encode')}
+          >
+            {/* 二选一方向用分段控件而非开关:开关只能表达布尔态,读不出「左侧=生成、
+                右侧=解码」的方向语义,且同一形态在工具间必须一致(Base64Codec 基准) */}
+            <TabsList className="h-7 w-fit">
+              <TabsTrigger
+                value="encode"
+                data-testid="dir-encode"
+                className="gap-1 px-2 py-0.5 text-xs"
+              >
+                <ArrowUpFromLine aria-hidden className="size-3.5" />
+                {t('tools.basic_auth_generator.mode_encode')}
+              </TabsTrigger>
+              <TabsTrigger
+                value="decode"
+                data-testid="dir-decode"
+                className="gap-1 px-2 py-0.5 text-xs"
+              >
+                <ArrowDownToLine aria-hidden className="size-3.5" />
+                {t('tools.basic_auth_generator.mode_decode')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </ConfigRow>
       </ConfigSection>
 
       {encodeMode ? (
         <>
           <ConfigSection title="" searchAnchor="basic_auth_generator:fields">
-            <ConfigRow icon={KeyRound} label={t('tools.basic_auth_generator.username')}>
+            <ConfigRow icon={KeyRound} caption={t('tools.basic_auth_generator.username')}>
               <Input
                 aria-label={t('tools.basic_auth_generator.username')}
                 value={user}
                 onChange={(e) => setUser(e.target.value)}
                 autoComplete="off"
                 spellCheck={false}
+                className="h-7 w-72 text-xs"
               />
             </ConfigRow>
             <ConfigRow
               icon={KeyRound}
-              label={t('tools.basic_auth_generator.password')}
-              hint={t('tools.basic_auth_generator.privacy_hint')}
+              caption={t('tools.basic_auth_generator.password')}
+              captionHint={t('tools.basic_auth_generator.privacy_hint')}
             >
               <Input
                 aria-label={t('tools.basic_auth_generator.password')}
@@ -106,6 +124,7 @@ export function BasicAuthGenerator({ toolId }: ToolProps): JSX.Element {
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="off"
                 spellCheck={false}
+                className="h-7 w-72 text-xs"
               />
             </ConfigRow>
           </ConfigSection>
@@ -130,8 +149,8 @@ export function BasicAuthGenerator({ toolId }: ToolProps): JSX.Element {
           <ConfigSection title="" searchAnchor="basic_auth_generator:decode_input">
             <ConfigRow
               icon={KeyRound}
-              label={t('tools.basic_auth_generator.encoded_input')}
-              hint={t('tools.basic_auth_generator.encoded_input_hint')}
+              caption={t('tools.basic_auth_generator.caption_encoded_input')}
+              captionHint={t('tools.basic_auth_generator.encoded_input_hint')}
             >
               <Input
                 aria-label={t('tools.basic_auth_generator.encoded_input')}
@@ -139,6 +158,7 @@ export function BasicAuthGenerator({ toolId }: ToolProps): JSX.Element {
                 onChange={(e) => setEncodedInput(e.target.value)}
                 autoComplete="off"
                 spellCheck={false}
+                className="h-7 w-72 text-xs"
               />
             </ConfigRow>
           </ConfigSection>
@@ -152,7 +172,7 @@ export function BasicAuthGenerator({ toolId }: ToolProps): JSX.Element {
             </div>
           ) : (
             <ConfigSection title="" searchAnchor="basic_auth_generator:decode_result">
-              <ConfigRow icon={KeyRound} label={t('tools.basic_auth_generator.username')}>
+              <ConfigRow icon={KeyRound} caption={t('tools.basic_auth_generator.username')}>
                 <span
                   className="max-w-72 truncate font-mono text-body-sm"
                   data-testid="auth-decoded-user"
@@ -160,7 +180,7 @@ export function BasicAuthGenerator({ toolId }: ToolProps): JSX.Element {
                   {decoded?.user || '-'}
                 </span>
               </ConfigRow>
-              <ConfigRow icon={KeyRound} label={t('tools.basic_auth_generator.password')}>
+              <ConfigRow icon={KeyRound} caption={t('tools.basic_auth_generator.password')}>
                 <span
                   className="max-w-72 truncate font-mono text-body-sm"
                   data-testid="auth-decoded-password"

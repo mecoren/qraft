@@ -1,4 +1,7 @@
 {
+  "tools.json_array_table.section_hint": "展平与表头选项",
+  "tools.json_array_table.caption_flatten": "深展平",
+  "tools.json_array_table.caption_header": "表头",
   "tools.json_array_table.not_array": "输入必须是 JSON 数组",
   "tools.json_array_table.input_title": "JSON 数组",
   "tools.json_array_table.table_title": "表格",

@@ -1,4 +1,5 @@
 {
+  "tools.sql_formatter.section_hint": "Dialect, indent, keyword case and minify options",
   "tools.sql_formatter.language": "Language",
   "tools.sql_formatter.language_hint": "Choose the SQL dialect",
   "tools.sql_formatter.dialect_standard_sql": "Standard SQL",
@@ -18,10 +19,12 @@
   "tools.sql_formatter.indent_4": "4 spaces",
   "tools.sql_formatter.indent_tab": "Tab",
   "tools.sql_formatter.keyword_case": "Keyword case",
+  "tools.sql_formatter.caption_keyword_case": "Keyword",
   "tools.sql_formatter.case_upper": "Uppercase",
   "tools.sql_formatter.case_lower": "Lowercase",
   "tools.sql_formatter.case_preserve": "Preserve as written",
   "tools.sql_formatter.label_minify": "Minify output",
+  "tools.sql_formatter.caption_minify": "Minify",
   "tools.sql_formatter.hint_minify": "Output compact single-line SQL",
   "tools.sql_formatter.input_title": "Input",
   "tools.sql_formatter.output_title": "Output",

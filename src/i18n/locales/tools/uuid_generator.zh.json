@@ -1,4 +1,5 @@
 {
+  "tools.uuid_generator.section_hint": "版本、数量与格式",
   "tools.uuid_generator.version": "版本",
   "tools.uuid_generator.version_hint": "v4 随机 / v7 时间有序",
   "tools.uuid_generator.count": "数量",

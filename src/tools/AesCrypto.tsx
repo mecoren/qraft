@@ -13,8 +13,8 @@ import { CodeEditor } from '@/components/ui/code-editor';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SendToMenu } from '@/components/send-to-menu';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import { aesDecrypt, aesEncrypt } from './aes-utils';
@@ -85,47 +85,68 @@ export function AesCrypto({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="aes-crypto"
     >
-      <ConfigSection title="" searchAnchor="aes_crypto:config">
+      <ConfigSection
+        headerHint={t('tools.aes_crypto.section_hint')}
+        searchAnchor="aes_crypto:config"
+      >
         <ConfigRow
           icon={ArrowLeftRight}
-          label={t('tools.aes_crypto.label_direction')}
-          hint={t('tools.aes_crypto.hint_direction')}
+          caption={t('tools.aes_crypto.label_direction')}
+          captionHint={t('tools.aes_crypto.hint_direction')}
         >
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            {encryptMode ? (
-              <Lock aria-hidden className="size-3.5" />
-            ) : (
-              <Unlock aria-hidden className="size-3.5" />
-            )}
-            {encryptMode ? t('tools.aes_crypto.mode_encrypt') : t('tools.aes_crypto.mode_decrypt')}
-          </span>
-          <Switch
-            data-testid="aes-direction-switch"
-            aria-label={t('tools.aes_crypto.label_direction')}
-            checked={encryptMode}
-            onCheckedChange={setEncryptMode}
-          />
+          {/* 二选一方向用分段控件而非开关,与 Base64Codec 基准同形态 */}
+          <Tabs
+            value={encryptMode ? 'encrypt' : 'decrypt'}
+            onValueChange={(v) => setEncryptMode(v === 'encrypt')}
+          >
+            <TabsList className="h-7 w-fit">
+              <TabsTrigger
+                value="encrypt"
+                data-testid="dir-encrypt"
+                className="gap-1 px-2 py-0.5 text-xs"
+              >
+                <Lock aria-hidden className="size-3.5" />
+                {t('tools.aes_crypto.mode_encrypt')}
+              </TabsTrigger>
+              <TabsTrigger
+                value="decrypt"
+                data-testid="dir-decrypt"
+                className="gap-1 px-2 py-0.5 text-xs"
+              >
+                <Unlock aria-hidden className="size-3.5" />
+                {t('tools.aes_crypto.mode_decrypt')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </ConfigRow>
         <ConfigRow
           icon={KeyRound}
-          label={t('tools.aes_crypto.label_key_source')}
-          hint={t('tools.aes_crypto.hint_key_source')}
+          caption={t('tools.aes_crypto.label_key_source')}
+          captionHint={t('tools.aes_crypto.hint_key_source')}
         >
-          <span className="text-xs text-muted-foreground">
-            {usePassphrase
-              ? t('tools.aes_crypto.key_source_passphrase')
-              : t('tools.aes_crypto.key_source_raw')}
-          </span>
-          <Switch
-            aria-label={t('tools.aes_crypto.label_key_source')}
-            checked={usePassphrase}
-            onCheckedChange={setUsePassphrase}
-          />
+          {/* 密钥来源同为二选一,统一走分段控件 */}
+          <Tabs
+            value={usePassphrase ? 'passphrase' : 'raw'}
+            onValueChange={(v) => setUsePassphrase(v === 'passphrase')}
+          >
+            <TabsList className="h-7 w-fit">
+              <TabsTrigger
+                value="passphrase"
+                data-testid="key-source-passphrase"
+                className="px-2 py-0.5 text-xs"
+              >
+                {t('tools.aes_crypto.key_source_passphrase')}
+              </TabsTrigger>
+              <TabsTrigger value="raw" data-testid="key-source-raw" className="px-2 py-0.5 text-xs">
+                {t('tools.aes_crypto.key_source_raw')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </ConfigRow>
         <ConfigRow
           icon={KeyRound}
-          label={usePassphrase ? t('tools.aes_crypto.passphrase') : t('tools.aes_crypto.raw_key')}
-          hint={
+          caption={usePassphrase ? t('tools.aes_crypto.passphrase') : t('tools.aes_crypto.raw_key')}
+          captionHint={
             usePassphrase
               ? t('tools.aes_crypto.passphrase_hint')
               : t('tools.aes_crypto.raw_key_hint')
@@ -140,6 +161,7 @@ export function AesCrypto({ toolId }: ToolProps): JSX.Element {
             onChange={(e) => setKeyInput(e.target.value)}
             autoComplete="off"
             spellCheck={false}
+            className="h-7 w-72 text-xs"
           />
         </ConfigRow>
       </ConfigSection>

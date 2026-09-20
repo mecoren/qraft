@@ -160,7 +160,7 @@ function NowBanner(): JSX.Element {
   return (
     <ConfigRow
       icon={TimerReset}
-      label={t('tools.timestamp_converter.now_title')}
+      caption={t('tools.timestamp_converter.caption_now')}
       searchAnchor="timestamp_converter:now"
     >
       <div className="flex items-center gap-2 text-right">
@@ -265,12 +265,15 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="timestamp-converter"
     >
-      <ConfigSection title="" searchAnchor="timestamp_converter:config">
+      <ConfigSection
+        headerHint={t('tools.timestamp_converter.section_hint')}
+        searchAnchor="timestamp_converter:config"
+      >
         <NowBanner />
         <ConfigRow
           icon={CalendarClock}
-          label={t('tools.timestamp_converter.input')}
-          hint={t('tools.timestamp_converter.input_hint')}
+          caption={t('tools.timestamp_converter.input')}
+          captionHint={t('tools.timestamp_converter.input_hint')}
           searchAnchor="timestamp_converter:input"
         >
           <Input
@@ -278,12 +281,12 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
             placeholder={t('tools.timestamp_converter.input_placeholder')}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="w-72 text-sm"
+            className="h-7 w-72 text-xs"
             data-testid="input"
           />
-          {/* 与 Input 默认 h-9 对齐,保持同高 */}
           <Button
             variant="outline"
+            size="sm"
             onClick={() => setText(String(Date.now()))}
             data-testid="ts-now-btn"
           >
@@ -292,11 +295,14 @@ export function TimestampConverter({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
         <ConfigRow
           icon={Globe2}
-          label={t('tools.timestamp_converter.timezone')}
-          hint={t('tools.timestamp_converter.timezone_hint')}
+          caption={t('tools.timestamp_converter.timezone')}
+          captionHint={t('tools.timestamp_converter.timezone_hint')}
         >
           <Select value={timezone} onValueChange={setTimezone}>
-            <SelectTrigger className="w-56" aria-label={t('tools.timestamp_converter.timezone')}>
+            <SelectTrigger
+              className="h-7 w-56 text-xs"
+              aria-label={t('tools.timestamp_converter.timezone')}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

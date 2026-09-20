@@ -1,4 +1,5 @@
 {
+  "tools.aes_crypto.section_hint": "方向、密钥来源与密钥输入",
   "tools.aes_crypto.label_direction": "转换方向",
   "tools.aes_crypto.hint_direction": "加密明文,或解密此前生成的密文",
   "tools.aes_crypto.mode_encrypt": "加密",

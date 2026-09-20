@@ -151,17 +151,29 @@ export function QrcodeTool({ toolId }: ToolProps): JSX.Element {
         data-testid="qrcode-tool"
       >
         {/* 模式切换:与 Base64 转换器同款「配置行 + 分段切换」,替换原通栏文档式 Tab 条 */}
-        <ConfigSection title="" searchAnchor="qrcode_tool:tabs">
+        <ConfigSection
+          headerHint={t('tools.qrcode_tool.section_hint')}
+          searchAnchor="qrcode_tool:tabs"
+        >
           <ConfigRow
             icon={ArrowLeftRight}
-            label={t('tools.qrcode_tool.label_mode')}
-            hint={t('tools.qrcode_tool.mode_hint')}
+            caption={t('tools.qrcode_tool.label_mode')}
+            captionHint={t('tools.qrcode_tool.mode_hint')}
           >
-            <TabsList>
-              <TabsTrigger value="generate" data-testid="qr-tab-generate">
+            {/* h-7 + text-xs 压到配置行紧凑尺寸(shadcn 默认 h-10 / text-sm 会撑高整行) */}
+            <TabsList className="h-7 w-fit">
+              <TabsTrigger
+                value="generate"
+                data-testid="qr-tab-generate"
+                className="gap-1 px-2 py-0.5 text-xs"
+              >
                 <QrIcon aria-hidden className="size-3.5" /> {t('tools.qrcode_tool.tab_generate')}
               </TabsTrigger>
-              <TabsTrigger value="scan" data-testid="qr-tab-scan">
+              <TabsTrigger
+                value="scan"
+                data-testid="qr-tab-scan"
+                className="gap-1 px-2 py-0.5 text-xs"
+              >
                 <ScanLine aria-hidden className="size-3.5" /> {t('tools.qrcode_tool.tab_scan')}
               </TabsTrigger>
             </TabsList>

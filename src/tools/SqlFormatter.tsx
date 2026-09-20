@@ -89,14 +89,17 @@ export function SqlFormatter({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="sql-formatter"
     >
-      <ConfigSection title="" searchAnchor="sql_formatter:config">
+      <ConfigSection
+        headerHint={t('tools.sql_formatter.section_hint')}
+        searchAnchor="sql_formatter:config"
+      >
         <ConfigRow
           icon={Database}
-          label={t('tools.sql_formatter.language')}
-          hint={t('tools.sql_formatter.language_hint')}
+          caption={t('tools.sql_formatter.language')}
+          captionHint={t('tools.sql_formatter.language_hint')}
         >
           <Select value={dialect} onValueChange={(v) => setDialect(v as SqlLanguage)}>
-            <SelectTrigger data-testid="sql-dialect" className="w-44">
+            <SelectTrigger data-testid="sql-dialect" className="h-7 w-44 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -109,9 +112,9 @@ export function SqlFormatter({ toolId }: ToolProps): JSX.Element {
           </Select>
         </ConfigRow>
         {!minify && (
-          <ConfigRow icon={IndentIncrease} label={t('tools.sql_formatter.indent')}>
+          <ConfigRow icon={IndentIncrease} caption={t('tools.sql_formatter.indent')}>
             <Select value={indent} onValueChange={(v) => setIndent(v as IndentMode)}>
-              <SelectTrigger data-testid="sql-indent" className="w-32">
+              <SelectTrigger data-testid="sql-indent" className="h-7 w-32 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -122,12 +125,12 @@ export function SqlFormatter({ toolId }: ToolProps): JSX.Element {
             </Select>
           </ConfigRow>
         )}
-        <ConfigRow icon={CaseUpper} label={t('tools.sql_formatter.keyword_case')}>
+        <ConfigRow icon={CaseUpper} caption={t('tools.sql_formatter.caption_keyword_case')}>
           <Select
             value={keywordCase}
             onValueChange={(v) => setKeywordCase(v as 'upper' | 'lower' | 'preserve')}
           >
-            <SelectTrigger data-testid="sql-case" className="w-32">
+            <SelectTrigger data-testid="sql-case" className="h-7 w-32 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -139,8 +142,8 @@ export function SqlFormatter({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
         <ConfigRow
           icon={Braces}
-          label={t('tools.sql_formatter.label_minify')}
-          hint={t('tools.sql_formatter.hint_minify')}
+          caption={t('tools.sql_formatter.caption_minify')}
+          captionHint={t('tools.sql_formatter.hint_minify')}
         >
           <Switch
             data-testid="sql-minify"

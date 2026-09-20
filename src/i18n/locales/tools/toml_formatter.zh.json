@@ -1,8 +1,10 @@
 {
+  "tools.toml_formatter.section_hint": "缩进、键值对齐与键排序选项",
   "tools.toml_formatter.indent": "缩进",
   "tools.toml_formatter.indent_2": "2 个空格",
   "tools.toml_formatter.indent_4": "4 个空格",
   "tools.toml_formatter.align_entries": "键值对齐",
+  "tools.toml_formatter.caption_align_entries": "键值对齐",
   "tools.toml_formatter.align_entries_hint": "连续键值对的 = 号垂直对齐",
   "tools.toml_formatter.reorder_keys": "键排序",
   "tools.toml_formatter.reorder_keys_hint": "按字典序重排未被空行分隔的键",

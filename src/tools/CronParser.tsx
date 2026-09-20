@@ -180,11 +180,14 @@ export function CronParser(_props: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="cron-parser"
     >
-      <ConfigSection title="" searchAnchor="cron_parser:config">
+      <ConfigSection
+        headerHint={t('tools.cron_parser.section_hint')}
+        searchAnchor="cron_parser:config"
+      >
         <ConfigRow
           icon={Clock}
-          label={t('tools.cron_parser.include_seconds')}
-          hint={t('tools.cron_parser.include_seconds_hint')}
+          caption={t('tools.cron_parser.caption_seconds')}
+          captionHint={t('tools.cron_parser.include_seconds_hint')}
         >
           <Switch
             checked={withSeconds}
@@ -193,7 +196,7 @@ export function CronParser(_props: ToolProps): JSX.Element {
             data-testid="cron-seconds"
           />
         </ConfigRow>
-        <ConfigRow icon={ListOrdered} label={t('tools.cron_parser.task_count')}>
+        <ConfigRow icon={ListOrdered} caption={t('tools.cron_parser.caption_count')}>
           <Input
             type="number"
             min={1}
@@ -207,12 +210,12 @@ export function CronParser(_props: ToolProps): JSX.Element {
         </ConfigRow>
         <ConfigRow
           icon={Globe2}
-          label={t('tools.cron_parser.timezone_label')}
-          hint={t('tools.cron_parser.timezone_hint')}
+          caption={t('tools.cron_parser.timezone_label')}
+          captionHint={t('tools.cron_parser.timezone_hint')}
         >
           <Select value={timezone} onValueChange={setTimezone}>
             <SelectTrigger
-              className="w-52"
+              className="h-7 w-52 text-xs"
               aria-label={t('tools.cron_parser.timezone_label')}
               data-testid="cron-timezone"
             >

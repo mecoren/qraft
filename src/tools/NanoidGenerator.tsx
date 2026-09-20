@@ -45,11 +45,14 @@ export function NanoidGenerator({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="nanoid-generator"
     >
-      <ConfigSection title="" searchAnchor="nanoid_generator:config">
+      <ConfigSection
+        headerHint={t('tools.nanoid_generator.section_hint')}
+        searchAnchor="nanoid_generator:config"
+      >
         <ConfigRow
           icon={Fingerprint}
-          label={t('tools.nanoid_generator.count')}
-          hint={t('tools.nanoid_generator.count_hint')}
+          caption={t('tools.nanoid_generator.count')}
+          captionHint={t('tools.nanoid_generator.count_hint')}
         >
           <Input
             aria-label={t('tools.nanoid_generator.count_aria')}
@@ -58,13 +61,13 @@ export function NanoidGenerator({ toolId }: ToolProps): JSX.Element {
             max={500}
             value={count}
             onChange={(e) => setCount(Number(e.target.value))}
-            className="w-24"
+            className="h-7 w-24 text-xs"
           />
         </ConfigRow>
         <ConfigRow
           icon={Fingerprint}
-          label={t('tools.nanoid_generator.size')}
-          hint={t('tools.nanoid_generator.size_hint')}
+          caption={t('tools.nanoid_generator.size')}
+          captionHint={t('tools.nanoid_generator.size_hint')}
         >
           <Input
             aria-label={t('tools.nanoid_generator.size_aria')}
@@ -73,13 +76,13 @@ export function NanoidGenerator({ toolId }: ToolProps): JSX.Element {
             max={256}
             value={size}
             onChange={(e) => setSize(Number(e.target.value))}
-            className="w-24"
+            className="h-7 w-24 text-xs"
           />
         </ConfigRow>
         <ConfigRow
           icon={Fingerprint}
-          label={t('tools.nanoid_generator.alphabet')}
-          hint={
+          caption={t('tools.nanoid_generator.alphabet')}
+          captionHint={
             alphabetValid
               ? t('tools.nanoid_generator.alphabet_hint')
               : t('tools.nanoid_generator.alphabet_invalid')
@@ -91,7 +94,7 @@ export function NanoidGenerator({ toolId }: ToolProps): JSX.Element {
             onChange={(e) => setAlphabet(e.target.value)}
             spellCheck={false}
             autoComplete="off"
-            className="w-72"
+            className="h-7 w-72 text-xs"
           />
         </ConfigRow>
       </ConfigSection>

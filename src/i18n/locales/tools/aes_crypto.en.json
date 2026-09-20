@@ -1,4 +1,5 @@
 {
+  "tools.aes_crypto.section_hint": "Direction, key source and key input",
   "tools.aes_crypto.label_direction": "Direction",
   "tools.aes_crypto.hint_direction": "Encrypt plaintext, or decrypt a previously generated ciphertext",
   "tools.aes_crypto.mode_encrypt": "Encrypt",

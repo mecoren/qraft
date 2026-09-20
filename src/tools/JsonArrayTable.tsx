@@ -101,11 +101,14 @@ export function JsonArrayTable({ toolId }: ToolProps): JSX.Element {
       className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="json-array-table"
     >
-      <ConfigSection title="" searchAnchor="json_array_table:config">
+      <ConfigSection
+        headerHint={t('tools.json_array_table.section_hint')}
+        searchAnchor="json_array_table:config"
+      >
         <ConfigRow
           icon={TableProperties}
-          label={t('tools.json_array_table.deep_flatten')}
-          hint={t('tools.json_array_table.deep_flatten_hint')}
+          caption={t('tools.json_array_table.caption_flatten')}
+          captionHint={t('tools.json_array_table.deep_flatten_hint')}
         >
           <Switch
             checked={deepFlatten}
@@ -117,8 +120,8 @@ export function JsonArrayTable({ toolId }: ToolProps): JSX.Element {
         {result.isMatrix && (
           <ConfigRow
             icon={TableProperties}
-            label={t('tools.json_array_table.first_row_header')}
-            hint={t('tools.json_array_table.first_row_header_hint')}
+            caption={t('tools.json_array_table.caption_header')}
+            captionHint={t('tools.json_array_table.first_row_header_hint')}
           >
             <Switch
               checked={firstRowHeader}

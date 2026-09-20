@@ -7,12 +7,12 @@
 
 import { useDeferredValue, useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeftRight, FileCode } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
+import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, FileCode } from 'lucide-react';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -49,30 +49,48 @@ export function HtmlCodec({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="html-codec"
     >
-      <ConfigSection title="" searchAnchor="html_codec:config">
+      <ConfigSection
+        headerHint={t('tools.html_codec.section_hint')}
+        searchAnchor="html_codec:config"
+      >
         <ConfigRow
           icon={ArrowLeftRight}
-          label={t('tools.html_codec.label_convert')}
-          hint={t('tools.html_codec.hint_mode')}
+          caption={t('tools.html_codec.label_convert')}
+          captionHint={t('tools.html_codec.hint_mode')}
         >
-          <span className="text-xs text-muted-foreground">
-            {encodeMode ? t('tools.html_codec.mode_encode') : t('tools.html_codec.mode_decode')}
-          </span>
-          <Switch
-            data-testid="html-mode-switch"
-            aria-label={t('tools.html_codec.aria_mode_toggle')}
-            checked={encodeMode}
-            onCheckedChange={setEncodeMode}
-          />
+          {/* 二选一方向用分段控件而非开关,与 Base64Codec 基准同形态 */}
+          <Tabs
+            value={encodeMode ? 'encode' : 'decode'}
+            onValueChange={(v) => setEncodeMode(v === 'encode')}
+          >
+            <TabsList className="h-7 w-fit">
+              <TabsTrigger
+                value="encode"
+                data-testid="dir-encode"
+                className="gap-1 px-2 py-0.5 text-xs"
+              >
+                <ArrowUpFromLine aria-hidden className="size-3.5" />
+                {t('tools.html_codec.mode_encode')}
+              </TabsTrigger>
+              <TabsTrigger
+                value="decode"
+                data-testid="dir-decode"
+                className="gap-1 px-2 py-0.5 text-xs"
+              >
+                <ArrowDownToLine aria-hidden className="size-3.5" />
+                {t('tools.html_codec.mode_decode')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </ConfigRow>
         {encodeMode ? (
           <ConfigRow
             icon={FileCode}
-            label={t('tools.html_codec.label_escape_level')}
-            hint={t('tools.html_codec.hint_escape_level')}
+            caption={t('tools.html_codec.caption_escape_level')}
+            captionHint={t('tools.html_codec.hint_escape_level')}
           >
             <Select value={escapeLevel} onValueChange={(v) => setEscapeLevel(v as HtmlEncodeMode)}>
-              <SelectTrigger data-testid="html-escape-level" className="w-44">
+              <SelectTrigger data-testid="html-escape-level" className="h-7 w-44 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

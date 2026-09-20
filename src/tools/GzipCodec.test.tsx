@@ -109,7 +109,8 @@ describe('GzipCodec', () => {
     const b64 = bytesToBase64(gz);
     render(<GzipCodec toolId="gzip_codec" metadata={null as never} />);
     // 切到解压
-    fireEvent.click(screen.getByTestId('gzip-mode-switch'));
+    // radix Tabs 在 onMouseDown 时激活 tab,需用 mouseDown 而非 click
+    fireEvent.mouseDown(screen.getByTestId('dir-decompress'));
     fireEvent.change(screen.getByTestId('gzip-input-textarea'), { target: { value: b64 } });
     await waitFor(() => {
       expect(screen.getByTestId('gzip-output')).toHaveTextContent('roundtrip text');
@@ -118,7 +119,8 @@ describe('GzipCodec', () => {
 
   it('解压模式:非法 base64 显示错误', async () => {
     render(<GzipCodec toolId="gzip_codec" metadata={null as never} />);
-    fireEvent.click(screen.getByTestId('gzip-mode-switch'));
+    // radix Tabs 在 onMouseDown 时激活 tab,需用 mouseDown 而非 click
+    fireEvent.mouseDown(screen.getByTestId('dir-decompress'));
     fireEvent.change(screen.getByTestId('gzip-input-textarea'), { target: { value: '!!!' } });
     await waitFor(() => {
       expect(screen.getByTestId('gzip-output')).toHaveTextContent(/解压失败/);

@@ -1,4 +1,6 @@
 {
+  "tools.color_converter.section_hint": "Color value and input format",
+  "tools.color_converter.caption_format": "Format",
   "tools.color_converter.color_value": "Color value",
   "tools.color_converter.color_value_hint": "e.g. #ff5733 / rgb(255,87,51) / hsl(11,100%,60%) / tomato / cmyk(0,66,80,0)",
   "tools.color_converter.input_placeholder": "Enter a color value...",

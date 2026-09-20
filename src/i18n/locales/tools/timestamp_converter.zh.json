@@ -1,4 +1,6 @@
 {
+  "tools.timestamp_converter.section_hint": "时间戳输入与时区选项",
+  "tools.timestamp_converter.caption_now": "当前时间",
   "tools.timestamp_converter.copy": "复制",
   "tools.timestamp_converter.input": "输入",
   "tools.timestamp_converter.input_hint": "Unix 秒 / 毫秒 / 微秒 / 纳秒 / 浮点 / 负数 / now / ISO 8601 / 日期字符串,输入后自动转换",

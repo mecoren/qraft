@@ -1,4 +1,5 @@
 {
+  "tools.qrcode_tool.section_hint": "生成或读取二维码模式",
   "tools.qrcode_tool.error_image_load": "图片加载失败",
   "tools.qrcode_tool.error_canvas": "Canvas 不可用",
   "tools.qrcode_tool.error_not_found": "未识别到二维码",

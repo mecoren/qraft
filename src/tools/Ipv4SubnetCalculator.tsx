@@ -116,20 +116,28 @@ export function Ipv4SubnetCalculator({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="ipv4-subnet-calculator"
     >
-      <ConfigSection title="" searchAnchor="ipv4_subnet_calculator:config">
-        <ConfigRow icon={Network} label="CIDR" hint={t('tools.ipv4_subnet_calculator.cidr_hint')}>
+      <ConfigSection
+        headerHint={t('tools.ipv4_subnet_calculator.section_hint')}
+        searchAnchor="ipv4_subnet_calculator:config"
+      >
+        <ConfigRow
+          icon={Network}
+          caption="CIDR"
+          captionHint={t('tools.ipv4_subnet_calculator.cidr_hint')}
+        >
           <Input
             aria-label="CIDR"
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
             placeholder="192.168.1.10/24"
             spellCheck={false}
+            className="h-7 w-40 text-xs"
           />
         </ConfigRow>
         <ConfigRow
           icon={ScissorsLineDashed}
-          label={t('tools.ipv4_subnet_calculator.split_title')}
-          hint={
+          caption={t('tools.ipv4_subnet_calculator.caption_split')}
+          captionHint={
             info
               ? info.prefix >= 32
                 ? t('tools.ipv4_subnet_calculator.split_unavailable')
@@ -144,7 +152,7 @@ export function Ipv4SubnetCalculator({ toolId }: ToolProps): JSX.Element {
               disabled={splitOptions.length === 0}
             >
               <SelectTrigger
-                className="w-32"
+                className="h-7 w-32 text-xs"
                 aria-label={t('tools.ipv4_subnet_calculator.split_new_prefix')}
                 data-testid="subnet-split-prefix"
               >

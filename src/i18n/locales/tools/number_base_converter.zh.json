@@ -1,4 +1,6 @@
 {
+  "tools.number_base_converter.section_hint": "进制、位宽与数字分组",
+  "tools.number_base_converter.caption_grouping": "格式化数字",
   "tools.number_base_converter.group_formatted": "格式化数字",
   "tools.number_base_converter.group_formatted_hint": "按进制惯例分组显示",
   "tools.number_base_converter.input_base": "输入进制",

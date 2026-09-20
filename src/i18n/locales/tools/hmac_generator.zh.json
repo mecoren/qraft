@@ -1,4 +1,6 @@
 {
+  "tools.hmac_generator.section_hint": "密钥、算法与输出编码",
+  "tools.hmac_generator.caption_encoding": "输出编码",
   "tools.hmac_generator.secret": "密钥",
   "tools.hmac_generator.privacy_hint": "仅在本机内存中计算,不落盘不上传",
   "tools.hmac_generator.algorithm": "算法",

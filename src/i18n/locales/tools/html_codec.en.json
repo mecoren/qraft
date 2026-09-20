@@ -1,4 +1,6 @@
 {
+  "tools.html_codec.section_hint": "Direction and escape scope",
+  "tools.html_codec.caption_escape_level": "Escape",
   "tools.html_codec.label_convert": "Conversion",
   "tools.html_codec.hint_mode": "Choose the conversion mode to apply",
   "tools.html_codec.mode_encode": "Encode",

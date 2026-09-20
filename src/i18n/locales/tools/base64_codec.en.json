@@ -1,4 +1,5 @@
 {
+  "tools.base64_codec.section_hint": "Direction, mode and output format options",
   "tools.base64_codec.mode_encode_text_hint": "Enter text to encode as Base64",
   "tools.base64_codec.mode_encode_url_hint": "Enter a URL string to encode as Base64",
   "tools.base64_codec.mode_encode_css_hint": "Enter CSS code to encode as Base64",

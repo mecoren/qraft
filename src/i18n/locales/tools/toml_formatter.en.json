@@ -1,8 +1,10 @@
 {
+  "tools.toml_formatter.section_hint": "Indent, entry alignment and key sorting options",
   "tools.toml_formatter.indent": "Indent",
   "tools.toml_formatter.indent_2": "2 spaces",
   "tools.toml_formatter.indent_4": "4 spaces",
   "tools.toml_formatter.align_entries": "Align entries",
+  "tools.toml_formatter.caption_align_entries": "Entry align",
   "tools.toml_formatter.align_entries_hint": "Vertically align the = signs of consecutive entries",
   "tools.toml_formatter.reorder_keys": "Sort keys",
   "tools.toml_formatter.reorder_keys_hint": "Alphabetically reorder keys not separated by blank lines",

@@ -132,7 +132,8 @@ describe('HtmlCodec 组件', () => {
 
   it('解码模式还原实体', () => {
     render(<HtmlCodec toolId="html_codec" metadata={null as never} />);
-    fireEvent.click(screen.getByTestId('html-mode-switch'));
+    // radix Tabs 在 onMouseDown 时激活 tab,需用 mouseDown 而非 click
+    fireEvent.mouseDown(screen.getByTestId('dir-decode'));
     fireEvent.change(screen.getByTestId('html-input-textarea'), {
       target: { value: '&lt;p&gt;你好&lt;/p&gt;' },
     });

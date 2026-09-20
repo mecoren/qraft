@@ -1,4 +1,6 @@
 {
+  "tools.hmac_generator.section_hint": "Secret, algorithm and output encoding",
+  "tools.hmac_generator.caption_encoding": "Encoding",
   "tools.hmac_generator.secret": "Secret key",
   "tools.hmac_generator.privacy_hint": "Computed locally in memory only; never stored or uploaded",
   "tools.hmac_generator.algorithm": "Algorithm",

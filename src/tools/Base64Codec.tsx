@@ -695,27 +695,43 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="base64-codec"
     >
-      <ConfigSection title="" searchAnchor="base64_codec:config">
+      <ConfigSection
+        headerHint={t('tools.base64_codec.section_hint')}
+        searchAnchor="base64_codec:config"
+      >
         <ConfigRow
           icon={Binary}
-          label={t('tools.base64_codec.label_direction')}
-          hint={t('tools.base64_codec.direction_hint')}
+          caption={t('tools.base64_codec.label_direction')}
+          captionHint={t('tools.base64_codec.direction_hint')}
         >
           <Tabs value={direction} onValueChange={(v) => handleDirectionChange(v as Direction)}>
-            {/* 固定宽度 w-36,与下方模式 SelectTrigger 视觉对齐 */}
-            <TabsList className="w-36">
-              <TabsTrigger value="encode" data-testid="dir-encode">
-                <ArrowUpFromLine aria-hidden className="size-3.5" />{' '}
+            {/* h-7 + text-xs 压到配置行紧凑尺寸(shadcn 默认 h-10 / text-sm 会撑高整行);
+                w-fit 让列表宽度随内容收缩(固定宽度会在两段内留下大片左右空白) */}
+            <TabsList className="h-7 w-fit">
+              <TabsTrigger
+                value="encode"
+                data-testid="dir-encode"
+                className="gap-1 px-2 py-0.5 text-xs"
+              >
+                <ArrowUpFromLine aria-hidden className="size-3.5" />
                 {t('tools.base64_codec.tab_encode')}
               </TabsTrigger>
-              <TabsTrigger value="decode" data-testid="dir-decode">
-                <ArrowDownToLine aria-hidden className="size-3.5" />{' '}
+              <TabsTrigger
+                value="decode"
+                data-testid="dir-decode"
+                className="gap-1 px-2 py-0.5 text-xs"
+              >
+                <ArrowDownToLine aria-hidden className="size-3.5" />
                 {t('tools.base64_codec.tab_decode')}
               </TabsTrigger>
             </TabsList>
           </Tabs>
         </ConfigRow>
-        <ConfigRow icon={Binary} label={t('tools.base64_codec.label_mode')} hint={t(mode.hintKey)}>
+        <ConfigRow
+          icon={Binary}
+          caption={t('tools.base64_codec.label_mode')}
+          captionHint={t(mode.hintKey)}
+        >
           {supportsUrlSafe(direction, mode.id) && (
             <>
               <Label htmlFor="b64-url-safe" className="text-xs">
@@ -778,7 +794,7 @@ export function Base64Codec({ toolId }: ToolProps): JSX.Element {
             </>
           )}
           <Select value={mode.id} onValueChange={handleModeChange}>
-            <SelectTrigger data-testid="b64-mode" className="w-36">
+            <SelectTrigger data-testid="b64-mode" className="h-7 w-36 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

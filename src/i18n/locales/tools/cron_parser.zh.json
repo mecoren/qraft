@@ -1,4 +1,7 @@
 {
+  "tools.cron_parser.section_hint": "秒字段、任务数量与时区",
+  "tools.cron_parser.caption_seconds": "包含秒",
+  "tools.cron_parser.caption_count": "任务数量",
   "tools.cron_parser.include_seconds": "包含秒",
   "tools.cron_parser.include_seconds_hint": "6 段模式(秒 分 时 日 月 周)",
   "tools.cron_parser.task_count": "计划任务数量",

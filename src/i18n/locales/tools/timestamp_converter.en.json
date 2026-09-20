@@ -1,4 +1,6 @@
 {
+  "tools.timestamp_converter.section_hint": "Timestamp input and timezone options",
+  "tools.timestamp_converter.caption_now": "Now",
   "tools.timestamp_converter.copy": "Copy",
   "tools.timestamp_converter.input": "Input",
   "tools.timestamp_converter.input_hint": "Unix sec / ms / µs / ns / float / negative / now / ISO 8601 / date string; converts as you type",

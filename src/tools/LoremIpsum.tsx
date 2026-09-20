@@ -98,14 +98,17 @@ export function LoremIpsum(_props: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="lorem-ipsum"
     >
-      <ConfigSection title="" searchAnchor="lorem_ipsum:config">
+      <ConfigSection
+        headerHint={t('tools.lorem_ipsum.section_hint')}
+        searchAnchor="lorem_ipsum:config"
+      >
         <ConfigRow
           icon={Pilcrow}
-          label={t('tools.lorem_ipsum.label_type')}
-          hint={t('tools.lorem_ipsum.hint_granularity')}
+          caption={t('tools.lorem_ipsum.label_type')}
+          captionHint={t('tools.lorem_ipsum.hint_granularity')}
         >
           <Select value={granularity} onValueChange={(v) => setGranularity(v as Granularity)}>
-            <SelectTrigger data-testid="lorem-type" className="w-28">
+            <SelectTrigger data-testid="lorem-type" className="h-7 w-28 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -119,7 +122,11 @@ export function LoremIpsum(_props: ToolProps): JSX.Element {
             </SelectContent>
           </Select>
         </ConfigRow>
-        <ConfigRow icon={ListOrdered} label={t('tools.lorem_ipsum.label_count')} hint="1 ~ 999">
+        <ConfigRow
+          icon={ListOrdered}
+          caption={t('tools.lorem_ipsum.label_count')}
+          captionHint="1 ~ 999"
+        >
           <Input
             type="number"
             min={1}
@@ -133,10 +140,14 @@ export function LoremIpsum(_props: ToolProps): JSX.Element {
             }}
             aria-label={t('tools.lorem_ipsum.count_aria')}
             data-testid="lorem-count"
-            className="h-7 w-20 text-right text-body-sm"
+            className="h-7 w-20 text-right text-xs"
           />
         </ConfigRow>
-        <ConfigRow icon={FileText} label={t('tools.lorem_ipsum.label_start_with_lorem')}>
+        <ConfigRow
+          icon={FileText}
+          caption={t('tools.lorem_ipsum.caption_start_with_lorem')}
+          captionHint={t('tools.lorem_ipsum.start_with_lorem_aria')}
+        >
           <Switch
             checked={startWithLorem}
             onCheckedChange={setStartWithLorem}

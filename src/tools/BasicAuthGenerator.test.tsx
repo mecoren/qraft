@@ -71,8 +71,8 @@ describe('BasicAuthGenerator 生成模式', () => {
 describe('BasicAuthGenerator 解码模式', () => {
   it('粘贴 Authorization 头显示用户名与密码', () => {
     render(<BasicAuthGenerator toolId="basic_auth_generator" metadata={null as never} />);
-    // 切到解码
-    fireEvent.click(screen.getByTestId('auth-direction-switch'));
+    // radix Tabs 在 onMouseDown 时激活 tab,需用 mouseDown 而非 click
+    fireEvent.mouseDown(screen.getByTestId('dir-decode'));
     fireEvent.change(screen.getByLabelText(/Authorization 头/), {
       target: { value: 'Basic dXNlcjpwYXNz' },
     });
@@ -82,7 +82,8 @@ describe('BasicAuthGenerator 解码模式', () => {
 
   it('非法输入显示错误', () => {
     render(<BasicAuthGenerator toolId="basic_auth_generator" metadata={null as never} />);
-    fireEvent.click(screen.getByTestId('auth-direction-switch'));
+    // radix Tabs 在 onMouseDown 时激活 tab,需用 mouseDown 而非 click
+    fireEvent.mouseDown(screen.getByTestId('dir-decode'));
     fireEvent.change(screen.getByLabelText(/Authorization 头/), {
       target: { value: '###not-base64###' },
     });

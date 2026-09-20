@@ -1,4 +1,7 @@
 {
+  "tools.json_array_table.section_hint": "Flatten and header options",
+  "tools.json_array_table.caption_flatten": "Flatten",
+  "tools.json_array_table.caption_header": "Header",
   "tools.json_array_table.not_array": "Input must be a JSON array",
   "tools.json_array_table.input_title": "JSON array",
   "tools.json_array_table.table_title": "Table",

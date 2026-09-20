@@ -475,6 +475,7 @@
   },
   "tools": {
     "hash_calculator": {
+      "section_hint": "Algorithm and input type",
       "algorithm": "Algorithm",
       "algorithm_hint": "MD5 is for checksums only; prefer SHA-2/BLAKE3 for security",
       "input_title": "Input",

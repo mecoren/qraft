@@ -1,10 +1,12 @@
 {
+  "tools.xml_formatter.section_hint": "缩进与属性换行选项",
   "tools.xml_formatter.indent": "缩进",
   "tools.xml_formatter.indent_2": "2 个空格",
   "tools.xml_formatter.indent_4": "4 个空格",
   "tools.xml_formatter.indent_tab": "制表符",
   "tools.xml_formatter.indent_minify": "压缩",
   "tools.xml_formatter.attr_newline": "属性换行",
+  "tools.xml_formatter.caption_attr_newline": "属性换行",
   "tools.xml_formatter.attr_newline_hint": "多个属性时每个属性单独一行",
   "tools.xml_formatter.input_title": "输入",
   "tools.xml_formatter.output_title": "输出",

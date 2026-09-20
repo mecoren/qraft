@@ -1,4 +1,6 @@
 {
+  "tools.ipv4_subnet_calculator.section_hint": "CIDR and subnet split",
+  "tools.ipv4_subnet_calculator.caption_split": "Subnet split",
   "tools.ipv4_subnet_calculator.network_address": "Network address",
   "tools.ipv4_subnet_calculator.netmask": "Subnet mask",
   "tools.ipv4_subnet_calculator.wildcard_mask": "Wildcard mask",

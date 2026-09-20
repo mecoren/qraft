@@ -1,4 +1,6 @@
 {
+  "tools.image_converter.section_hint": "目标格式、质量、缩放与背景",
+  "tools.image_converter.caption_format": "目标格式",
   "tools.image_converter.only_image_files": "仅支持图片文件",
   "tools.image_converter.error_decode": "图片解码失败",
   "tools.image_converter.error_image_load": "图片加载失败",

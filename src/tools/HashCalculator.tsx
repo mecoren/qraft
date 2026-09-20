@@ -309,14 +309,20 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="hash-calculator"
     >
-      <ConfigSection title="" searchAnchor="hash_calculator:config">
+      <ConfigSection
+        headerHint={t('tools.hash_calculator.section_hint')}
+        searchAnchor="hash_calculator:config"
+      >
         <ConfigRow
           icon={ShieldCheck}
-          label={t('tools.hash_calculator.algorithm')}
-          hint={t('tools.hash_calculator.algorithm_hint')}
+          caption={t('tools.hash_calculator.algorithm')}
+          captionHint={t('tools.hash_calculator.algorithm_hint')}
         >
           <Select value={algorithm} onValueChange={handleAlgorithmChange}>
-            <SelectTrigger className="w-32" aria-label={t('tools.hash_calculator.algorithm')}>
+            <SelectTrigger
+              className="h-7 w-32 text-xs"
+              aria-label={t('tools.hash_calculator.algorithm')}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -330,19 +336,29 @@ export function HashCalculator({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
         <ConfigRow
           icon={ShieldCheck}
-          label={t('tools.hash_calculator.label_mode')}
-          hint={t('tools.hash_calculator.mode_hint')}
+          caption={t('tools.hash_calculator.label_mode')}
+          captionHint={t('tools.hash_calculator.mode_hint')}
         >
           <Tabs
             value={mode}
             onValueChange={(v) => setMode(v as HashMode)}
             data-testid="hash-mode-tabs"
           >
-            <TabsList className="w-40">
-              <TabsTrigger value="text" data-testid="hash-mode-text">
+            {/* h-7 + text-xs 压到配置行紧凑尺寸(shadcn 默认 h-10 / text-sm 会撑高整行);
+                w-fit 让列表宽度随内容收缩,不留固定宽度造成的左右空白 */}
+            <TabsList className="h-7 w-fit">
+              <TabsTrigger
+                value="text"
+                data-testid="hash-mode-text"
+                className="px-2 py-0.5 text-xs"
+              >
                 {t('tools.hash_calculator.mode_text')}
               </TabsTrigger>
-              <TabsTrigger value="file" data-testid="hash-mode-file">
+              <TabsTrigger
+                value="file"
+                data-testid="hash-mode-file"
+                className="px-2 py-0.5 text-xs"
+              >
                 {t('tools.hash_calculator.mode_file')}
               </TabsTrigger>
             </TabsList>

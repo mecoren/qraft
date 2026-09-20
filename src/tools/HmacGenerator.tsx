@@ -88,11 +88,14 @@ export function HmacGenerator({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="hmac-generator"
     >
-      <ConfigSection title="" searchAnchor="hmac_generator:config">
+      <ConfigSection
+        headerHint={t('tools.hmac_generator.section_hint')}
+        searchAnchor="hmac_generator:config"
+      >
         <ConfigRow
           icon={KeyRound}
-          label={t('tools.hmac_generator.secret')}
-          hint={t('tools.hmac_generator.privacy_hint')}
+          caption={t('tools.hmac_generator.secret')}
+          captionHint={t('tools.hmac_generator.privacy_hint')}
         >
           <Input
             aria-label={t('tools.hmac_generator.secret')}
@@ -101,11 +104,15 @@ export function HmacGenerator({ toolId }: ToolProps): JSX.Element {
             onChange={(e) => setSecret(e.target.value)}
             autoComplete="off"
             spellCheck={false}
+            className="h-7 w-72 text-xs"
           />
         </ConfigRow>
-        <ConfigRow icon={Hash} label={t('tools.hmac_generator.algorithm')}>
+        <ConfigRow icon={Hash} caption={t('tools.hmac_generator.algorithm')}>
           <Select value={algorithm} onValueChange={(v) => setAlgorithm(v as HmacAlgorithm)}>
-            <SelectTrigger aria-label={t('tools.hmac_generator.algorithm')} className="w-32">
+            <SelectTrigger
+              aria-label={t('tools.hmac_generator.algorithm')}
+              className="h-7 w-32 text-xs"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -117,9 +124,12 @@ export function HmacGenerator({ toolId }: ToolProps): JSX.Element {
             </SelectContent>
           </Select>
         </ConfigRow>
-        <ConfigRow icon={Hash} label={t('tools.hmac_generator.encoding')}>
+        <ConfigRow icon={Hash} caption={t('tools.hmac_generator.caption_encoding')}>
           <Select value={encoding} onValueChange={(v) => setEncoding(v as HmacEncoding)}>
-            <SelectTrigger aria-label={t('tools.hmac_generator.encoding')} className="w-32">
+            <SelectTrigger
+              aria-label={t('tools.hmac_generator.encoding')}
+              className="h-7 w-32 text-xs"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

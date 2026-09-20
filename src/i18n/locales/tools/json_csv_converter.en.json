@@ -1,4 +1,8 @@
 {
+  "tools.json_csv_converter.section_hint": "Direction, delimiter and header / flatten options",
+  "tools.json_csv_converter.caption_header": "Header",
+  "tools.json_csv_converter.caption_inference": "Inference",
+  "tools.json_csv_converter.caption_flatten": "Flatten",
   "tools.json_csv_converter.direction": "Direction",
   "tools.json_csv_converter.direction_hint": "JSON→CSV expects an object or an array of objects",
   "tools.json_csv_converter.json_input": "JSON input",

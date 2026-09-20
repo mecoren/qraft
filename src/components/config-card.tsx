@@ -23,7 +23,10 @@ export function ConfigSection({
 }: {
   /** 卡片标题;缺省用「配置」;传入空字符串时不渲染标题文字(仅保留无障碍名称) */
   title?: string;
-  /** 紧凑标题行内的说明文字(标题右侧、动作区左侧,truncate 单行);收拢各配置行重复的 hint */
+  /**
+   * 紧凑标题行内的说明文字(标题右侧、动作区左侧,truncate 单行);收拢各配置行重复的 hint。
+   * 传入即启用紧凑标题行(标题显示「配置」),无需额外的展开/收起按钮。
+   */
   headerHint?: string;
   children: ReactNode;
   className?: string;
@@ -35,8 +38,13 @@ export function ConfigSection({
   headerTestId?: string;
 }): JSX.Element {
   const { t } = useTranslation();
-  const resolvedTitle = title ?? t('chrome.config_card.title');
-  if (headerAction) {
+  // 空串视同缺省标题:紧凑标题行必须有一行可见的「配置」标题,而旧调用点
+  // 普遍以 title="" 隐藏默认标题。resolvedTitle 只用于无障碍名称,可见标题
+  // 仍按 title 是否非空决定(见下方非紧凑分支),保持旧调用点观感不变。
+  const resolvedTitle = title || t('chrome.config_card.title');
+  // headerHint 与 headerAction 都触发紧凑标题行:前者让无折叠区的工具也能
+  // 「配置 + 一行说明」收拢各行重复的描述,后者额外提供右侧动作位。
+  if (headerAction || headerHint) {
     // 紧凑标题行变体:标题(+可选说明)居左 + 动作居右,整行 h-7 低于配置行
     // (py-2.5),带下边线与后续行分隔;适合「配置 + 展开/收起」这类顶栏
     return (
@@ -62,14 +70,8 @@ export function ConfigSection({
     );
   }
   return (
-    <section
-      aria-label={resolvedTitle || t('chrome.config_card.title')}
-      className={className}
-      data-search-anchor={searchAnchor}
-    >
-      {resolvedTitle ? (
-        <h2 className="mb-1.5 text-body-sm font-semibold">{resolvedTitle}</h2>
-      ) : null}
+    <section aria-label={resolvedTitle} className={className} data-search-anchor={searchAnchor}>
+      {title ? <h2 className="mb-1.5 text-body-sm font-semibold">{title}</h2> : null}
       {/* 扁平配置区:作为工具 shell 卡片内的顶部区块,不再自带独立卡片外观
           (圆角/边框/阴影由外层 shell 提供,这里只用 border-b 与主内容区分隔) */}
       <div className="divide-y divide-border border-b border-border">{children}</div>

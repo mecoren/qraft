@@ -104,27 +104,36 @@ export function JsonCsvConverter({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="json-csv-converter"
     >
-      <ConfigSection title="" searchAnchor="json_csv_converter:config">
+      <ConfigSection
+        headerHint={t('tools.json_csv_converter.section_hint')}
+        searchAnchor="json_csv_converter:config"
+      >
         <ConfigRow
           icon={Table}
-          label={t('tools.json_csv_converter.direction')}
-          hint={t('tools.json_csv_converter.direction_hint')}
+          caption={t('tools.json_csv_converter.direction')}
+          captionHint={t('tools.json_csv_converter.direction_hint')}
         >
           <Tabs value={direction} onValueChange={(v) => setDirection(v as Direction)}>
-            <TabsList>
-              <TabsTrigger value="json_to_csv">JSON → CSV</TabsTrigger>
-              <TabsTrigger value="csv_to_json">CSV → JSON</TabsTrigger>
+            {/* h-7 + text-xs 压到配置行紧凑尺寸(shadcn 默认 h-10 / text-sm 会撑高整行);
+                w-fit 让列表宽度随内容收缩,不留固定宽度造成的左右空白 */}
+            <TabsList className="h-7 w-fit">
+              <TabsTrigger value="json_to_csv" className="px-2 py-0.5 text-xs">
+                JSON → CSV
+              </TabsTrigger>
+              <TabsTrigger value="csv_to_json" className="px-2 py-0.5 text-xs">
+                CSV → JSON
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </ConfigRow>
         <ConfigRow
           icon={Table}
-          label={t('tools.json_csv_converter.delimiter')}
-          hint={t('tools.json_csv_converter.delimiter_hint')}
+          caption={t('tools.json_csv_converter.delimiter')}
+          captionHint={t('tools.json_csv_converter.delimiter_hint')}
         >
           <Select value={delimiter} onValueChange={(v) => setDelimiter(v as CsvDelimiter)}>
             <SelectTrigger
-              className="w-40"
+              className="h-7 w-40 text-xs"
               aria-label={t('tools.json_csv_converter.delimiter')}
               data-testid="csv-delimiter"
             >
@@ -143,8 +152,8 @@ export function JsonCsvConverter({ toolId }: ToolProps): JSX.Element {
           <>
             <ConfigRow
               icon={Table}
-              label={t('tools.json_csv_converter.first_row_header')}
-              hint={t('tools.json_csv_converter.first_row_header_hint')}
+              caption={t('tools.json_csv_converter.caption_header')}
+              captionHint={t('tools.json_csv_converter.first_row_header_hint')}
             >
               <Switch
                 checked={header}
@@ -155,8 +164,8 @@ export function JsonCsvConverter({ toolId }: ToolProps): JSX.Element {
             </ConfigRow>
             <ConfigRow
               icon={Table}
-              label={t('tools.json_csv_converter.type_inference')}
-              hint={t('tools.json_csv_converter.type_inference_hint')}
+              caption={t('tools.json_csv_converter.caption_inference')}
+              captionHint={t('tools.json_csv_converter.type_inference_hint')}
             >
               <Switch
                 checked={infer}
@@ -170,8 +179,8 @@ export function JsonCsvConverter({ toolId }: ToolProps): JSX.Element {
         {direction === 'json_to_csv' && (
           <ConfigRow
             icon={Table}
-            label={t('tools.json_csv_converter.deep_flatten')}
-            hint={t('tools.json_csv_converter.deep_flatten_hint')}
+            caption={t('tools.json_csv_converter.caption_flatten')}
+            captionHint={t('tools.json_csv_converter.deep_flatten_hint')}
           >
             <Switch
               checked={deepFlatten}

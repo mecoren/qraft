@@ -336,10 +336,13 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="image-converter"
     >
-      <ConfigSection title="" searchAnchor="image_converter:config">
-        <ConfigRow icon={FileImage} label={t('tools.image_converter.label_target_format')}>
+      <ConfigSection
+        headerHint={t('tools.image_converter.section_hint')}
+        searchAnchor="image_converter:config"
+      >
+        <ConfigRow icon={FileImage} caption={t('tools.image_converter.caption_format')}>
           <Select value={format} onValueChange={(v) => setFormat(v as TargetFormat)}>
-            <SelectTrigger data-testid="ic-format" className="w-28">
+            <SelectTrigger data-testid="ic-format" className="h-7 w-28 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -354,8 +357,8 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
         {format !== 'image/png' ? (
           <ConfigRow
             icon={FileImage}
-            label={t('tools.image_converter.label_quality')}
-            hint={t('tools.image_converter.hint_quality')}
+            caption={t('tools.image_converter.label_quality')}
+            captionHint={t('tools.image_converter.hint_quality')}
           >
             <div className="flex items-center gap-3">
               <span data-testid="ic-quality-value" className="w-8 text-right text-xs tabular-nums">
@@ -377,8 +380,8 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
         ) : null}
         <ConfigRow
           icon={Maximize2}
-          label={t('tools.image_converter.label_scale')}
-          hint={t('tools.image_converter.hint_scale')}
+          caption={t('tools.image_converter.label_scale')}
+          captionHint={t('tools.image_converter.hint_scale')}
         >
           <div className="flex items-center gap-3">
             <input
@@ -402,13 +405,13 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
         </ConfigRow>
         <ConfigRow
           icon={Maximize2}
-          label={t('tools.image_converter.label_exact_width')}
-          hint={t('tools.image_converter.hint_exact_width')}
+          caption={t('tools.image_converter.label_exact_width')}
+          captionHint={t('tools.image_converter.hint_exact_width')}
         >
           <Input
             type="number"
             min={1}
-            className="w-28"
+            className="h-7 w-28 text-xs"
             data-testid="ic-width"
             aria-label={t('tools.image_converter.label_exact_width')}
             value={exactWidth}
@@ -424,8 +427,8 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
         {format !== 'image/png' ? (
           <ConfigRow
             icon={FileImage}
-            label={t('tools.image_converter.label_bg')}
-            hint={t('tools.image_converter.hint_bg')}
+            caption={t('tools.image_converter.label_bg')}
+            captionHint={t('tools.image_converter.hint_bg')}
           >
             <div className="flex items-center gap-2">
               <Switch
@@ -444,7 +447,7 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
                 disabled={format === 'image/jpeg' || !useBg}
               />
               <Select value={bgColor} onValueChange={setBgColor}>
-                <SelectTrigger data-testid="ic-bg-preset" className="w-24">
+                <SelectTrigger data-testid="ic-bg-preset" className="h-7 w-24 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

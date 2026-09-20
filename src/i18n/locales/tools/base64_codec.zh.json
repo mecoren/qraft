@@ -1,4 +1,5 @@
 {
+  "tools.base64_codec.section_hint": "方向、模式与输出格式选项",
   "tools.base64_codec.mode_encode_text_hint": "输入要编码为 Base64 的文本",
   "tools.base64_codec.mode_encode_url_hint": "输入 URL 字符串,编码为 Base64",
   "tools.base64_codec.mode_encode_css_hint": "输入 CSS 代码,编码为 Base64",

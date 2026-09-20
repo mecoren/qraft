@@ -6,11 +6,12 @@
  */
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, KeyRound, Timer, XCircle } from 'lucide-react';
+import { CheckCircle2, Hash, KeyRound, Timer, XCircle } from 'lucide-react';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CopyAction } from '@/components/copy-action';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import {
@@ -105,11 +106,14 @@ export function OtpGenerator({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="otp-generator"
     >
-      <ConfigSection title="" searchAnchor="otp_generator:config">
+      <ConfigSection
+        headerHint={t('tools.otp_generator.section_hint')}
+        searchAnchor="otp_generator:config"
+      >
         <ConfigRow
           icon={KeyRound}
-          label={t('tools.otp_generator.secret')}
-          hint={t('tools.otp_generator.secret_hint')}
+          caption={t('tools.otp_generator.caption_secret')}
+          captionHint={t('tools.otp_generator.secret_hint')}
         >
           <Input
             aria-label={t('tools.otp_generator.secret')}
@@ -117,37 +121,49 @@ export function OtpGenerator({ toolId }: ToolProps): JSX.Element {
             onChange={(e) => setSecret(e.target.value)}
             autoComplete="off"
             spellCheck={false}
+            className="h-7 w-72 text-xs"
           />
         </ConfigRow>
         <ConfigRow
           icon={Timer}
-          label={t('tools.otp_generator.mode')}
-          hint={t('tools.otp_generator.mode_hint')}
+          caption={t('tools.otp_generator.mode')}
+          captionHint={t('tools.otp_generator.mode_hint')}
         >
-          <span className="text-xs text-muted-foreground">
-            {mode === 'totp'
-              ? t('tools.otp_generator.mode_totp')
-              : t('tools.otp_generator.mode_hotp')}
-          </span>
-          <Switch
-            aria-label={t('tools.otp_generator.mode')}
-            checked={mode === 'hotp'}
-            onCheckedChange={(hotp) => setMode(hotp ? 'hotp' : 'totp')}
-          />
+          {/* 二选一模式用分段控件而非开关,与 Base64Codec 基准同形态 */}
+          <Tabs value={mode} onValueChange={(v) => setMode(v as OtpMode)}>
+            <TabsList className="h-7 w-fit">
+              <TabsTrigger
+                value="totp"
+                data-testid="dir-totp"
+                className="gap-1 px-2 py-0.5 text-xs"
+              >
+                <Timer aria-hidden className="size-3.5" />
+                {t('tools.otp_generator.mode_totp')}
+              </TabsTrigger>
+              <TabsTrigger
+                value="hotp"
+                data-testid="dir-hotp"
+                className="gap-1 px-2 py-0.5 text-xs"
+              >
+                <Hash aria-hidden className="size-3.5" />
+                {t('tools.otp_generator.mode_hotp')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </ConfigRow>
         {mode === 'hotp' && (
-          <ConfigRow icon={Timer} label={t('tools.otp_generator.counter')}>
+          <ConfigRow icon={Timer} caption={t('tools.otp_generator.counter')}>
             <Input
               aria-label={t('tools.otp_generator.counter')}
               type="number"
               min={0}
               value={counter}
               onChange={(e) => setCounter(Number(e.target.value))}
-              className="w-32"
+              className="h-7 w-32 text-xs"
             />
           </ConfigRow>
         )}
-        <ConfigRow icon={KeyRound} label={t('tools.otp_generator.digits')}>
+        <ConfigRow icon={KeyRound} caption={t('tools.otp_generator.digits')}>
           <Input
             aria-label={t('tools.otp_generator.digits')}
             type="number"
@@ -155,13 +171,13 @@ export function OtpGenerator({ toolId }: ToolProps): JSX.Element {
             max={8}
             value={digits}
             onChange={(e) => setDigits(Math.min(8, Math.max(6, Number(e.target.value) || 6)))}
-            className="w-20"
+            className="h-7 w-20 text-xs"
           />
         </ConfigRow>
         <ConfigRow
           icon={CheckCircle2}
-          label={t('tools.otp_generator.verify')}
-          hint={t('tools.otp_generator.verify_hint')}
+          caption={t('tools.otp_generator.caption_verify')}
+          captionHint={t('tools.otp_generator.verify_hint')}
         >
           <Switch
             aria-label={t('tools.otp_generator.verify')}

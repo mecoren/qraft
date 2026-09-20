@@ -86,10 +86,11 @@ export function PublicKeyDecoder({ toolId }: ToolProps): JSX.Element {
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
-          {/* 右侧结果区:标题栏与 CodeEditor 同构(26px),内容独立承载 */}
-          <div className="flex h-full flex-col">
-            <div className="flex h-[26px] shrink-0 items-center gap-2 border-b border-input px-2">
-              <span className="truncate pl-1 text-xs font-medium text-foreground">
+          {/* 右侧结果区:与 CodeEditor 同构的「编辑框」(边框只留朝分隔缝的左侧) */}
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 border-l">
+            {/* 标题栏:与 CodeEditor 标题栏同高(26px)、同排版,复制放动作区 */}
+            <div className="flex h-[26px] min-w-0 items-center justify-between gap-x-2 border-b border-input px-2">
+              <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium text-foreground">
                 {t('tools.public_key_decoder.title_output')}
               </span>
               {copyText ? <CopyAction text={copyText} testId="pk-copy" /> : null}

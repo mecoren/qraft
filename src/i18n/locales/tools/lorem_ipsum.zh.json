@@ -1,4 +1,6 @@
 {
+  "tools.lorem_ipsum.section_hint": "生成粒度、数量与起始词",
+  "tools.lorem_ipsum.caption_start_with_lorem": "起始词",
   "tools.lorem_ipsum.label_type": "类型",
   "tools.lorem_ipsum.hint_granularity": "生成粒度",
   "tools.lorem_ipsum.granularity_words": "单词",

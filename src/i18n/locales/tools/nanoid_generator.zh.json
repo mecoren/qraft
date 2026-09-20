@@ -1,4 +1,5 @@
 {
+  "tools.nanoid_generator.section_hint": "生成数量、长度与字母表",
   "tools.nanoid_generator.count": "生成数量",
   "tools.nanoid_generator.count_hint": "一次批量生成,上限 500",
   "tools.nanoid_generator.count_aria": "生成数量",

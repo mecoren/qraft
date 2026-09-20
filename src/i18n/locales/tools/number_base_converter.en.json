@@ -1,4 +1,6 @@
 {
+  "tools.number_base_converter.section_hint": "Base, bit width and digit grouping",
+  "tools.number_base_converter.caption_grouping": "Grouping",
   "tools.number_base_converter.group_formatted": "Digit grouping",
   "tools.number_base_converter.group_formatted_hint": "Group digits by base convention",
   "tools.number_base_converter.input_base": "Input base",

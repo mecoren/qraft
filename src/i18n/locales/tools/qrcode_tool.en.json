@@ -1,4 +1,5 @@
 {
+  "tools.qrcode_tool.section_hint": "Generate or read QR codes",
   "tools.qrcode_tool.error_image_load": "Failed to load image",
   "tools.qrcode_tool.error_canvas": "Canvas is unavailable",
   "tools.qrcode_tool.error_not_found": "No QR code detected",

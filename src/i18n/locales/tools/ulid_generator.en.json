@@ -1,4 +1,5 @@
 {
+  "tools.ulid_generator.section_hint": "Number of ULIDs to generate",
   "tools.ulid_generator.count": "Count",
   "tools.ulid_generator.count_hint": "1–100, one per line",
   "tools.ulid_generator.count_aria": "Number of ULIDs to generate",

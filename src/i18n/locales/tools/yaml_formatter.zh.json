@@ -1,4 +1,5 @@
 {
+  "tools.yaml_formatter.section_hint": "缩进与键排序选项",
   "tools.yaml_formatter.indent": "缩进",
   "tools.yaml_formatter.indent_2": "2 个空格",
   "tools.yaml_formatter.indent_4": "4 个空格",

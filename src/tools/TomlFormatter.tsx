@@ -206,10 +206,13 @@ export function TomlFormatter({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="toml-formatter"
     >
-      <ConfigSection title="" searchAnchor="toml_formatter:config">
-        <ConfigRow icon={IndentIncrease} label={t('tools.toml_formatter.indent')}>
+      <ConfigSection
+        headerHint={t('tools.toml_formatter.section_hint')}
+        searchAnchor="toml_formatter:config"
+      >
+        <ConfigRow icon={IndentIncrease} caption={t('tools.toml_formatter.indent')}>
           <Select value={mode} onValueChange={(v) => setMode(v as TomlIndentMode)}>
-            <SelectTrigger data-testid="toml-indent" className="w-32">
+            <SelectTrigger data-testid="toml-indent" className="h-7 w-32 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -220,8 +223,8 @@ export function TomlFormatter({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
         <ConfigRow
           icon={AlignHorizontalDistributeCenter}
-          label={t('tools.toml_formatter.align_entries')}
-          hint={t('tools.toml_formatter.align_entries_hint')}
+          caption={t('tools.toml_formatter.caption_align_entries')}
+          captionHint={t('tools.toml_formatter.align_entries_hint')}
         >
           <Switch
             data-testid="toml-align-entries"
@@ -235,8 +238,8 @@ export function TomlFormatter({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
         <ConfigRow
           icon={ArrowDownAZ}
-          label={t('tools.toml_formatter.reorder_keys')}
-          hint={t('tools.toml_formatter.reorder_keys_hint')}
+          caption={t('tools.toml_formatter.reorder_keys')}
+          captionHint={t('tools.toml_formatter.reorder_keys_hint')}
         >
           <Switch
             data-testid="toml-reorder-keys"

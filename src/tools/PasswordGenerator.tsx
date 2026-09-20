@@ -4,7 +4,7 @@
 
 import { useCallback, useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Hash, KeyRound, ListOrdered, RefreshCw, Type as TypeIcon } from 'lucide-react';
+import { KeyRound, ListOrdered, RefreshCw, Type as TypeIcon } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -141,8 +141,11 @@ export function PasswordGenerator(_props: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="password-generator"
     >
-      <ConfigSection title="" searchAnchor="password_generator:config">
-        <ConfigRow icon={KeyRound} label={t('tools.password_generator.length')}>
+      <ConfigSection
+        headerHint={t('tools.password_generator.section_hint')}
+        searchAnchor="password_generator:config"
+      >
+        <ConfigRow icon={KeyRound} caption={t('tools.password_generator.length')}>
           <Input
             type="number"
             min={4}
@@ -151,54 +154,64 @@ export function PasswordGenerator(_props: ToolProps): JSX.Element {
             onChange={(e) => setLength(Number(e.target.value) || 4)}
             aria-label={t('tools.password_generator.length_aria')}
             data-testid="pw-length"
-            className="h-7 w-20 text-right text-body-sm"
-          />
-        </ConfigRow>
-        <ConfigRow icon={TypeIcon} label={t('tools.password_generator.lowercase')} hint="a-z">
-          <Switch
-            checked={lower}
-            onCheckedChange={setLower}
-            aria-label={t('tools.password_generator.lowercase')}
-            data-testid="pw-lower"
-          />
-        </ConfigRow>
-        <ConfigRow icon={TypeIcon} label={t('tools.password_generator.uppercase')} hint="A-Z">
-          <Switch
-            checked={upper}
-            onCheckedChange={setUpper}
-            aria-label={t('tools.password_generator.uppercase')}
-            data-testid="pw-upper"
-          />
-        </ConfigRow>
-        <ConfigRow icon={Hash} label={t('tools.password_generator.digits')} hint="0-9">
-          <Switch
-            checked={digits}
-            onCheckedChange={setDigits}
-            aria-label={t('tools.password_generator.digits')}
-            data-testid="pw-digits"
-          />
-        </ConfigRow>
-        <ConfigRow icon={Hash} label={t('tools.password_generator.symbols')} hint={SYMBOLS}>
-          <Switch
-            checked={symbols}
-            onCheckedChange={setSymbols}
-            aria-label={t('tools.password_generator.symbols')}
-            data-testid="pw-symbols"
+            className="h-7 w-20 text-right text-xs"
           />
         </ConfigRow>
         <ConfigRow
           icon={TypeIcon}
-          label={t('tools.password_generator.exclude_ambiguous')}
-          hint="I l 1 O 0 o"
+          caption={t('tools.password_generator.caption_charsets')}
+          captionHint={t('tools.password_generator.caption_charsets_hint')}
         >
-          <Switch
-            checked={excludeAmbiguous}
-            onCheckedChange={setExcludeAmbiguous}
-            aria-label={t('tools.password_generator.exclude_ambiguous')}
-            data-testid="pw-ambiguous"
-          />
+          {/* 五个字符集开关合成一行,控件从标签列右缘起铺、放不下自动换行 */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Switch
+                checked={lower}
+                onCheckedChange={setLower}
+                aria-label={t('tools.password_generator.lowercase')}
+                data-testid="pw-lower"
+              />
+              {t('tools.password_generator.lowercase')}
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Switch
+                checked={upper}
+                onCheckedChange={setUpper}
+                aria-label={t('tools.password_generator.uppercase')}
+                data-testid="pw-upper"
+              />
+              {t('tools.password_generator.uppercase')}
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Switch
+                checked={digits}
+                onCheckedChange={setDigits}
+                aria-label={t('tools.password_generator.digits')}
+                data-testid="pw-digits"
+              />
+              {t('tools.password_generator.digits')}
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Switch
+                checked={symbols}
+                onCheckedChange={setSymbols}
+                aria-label={t('tools.password_generator.symbols')}
+                data-testid="pw-symbols"
+              />
+              {t('tools.password_generator.symbols')}
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Switch
+                checked={excludeAmbiguous}
+                onCheckedChange={setExcludeAmbiguous}
+                aria-label={t('tools.password_generator.exclude_ambiguous')}
+                data-testid="pw-ambiguous"
+              />
+              {t('tools.password_generator.exclude_ambiguous')}
+            </label>
+          </div>
         </ConfigRow>
-        <ConfigRow icon={ListOrdered} label={t('tools.password_generator.count')}>
+        <ConfigRow icon={ListOrdered} caption={t('tools.password_generator.caption_count')}>
           <Input
             type="number"
             min={1}
@@ -207,7 +220,7 @@ export function PasswordGenerator(_props: ToolProps): JSX.Element {
             onChange={(e) => setCount(Number(e.target.value) || 1)}
             aria-label={t('tools.password_generator.count')}
             data-testid="pw-count"
-            className="h-7 w-20 text-right text-body-sm"
+            className="h-7 w-20 text-right text-xs"
           />
         </ConfigRow>
       </ConfigSection>

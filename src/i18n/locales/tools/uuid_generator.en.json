@@ -1,4 +1,5 @@
 {
+  "tools.uuid_generator.section_hint": "Version, count and format",
   "tools.uuid_generator.version": "Version",
   "tools.uuid_generator.version_hint": "v4 random / v7 time-ordered",
   "tools.uuid_generator.count": "Count",

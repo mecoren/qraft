@@ -76,10 +76,13 @@ export function YamlFormatter({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="yaml-formatter"
     >
-      <ConfigSection title="" searchAnchor="yaml_formatter:config">
-        <ConfigRow icon={IndentIncrease} label={t('tools.yaml_formatter.indent')}>
+      <ConfigSection
+        headerHint={t('tools.yaml_formatter.section_hint')}
+        searchAnchor="yaml_formatter:config"
+      >
+        <ConfigRow icon={IndentIncrease} caption={t('tools.yaml_formatter.indent')}>
           <Select value={mode} onValueChange={(v) => setMode(v as YamlIndentMode)}>
-            <SelectTrigger data-testid="yaml-indent" className="w-32">
+            <SelectTrigger data-testid="yaml-indent" className="h-7 w-32 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -91,8 +94,8 @@ export function YamlFormatter({ toolId }: ToolProps): JSX.Element {
         </ConfigRow>
         <ConfigRow
           icon={ArrowDownAZ}
-          label={t('tools.yaml_formatter.sort_keys')}
-          hint={t('tools.yaml_formatter.sort_keys_hint')}
+          caption={t('tools.yaml_formatter.sort_keys')}
+          captionHint={t('tools.yaml_formatter.sort_keys_hint')}
         >
           <Switch
             data-testid="yaml-sort-keys"

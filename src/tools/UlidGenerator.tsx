@@ -37,11 +37,14 @@ export function UlidGenerator({ toolId }: ToolProps): JSX.Element {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="ulid-generator"
     >
-      <ConfigSection title="" searchAnchor="ulid_generator:config">
+      <ConfigSection
+        headerHint={t('tools.ulid_generator.section_hint')}
+        searchAnchor="ulid_generator:config"
+      >
         <ConfigRow
           icon={Fingerprint}
-          label={t('tools.ulid_generator.count')}
-          hint={t('tools.ulid_generator.count_hint')}
+          caption={t('tools.ulid_generator.count')}
+          captionHint={t('tools.ulid_generator.count_hint')}
         >
           <Input
             aria-label={t('tools.ulid_generator.count_aria')}
@@ -50,7 +53,7 @@ export function UlidGenerator({ toolId }: ToolProps): JSX.Element {
             max={100}
             value={count}
             onChange={(e) => setCount(Number(e.target.value))}
-            className="w-24"
+            className="h-7 w-24 text-xs"
           />
         </ConfigRow>
       </ConfigSection>

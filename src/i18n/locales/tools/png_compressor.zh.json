@@ -1,4 +1,7 @@
 {
+  "tools.png_compressor.section_hint": "压缩模式、等级、颜色数与抖动",
+  "tools.png_compressor.caption_mode": "压缩模式",
+  "tools.png_compressor.caption_level": "优化等级",
   "tools.png_compressor.level_1": "快速(等级 1)",
   "tools.png_compressor.level_2": "标准(等级 2)",
   "tools.png_compressor.level_4": "高质量(等级 4)",
