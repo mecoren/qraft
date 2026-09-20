@@ -179,13 +179,27 @@ fn init_rayon() {
 
 ### 3.3 大 JSON 流式解析
 
-#### 流式 vs 一次性
+> ⚠️ **未实现(2026-09-19 决策:移出当前版本)**
+>
+> JSON Formatter 曾声明 `streaming_supported = true`,但 `execute_stream` 只接受
+> `file_path`,而前端一律以内联 `text` 调用,全仓没有任何调用点能走到那条路径;
+> 其实现也是 `tokio::fs::read` 读全文件后一次性 `from_str`,与下面的
+> `Deserializer::from_reader` 设计并非一回事。该死路径已删除,>10MB 改由前端在
+> 跨 IPC 之前拦截并给出提示(后端 `MAX_INPUT_BYTES` 仍是最终闸门)。
+>
+> 真流式需要「文件选择 → 路径授权 → 增量解析 → 增量渲染」整条链路,单独立项。
+> 下面的表格与代码保留为设计参考。
+
+#### 流式 vs 一次性(设计目标,当前未落地)
 
 | 输入大小 | 策略 | 实现 |
 |----------|------|------|
 | < 1 MB | 一次性解析 | `serde_json::from_str` |
 | 1-10 MB | 一次性解析（监控内存） | `serde_json::from_str` |
 | > 10 MB | 流式解析 | `serde_json::Deserializer::from_reader` |
+
+> 📌 **项目实际**:前端阈值(`FRONTEND_FORMAT_LIMIT`)以内走浏览器 `JSON.parse`,
+> 阈值~10MB 走后端一次性 `from_str`,>10MB 直接拒绝——没有任何一档真的在流式。
 
 #### 流式 JSON 格式化
 
@@ -211,6 +225,10 @@ async fn format_streaming(
     let mut bytes_read = 0u64;
 
     // 流式 JSON 解析：按 token 流式处理
+    // ⚠️ 设计勘误(2026-09-19):`into_iter::<Value>()` 逐个取出的是**拼接的多个顶层
+    // 值**(NDJSON / 多文档流),单个超大数组仍会被整体解析成一个 Value,内存不降。
+    // 元素级流式要换成 `Deserializer::from_reader` + 手写 `Visitor`(读 seq 时逐元素
+    // 回调),或对 NDJSON 按行 `BufRead::lines` 解析。
     let mut stream = serde_json::Deserializer::from_reader(reader)
         .into_iter::<serde_json::Value>();
 
@@ -252,7 +270,7 @@ async fn format_streaming(
 > 每个工具执行理论上不超过 256MB 内存。当前没有强制限制机制（无内存配额），通过以下手段软控制：
 >
 > 1. **大输入检测**：工具自行检查 `text.len() > 10MB` 返回 `InputTooLarge`
-> 2. **流式处理优先**：>10MB 输入走流式路径
+> 2. **流式处理优先**：仅 Hash Calculator 落地(见 §3.3 状态说明);JSON >10MB 走拒绝而非流式
 > 3. **避免一次性缓冲**：用迭代器/流而非 `Vec<u8>`
 > 4. **代码审查**：PR Review 检查大缓冲分配
 
@@ -567,7 +585,7 @@ flowchart TD
 
 | 工具 | 文本输入上限 | 文件输入上限 |
 |------|--------------|--------------|
-| json_formatter | 10MB（超过走流式） | 100MB |
+| json_formatter | 10MB（超过即拒绝:前端在跨 IPC 前拦截并提示） | N/A（文件流式路径未实现,2026-09-19 移除,见 §3.3） |
 | json_minifier | 10MB | 100MB |
 | hash_calculator | 10MB | 1GB |
 | base64_codec | 10MB | N/A |

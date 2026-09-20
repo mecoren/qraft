@@ -70,13 +70,15 @@ fn test_streaming_tools_marked_correctly() {
         .map(|m| m.id)
         .collect();
 
-    // json_formatter 与 hash_calculator 必须声明 streaming_supported = true
-    assert!(
-        streaming_ids.contains(&"json_formatter"),
-        "json_formatter should be streaming"
-    );
+    // hash_calculator 走真流式(大文件分块读);json_formatter 不实现 StreamingTool,
+    // 不得在 metadata 里虚报 streaming 能力(其 execute_stream 需要 file_path,
+    // 而 UI 从不这样调用,声明为 true 只是把不可达路径写成对外契约)
     assert!(
         streaming_ids.contains(&"hash_calculator"),
         "hash_calculator should be streaming"
+    );
+    assert!(
+        !streaming_ids.contains(&"json_formatter"),
+        "json_formatter should not claim streaming support"
     );
 }

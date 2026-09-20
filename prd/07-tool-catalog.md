@@ -59,7 +59,7 @@ Qraft 计划内置 34 个开发工具（P0=10 / P1=12 / P2=12），但一次性�
 
 | ID | 名称 | 分类 | 输入 | 输出 | 备注 |
 |----|------|------|------|------|------|
-| `json_formatter` | JSON Formatter | Formatter | JSON 文本 + indent | 格式化 JSON | 支持流式 |
+| `json_formatter` | JSON Formatter | Formatter | JSON 文本 + indent | 格式化 JSON | 一次性解析,≤10MB(流式未实现,见 prd/12 §3.3) |
 | `json_minifier` | JSON Minifier | Formatter | JSON 文本 | 压缩 JSON | |
 | `base64_codec` | Base64 Codec | Encoder | 文本 + action(encode/decode) + url_safe | 编解码文本 | |
 | `url_codec` | URL Encoder/Decoder | Encoder | 文本 + action | 编解码文本 | |
