@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -60,6 +60,7 @@ import { buildFontFamilyOptions, type FontFamilyOption } from '@/lib/fontFamilie
 import { cn } from '@/lib/utils';
 import { NAMING_CONVENTIONS, type NamingConventionId } from '@/lib/naming-convention';
 import { normalizeEditorDisplay } from '@/hooks/useEditorDisplay';
+import { normalizeJsonIndentStyle } from '@/tools/json-utils';
 import {
   DEFAULT_EDITOR_CONFIG,
   DEFAULT_USER_CONFIG,
@@ -75,7 +76,8 @@ const DISPLAY_SWITCH_KEYS = [
   'minimap',
 ] as const satisfies ReadonlyArray<keyof EditorDisplayConfig>;
 
-type EditorDisplayKey = (typeof DISPLAY_SWITCH_KEYS)[number] | 'fontSize' | 'tabSize';
+type EditorDisplayKey =
+  (typeof DISPLAY_SWITCH_KEYS)[number] | 'fontSize' | 'tabSize' | 'insertSpaces';
 
 /** 编辑器字号可选档位(px;Monaco 绝对 px 布局) */
 const EDITOR_FONT_SIZE_CHOICES = [12, 13, 14, 16, 18, 20] as const;
@@ -122,6 +124,7 @@ const SHORTCUT_KEYS: Array<{
 const generalSchema = z.object({
   maxHistory: z.number().int().min(0).max(10000),
   jsonIndent: z.number().int().min(0).max(8),
+  jsonUseTabs: z.boolean().default(false),
   confirmOnClear: z.boolean(),
   language: z.enum(['zh-CN', 'en-US']),
 });
@@ -136,7 +139,7 @@ const shortcutSchema = z.object({
   ),
 });
 
-type GeneralFormValues = z.infer<typeof generalSchema>;
+type GeneralFormValues = z.input<typeof generalSchema>;
 
 // ============================================================
 // 主题预览卡片
@@ -515,6 +518,7 @@ export function GeneralSection(): JSX.Element {
     defaultValues: {
       maxHistory: 100,
       jsonIndent: 2,
+      jsonUseTabs: false,
       confirmOnClear: true,
       language: 'zh-CN',
     },
@@ -530,12 +534,16 @@ export function GeneralSection(): JSX.Element {
   useEffect(() => {
     if (!config) return;
     const language = configLanguage;
+    // values.indent 可能是旧 number 形状或新 {useTabs,size} 对象,统一归一
+    const indentStyle = normalizeJsonIndentStyle(
+      config.tool_prefs?.['json_formatter']?.values?.indent as unknown,
+    );
     form.reset({
       maxHistory: config.general.max_history,
-      // jsonIndent 来自 tool_prefs.json_formatter.values.indent,缺省 2
+      // jsonIndent/jsonUseTabs 来自 tool_prefs.json_formatter.values.indent,缺省 2 空格
       // 用可选链保护 tool_prefs 本身,防止旧配置缺少该字段时崩溃
-      jsonIndent:
-        (config.tool_prefs?.['json_formatter']?.values?.indent as number | undefined) ?? 2,
+      jsonIndent: indentStyle.size,
+      jsonUseTabs: indentStyle.useTabs,
       confirmOnClear: config.general.confirm_on_clear,
       language,
     });
@@ -546,12 +554,18 @@ export function GeneralSection(): JSX.Element {
     await setConfig('general.confirm_on_clear', values.confirmOnClear);
     await setConfig('general.language', values.language);
     // 缩进写整个 `tool_prefs.json_formatter`(两段键 → Rust 的 HashMap 直写快路径)。
-    // 不能写成 tool_prefs.json_formatter.values.indent:通用分支要求沿途每层已存在,
+    // 不能写成 tool_prefs.json_formatter.values.indent(三段键):通用分支要求沿途每层已存在,
     // 而首次保存时 json_formatter 这个槽还没建出来,config_set 会直接报 invalid path。
+    // 新形状为对象 {useTabs,size},旧 number 数据由读侧 normalizeJsonIndentStyle 兼容。
+    // jsonUseTabs 在 schema 上为 .default(false),input 类型可选,运行时 defaultValues
+    // 恒给 false,这里 ?? 只是补类型缺口。
     const pref: ToolPref = config?.tool_prefs?.['json_formatter'] ?? {};
     await setConfig('tool_prefs.json_formatter', {
       ...pref,
-      values: { ...pref.values, indent: values.jsonIndent },
+      values: {
+        ...pref.values,
+        indent: { useTabs: values.jsonUseTabs ?? false, size: values.jsonIndent },
+      },
     });
     toast.success(t('settings.saved_toast'));
   };
@@ -589,6 +603,23 @@ export function GeneralSection(): JSX.Element {
               type="number"
               {...form.register('jsonIndent', { valueAsNumber: true })}
             />
+            <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <Label htmlFor="jsonUseTabs">{t('settings.json_use_tabs')}</Label>
+                <p className="text-xs text-muted-foreground">{t('settings.json_use_tabs_hint')}</p>
+              </div>
+              <Controller
+                control={form.control}
+                name="jsonUseTabs"
+                render={({ field }) => (
+                  <Switch
+                    id="jsonUseTabs"
+                    checked={field.value ?? false}
+                    onCheckedChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
           </div>
 
           <div
@@ -1034,6 +1065,32 @@ export function EditorSection(): JSX.Element {
                       {size}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* 缩进字符(新建 Tab / 新 model 默认空格还是 Tab,经 toggleDisplay 布尔写回) */}
+            <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <Label htmlFor="editor-display-insertSpaces">
+                  {t('settings.editor_insertSpaces')}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t('settings.editor_insertSpaces_hint')}
+                </p>
+              </div>
+              <Select
+                value={display.insertSpaces ? 'spaces' : 'tabs'}
+                onValueChange={(v) => void toggleDisplay('insertSpaces', v === 'spaces')}
+              >
+                <SelectTrigger
+                  id="editor-display-insertSpaces"
+                  className="h-8 w-24 shrink-0 text-sm"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="spaces">{t('settings.editor_indent_spaces')}</SelectItem>
+                  <SelectItem value="tabs">{t('settings.editor_indent_tabs')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>

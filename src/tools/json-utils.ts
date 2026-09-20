@@ -276,15 +276,57 @@ const JSON_INDENT_MAX = 8;
 const JSON_INDENT_DEFAULT = 2;
 
 /**
+ * JSON 缩进风格:空格缩进(size 个空格)或 Tab 缩进。
+ * 已发布 config.json 的 `values.indent` 存的是纯数字(旧形状),读侧经
+ * `normalizeJsonIndentStyle` 兼容,写侧统一存对象形状。
+ */
+export interface JsonIndent {
+  /** true=Tab 缩进 / false=空格缩进,默认 false */
+  useTabs: boolean;
+  /** 空格数(1..8),默认 2 */
+  size: number;
+}
+
+/** 非法缩进统一回落的默认风格(空格缩进 2) */
+const JSON_INDENT_STYLE_DEFAULT: JsonIndent = { useTabs: false, size: JSON_INDENT_DEFAULT };
+
+/**
+ * 归一化缩进偏好:兼容旧 number 数据与新 JsonIndent 对象。
+ * - number:沿用 normalizeJsonIndent 规则(1..8 有效,其余回落默认风格);
+ *   有效值一律视为空格缩进(useTabs:false,旧数据本就没有 Tab 概念)
+ * - 对象:useTabs 须为布尔值(缺省 false,非布尔视为非法),size 须为 1..8 整数,
+ *   任一非法即整体回落默认风格(与 0 在前后端分流两侧输出不同的教训一致,
+ *   有疑问的值不猜,直接回落)
+ */
+export function normalizeJsonIndentStyle(raw: unknown): JsonIndent {
+  if (typeof raw === 'number') {
+    return Number.isInteger(raw) && raw > 0 && raw <= JSON_INDENT_MAX
+      ? { useTabs: false, size: raw }
+      : { ...JSON_INDENT_STYLE_DEFAULT };
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    const { useTabs, size } = raw as { useTabs?: unknown; size?: unknown };
+    if (
+      (useTabs === undefined || typeof useTabs === 'boolean') &&
+      typeof size === 'number' &&
+      Number.isInteger(size) &&
+      size > 0 &&
+      size <= JSON_INDENT_MAX
+    ) {
+      return { useTabs: useTabs ?? false, size };
+    }
+  }
+  return { ...JSON_INDENT_STYLE_DEFAULT };
+}
+
+/**
  * 归一化设置页读出来的缩进偏好:0 与超限值都回落到 2。
  * 0 特殊对待是因为 `JSON.stringify(v, null, 0)` 是紧凑单行,而后端 PrettyFormatter
  * 的 0 缩进是「换行但无缩进」,放任会让同一文档在前后端分流两侧输出不同。
  * 规则与 Rust 侧 `normalize_indent`(json_formatter.rs)成对,改一边必须改另一边。
  */
 export function normalizeJsonIndent(raw: unknown): number {
-  return typeof raw === 'number' && Number.isInteger(raw) && raw > 0 && raw <= JSON_INDENT_MAX
-    ? raw
-    : JSON_INDENT_DEFAULT;
+  return normalizeJsonIndentStyle(raw).size;
 }
 
 /**

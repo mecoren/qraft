@@ -100,11 +100,12 @@ describe('SettingsPanel', () => {
     // 缩进必须写整个 tool_prefs.json_formatter 槽(两段键走 Rust 的 HashMap 直写),
     // 且首段字面量要和持久化的 tool_prefs 一致:写成 toolPrefs.… 或
     // tool_prefs.json_formatter.values.indent 都会让这次保存恒失败。
+    // 新形状为对象 {useTabs,size},旧 number 数据只在读侧兼容,不再写出。
     expect(invokeMock).toHaveBeenCalledWith(
       'config_set',
       expect.objectContaining({
         key: 'tool_prefs.json_formatter',
-        value: { values: { indent: 2 } },
+        value: { values: { indent: { useTabs: false, size: 2 } } },
       }),
     );
   });
@@ -129,7 +130,7 @@ describe('SettingsPanel', () => {
     });
     render(<SettingsPanel />);
     const input = screen.getByLabelText(/JSON 默认缩进/) as HTMLInputElement;
-    // 表单从 tool_prefs 槽回填出 4,改成 2 后保存
+    // 表单从 tool_prefs 槽回填出 4(旧 number 形状读侧兼容),改成 2 后保存
     expect(input.value).toBe('4');
     await user.clear(input);
     await user.type(input, '2');
@@ -138,7 +139,44 @@ describe('SettingsPanel', () => {
       'config_set',
       expect.objectContaining({
         key: 'tool_prefs.json_formatter',
-        value: { layout: 'split', values: { indent: 2, sort_keys: true } },
+        value: {
+          layout: 'split',
+          values: { indent: { useTabs: false, size: 2 }, sort_keys: true },
+        },
+      }),
+    );
+  });
+
+  it('JSON Tab 开关:打开后保存为 useTabs:true(同槽整写,兄弟键保留)', async () => {
+    const user = userEvent.setup();
+    invokeMock.mockImplementation((cmd: string) =>
+      cmd === 'list_system_fonts'
+        ? Promise.resolve([])
+        : Promise.resolve({ success: true, data: true }),
+    );
+    useConfigStore.setState({
+      config: {
+        ...DEFAULT_USER_CONFIG,
+        tool_prefs: {
+          json_formatter: { layout: 'split', values: { indent: 4, sort_keys: true } },
+        },
+      },
+      loading: false,
+      error: null,
+    });
+    render(<SettingsPanel />);
+    const useTabsSwitch = screen.getByRole('switch', { name: /JSON 使用 Tab 缩进/ });
+    expect(useTabsSwitch).not.toBeChecked();
+    await user.click(useTabsSwitch);
+    await user.click(screen.getByRole('button', { name: '保存' }));
+    expect(invokeMock).toHaveBeenCalledWith(
+      'config_set',
+      expect.objectContaining({
+        key: 'tool_prefs.json_formatter',
+        value: {
+          layout: 'split',
+          values: { indent: { useTabs: true, size: 4 }, sort_keys: true },
+        },
       }),
     );
   });

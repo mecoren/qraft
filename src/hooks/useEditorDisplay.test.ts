@@ -27,7 +27,18 @@ describe('normalizeEditorDisplay', () => {
       minimap: false,
       fontSize: 20,
       tabSize: 8,
+      insertSpaces: false,
     };
     expect(normalizeEditorDisplay(raw)).toEqual(raw);
+  });
+
+  it('{} 回填 insertSpaces true 与 tabSize 2(新字段缺省为空格缩进)', () => {
+    const normalized = normalizeEditorDisplay({});
+    expect(normalized.insertSpaces).toBe(true);
+    expect(normalized.tabSize).toBe(2);
+  });
+
+  it('insertSpaces:false 显式关闭保持 false(不被默认值覆盖)', () => {
+    expect(normalizeEditorDisplay({ insertSpaces: false }).insertSpaces).toBe(false);
   });
 });

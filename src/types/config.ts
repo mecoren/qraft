@@ -50,6 +50,8 @@ export interface EditorDisplayConfig {
   fontSize?: number;
   /** 缩进宽度(tabSize),默认 2 */
   tabSize?: number;
+  /** 缩进字符 true=空格 / false=Tab,默认 true(空格) */
+  insertSpaces?: boolean;
 }
 
 export interface EditorConfig {
@@ -67,6 +69,7 @@ export const DEFAULT_EDITOR_DISPLAY: Required<EditorDisplayConfig> = {
   minimap: true,
   fontSize: 13,
   tabSize: 2,
+  insertSpaces: true,
 };
 
 /** 快捷键绑定,与 15-ui-design-system.md §3.6 一一对应 */

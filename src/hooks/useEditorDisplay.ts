@@ -22,6 +22,7 @@ export function normalizeEditorDisplay(
     minimap: raw?.minimap ?? DEFAULT_EDITOR_DISPLAY.minimap,
     fontSize: raw?.fontSize ?? DEFAULT_EDITOR_DISPLAY.fontSize,
     tabSize: raw?.tabSize ?? DEFAULT_EDITOR_DISPLAY.tabSize,
+    insertSpaces: raw?.insertSpaces ?? DEFAULT_EDITOR_DISPLAY.insertSpaces,
   };
 }
 

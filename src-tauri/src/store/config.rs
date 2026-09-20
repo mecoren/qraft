@@ -66,6 +66,10 @@ pub struct EditorDisplayConfig {
     pub font_size: u32,
     #[serde(default)]
     pub tab_size: u32,
+    /// 缩进字符 true=空格 / false=Tab:缺省 true,旧 config.json 无此键时
+    /// 不能用 `#[serde(default)]`(缺省 false 会把老用户误翻成 Tab 缩进)
+    #[serde(default = "default_true")]
+    pub insert_spaces: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -92,6 +96,12 @@ pub struct GeneralConfig {
 /// 界面语言默认值:与前端 `DEFAULT_USER_CONFIG` 对齐(zh-CN 优先现状)
 fn default_language() -> String {
     "zh-CN".to_string()
+}
+
+/// 布尔开关缺省开:旧 config.json 缺键时 serde 回填 true(保持历史观感),
+/// 与 `#[serde(default)]`(缺省 false)区分使用
+const fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -559,5 +569,37 @@ mod tests {
             config.editor.naming_convention.enabled,
             vec!["snake_case".to_string()]
         );
+    }
+
+    /// 旧版本持久化数据无 `insertSpaces` 键:serde 缺省必须回填 true(空格),
+    /// 不能用 `#[serde(default)]` 翻成 false(Tab)
+    #[tokio::test]
+    async fn test_legacy_display_without_insert_spaces_defaults_to_spaces() {
+        let (_tmp, path) = temp_config_path();
+        std::fs::write(
+            &path,
+            json!({
+                "version": 1,
+                "editor": { "display": { "tabSize": 4 } }
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let store = JsonConfigStore::new(path);
+        let config = store.get_all().await.unwrap();
+        assert!(config.editor.display.insert_spaces);
+        assert_eq!(config.editor.display.tab_size, 4);
+    }
+
+    /// 用户显式选 Tab(insertSpaces:false)经 set 写入后透传不改写
+    #[tokio::test]
+    async fn test_insert_spaces_explicit_false_roundtrip() {
+        let (_tmp, path) = temp_config_path();
+        let store = JsonConfigStore::new(path);
+        store
+            .set("editor.display.insertSpaces", json!(false))
+            .await
+            .unwrap();
+        assert!(!store.get_all().await.unwrap().editor.display.insert_spaces);
     }
 }
