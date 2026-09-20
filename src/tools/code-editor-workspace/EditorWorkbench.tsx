@@ -33,6 +33,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
 import { useToolShortcut } from '@/hooks/useShortcut';
 import { useEditorDisplay } from '@/hooks/useEditorDisplay';
+import type { IndentStyle } from '@/lib/indentation';
 import { writeClipboardText } from '@/lib/clipboard';
 import type { ToolProps } from '@/tools/registry';
 import { MarkdownEditorPane, isMarkdownDocument } from '@/tools/markdown-editor-pane';
@@ -558,6 +559,15 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
   // 移除原顶部工具栏:打开/新建/保存/关闭等操作已迁入 Titlebar 菜单栏。
   // 空状态仍保留「打开文件 / 新建」快捷按钮(无 Tab 时无菜单可用,作为兜底入口)。
 
+  // —— 每 Tab 缩进(默认读设置、Tab 独立、全局变更仅影响未自定义)——
+  // resolved = Tab 覆盖 ?? 全局(设置 → 文本编辑器),以受控 indent 传给
+  // CodeEditor;用户变更经 onIndentChange 写回该 Tab(null=清除回跟随)。
+  const activeIndent = useMemo<IndentStyle>(
+    () =>
+      activeTab?.indentOverride ?? { insertSpaces: display.insertSpaces, tabSize: display.tabSize },
+    [activeTab?.indentOverride, display.insertSpaces, display.tabSize],
+  );
+
   // 主编辑器(单一实例定义,普通/分屏/预览布局按需复用)。
   // model 池化:不再用 key={tabId} 重挂载整个 CodeEditor——modelKey 传 tabId,
   // @monaco-editor/react 按 path 缓存 Monaco model,切 Tab 仅 setModel:
@@ -583,6 +593,15 @@ export function EditorWorkbench({ toolId }: ToolProps): JSX.Element {
       onToggleWordWrap={() => {
         useEditorWorkspaceStore.getState().toggleTabWordWrap(activeTab.id);
       }}
+      // 缩进按 Tab 独立记忆(状态栏缩进菜单切换),缺省跟随全局设置;
+      // 全局变更仅影响未自定义的 Tab,已覆盖的 Tab 保持
+      indent={activeIndent}
+      onIndentChange={(style) => {
+        const state = useEditorWorkspaceStore.getState();
+        if (style === null) state.clearTabIndent(activeTab.id);
+        else state.setTabIndent(activeTab.id, style);
+      }}
+      hasOverride={activeTab.indentOverride != null}
       // 文件编码:状态栏展示并可切换,保存时按该编码写回(仿 VSCode)
       encoding={activeTab.encoding ?? 'utf-8'}
       // 「通过编码重新打开」仅在 Tab 已绑定磁盘路径时可用

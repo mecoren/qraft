@@ -17,6 +17,7 @@ import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
 import { useConfigStore } from '@/store/configStore';
 import { normalizeEditorDisplay } from '@/hooks/useEditorDisplay';
+import type { IndentStyle } from '@/lib/indentation';
 import type { EditorLanguage } from '@/components/ui/code-editor';
 import {
   DEFAULT_WORKSPACE,
@@ -347,6 +348,16 @@ interface WorkspaceState {
    * 仅作用于该 Tab 对应的编辑器实例;缺省视为开启,切换后随工作区持久化。
    */
   toggleTabWordWrap: (id: string) => void;
+  /**
+   * 设置 Tab 的缩进覆盖(状态栏缩进菜单调用)。
+   * 仅作用于该 Tab;写入后该 Tab 不再跟随全局缩进设置,随工作区持久化。
+   */
+  setTabIndent: (id: string, style: IndentStyle) => void;
+  /**
+   * 清除 Tab 的缩进覆盖(状态栏缩进菜单「跟随全局」调用)。
+   * 清除后该 Tab 恢复跟随全局缩进设置,随工作区持久化。
+   */
+  clearTabIndent: (id: string) => void;
   /**
    * 保存成功后绑定路径并固化内容快照(清 dirty)。
    * `savedContent` 必须传**实际写盘的内容快照**:写盘是异步的,期间
@@ -830,6 +841,25 @@ export const useEditorWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const tabs = workspace.tabs.map((t) =>
       t.id === id ? { ...t, wordWrap: !(t.wordWrap ?? true) } : t,
     );
+    set({ workspace: { ...workspace, tabs }, userTouched: true });
+  },
+
+  setTabIndent: (id, style) => {
+    const { workspace } = get();
+    // 仿 toggleTabWordWrap:全量 map 定位目标 Tab,写入覆盖副本并置 userTouched,
+    // 由组件层防抖 persist 落盘;新建/打开入口不预写该字段,缺省即跟随全局
+    const tabs = workspace.tabs.map((t) =>
+      t.id === id
+        ? { ...t, indentOverride: { insertSpaces: style.insertSpaces, tabSize: style.tabSize } }
+        : t,
+    );
+    set({ workspace: { ...workspace, tabs }, userTouched: true });
+  },
+
+  clearTabIndent: (id) => {
+    const { workspace } = get();
+    // 回到跟随全局:字段置 undefined(序列化时省略,hydrate 回退为跟随)
+    const tabs = workspace.tabs.map((t) => (t.id === id ? { ...t, indentOverride: undefined } : t));
     set({ workspace: { ...workspace, tabs }, userTouched: true });
   },
 

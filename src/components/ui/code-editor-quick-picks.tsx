@@ -139,6 +139,15 @@ export interface IndentQuickPickProps {
   onConvert: (to: 'spaces' | 'tabs') => void;
   /** 裁剪尾随空格(宿主处理后写回) */
   onTrim: () => void;
+  /**
+   * 存在每 Tab 缩进覆盖时展示「跟随设置」项(缺省隐藏)。
+   * 由 CodeEditor 的 hasOverride 透传:工作台 Tab 带 indentOverride 即 true。
+   */
+  hasOverride?: boolean;
+  /** 全局缩进(跟随目标值,仅展示用) */
+  followStyle?: { insertSpaces: boolean; tabSize: number };
+  /** 清除覆盖回到跟随(宿主经 onIndentChange(null) 实现) */
+  onReset?: () => void;
   'data-testid'?: string;
 }
 
@@ -154,6 +163,9 @@ export function IndentQuickPick({
   onDetect,
   onConvert,
   onTrim,
+  hasOverride = false,
+  followStyle,
+  onReset,
   'data-testid': dataTestId,
 }: IndentQuickPickProps): JSX.Element {
   const { t } = useTranslation();
@@ -178,6 +190,28 @@ export function IndentQuickPick({
 
   const rootActions = useMemo(
     () => [
+      // 跟随设置:仅存在覆盖时展示,尾部标注当前全局值,点击清除回跟随
+      ...(hasOverride && onReset
+        ? [
+            {
+              id: 'follow',
+              labelKey: 'chrome.code_editor.indent_pick_follow',
+              keywords: 'follow settings 跟随设置',
+              action: () => {
+                onReset();
+                close();
+              },
+              checked: false,
+              right: followStyle
+                ? followStyle.insertSpaces
+                  ? t('chrome.code_editor.indent_pick_current_spaces', {
+                      size: followStyle.tabSize,
+                    })
+                  : t('chrome.code_editor.indent_pick_current_tabs')
+                : undefined,
+            },
+          ]
+        : []),
       {
         id: 'use-spaces',
         labelKey: 'chrome.code_editor.indent_pick_use_spaces',
@@ -246,7 +280,19 @@ export function IndentQuickPick({
         checked: false,
       },
     ],
-    [insertSpaces, tabSize, onApply, onDetect, onConvert, onTrim, t, close],
+    [
+      insertSpaces,
+      tabSize,
+      onApply,
+      onDetect,
+      onConvert,
+      onTrim,
+      hasOverride,
+      followStyle,
+      onReset,
+      t,
+      close,
+    ],
   );
 
   const placeholder =

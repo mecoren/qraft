@@ -145,5 +145,14 @@
   "tools.json_formatter.entity_root_not_object_slash": "// Root is not a JSON object; cannot generate {{lang}}\n// Inferred root type: {{base}}",
   "tools.json_formatter.entity_root_not_object_hash": "# Root is not a JSON object; cannot generate {{lang}}\n# Inferred root type: {{base}}",
   "tools.json_formatter.entity_lang_unsupported": "Unsupported language: {{value}}",
-  "tools.json_formatter.csv_root_not_object_array": "Root is not an array of objects; cannot generate CSV. CSV requires tabular data like [{\"column\": \"value\"}, …]. To export a single object, wrap it in an array first."
+  "tools.json_formatter.csv_root_not_object_array": "Root is not an array of objects; cannot generate CSV. CSV requires tabular data like [{\"column\": \"value\"}, …]. To export a single object, wrap it in an array first.",
+  "tools.json_formatter.indent_caption": "Indent",
+  "tools.json_formatter.indent_caption_hint": "Tab indent has no width; width applies to spaces only",
+  "tools.json_formatter.indent_spaces": "Spaces",
+  "tools.json_formatter.indent_tabs": "Tab",
+  "tools.json_formatter.indent_mode_aria": "Indent style",
+  "tools.json_formatter.indent_width_aria": "Indent width",
+  "tools.json_formatter.indent_following": "Following",
+  "tools.json_formatter.indent_reset": "Follow settings",
+  "tools.json_formatter.indent_reset_title": "Clear this document's indent override and follow the global setting"
 }

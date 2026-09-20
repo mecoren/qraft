@@ -312,7 +312,7 @@ describe('JsonFormatter', () => {
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
         toolId: 'json_formatter',
-        input: { text: largeJson, params: { indent: 2 } },
+        input: { text: largeJson, params: { indent: 2, use_tabs: false } },
       });
     });
   });
@@ -355,7 +355,7 @@ describe('JsonFormatter', () => {
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
         toolId: 'json_formatter',
-        input: { text: largeJson, params: { indent: 4 } },
+        input: { text: largeJson, params: { indent: 4, use_tabs: false } },
       });
     });
   });
@@ -683,7 +683,7 @@ describe('JsonFormatter', () => {
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
         toolId: 'json_formatter',
-        input: { text: largeJson, params: { sort_keys: true, indent: 2 } },
+        input: { text: largeJson, params: { sort_keys: true, indent: 2, use_tabs: false } },
       });
     });
   });

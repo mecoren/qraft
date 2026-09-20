@@ -16,6 +16,7 @@
  */
 import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
+import type { JsonIndent } from './json-utils';
 
 /** 单个 JSON 文档(Tab) */
 export interface JsonDoc {
@@ -34,6 +35,12 @@ export interface JsonDoc {
   pinned: boolean;
   /** 当前输入文本 */
   content: string;
+  /**
+   * 本文档独立的缩进覆盖(复用全局设置的 JsonIndent 形状,不另起类型)。
+   * undefined / null 均为"跟随全局":全局变更时自动生效;
+   * 设值后全局变更不再影响本 Tab,直到 resetDocIndent 清除。
+   */
+  indentOverride?: JsonIndent | null;
 }
 
 /** 一条本地历史(完整输入内容快照) */
@@ -130,13 +137,34 @@ function sanitizeDoc(raw: unknown): JsonDoc | null {
   // 旧版本持久化数据无 pinned 字段,回退 false 保证兼容
   const pinned = t.pinned === true;
   const content = typeof t.content === 'string' ? t.content : '';
+  // 每文档缩进覆盖:旧数据无该字段 → 跟随全局(undefined,不抛错);
+  // 合法形状原样保留,非法(缺字段/size 越界或非整数/useTabs 非布尔)整体丢弃回跟随
+  const indentOverride = sanitizeIndentOverride(t.indentOverride);
   return {
     id: t.id,
     title: t.title,
     ...(autoTitle !== undefined ? { autoTitle } : {}),
     pinned,
     content,
+    ...(indentOverride !== undefined ? { indentOverride } : {}),
   };
+}
+
+/**
+ * 校验持久化读出的每文档缩进覆盖。
+ * undefined / null 均为"跟随全局",直接回 undefined;
+ * 对象须 useTabs 为布尔值且 size 为 1..8 整数(与全局读侧上限一致),
+ * 任一非法即整体丢弃(不猜测修补,与全局非法回落默认同款)。
+ */
+function sanitizeIndentOverride(raw: unknown): JsonIndent | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== 'object') return undefined;
+  const { useTabs, size } = raw as { useTabs?: unknown; size?: unknown };
+  if (typeof useTabs !== 'boolean') return undefined;
+  if (typeof size !== 'number' || !Number.isInteger(size) || size < 1 || size > 8) {
+    return undefined;
+  }
+  return { useTabs, size };
 }
 
 /** 将任意反序列化值规整为合法 FormatterDocs,损坏数据逐字段回退默认值 */
@@ -214,6 +242,17 @@ interface JsonFormatterWorkspaceState {
   togglePinDoc: (id: string) => void;
   /** 更新文档内容(编辑器 onChange 调用);自动命名 Tab 随内容派生标题 */
   setDocContent: (id: string, content: string) => void;
+  /**
+   * 设置本文档独立的缩进覆盖(设值后跟随断开,全局变更不再影响本 Tab)。
+   * 与 setDocContent 同款置位 userTouched;其余文档动作
+   * (rename/togglePin/newDoc/inject)不预写该字段。
+   */
+  setDocIndent: (id: string, indent: JsonIndent) => void;
+  /**
+   * 清除本文档的缩进覆盖,回到跟随全局。
+   * 与 setDocContent 同款置位 userTouched。
+   */
+  resetDocIndent: (id: string) => void;
   /**
    * 记录一条历史:按完整内容去重(命中则提升到最前并刷新时间),
    * 空内容 / 超大内容跳过,超出上限淘汰最旧的未固定条目。
@@ -428,6 +467,25 @@ export const useJsonFormatterStore = create<JsonFormatterWorkspaceState>((set, g
       return { ...d, content };
     });
     set({ docs: next, userTouched: true });
+  },
+
+  setDocIndent: (id, indent) => {
+    set((s) => ({
+      docs: s.docs.map((d) => (d.id === id ? { ...d, indentOverride: { ...indent } } : d)),
+      userTouched: true,
+    }));
+  },
+
+  resetDocIndent: (id) => {
+    set((s) => ({
+      docs: s.docs.map((d) => {
+        if (d.id !== id) return d;
+        const next = { ...d };
+        delete next.indentOverride;
+        return next;
+      }),
+      userTouched: true,
+    }));
   },
 
   recordHistory: (content) => {

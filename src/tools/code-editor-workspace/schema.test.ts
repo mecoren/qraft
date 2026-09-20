@@ -152,3 +152,120 @@ describe('normalizeWorkspace: folders / expandedDirs', () => {
     expect(w.expandedDirs).toEqual(DEFAULT_WORKSPACE.expandedDirs);
   });
 });
+
+describe('normalizeWorkspace: indentOverride(每 Tab 缩进覆盖)', () => {
+  it('旧 Tab 无该字段时回退为 undefined(跟随全局,不抛错)', () => {
+    const w = normalizeWorkspace({
+      tabs: [
+        {
+          id: 't1',
+          title: 'a.txt',
+          path: '/a.txt',
+          language: 'plaintext',
+          content: 'x',
+          savedContent: 'x',
+          pinned: false,
+        },
+      ],
+      activeTabId: 't1',
+    });
+    expect(w.tabs).toHaveLength(1);
+    expect(w.tabs[0].indentOverride).toBeUndefined();
+  });
+
+  it('合法覆盖 sanitize round-trip 保留', () => {
+    const w = normalizeWorkspace({
+      tabs: [
+        {
+          id: 't1',
+          title: 'a.txt',
+          path: '/a.txt',
+          language: 'plaintext',
+          content: 'x',
+          savedContent: 'x',
+          pinned: false,
+          indentOverride: { insertSpaces: false, tabSize: 4 },
+        },
+      ],
+      activeTabId: 't1',
+    });
+    expect(w.tabs[0].indentOverride).toEqual({ insertSpaces: false, tabSize: 4 });
+  });
+
+  it('非法 tabSize(0/99)丢弃回 undefined(跟随全局)', () => {
+    for (const tabSize of [0, 99]) {
+      const w = normalizeWorkspace({
+        tabs: [
+          {
+            id: 't1',
+            title: 'a.txt',
+            path: '/a.txt',
+            language: 'plaintext',
+            content: 'x',
+            savedContent: 'x',
+            pinned: false,
+            indentOverride: { insertSpaces: true, tabSize },
+          },
+        ],
+        activeTabId: 't1',
+      });
+      expect(w.tabs[0].indentOverride).toBeUndefined();
+    }
+  });
+
+  it('insertSpaces 非布尔时丢弃回 undefined(跟随全局)', () => {
+    const w = normalizeWorkspace({
+      tabs: [
+        {
+          id: 't1',
+          title: 'a.txt',
+          path: '/a.txt',
+          language: 'plaintext',
+          content: 'x',
+          savedContent: 'x',
+          pinned: false,
+          indentOverride: { insertSpaces: 'yes', tabSize: 4 },
+        },
+      ],
+      activeTabId: 't1',
+    });
+    expect(w.tabs[0].indentOverride).toBeUndefined();
+  });
+
+  it('null 视为跟随全局(回退为 undefined)', () => {
+    const w = normalizeWorkspace({
+      tabs: [
+        {
+          id: 't1',
+          title: 'a.txt',
+          path: '/a.txt',
+          language: 'plaintext',
+          content: 'x',
+          savedContent: 'x',
+          pinned: false,
+          indentOverride: null,
+        },
+      ],
+      activeTabId: 't1',
+    });
+    expect(w.tabs[0].indentOverride).toBeUndefined();
+  });
+
+  it('大文件 Tab 分支不携带该字段(会话重扫,不持久化覆盖)', () => {
+    const w = normalizeWorkspace({
+      tabs: [
+        {
+          id: 't1',
+          title: 'huge.log',
+          path: 'C:\\logs\\huge.log',
+          language: 'plaintext',
+          largeFile: true,
+          indentOverride: { insertSpaces: false, tabSize: 4 },
+        },
+      ],
+      activeTabId: 't1',
+    });
+    expect(w.tabs).toHaveLength(1);
+    expect(w.tabs[0].indentOverride).toBeUndefined();
+  });
+});

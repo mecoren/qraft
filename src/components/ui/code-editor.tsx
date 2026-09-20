@@ -297,6 +297,25 @@ export interface CodeEditorProps {
    */
   modelKey?: string;
   /**
+   * 受控缩进方式(工作台每 Tab 独立记忆)。
+   *
+   * 提供时为受控模式:徽章展示与模型缩进以该值为准,宿主经
+   * `activeTab.indentOverride ?? 全局设置` 算出 resolved 传入;
+   * 用户经缩进菜单的每次变更经 onIndentChange 上报,由宿主写回对应 Tab。
+   * 缺省时为非受控(其他工具直用):保持原局部 state 行为不变。
+   */
+  indent?: IndentStyle;
+  /**
+   * 缩进变更上报(仅受控模式)。apply/detect 上报合并后的具体值;
+   * convert 只改内容不改缩进方式,不上报;`null` 表示清除覆盖回跟随。
+   */
+  onIndentChange?: (style: IndentStyle | null) => void;
+  /**
+   * 当前 Tab 是否存在缩进覆盖(工作台透传 `indentOverride != null`)。
+   * 为 true 且提供 onIndentChange 时,缩进菜单展示「跟随设置」项。
+   */
+  hasOverride?: boolean;
+  /**
    * 关闭 Monaco 内置 JSON 校验(language=json 时生效,默认 false 保留校验)。
    *
    * 用于「校验口径与工具自身不一致」的场景:内置 json worker 按严格 JSON
@@ -484,6 +503,9 @@ export function CodeEditor({
   onEolChange,
   contextMenuSections,
   modelKey,
+  indent: controlledIndent,
+  onIndentChange,
+  hasOverride = false,
   disableJsonValidate = false,
   lineNumbers = true,
   overviewRulerLanes = 0,
@@ -542,7 +564,10 @@ export function CodeEditor({
   const [eolOpen, setEolOpen] = useState(false);
 
   // —— 缩进方式(作用于当前编辑器模型;状态栏徽章展示值)——
-  const [indent, setIndent] = useState<IndentStyle>({ insertSpaces: true, tabSize: 2 });
+  // 受控模式(工作台传入 indent):展示与模型以 prop 为准,变更经 onIndentChange
+  // 上报宿主写回对应 Tab;非受控(其他工具直用)沿用原局部 state。
+  const [innerIndent, setInnerIndent] = useState<IndentStyle>({ insertSpaces: true, tabSize: 2 });
+  const indent = controlledIndent ?? innerIndent;
 
   // 行尾序列:由内容推导(CRLF 存在即视为 CRLF),与 VSCode 展示一致。
   // 状态栏统计(本行与 charCount)统一读 deferred 值:全文扫描降为
@@ -578,19 +603,25 @@ export function CodeEditor({
   }, []);
 
   /** 应用缩进方式/宽度:仅更新提供的字段,同步 Monaco model 与徽章展示 */
-  const applyIndent = useCallback((style: { insertSpaces?: boolean; tabSize?: number }): void => {
-    const model = editorRef.current?.getModel();
-    if (model) {
-      model.updateOptions({
-        ...(style.insertSpaces !== undefined ? { insertSpaces: style.insertSpaces } : {}),
-        ...(style.tabSize !== undefined ? { tabSize: style.tabSize } : {}),
-      });
-    }
-    setIndent((prev) => ({
-      insertSpaces: style.insertSpaces ?? prev.insertSpaces,
-      tabSize: style.tabSize ?? prev.tabSize,
-    }));
-  }, []);
+  const applyIndent = useCallback(
+    (style: { insertSpaces?: boolean; tabSize?: number }): void => {
+      const model = editorRef.current?.getModel();
+      if (model) {
+        model.updateOptions({
+          ...(style.insertSpaces !== undefined ? { insertSpaces: style.insertSpaces } : {}),
+          ...(style.tabSize !== undefined ? { tabSize: style.tabSize } : {}),
+        });
+      }
+      // 合并后的具体值:徽章展示用;受控时同步上报宿主(工作台写回 Tab override)
+      const next: IndentStyle = {
+        insertSpaces: style.insertSpaces ?? indent.insertSpaces,
+        tabSize: style.tabSize ?? indent.tabSize,
+      };
+      setInnerIndent(next);
+      if (controlledIndent !== undefined) onIndentChange?.(next);
+    },
+    [indent, controlledIndent, onIndentChange],
+  );
 
   /** 从内容检测缩进方式并应用;无缩进行时提示保持现状 */
   const detectIndent = useCallback((): void => {
@@ -629,6 +660,18 @@ export function CodeEditor({
     const next = trimTrailingWhitespace(value);
     if (next !== value) onChange?.(next);
   }, [value, onChange]);
+
+  // 受控缩进同步:prop(override ?? 全局)变化或切模型(modelKey)时落到当前 model。
+  // 新 model 自带默认 options,不应用则 Tab 记忆的缩进在切换后丢失;
+  // 非受控时有效值即局部 state,与原 imperative 路径一致(幂等复写)。
+  const effectiveInsertSpaces = controlledIndent?.insertSpaces ?? innerIndent.insertSpaces;
+  const effectiveTabSize = controlledIndent?.tabSize ?? innerIndent.tabSize;
+  useEffect(() => {
+    editorRef.current?.getModel()?.updateOptions({
+      insertSpaces: effectiveInsertSpaces,
+      tabSize: effectiveTabSize,
+    });
+  }, [modelKey, effectiveInsertSpaces, effectiveTabSize]);
 
   // 按 Unicode 码点统计字符数(emoji / 生僻字等代理对计 1 个),与 TextAnalyzer 口径一致。
   // countCodePoints 免物化数组;deferred 值隔离重算:大输入下全文扫描
@@ -771,9 +814,19 @@ export function CodeEditor({
       foldSummaryRef.current?.dispose();
       foldSummaryRef.current = attachFoldSummary(editor);
     }
-    // 初始化状态栏缩进展示(模型默认 tabSize / insertSpaces)
+    // 初始化状态栏缩进展示:受控时以宿主 resolved(override ?? 全局)为准并
+    // 落到模型,保证徽章与 model 一致;非受控沿用模型默认(tabSize/insertSpaces)
     const opts = editor.getModel()?.getOptions();
-    setIndent({ insertSpaces: opts?.insertSpaces ?? true, tabSize: opts?.tabSize ?? 2 });
+    const initial: IndentStyle = controlledIndent ?? {
+      insertSpaces: opts?.insertSpaces ?? true,
+      tabSize: opts?.tabSize ?? 2,
+    };
+    if (controlledIndent) {
+      editor
+        .getModel()
+        ?.updateOptions({ insertSpaces: initial.insertSpaces, tabSize: initial.tabSize });
+    }
+    setInnerIndent(initial);
     updateStatus();
     // monaco 实例在 beforeMount 时注入;极端加载顺序下可能为 null,
     // 此时仍要触发 onMount(调用方可能依赖 editor 实例做全局注册)。
@@ -1182,6 +1235,9 @@ export function CodeEditor({
         onDetect={detectIndent}
         onConvert={convertIndent}
         onTrim={trimTrailing}
+        hasOverride={hasOverride}
+        followStyle={{ insertSpaces: display.insertSpaces, tabSize: display.tabSize }}
+        onReset={onIndentChange ? () => onIndentChange(null) : undefined}
         data-testid={`${dataTestId ?? 'editor'}-indent-picker`}
       />
       {encoding !== undefined && onEncodingChange && (

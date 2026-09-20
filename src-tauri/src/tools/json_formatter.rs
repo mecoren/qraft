@@ -66,7 +66,8 @@ impl Tool for JsonFormatter {
             });
         }
 
-        let indent = normalize_indent(input.param::<u32>("indent").unwrap_or(DEFAULT_INDENT));
+        let size = normalize_indent(input.param::<u32>("indent").unwrap_or(DEFAULT_INDENT));
+        let use_tabs: bool = input.param::<bool>("use_tabs").unwrap_or(false);
         let sort_keys: bool = input.param::<bool>("sort_keys").unwrap_or(false);
         // minify:紧凑单行输出(indent 参数被忽略),供超大输入的前端快速操作复用后端
         let minify: bool = input.param::<bool>("minify").unwrap_or(false);
@@ -77,7 +78,7 @@ impl Tool for JsonFormatter {
         let text_owned = input.text.take().unwrap_or_default();
         let start = Instant::now();
         let mut output = tokio::task::spawn_blocking(move || {
-            format_core(&text_owned, indent, sort_keys, minify, input_bytes)
+            format_core(&text_owned, size, use_tabs, sort_keys, minify, input_bytes)
         })
         .await
         .map_err(|e| ToolError::Internal(format!("format worker failed: {e}")))??;
@@ -93,12 +94,14 @@ impl Tool for JsonFormatter {
 
 /// 同步格式化核心:纯 CPU 工作(解析 / 键排序 / 序列化),调用方须经 `spawn_blocking` 执行。
 /// `meta.duration_ms` 恒为 0,由异步包装方按真实耗时回填;`output_bytes` 在此如实统计。
-/// `minify = true` 时用紧凑序列化(无换行缩进),`indent` 参数被忽略。
-/// `indent` 须先经 [`normalize_indent`] 归一(直接来自 IPC 的值不可信)。
+/// `minify = true` 时用紧凑序列化(无换行缩进),`indent`/`use_tabs` 参数被忽略。
+/// `indent` 须先经 [`normalize_indent`] 归一(直接来自 IPC 的值不可信);
+/// `use_tabs = true` 时缩进为单个制表符(`size` 仍走归一但不参与输出,不 panic)。
 /// 结构统计随 `extra.stats` 一并回传:前端拿到输出后不必再解析一遍整篇文本。
 fn format_core(
     text: &str,
     indent: usize,
+    use_tabs: bool,
     sort_keys: bool,
     minify: bool,
     input_bytes: usize,
@@ -115,7 +118,11 @@ fn format_core(
             .map_err(|e| ToolError::Internal(e.to_string()))?;
         String::from_utf8(buf).map_err(|e| ToolError::Internal(e.to_string()))?
     } else {
-        let indent_str = " ".repeat(indent);
+        let indent_str = if use_tabs {
+            "\t".to_string()
+        } else {
+            " ".repeat(indent)
+        };
         let formatter = serde_json::ser::PrettyFormatter::with_indent(indent_str.as_bytes());
         let mut buf = Vec::new();
         let mut ser = serde_json::Serializer::with_formatter(&mut buf, formatter);
@@ -541,6 +548,122 @@ mod tests {
         assert_eq!(stats["maxDepth"], json!(3));
         // 顶层键序与展示出来的文档一致(排序后)
         assert_eq!(stats["topLevelKeys"], json!(["a", "z"]));
+    }
+
+    #[tokio::test]
+    async fn test_format_with_use_tabs_true_uses_tab_indent() {
+        let tool = JsonFormatter::new();
+        let ctx = mock_context();
+        let mut params = HashMap::new();
+        params.insert("indent".to_string(), json!(2));
+        params.insert("use_tabs".to_string(), json!(true));
+        // 第二级缩进验证 Tab 叠加(非空格)
+        let input = make_input_with_params(r#"{"a":{"b":1}}"#, params);
+
+        let output = tool.execute(input, &ctx).await.unwrap();
+
+        assert!(
+            output.text.contains("\n\t\"a\""),
+            "expected tab indent, got: {0:?}",
+            output.text
+        );
+        assert!(
+            output.text.contains("\n\t\t\"b\""),
+            "expected double-tab second level, got: {0:?}",
+            output.text
+        );
+        assert!(
+            !output.text.contains("  \""),
+            "must not contain space indent, got: {0:?}",
+            output.text
+        );
+    }
+
+    #[tokio::test]
+    async fn test_format_without_use_tabs_keeps_space_indent() {
+        let tool = JsonFormatter::new();
+        let ctx = mock_context();
+        let mut params = HashMap::new();
+        params.insert("indent".to_string(), json!(2));
+        let input = make_input_with_params(r#"{"a":1}"#, params);
+
+        let output = tool.execute(input, &ctx).await.unwrap();
+
+        assert_eq!(output.text, "{\n  \"a\": 1\n}");
+    }
+
+    #[tokio::test]
+    async fn test_format_with_use_tabs_false_keeps_space_indent() {
+        let tool = JsonFormatter::new();
+        let ctx = mock_context();
+        let mut params = HashMap::new();
+        params.insert("indent".to_string(), json!(2));
+        params.insert("use_tabs".to_string(), json!(false));
+        let input = make_input_with_params(r#"{"a":1}"#, params);
+
+        let output = tool.execute(input, &ctx).await.unwrap();
+
+        assert_eq!(output.text, "{\n  \"a\": 1\n}");
+    }
+
+    #[tokio::test]
+    async fn test_format_use_tabs_with_indent_0_still_uses_tabs() {
+        let tool = JsonFormatter::new();
+        let ctx = mock_context();
+        let mut params = HashMap::new();
+        params.insert("indent".to_string(), json!(0));
+        params.insert("use_tabs".to_string(), json!(true));
+        let input = make_input_with_params(r#"{"a":1}"#, params);
+
+        let output = tool.execute(input, &ctx).await.unwrap();
+
+        // Tab 下 size 被忽略(仍走 normalize 归一到 2,不 panic);输出仍为制表符
+        assert_eq!(output.text, "{\n\t\"a\": 1\n}");
+    }
+
+    #[tokio::test]
+    async fn test_format_use_tabs_with_oversized_indent_still_uses_tabs() {
+        let tool = JsonFormatter::new();
+        let ctx = mock_context();
+        let mut params = HashMap::new();
+        params.insert("indent".to_string(), json!(99));
+        params.insert("use_tabs".to_string(), json!(true));
+        let input = make_input_with_params(r#"{"a":1}"#, params);
+
+        let output = tool.execute(input, &ctx).await.unwrap();
+
+        // 99 超限同样走归一(回 2)但不参与输出,不 panic;输出仍为制表符
+        assert_eq!(output.text, "{\n\t\"a\": 1\n}");
+    }
+
+    #[tokio::test]
+    async fn test_format_minify_ignores_use_tabs() {
+        let tool = JsonFormatter::new();
+        let ctx = mock_context();
+        let mut params = HashMap::new();
+        params.insert("minify".to_string(), json!(true));
+        params.insert("use_tabs".to_string(), json!(true));
+        let input = make_input_with_params("{\n  \"a\": 1,\n  \"b\": 2\n}", params);
+
+        let output = tool.execute(input, &ctx).await.unwrap();
+
+        // minify 单行无缩进,use_tabs 被忽略
+        assert_eq!(output.text, r#"{"a":1,"b":2}"#);
+    }
+
+    #[tokio::test]
+    async fn test_format_use_tabs_with_string_indent_still_uses_tabs() {
+        let tool = JsonFormatter::new();
+        let ctx = mock_context();
+        let mut params = HashMap::new();
+        // 类型不符(param 反序列化失败)回落缺省,不报错;Tab 下 size 本就忽略
+        params.insert("indent".to_string(), json!("2"));
+        params.insert("use_tabs".to_string(), json!(true));
+        let input = make_input_with_params(r#"{"a":1}"#, params);
+
+        let output = tool.execute(input, &ctx).await.unwrap();
+
+        assert_eq!(output.text, "{\n\t\"a\": 1\n}");
     }
 
     #[tokio::test]

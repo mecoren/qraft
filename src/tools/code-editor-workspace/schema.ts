@@ -13,6 +13,7 @@
  */
 import type { LineCalibrationPoint } from './fileOps';
 import type { EditorLanguage } from '@/components/ui/code-editor';
+import { INDENT_WIDTHS, type IndentStyle } from '@/lib/indentation';
 
 export type { EditorLanguage };
 
@@ -50,6 +51,12 @@ export interface EditorTab {
    * 可选字段,缺省视为 true(与旧行为一致);随工作区持久化记忆。
    */
   wordWrap?: boolean;
+  /**
+   * 每 Tab 缩进覆盖(仅当前 Tab 生效):状态栏缩进菜单切换后写入。
+   * undefined/null 视为跟随全局(设置 → 文本编辑器 → 缩进宽度/缩进字符);
+   * 仅已自定义的 Tab 携带该字段,随工作区持久化记忆。
+   */
+  indentOverride?: IndentStyle | null;
   /**
    * 文件编码标识(utf-8 / utf-8-bom / gb18030 / big5 / shift_jis / euc-kr /
    * windows-1252 / utf-16le / utf-16be,见 lib/text-encodings.ts)。
@@ -215,6 +222,22 @@ export function resolveSidebarResize(
 /** 工作区在 Rust 配置存储中的键(点分路径,挂在 tool_prefs 下) */
 export const WORKSPACE_CONFIG_KEY = 'tool_prefs.editor_workspace_v1';
 
+/**
+ * 校验反序列化出的缩进覆盖是否合法,合法则返回规整副本。
+ *
+ * 口径:仅当 insertSpaces 为 boolean 且 tabSize 为 INDENT_WIDTHS 成员
+ * ([1,2,4,8],见 lib/indentation.ts)才保留;其余(null/缺失/类型不符/
+ * 非法宽度)一律回退 undefined(跟随全局),保证旧数据与手写数据兼容。
+ */
+function sanitizeIndentOverride(raw: unknown): IndentStyle | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.insertSpaces !== 'boolean') return undefined;
+  if (typeof o.tabSize !== 'number' || !INDENT_WIDTHS.includes(o.tabSize)) return undefined;
+  return { insertSpaces: o.insertSpaces, tabSize: o.tabSize };
+}
+
 /** 校验一条反序列化出的 Tab 是否结构合法,合法则返回规整后的副本 */
 function sanitizeTab(raw: unknown): EditorTab | null {
   if (typeof raw !== 'object' || raw === null) return null;
@@ -257,6 +280,9 @@ function sanitizeTab(raw: unknown): EditorTab | null {
     typeof t.openedMtimeMs === 'number' && Number.isFinite(t.openedMtimeMs)
       ? t.openedMtimeMs
       : undefined;
+  // 旧版本持久化数据无 indentOverride 字段:缺省为 undefined(跟随全局);
+  // 大文件 Tab 分支(上方早返回)不携带该字段,此处仅普通 Tab 透传
+  const indentOverride = sanitizeIndentOverride(t.indentOverride);
   return {
     id: t.id,
     title: t.title,
@@ -268,6 +294,7 @@ function sanitizeTab(raw: unknown): EditorTab | null {
     savedContent,
     pinned,
     wordWrap,
+    ...(indentOverride !== undefined ? { indentOverride } : {}),
     ...(encoding !== undefined ? { encoding } : {}),
     ...(openedMtimeMs !== undefined ? { openedMtimeMs } : {}),
   };

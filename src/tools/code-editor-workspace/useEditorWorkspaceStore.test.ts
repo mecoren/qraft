@@ -1434,3 +1434,78 @@ describe('useEditorWorkspaceStore 文件树三操作配套 action', () => {
     expect(tabs).toHaveLength(1);
   });
 });
+
+describe('useEditorWorkspaceStore 每 Tab 缩进覆盖(indentOverride)', () => {
+  it('newBlankTab 不预写该字段(新建 Tab 跟随全局)', () => {
+    useEditorWorkspaceStore.getState().newBlankTab();
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(tab.indentOverride).toBeUndefined();
+  });
+
+  it('openLocalFile / openDroppedText 不预写该字段(跟随全局)', () => {
+    useEditorWorkspaceStore.getState().openLocalFile('/a.txt', 'hi');
+    useEditorWorkspaceStore.getState().openDroppedText('drop.txt', 'body');
+    const tabs = useEditorWorkspaceStore.getState().workspace.tabs;
+    expect(tabs[0].indentOverride).toBeUndefined();
+    expect(tabs[1].indentOverride).toBeUndefined();
+  });
+
+  it('setTabIndent 写覆盖并置位 userTouched', () => {
+    useEditorWorkspaceStore.getState().newBlankTab();
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+    useEditorWorkspaceStore.getState().setTabIndent(id, { insertSpaces: false, tabSize: 4 });
+
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id);
+    expect(tab?.indentOverride).toEqual({ insertSpaces: false, tabSize: 4 });
+    expect(useEditorWorkspaceStore.getState().userTouched).toBe(true);
+  });
+
+  it('clearTabIndent 回到跟随全局(undefined)', () => {
+    useEditorWorkspaceStore.getState().newBlankTab();
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+
+    useEditorWorkspaceStore.getState().setTabIndent(id, { insertSpaces: false, tabSize: 4 });
+    useEditorWorkspaceStore.getState().clearTabIndent(id);
+
+    const tab = useEditorWorkspaceStore.getState().workspace.tabs.find((t) => t.id === id);
+    expect(tab?.indentOverride).toBeUndefined();
+    expect(useEditorWorkspaceStore.getState().userTouched).toBe(true);
+  });
+
+  it('persist 落盘包含该字段(小内容 Tab 原样保留)', async () => {
+    useEditorWorkspaceStore.setState({ ready: true });
+    useEditorWorkspaceStore.getState().newBlankTab();
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+    useEditorWorkspaceStore.getState().setTabIndent(id, { insertSpaces: false, tabSize: 4 });
+    safeInvokeMock.mockResolvedValueOnce({ ok: true, value: true });
+
+    await useEditorWorkspaceStore.getState().persist();
+
+    const call = safeInvokeMock.mock.calls.find((c) => c[0] === 'config_set');
+    const persisted = (call?.[1] as { value: { tabs: Array<Record<string, unknown>> } }).value.tabs;
+    expect(persisted[0].indentOverride).toEqual({ insertSpaces: false, tabSize: 4 });
+  });
+
+  it('stripOversized 裁超大内容时不裁本字段(内存不受影响)', async () => {
+    useEditorWorkspaceStore.setState({ ready: true });
+    useEditorWorkspaceStore
+      .getState()
+      .openLocalFile('C:\\big\\dump.dat', 'x'.repeat(200_001), 'windows-1252');
+    const id = useEditorWorkspaceStore.getState().workspace.activeTabId as string;
+    useEditorWorkspaceStore.getState().setTabIndent(id, { insertSpaces: false, tabSize: 4 });
+    safeInvokeMock.mockResolvedValueOnce({ ok: true, value: true });
+
+    await useEditorWorkspaceStore.getState().persist();
+
+    const call = safeInvokeMock.mock.calls.find((c) => c[0] === 'config_set');
+    const persisted = (call?.[1] as { value: { tabs: Array<Record<string, unknown>> } }).value.tabs;
+    // 内容超限被剥离为空,但缩进覆盖保留
+    expect(persisted[0].content).toBe('');
+    expect(persisted[0].indentOverride).toEqual({ insertSpaces: false, tabSize: 4 });
+    // 内存中的工作区不受影响
+    const inMemory = useEditorWorkspaceStore.getState().workspace.tabs[0];
+    expect(inMemory.content).toBe('x'.repeat(200_001));
+    expect(inMemory.indentOverride).toEqual({ insertSpaces: false, tabSize: 4 });
+  });
+});
