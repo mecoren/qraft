@@ -247,13 +247,45 @@ export function generateTsInterface(value: unknown, rootName = 'Root'): string {
 export type InputFormatId = 'json' | 'xml' | 'yaml' | 'toml' | 'json5' | 'properties' | 'urlparams';
 
 /**
- * 前后端格式化分流阈值(按 JS 字符长度计,约 200KB):
- * 不超过该长度的输入在前端用 JSON.stringify 格式化(秒级响应,省 IPC 往返),
- * 超过则走后端 Rust(保留其对超大输入的资源隔离与 10MB 拦截)。
+ * 前后端格式化分流阈值(按 JS 字符长度计,2 MiB 个字符,ASCII 文档下即 2MB):
+ * 不超过该长度的输入在前端用 JSON.parse + JSON.stringify 格式化(省 IPC 往返),
+ * 超过则走后端 Rust(在主线程之外执行,保超大输入的资源隔离与 10MB 拦截)。
  * 定义在此处供 JsonFormatter 的各操作路径(格式化 / 排序 / 快速操作)共享;
  * 注意后端 Rust 侧另有 10MB 硬上限(json_formatter.rs MAX_INPUT_BYTES)。
+ *
+ * 阈值由 2026-09-19 的两侧实测决定(基准见 prd/18-known-issues.md §3.2):
+ * 前端一次格式化的总开销(解析 + 序列化 + 统计)= 200KB 3.6ms / 1MB 24.6ms /
+ * 2MB 47.9ms / 5MB 125.7ms / 10MB 245.9ms;后端 execute 全路径 = 200KB 5.2ms /
+ * 1MB 26.8ms / 10MB 200.6ms(再加 IPC 往返)。即两侧吞吐几乎相当
+ * (V8 与 serde_json 的 DOM 在这份负载上互有胜负),真正的差别是**前端在主线程上跑**:
+ * 2MB 恰好把停顿压在 50ms 的「无感」线内,5MB 起就跨进可感知卡顿区间,
+ * 而后端的代价只是一次几十毫秒的异步等待。所以这条线切的是响应感,不是算力。
  */
-export const FRONTEND_FORMAT_LIMIT = 200 * 1024;
+export const FRONTEND_FORMAT_LIMIT = 2 * 1024 * 1024;
+
+/**
+ * 后端 JSON 工具的输入硬上限(字节),与 Rust 侧
+ * `src-tauri/src/tools/json_formatter.rs` 的 `MAX_INPUT_BYTES` 同值。
+ * 前端在跨 IPC 之前先拦下超限输入:整串送过去只会换回一个 InputTooLarge,
+ * 白跑一趟 IPC(Rust 侧不实现 StreamingTool,超大文档没有可用的分块路径)。
+ */
+export const JSON_BACKEND_MAX_INPUT_BYTES = 10 * 1024 * 1024;
+
+/** 缩进允许值上限,与设置页表单的 `int().min(0).max(8)` 及 Rust `MAX_INDENT` 一致 */
+const JSON_INDENT_MAX = 8;
+const JSON_INDENT_DEFAULT = 2;
+
+/**
+ * 归一化设置页读出来的缩进偏好:0 与超限值都回落到 2。
+ * 0 特殊对待是因为 `JSON.stringify(v, null, 0)` 是紧凑单行,而后端 PrettyFormatter
+ * 的 0 缩进是「换行但无缩进」,放任会让同一文档在前后端分流两侧输出不同。
+ * 规则与 Rust 侧 `normalize_indent`(json_formatter.rs)成对,改一边必须改另一边。
+ */
+export function normalizeJsonIndent(raw: unknown): number {
+  return typeof raw === 'number' && Number.isInteger(raw) && raw > 0 && raw <= JSON_INDENT_MAX
+    ? raw
+    : JSON_INDENT_DEFAULT;
+}
 
 /**
  * 递归反转各对象的原键序(数组顺序不变)。

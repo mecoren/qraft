@@ -36,6 +36,7 @@
   "tools.json_formatter.parse_failed": "Parse failed: ",
   "tools.json_formatter.unescape_failed": "Unescape failed: ",
   "tools.json_formatter.sort_failed": "Sort failed: ",
+  "tools.json_formatter.input_too_large": "Input is too large ({{size}}); the backend limit is {{max}}, so this format run was skipped",
   "tools.json_formatter.convert_failed": "Conversion failed ({{language}}): ",
   "tools.json_formatter.convert_format_failed": "Conversion failed ({{format}}): ",
   "tools.json_formatter.unsupported_format": "Unsupported format: {{format}}",

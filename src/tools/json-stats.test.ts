@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { collectJsonStats } from './json-stats';
+import { collectJsonStats, parseFormatterExtra } from './json-stats';
 
 describe('collectJsonStats', () => {
   it('returns null counts for primitives at root', () => {
@@ -63,5 +63,51 @@ describe('collectJsonStats', () => {
     expect(s.keys).toBe(500);
     expect(s.topLevelKeys.length).toBeLessThanOrEqual(100); // 展示上限
     expect(s.topLevelKeys[0]).toBe('k0');
+  });
+});
+
+describe('parseFormatterExtra', () => {
+  const valid = {
+    stats: { objects: 2, arrays: 1, keys: 3, leaves: 4, maxDepth: 5, topLevelKeys: ['a', 'b'] },
+  };
+
+  it('reads the backend stats payload verbatim', () => {
+    expect(parseFormatterExtra(valid)).toEqual({
+      objects: 2,
+      arrays: 1,
+      keys: 3,
+      leaves: 4,
+      maxDepth: 5,
+      topLevelKeys: ['a', 'b'],
+    });
+  });
+
+  it('returns null for missing or non-object payloads so callers fall back', () => {
+    expect(parseFormatterExtra(undefined)).toBeNull();
+    expect(parseFormatterExtra(null)).toBeNull();
+    expect(parseFormatterExtra('{"objects":1}')).toBeNull();
+    expect(parseFormatterExtra([])).toBeNull();
+    expect(parseFormatterExtra({})).toBeNull();
+    expect(parseFormatterExtra({ stats: null })).toBeNull();
+    expect(parseFormatterExtra({ stats: [] })).toBeNull();
+  });
+
+  it('rejects a payload with any missing, non-numeric or non-array field', () => {
+    expect(parseFormatterExtra({ stats: { ...valid.stats, keys: undefined } })).toBeNull();
+    expect(parseFormatterExtra({ stats: { ...valid.stats, leaves: '4' } })).toBeNull();
+    expect(parseFormatterExtra({ stats: { ...valid.stats, maxDepth: null } })).toBeNull();
+    expect(parseFormatterExtra({ stats: { ...valid.stats, topLevelKeys: 'a' } })).toBeNull();
+    expect(parseFormatterExtra({ stats: { ...valid.stats, topLevelKeys: [1] } })).toBeNull();
+  });
+
+  it('accepts an empty topLevelKeys list (root is not an object)', () => {
+    expect(parseFormatterExtra({ stats: { ...valid.stats, topLevelKeys: [] } })).toEqual({
+      objects: 2,
+      arrays: 1,
+      keys: 3,
+      leaves: 4,
+      maxDepth: 5,
+      topLevelKeys: [],
+    });
   });
 });

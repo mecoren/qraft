@@ -79,7 +79,7 @@ audience: 一年经验的开发者
 
 | 工具 | 限制 |
 |------|------|
-| 流式工具 | MVP 仅 JSON Formatter 与 Hash Calculator 支持 |
+| 流式工具 | ✅ 仅 Hash Calculator 支持(JSON Formatter 的流式路径前端无从触达,2026-09-19 删除;>10MB 输入由前端在跨 IPC 前拦截,见 prd/12 §3.3) |
 | Diff 工具 | ✅ 已实现(TextCompare,支持行级/行内 diff) |
 | 文件类工具 | 仅支持用户显式选择，无目录扫描 |
 | QR 码生成 | ✅ 已实现(QrcodeTool,支持生成与解码) |
@@ -93,6 +93,7 @@ audience: 一年经验的开发者
 | ~~内存分配器~~ | ✅ 已切换 mimalloc(2026-09-12,主二进制 Windows 目标;A/B 实测冷启动/空闲 CPU 持平,常驻 +2.8MB;`no-mimalloc` feature 供回归复测) | — | 已完成 |
 | 内存配额机制 | 无强制限制 | 工具内存配额 | P2 |
 | ~~IPC 性能基准~~ | ✅ 已建立(2026-09-12,`cargo bench --bench ipc_tool_path`:1MB 全路径 17.9–28.8ms < 50ms 达标;bench exe 需 comctl32 v6 manifest,见 `src-tauri/build.rs`) | — | 已完成 |
+| ~~JSON 格式化前后端分流~~ | ✅ 已按实测重定(2026-09-19,阈值 200KB → 2 MiB)。后端 `cargo bench --bench json_formatter` 全路径:200KB 5.2ms / 1MB 26.8ms / 10MB 200.6ms;前端 V8 同文档(解析+序列化+统计):200KB 3.6ms / 1MB 24.6ms / 2MB 47.9ms / 5MB 125.7ms / 10MB 245.9ms。两侧吞吐相当,切点是**前端在主线程上跑**,2 MiB 把停顿压在 50ms 无感线内。同 work 的 `json_format_1mb` 与 `full/1mb` 相差 18.3 / 26.8ms,属同尺寸下的运行顺序噪声,不做优劣解读 | — | 已完成 |
 | Linux WebView 性能 | WebKitGTK 较慢 | 接近 Windows | P2 |
 | Rust 编译时间 | 较慢(debug) | <30s 增量编译 | P1 |
 

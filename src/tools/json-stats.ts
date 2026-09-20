@@ -82,3 +82,34 @@ export function collectJsonStats(value: unknown): JsonStats {
 
   return stats;
 }
+
+/**
+ * 解析后端 `ToolOutput.extra` 里的 `stats`(Rust `collect_stats` 与本模块同口径产出)。
+ * 结构不受信任,逐字段守卫;任一字段缺失或类型不符即返回 null,由调用方回落到
+ * 本地 `collectJsonStats`(旧版后端 / 非 JSON 输入路径)。
+ */
+export function parseFormatterExtra(raw: unknown): JsonStats | null {
+  if (!isRecord(raw) || !isRecord(raw.stats)) return null;
+  const stats = raw.stats;
+  const { objects, arrays, keys, leaves, maxDepth, topLevelKeys } = stats;
+  if (
+    !isCount(objects) ||
+    !isCount(arrays) ||
+    !isCount(keys) ||
+    !isCount(leaves) ||
+    !isCount(maxDepth) ||
+    !Array.isArray(topLevelKeys) ||
+    !topLevelKeys.every((k): k is string => typeof k === 'string')
+  ) {
+    return null;
+  }
+  return { objects, arrays, keys, leaves, maxDepth, topLevelKeys };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}

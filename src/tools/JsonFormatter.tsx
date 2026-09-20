@@ -41,9 +41,11 @@ import {
 import { RenameDialog } from '@/components/RenameDialog';
 import { CopyAction } from '@/components/copy-action';
 import { invokeCommand } from '@/lib/ipc';
+import { formatBytes } from '@/lib/file-utils';
 import { persistDelayFor } from '@/lib/persist-debounce';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
 import { useUiStore } from '@/store/uiStore';
+import { useConfigStore } from '@/store/configStore';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
 import { useToolHandoff } from '@/hooks/useToolHandoff';
 import { SendToMenu } from '@/components/send-to-menu';
@@ -83,7 +85,9 @@ import {
   sniffInputFormat,
   sortJsonKeysBy,
   reverseObjectKeys,
+  normalizeJsonIndent,
   FRONTEND_FORMAT_LIMIT,
+  JSON_BACKEND_MAX_INPUT_BYTES,
   type InputFormatId,
   type JsonKeySortMode,
 } from './json-utils';
@@ -91,7 +95,7 @@ import { locateJsonError, type JsonErrorLocation } from './json-diagnostics';
 import { repairJson } from './json-repair';
 import { expandNestedJson } from './json-nested';
 import { convertDatesToTimestamps, convertTimestampsToDates } from './json-timestamp';
-import { collectJsonStats, type JsonStats } from './json-stats';
+import { collectJsonStats, parseFormatterExtra, type JsonStats } from './json-stats';
 import { findJsonPrecisionIssues, type PrecisionIssue } from './json-precision';
 import { jsonToCsv } from './json-csv-utils';
 import { ENTITY_LANGUAGE_ITEMS, generateEntityCode, type EntityLanguage } from './json-entity';
@@ -512,9 +516,12 @@ export function JsonFormatter({ toolId }: ToolProps) {
     [activeDoc, setDocContent],
   );
 
-  // 格式化输出缩进:固定 2 空格(工具栏缩进下拉框已移除,
-  // 编辑器状态栏的「空格:N」仅作用于编辑显示,不参与输出格式化)
-  const indent = 2;
+  // 输出缩进取自「设置 → JSON 缩进」(tool_prefs.json_formatter.values.indent),
+  // 缺省与非法值都经 normalizeJsonIndent 归一到 2;改偏好即刻重新格式化(见下方防抖 effect)
+  const indentPref = useConfigStore(
+    (s) => s.config?.tool_prefs?.['json_formatter']?.values?.indent,
+  );
+  const indent = normalizeJsonIndent(indentPref);
   const [output, setOutput] = useState('');
   const [outputLanguage, setOutputLanguage] = useState<EditorLanguage>('json');
   const [meta, setMeta] = useState<OutputMeta | null>(null);
@@ -709,6 +716,29 @@ export function JsonFormatter({ toolId }: ToolProps) {
   );
 
   /**
+   * 跨 IPC 前的大输入拦截:后端硬上限 10MB,把整串送过去只会换回一个
+   * InputTooLarge,而既有 catch 分支会把错误文本写进输出框冒充结果。
+   * 改为把原因写进报告条(输出框保留上一次的正常结果)并返回 true,
+   * 调用方据此直接 return。
+   */
+  const overBackendCap = useCallback(
+    (source: string): boolean => {
+      const inputBytes = utf8BytesOf(source);
+      if (inputBytes <= JSON_BACKEND_MAX_INPUT_BYTES) return false;
+      setRepairReport(
+        t('tools.json_formatter.input_too_large', {
+          size: formatBytes(inputBytes),
+          max: formatBytes(JSON_BACKEND_MAX_INPUT_BYTES),
+        }),
+      );
+      setMeta(null);
+      setStats(null);
+      return true;
+    },
+    [utf8BytesOf, t],
+  );
+
+  /**
    * 解析失败的 JSON 错误定位;修复报告仅在用户再次输入时清空
    * (handleInputChange),不被随后的自动格式化成功路径误擦。
    * 注意:sniffInputFormat 对纯 JSON 返回 null(而非 'json'),判定与
@@ -897,14 +927,18 @@ export function JsonFormatter({ toolId }: ToolProps) {
           setPrecisionIssues(findJsonPrecisionIssues(text));
           setOutputLanguage('json');
         } else {
+          if (overBackendCap(text)) return;
           const result = await invokeCommand<ToolOutput>('tool_execute', {
             toolId,
             input: { text, params: { indent } },
           });
           setOutput(result.text ?? '');
           setMeta(result.meta ?? null);
-          // 后端路径的结构统计:输出已是合法 JSON(后端校验过),解析一次统计
-          setStats(collectJsonStats(parseSmart(result.text ?? '')));
+          // 结构统计由后端 extra 带回(后端已解析过一遍,前端不必再解析整篇输出);
+          // 旧版后端或异常形状时回落本地计算
+          setStats(
+            parseFormatterExtra(result.extra) ?? collectJsonStats(parseSmart(result.text ?? '')),
+          );
           setPrecisionIssues(findJsonPrecisionIssues(text));
           setOutputLanguage('json');
         }
@@ -922,8 +956,17 @@ export function JsonFormatter({ toolId }: ToolProps) {
         if (!auto) setLoading(false);
       }
     },
-    // formatOnFrontend 为组件内纯函数,仅依赖 indent(已含于依赖数组)
-    [toolId, text, indent, recordHistory, t, forgetJsonError, rememberJsonError, frontendMetaOf],
+    [
+      toolId,
+      text,
+      indent,
+      recordHistory,
+      t,
+      forgetJsonError,
+      rememberJsonError,
+      frontendMetaOf,
+      overBackendCap,
+    ],
   );
 
   // 全局快捷键契约:Ctrl+Enter 执行 / Ctrl+L 清空当前文档 / Ctrl+Shift+C 复制输出。
@@ -977,6 +1020,7 @@ export function JsonFormatter({ toolId }: ToolProps) {
   async function handleQuickAction(action: QuickAction) {
     if (!text.trim()) return;
     if (action === 'minify' && isJsonLike && text.length > FRONTEND_FORMAT_LIMIT) {
+      if (overBackendCap(text)) return;
       try {
         const result = await invokeCommand<ToolOutput>('tool_execute', {
           toolId,
@@ -1054,14 +1098,20 @@ export function JsonFormatter({ toolId }: ToolProps) {
     if (!text.trim()) return;
     const backendCapable = mode === 'alpha';
     if (backendCapable && isJsonLike && text.length > FRONTEND_FORMAT_LIMIT) {
+      if (overBackendCap(text)) return;
       try {
         const result = await invokeCommand<ToolOutput>('tool_execute', {
           toolId,
-          input: { text, params: { sort_keys: !descending } },
+          input: { text, params: { sort_keys: !descending, indent } },
         });
-        // 后端仅支持升序;降序由前端把后端的升序输出反转一次键序
+        // 后端仅支持升序;降序由前端把后端的升序输出反转一次键序,
+        // 重新 stringify 时必须带上 indent,否则大文档降序结果会塌成单行
         const sorted = descending
-          ? JSON.stringify(reverseObjectKeys(JSON.parse(result.text ?? 'null') as unknown))
+          ? JSON.stringify(
+              reverseObjectKeys(JSON.parse(result.text ?? 'null') as unknown),
+              null,
+              indent,
+            )
           : (result.text ?? '');
         setOutput(sorted);
         setMeta(result.meta ?? null);

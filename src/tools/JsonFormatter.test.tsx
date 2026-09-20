@@ -28,7 +28,10 @@ vi.mock('@/lib/ipc', () => {
 // 导入必须在 mock 声明之后,确保组件拿到的是 mocked 模块
 import { JsonFormatter, looksLikeEscapedJson } from './JsonFormatter';
 import { useJsonFormatterStore } from './jsonFormatterStore';
+import { FRONTEND_FORMAT_LIMIT, JSON_BACKEND_MAX_INPUT_BYTES } from './json-utils';
 import { useUiStore } from '@/store/uiStore';
+import { useConfigStore } from '@/store/configStore';
+import { DEFAULT_USER_CONFIG } from '@/types/config';
 
 describe('JsonFormatter', () => {
   beforeEach(() => {
@@ -44,6 +47,8 @@ describe('JsonFormatter', () => {
       userTouched: false,
       error: null,
     });
+    // 配置复位为默认值(indent 偏好缺省 → 2 空格),单用例改写后不跨用例泄漏
+    useConfigStore.setState({ config: { ...DEFAULT_USER_CONFIG }, loading: false, error: null });
   });
 
   const getInputEditor = (): HTMLTextAreaElement =>
@@ -63,7 +68,8 @@ describe('JsonFormatter', () => {
     // 排序 / 转换为 下拉菜单按钮(取代原键升序/键降序/生成实体类)
     expect(screen.getByTestId('btn-sort')).toBeInTheDocument();
     expect(screen.getByTestId('btn-convert')).toBeInTheDocument();
-    // 缩进选择器已从标题栏移除(输出缩进固定 2 空格,编辑器状态栏「空格:N」仅控制编辑显示)
+    // 缩进选择器已从标题栏移除(输出缩进读「设置 → 工具偏好」的 indent,
+    // 编辑器状态栏「空格:N」仅控制编辑显示)
   });
 
   it('formats small JSON on the frontend without IPC, respecting the indent setting', async () => {
@@ -292,10 +298,10 @@ describe('JsonFormatter', () => {
 
   it('falls back to the Rust backend for inputs exceeding the frontend format limit', async () => {
     const { invokeCommand } = await import('@/lib/ipc');
-    // 构造超过 200KB 阈值的输入,触发后端路径
-    const largeJson = `{"data":"${'a'.repeat(200 * 1024)}"}`;
+    // 构造刚超过分流阈值的输入,触发后端路径(字节数由常量推导,阈值调整后用例如常生效)
+    const largeJson = `{"data":"${'a'.repeat(FRONTEND_FORMAT_LIMIT + 1)}"}`;
     (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      text: `{"data":"${'a'.repeat(200 * 1024)}"}`,
+      text: largeJson,
       meta: { input_bytes: largeJson.length, output_bytes: largeJson.length, duration_ms: 1 },
     });
 
@@ -309,6 +315,129 @@ describe('JsonFormatter', () => {
         input: { text: largeJson, params: { indent: 2 } },
       });
     });
+  });
+
+  it('uses the indent tool preference on the frontend path', async () => {
+    useConfigStore.setState({
+      config: {
+        ...DEFAULT_USER_CONFIG,
+        tool_prefs: { json_formatter: { values: { indent: 4 } } },
+      },
+    });
+
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: '{"a":1}' } });
+    fireEvent.click(screen.getByTestId('btn-format'));
+
+    await waitFor(() => {
+      expect(getOutputValue()).toBe('{\n    "a": 1\n}');
+    });
+  });
+
+  it('sends the indent tool preference to the backend', async () => {
+    const { invokeCommand } = await import('@/lib/ipc');
+    useConfigStore.setState({
+      config: {
+        ...DEFAULT_USER_CONFIG,
+        tool_prefs: { json_formatter: { values: { indent: 4 } } },
+      },
+    });
+    const largeJson = `{"data":"${'a'.repeat(FRONTEND_FORMAT_LIMIT + 1)}"}`;
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: largeJson,
+      meta: { input_bytes: largeJson.length, output_bytes: largeJson.length, duration_ms: 1 },
+    });
+
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: largeJson } });
+    fireEvent.click(screen.getByTestId('btn-format'));
+
+    await waitFor(() => {
+      expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
+        toolId: 'json_formatter',
+        input: { text: largeJson, params: { indent: 4 } },
+      });
+    });
+  });
+
+  it('takes the structure stats from the backend extra payload', async () => {
+    const { invokeCommand } = await import('@/lib/ipc');
+    const largeJson = `{"data":"${'a'.repeat(FRONTEND_FORMAT_LIMIT + 1)}"}`;
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: largeJson,
+      meta: { input_bytes: largeJson.length, output_bytes: largeJson.length, duration_ms: 1 },
+      // 与本地解析结果刻意不同:该输出实际只有 1 个对象、深度 2
+      extra: {
+        stats: {
+          objects: 7,
+          arrays: 3,
+          keys: 11,
+          leaves: 5,
+          maxDepth: 9,
+          topLevelKeys: ['data'],
+        },
+      },
+    });
+
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: largeJson } });
+    fireEvent.click(screen.getByTestId('btn-format'));
+
+    const badge = await screen.findByTestId('stats-badge');
+    expect(badge.textContent).toContain('对象 7');
+    expect(badge.textContent).toContain('深度 9');
+  });
+
+  it('recomputes the structure stats locally when the backend sends no extra', async () => {
+    const { invokeCommand } = await import('@/lib/ipc');
+    const largeJson = `{"data":"${'a'.repeat(FRONTEND_FORMAT_LIMIT + 1)}"}`;
+    (invokeCommand as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: largeJson,
+      meta: { input_bytes: largeJson.length, output_bytes: largeJson.length, duration_ms: 1 },
+    });
+
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: largeJson } });
+    fireEvent.click(screen.getByTestId('btn-format'));
+
+    const badge = await screen.findByTestId('stats-badge');
+    expect(badge.textContent).toContain('对象 1');
+  });
+
+  it('normalizes an out-of-range indent preference back to 2 spaces', async () => {
+    useConfigStore.setState({
+      config: {
+        ...DEFAULT_USER_CONFIG,
+        // 设置页允许 0(意即「跟随默认」),与后端同规则归一化为 2
+        tool_prefs: { json_formatter: { values: { indent: 0 } } },
+      },
+    });
+
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: '{"a":1}' } });
+    fireEvent.click(screen.getByTestId('btn-format'));
+
+    await waitFor(() => {
+      expect(getOutputValue()).toBe('{\n  "a": 1\n}');
+    });
+  });
+
+  it('blocks input beyond the backend hard cap instead of sending it over IPC', async () => {
+    const { invokeCommand } = await import('@/lib/ipc');
+    // 后端上限按 UTF-8 字节计,4 字节一个码位的表情可用最短字符串越过该上限
+    const overCapJson = `{"data":"${'🙂'.repeat(JSON_BACKEND_MAX_INPUT_BYTES / 4 + 1)}"}`;
+
+    render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
+    fireEvent.change(getInputEditor(), { target: { value: overCapJson } });
+    fireEvent.click(screen.getByTestId('btn-format'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('repair-report')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('repair-report').textContent).toContain('输入过大');
+    // 超大输入不跨 IPC,输出框不被错误文本冒充
+    expect(invokeCommand).not.toHaveBeenCalled();
+    expect(getOutputValue()).toBe('');
   });
 
   it('clears output when input becomes empty', async () => {
@@ -522,7 +651,7 @@ describe('JsonFormatter', () => {
   it('routes oversized minify and alpha sort through the Rust backend', async () => {
     const user = userEvent.setup();
     const { invokeCommand } = await import('@/lib/ipc');
-    const largeJson = `{"b":${'1'.repeat(200 * 1024)},"a":2}`;
+    const largeJson = `{"b":${'1'.repeat(FRONTEND_FORMAT_LIMIT + 1)},"a":2}`;
     // minify 的后端返回与 sort 的后端返回按调用次序依次生效
     (invokeCommand as unknown as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
@@ -537,7 +666,7 @@ describe('JsonFormatter', () => {
     render(<JsonFormatter toolId="json_formatter" metadata={null as never} />);
     fireEvent.change(getInputEditor(), { target: { value: largeJson } });
 
-    // 压缩:>200KB 走后端 minify 参数
+    // 压缩:超过阈值走后端 minify 参数
     fireEvent.click(screen.getByTestId('btn-minify'));
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
@@ -546,14 +675,15 @@ describe('JsonFormatter', () => {
       });
     });
 
-    // 字典序升序:>200KB 走后端 sort_keys(Radix 触发器用键盘激活最可靠,同既有排序用例)
+    // 字典序升序:超过阈值走后端 sort_keys,并带上缩进偏好
+    // (Radix 触发器用键盘激活最可靠,同既有排序用例)
     screen.getByTestId('btn-sort').focus();
     await user.keyboard('{Enter}');
     fireEvent.click(await screen.findByTestId('sort-alpha-asc'));
     await waitFor(() => {
       expect(invokeCommand).toHaveBeenCalledWith('tool_execute', {
         toolId: 'json_formatter',
-        input: { text: largeJson, params: { sort_keys: true } },
+        input: { text: largeJson, params: { sort_keys: true, indent: 2 } },
       });
     });
   });
