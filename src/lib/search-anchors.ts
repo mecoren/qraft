@@ -243,15 +243,6 @@ export const TOOL_ANCHORS: Readonly<Record<string, readonly ToolAnchor[]>> = {
   ],
   json_formatter: [
     {
-      key: 'config',
-      title: T_CONFIG,
-      description: {
-        zh: '本文档缩进(空格 / Tab 与宽度),缺省跟随全局设置',
-        en: 'Indentation for this document (spaces / tabs and width), following global settings by default',
-      },
-      keywords: ['缩进', '空格', 'tab', '宽度', 'indent', '跟随设置'],
-    },
-    {
       key: 'input',
       title: T_INPUT,
       description: {

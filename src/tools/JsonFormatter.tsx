@@ -17,15 +17,6 @@ import { useTranslation } from 'react-i18next';
 import { runJsonQuery, type QueryEngine } from './json-query';
 import { Input } from '@/components/ui/input';
 import { CodeEditor, type EditorLanguage } from '@/components/ui/code-editor';
-import { ConfigRow, ConfigSection } from '@/components/config-card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { MonacoMenuSection } from '@/components/ui/monaco-context-menu';
 import {
   DropdownMenu,
@@ -53,7 +44,7 @@ import { invokeCommand } from '@/lib/ipc';
 import { formatBytes } from '@/lib/file-utils';
 import { persistDelayFor } from '@/lib/persist-debounce';
 import { copyTextWithFeedback } from '@/lib/toast-alert';
-import { INDENT_WIDTHS, type IndentStyle } from '@/lib/indentation';
+import { type IndentStyle } from '@/lib/indentation';
 import { useUiStore } from '@/store/uiStore';
 import { useConfigStore } from '@/store/configStore';
 import { useToolShortcutActions } from '@/hooks/useToolShortcutActions';
@@ -72,7 +63,6 @@ import {
   FileJson,
   FileText,
   History,
-  IndentIncrease,
   ListTree,
   LocateFixed,
   Minimize2,
@@ -551,34 +541,9 @@ export function JsonFormatter({ toolId }: ToolProps) {
   );
 
   /**
-   * 文档级缩进选择器的写路径:任何切换(方式/宽度)都只调 setDocIndent 落到
-   * 当前 Doc 的 indentOverride,绝不写全局 config(全局改走「设置」页)。
-   * 切换方式时保留当前宽度(切回空格时宽度仍在);宽度在 Tab 下禁用,
-   * 到不了宽度处理函数,无需在此重复设防。
-   */
-  function handleIndentModeChange(value: string) {
-    if (!activeDoc) return;
-    setDocIndent(activeDoc.id, { useTabs: value === 'tabs', size: resolved.size });
-  }
-
-  /** 宽度切换:沿用当前方式只改 size(非法值直接忽略,不写 store) */
-  function handleIndentWidthChange(value: string) {
-    if (!activeDoc) return;
-    const size = Number(value);
-    if (!INDENT_WIDTHS.includes(size)) return;
-    setDocIndent(activeDoc.id, { useTabs: resolved.useTabs, size });
-  }
-
-  /** 清除当前 Doc 的缩进覆盖,回到跟随全局 */
-  function handleIndentReset() {
-    if (!activeDoc) return;
-    resetDocIndent(activeDoc.id);
-  }
-
-  /**
-   * 输入编辑器状态栏缩进菜单的写路径:与文档级选择器同源(resolved),
-   * 变更同样只落当前 Doc 的 indentOverride(null=清除回跟随),
-   * 不会写全局设置,也不影响其它文档。
+   * 输入编辑器状态栏缩进菜单的写路径,也是本文档缩进的唯一入口:
+   * 变更只落当前 Doc 的 indentOverride(null=清除回跟随),
+   * 不会写全局设置(全局改走「设置」页),也不影响其它文档。
    */
   function handleEditorIndentChange(style: IndentStyle | null) {
     if (!activeDoc) return;
@@ -1630,80 +1595,6 @@ export function JsonFormatter({ toolId }: ToolProps) {
           <Plus aria-hidden className="size-3.5" />
         </button>
       </div>
-
-      {/* —— 文档级缩进选择器:覆盖只落当前 Doc,跟随态显示全局值 + 跟随徽标 —— */}
-      <ConfigSection title="" searchAnchor="json_formatter:config">
-        <ConfigRow
-          icon={IndentIncrease}
-          caption={t('tools.json_formatter.indent_caption')}
-          captionHint={t('tools.json_formatter.indent_caption_hint')}
-          testId="doc-indent-row"
-        >
-          {/* 方式分段(空格/Tab,照 Base64Codec 的 Tabs 分段模式,压到 h-7 贴合配置行) */}
-          <Tabs value={resolved.useTabs ? 'tabs' : 'spaces'} onValueChange={handleIndentModeChange}>
-            <TabsList aria-label={t('tools.json_formatter.indent_mode_aria')} className="h-7">
-              <TabsTrigger
-                value="spaces"
-                data-testid="doc-indent-spaces"
-                className="px-2 py-0.5 text-xs"
-              >
-                {t('tools.json_formatter.indent_spaces')}
-              </TabsTrigger>
-              <TabsTrigger
-                value="tabs"
-                data-testid="doc-indent-tabs"
-                className="px-2 py-0.5 text-xs"
-              >
-                {t('tools.json_formatter.indent_tabs')}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          {/* 宽度下拉(INDENT_WIDTHS 口径;Tab 无宽度概念,禁用并由 captionHint 说明) */}
-          <Select
-            value={String(resolved.size)}
-            onValueChange={handleIndentWidthChange}
-            disabled={resolved.useTabs}
-          >
-            <SelectTrigger
-              data-testid="doc-indent-width"
-              aria-label={t('tools.json_formatter.indent_width_aria')}
-              className="h-7 w-20 text-xs"
-            >
-              {/* 全局设置允许 1..8 任意宽度,而文件级选项仅 INDENT_WIDTHS[1,2,4,8]:
-                  跟随态下当前值不在选项内时用 placeholder 兜底显示,避免触发值为空 */}
-              <SelectValue placeholder={String(resolved.size)} />
-            </SelectTrigger>
-            <SelectContent>
-              {INDENT_WIDTHS.map((w) => (
-                <SelectItem key={w} value={String(w)}>
-                  {w}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {/* 跟随徽标与重置按钮互斥:ml-2 与按钮组对齐(ActionButton 标题栏同款间距) */}
-          <span className="ml-2 flex items-center">
-            {activeDoc?.indentOverride == null ? (
-              <span
-                data-testid="doc-indent-following"
-                className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
-              >
-                {t('tools.json_formatter.indent_following')}
-              </span>
-            ) : (
-              <button
-                type="button"
-                data-testid="doc-indent-reset"
-                title={t('tools.json_formatter.indent_reset_title')}
-                onClick={handleIndentReset}
-                className="rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {t('tools.json_formatter.indent_reset')}
-              </button>
-            )}
-          </span>
-        </ConfigRow>
-      </ConfigSection>
 
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         <ResizablePanel defaultSize="50" minSize="20" className="min-h-0 min-w-0">
