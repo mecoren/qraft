@@ -5,6 +5,22 @@ All notable changes to Qraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] - 2026-09-20
+
+### Added
+
+- 「检查更新」发现新版本时改为弹出模态更新弹窗:版本号、安装方式、发行说明与下载进度集中在弹窗内,底部提供「稍后再说 / 前往 Releases / 立即更新」;下载安装期间屏蔽 ESC、点击遮罩与关闭按钮,避免下载被打断后前端停留在旧状态
+
+### Changed
+
+- 工具配置栏统一为 caption 微标签布局:96px 定宽小标签列 + 占满剩余宽度的控件列(可换行),栏级共性说明收进 `headerHint` 的紧凑标题行,行级说明走 `captionHint` 悬浮提示,不再使用 label + hint 双行写法
+- 方向 / 模式类二选一统一改用分段控件:编码↔解码、加密↔解密、压缩↔解压、TOTP↔HOTP、无损↔有损等互斥语义不再用读不出方向的开关或把选项藏进浮层的两项下拉,覆盖 Base64、AES、BasicAuth、GZip、HTML、OTP、JSON/CSV、哈希、二维码、PNG 压缩等工具
+- JSON 格式化器的文档级缩进入口收敛到输入编辑器状态栏菜单:移除顶部配置区的缩进行,只保留状态栏一处入口(含「跟随设置」清除覆盖)
+
+### Fixed
+
+- 修复文本比较 / 文件对比差异视图中拖动选中的文字被差异底色整块遮盖:Monaco overlay 容器设为独立层叠上下文并把选区抬到装饰之上,选中可见且文字仍可读
+
 ## [0.3.4] - 2026-09-20
 
 ### Added
@@ -331,6 +347,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tauri Updater 签名验证(ed25519)
 - MVP 阶段:Windows/macOS 使用占位签名(ad-hoc),正式发布需 EV 证书与 Apple Developer ID
 
+[0.3.5]: https://github.com/qraft/qraft/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/qraft/qraft/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/qraft/qraft/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/qraft/qraft/compare/v0.3.1...v0.3.2

@@ -23,6 +23,7 @@
  * v0.3.2 内容基于 git log(v0.3.1 标签之后至 2026-09-18)提炼,
  * v0.3.3 内容基于 git log(v0.3.2 标签之后至 2026-09-19)提炼,
  * v0.3.4 内容基于 git log(v0.3.3 标签之后至 2026-09-20)提炼,
+ * v0.3.5 内容基于 git log(v0.3.4 标签之后至 2026-09-20)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -51,6 +52,51 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.3.5',
+    date: '2026-09-20',
+    summary: {
+      zh: '发现新版本时改为弹出更新弹窗;全仓库工具配置栏统一 caption 微标签、方向类二选一改用分段控件;JSON 格式化器缩进入口收敛到状态栏菜单;修复差异视图中选区被差异底色遮盖',
+      en: 'New versions now open a modal update dialog; the tool config bar switched to a uniform caption-micro-label layout with segmented controls for two-way modes; the JSON formatter indent entry moved into the status bar menu; fixed diff-view selections being hidden by the diff background',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: '「检查更新」发现新版本时改为弹出模态更新弹窗:版本号、安装方式、发行说明与下载进度集中在弹窗内,底部提供「稍后再说 / 前往 Releases / 立即更新」;下载安装期间屏蔽 ESC、点击遮罩与关闭按钮,避免下载被打断后前端停留在旧状态',
+          en: 'Finding a new version now opens a modal update dialog: version, install mode, release notes and download progress live in one place, with "Later / Open Releases / Install now" at the bottom; while downloading and installing every close path (ESC, overlay click, close button) is blocked so an interrupted download can\'t leave the UI in a stale state',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '工具配置栏统一为 caption 微标签布局:96px 定宽小标签列 + 占满剩余宽度的控件列(可换行),栏级共性说明收进 headerHint 的紧凑标题行,行级说明走 captionHint 悬浮提示,不再使用 label + hint 双行写法',
+          en: 'The tool config bar now uses one uniform caption-micro-label layout: a fixed 96px label column plus a control column that fills the remaining width and wraps, with section-level notes in the compact headerHint row and row-level notes in hoverable captionHints instead of stacked label + hint lines',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '方向 / 模式类二选一统一改用分段控件:编码↔解码、加密↔解密、压缩↔解压、TOTP↔HOTP、无损↔有损等互斥语义不再用读不出方向的开关或把选项藏进浮层的两项下拉,覆盖 Base64、AES、BasicAuth、GZip、HTML、OTP、JSON/CSV、哈希、二维码、PNG 压缩等工具',
+          en: 'Two-way direction/mode choices now use segmented controls: mutually exclusive pairs such as encode↔decode, encrypt↔decrypt, compress↔decompress, TOTP↔HOTP and lossless↔lossy no longer rely on switches (which read as on/off) or two-item dropdowns (which hide the alternative), across Base64, AES, BasicAuth, GZip, HTML, OTP, JSON/CSV, hash, QR code and PNG compression',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: 'JSON 格式化器的文档级缩进入口收敛到输入编辑器状态栏菜单:移除顶部配置区的缩进行,只保留状态栏一处入口(含「跟随设置」清除覆盖)',
+          en: 'The JSON formatter document indent control collapsed into the input editor status-bar menu: the config-bar indent row was removed, leaving a single entry point that still offers "follow settings" to clear an override',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复文本比较 / 文件对比差异视图中拖动选中的文字被差异底色整块遮盖:Monaco overlay 容器设为独立层叠上下文并把选区抬到装饰之上,选中可见且文字仍可读',
+          en: 'Fixed dragged selections in the text/file diff view being completely covered by the diff background: the Monaco overlay container became its own stacking context and the selection layer now sits above decorations, so selections are visible while text stays readable',
+        },
+      },
+    ],
+  },
   {
     version: '0.3.4',
     date: '2026-09-20',
