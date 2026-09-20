@@ -22,6 +22,7 @@
  * v0.3.1 内容基于 git log(v0.3.0 标签之后至 2026-09-16)提炼,
  * v0.3.2 内容基于 git log(v0.3.1 标签之后至 2026-09-18)提炼,
  * v0.3.3 内容基于 git log(v0.3.2 标签之后至 2026-09-19)提炼,
+ * v0.3.4 内容基于 git log(v0.3.3 标签之后至 2026-09-20)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -50,6 +51,44 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.3.4',
+    date: '2026-09-20',
+    summary: {
+      zh: '编辑器缩进统一收口到设置:文本编辑器与 JSON 格式化器新增缩进字符 / 宽度设置,并支持按文件单独覆盖(覆盖后不再跟随全局);同时修掉制表符缩进 JSON 文档的假报错与失效修复,格式化分流阈值升到 2MiB',
+      en: 'Indentation now comes from one place: the text editor and JSON formatter gained indent character/width settings plus per-file overrides that stop following the global value once set; this release also fixes false syntax errors and broken repair for tab-indented JSON and raises the formatter split threshold to 2 MiB',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: '文本编辑器新增「缩进字符」(空格 / Tab)设置,JSON 格式化器新增「使用 Tab 缩进」开关;两个工具都支持按文件 / 文档单独覆盖缩进方式与宽度,覆盖后本文件不再跟随全局设置(只有改设置才影响其余文件),编辑器状态栏缩进菜单新增「跟随设置」清除覆盖,JSON 格式化器顶部新增文档级缩进选择器并在跟随态标注当前全局值',
+          en: 'The text editor gained an indent-character setting (spaces/tabs) and the JSON formatter an "indent with tabs" switch; both tools now support per-file/per-document overrides of indent style and width that stop following the global settings once set (only changing the settings affects the rest), the editor status bar menu gained "follow settings" to clear an override, and the JSON formatter gained a document-level indent picker that labels the current global value while following',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: 'JSON 格式化器前后端分流阈值按实测从 200KB 提升到 2MiB,并消费后端随 extra 返回的结构统计,不再重复解析输出;Rust 侧 sort_keys 改为递归排序、缩进参数归一化(与前端同口径,非法值统一回落 2 空格)、删除不可达的流式路径',
+          en: 'The JSON formatter split threshold moved from 200KB to 2 MiB based on measurements, and the frontend now consumes the structure stats returned in the backend extra instead of re-parsing the output; on the Rust side sort_keys became recursive, indent params are normalized (same rules as the frontend, invalid values fall back to 2 spaces), and the unreachable streaming path was removed',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复制表符缩进的 JSON 文档被误判语法错误、以及「一键修复」在这类文档上失效:诊断与修复把 Tab 计入 JSON 空白字符',
+          en: 'Fixed false syntax errors and broken one-click repair for tab-indented JSON: diagnostics and repair now treat tabs as JSON whitespace',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复设置页的 JSON 缩进偏好保存后工具侧不生效,以及缩进宽度在前后端分流两侧输出不一致(0 等非法值统一回落)',
+          en: 'Fixed the JSON indent preference from Settings not taking effect in the tool, and indent widths producing different output on the two sides of the frontend/backend split (invalid values such as 0 now fall back consistently)',
+        },
+      },
+    ],
+  },
   {
     version: '0.3.3',
     date: '2026-09-19',

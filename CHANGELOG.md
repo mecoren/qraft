@@ -5,6 +5,23 @@ All notable changes to Qraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] - 2026-09-20
+
+### Added
+
+- 编辑器缩进统一收口到设置:文本编辑器新增「缩进字符」(空格 / Tab),JSON 格式化器新增「使用 Tab 缩进」开关
+- 文本编辑器与 JSON 格式化器支持按文件 / 文档单独覆盖缩进方式与宽度:覆盖后本文件不再跟随全局设置,只有改动设置才会影响其余文件;编辑器状态栏缩进菜单新增「跟随设置」清除覆盖,JSON 格式化器顶部新增文档级缩进选择器(跟随态标注当前全局值)
+
+### Changed
+
+- JSON 格式化器前后端分流阈值按实测从 200KB 提升到 2MiB(2MiB 以内前端 `JSON.stringify`,超过交 Rust 执行),并消费后端随 `extra` 返回的结构统计,不再重复解析一遍输出
+- Rust JSON 工具收敛:`sort_keys` 改为递归排序、缩进参数归一化(与前端同口径,非法值统一回落 2 空格)、删除不可达的流式路径
+
+### Fixed
+
+- 修复制表符缩进的 JSON 文档被误判语法错误、以及「一键修复」在这类文档上失效:诊断与修复把 Tab 计入 JSON 空白字符
+- 修复设置页的 JSON 缩进偏好保存后工具侧不生效,以及缩进宽度在前后端分流两侧输出不一致(0 等非法值统一回落)
+
 ## [0.3.3] - 2026-09-19
 
 ### Added
@@ -314,6 +331,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tauri Updater 签名验证(ed25519)
 - MVP 阶段:Windows/macOS 使用占位签名(ad-hoc),正式发布需 EV 证书与 Apple Developer ID
 
+[0.3.4]: https://github.com/qraft/qraft/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/qraft/qraft/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/qraft/qraft/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/qraft/qraft/compare/v0.3.0...v0.3.1
