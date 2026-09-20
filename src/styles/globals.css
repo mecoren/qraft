@@ -820,6 +820,19 @@
   font-weight: 600;
 }
 
+/* 选区可见性:Monaco 把选区层 `.selected-text` 与上述整行 / 词级装饰 div 放在
+ * 同一个 overlay 容器内,按 DOM 顺序绘制(装饰在后),而浅色主题的差异底色是
+ * 不透明色 —— 于是差异块上的拖动选中被整块盖住,看着像「没选中」。
+ * 处理:先把 overlay 容器设成独立层叠上下文,再把选区抬到装饰之上,
+ * 这样既盖过差异底色(选中可见),又不会越过文本层(文字仍可读)。
+ * 定向作用于 Monaco,不影响应用其它浮层。 */
+.monaco-editor .view-overlays {
+  isolation: isolate;
+}
+.monaco-editor .view-overlays .selected-text {
+  z-index: 1;
+}
+
 /* 行对齐占位斜线(VSCode diffEditor.diagonalFill 同款观感):
  * 短侧垫出的 view zone 空白区挂本类;中性灰半透明,亮暗主题通用 */
 .text-compare-align-zone {
