@@ -2,17 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { invoke } from '@tauri-apps/api/core';
-import { UpdateCheckButton, UpdateResultCard } from './UpdateSection';
+import { UpdateCheckButton, UpdateDialog } from './UpdateSection';
 import { useUpdateCheck } from '@/hooks/useUpdateCheck';
 import type { JSX } from 'react';
 
-// 与 AboutDialog InfoSection 相同的组合方式:状态提升到宿主,按钮与结果卡分发渲染
+// 与 AboutDialog InfoSection 相同的组合方式:状态提升到宿主,按钮与更新弹窗分发渲染
 function UpdateFixture(): JSX.Element {
   const state = useUpdateCheck();
   return (
     <>
       <UpdateCheckButton state={state} />
-      <UpdateResultCard state={state} />
+      <UpdateDialog state={state} />
     </>
   );
 }
@@ -31,6 +31,21 @@ import { toast } from 'sonner';
 
 const invokeMock = invoke as unknown as ReturnType<typeof vi.fn>;
 const toastErrorMock = vi.mocked(toast.error);
+
+/** 构造 app_check_update 的成功响应 */
+function availableUpdate(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    available: true,
+    version: '9.9.9',
+    currentVersion: '0.1.0',
+    notes: null,
+    date: null,
+    packageType: 'portable',
+    installMode: 'in-place',
+    installModeLabel: null,
+    ...overrides,
+  };
+}
 
 beforeEach(() => {
   invokeMock.mockReset();
@@ -58,19 +73,36 @@ describe('UpdateSection 检查更新错误提示', () => {
     expect(toastErrorMock).toHaveBeenCalledWith('检查更新失败:GitHub Releases 请求超时');
   });
 
+  it('发现新版本时弹出更新弹窗,「稍后再说」可关闭', async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === 'app_check_update') {
+        return Promise.resolve(availableUpdate({ notes: '修复若干问题' }));
+      }
+      return Promise.resolve({ success: true, data: true });
+    });
+
+    const user = userEvent.setup();
+    render(<UpdateFixture />);
+    // 检查前不展示弹窗
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: '检查更新' }));
+
+    // 弹窗承载版本信息与三个动作
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('发现新版本 v9.9.9');
+    expect(dialog).toHaveTextContent('当前版本 v0.1.0');
+    expect(screen.getByRole('button', { name: '立即更新' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '前往 GitHub Releases' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '稍后再说' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
   it('安装失败包含 MANUAL_INSTALL_REQUIRED 哨兵时跳转下载页而非报错', async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === 'app_check_update') {
-        return Promise.resolve({
-          available: true,
-          version: '9.9.9',
-          currentVersion: '0.1.0',
-          notes: null,
-          date: null,
-          packageType: 'portable',
-          installMode: 'in-place',
-          installModeLabel: null,
-        });
+        return Promise.resolve(availableUpdate());
       }
       if (cmd === 'app_install_update') {
         return Promise.reject({
@@ -98,16 +130,14 @@ describe('UpdateSection 检查更新错误提示', () => {
     // 不应被误判为手动安装模式(显示「前往 GitHub 下载整包」)
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === 'app_check_update') {
-        return Promise.resolve({
-          available: true,
-          version: '9.9.9',
-          currentVersion: '0.2.2',
-          notes: null,
-          date: null,
-          packageType: 'nsis',
-          installMode: 'windows-nsis',
-          installModeLabel: '安装版(NSIS)',
-        });
+        return Promise.resolve(
+          availableUpdate({
+            currentVersion: '0.2.2',
+            packageType: 'nsis',
+            installMode: 'windows-nsis',
+            installModeLabel: '安装版(NSIS)',
+          }),
+        );
       }
       return Promise.resolve({ success: true, data: true });
     });

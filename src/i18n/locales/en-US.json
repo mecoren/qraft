@@ -453,7 +453,6 @@
     "checking": "Checking...",
     "check_update": "Check for updates",
     "up_to_date_toast": "Up to date (v{{version}})",
-    "manual_install_toast": "Install mode \"{{mode}}\": download the full package from GitHub Releases to update",
     "check_failed_toast": "Update check failed: {{message}}",
     "new_version_found": "New version v{{version}} available",
     "current_version": "Current version v{{version}}",

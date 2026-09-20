@@ -3,7 +3,7 @@
  *
  * 自动更新是 Qraft 唯一允许的联网功能(见 PRD 13-security.md §3.1),
  * 更新源接入 GitHub Releases(https://github.com/mecoren/qraft/releases)。
- * 触发按钮(徽标行)与结果卡片(信息卡下方)在弹窗中相隔两处,故状态
+ * 触发按钮(徽标行)与更新弹窗(UpdateDialog)在关于弹窗中相隔两处,故状态
  * 收拢在本 hook,由宿主(AboutDialog InfoSection)调用一次再分发渲染。
  *
  * 不同平台/安装方式对应不同的安装流程:
@@ -33,7 +33,7 @@ export interface CheckUpdateResponse {
   installModeLabel: string | null;
 }
 
-/** 检查更新的全部状态与动作,由宿主组件调用一次、分发给按钮与结果卡片 */
+/** 检查更新的全部状态与动作,由宿主组件调用一次、分发给按钮与更新弹窗 */
 export interface UpdateCheckState {
   checking: boolean;
   installing: boolean;
@@ -82,11 +82,9 @@ export function useUpdateCheck(): UpdateCheckState {
         resp.installMode !== 'in-place' &&
         resp.installMode !== 'windows-nsis';
       setManualInstall(isManual);
+      // 发现新版本时不再另发 toast:更新弹窗会同时弹出并展示版本、安装方式与动作
       if (!resp.available) {
         toast.success(t('settings.up_to_date_toast', { version: resp.currentVersion }));
-      } else if (isManual) {
-        // 系统安装版:提示需前往 Releases 手动下载整包(不同安装方式)
-        toast.info(t('settings.manual_install_toast', { mode: resp.installModeLabel ?? '' }));
       }
     } catch (err) {
       // Tauri 命令 Err(AppError) 时以序列化错误对象 reject,需归一化取真实消息

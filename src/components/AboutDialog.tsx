@@ -9,7 +9,7 @@
  * - 更新日志:src/lib/changelog.ts(前端硬编码,发版时追加新版本条目)
  * - 应用信息/开源许可/开源组件:由原 SettingsPanel 的 AboutSection 迁入,
  *   版本号仍由 Vite 注入的 __APP_VERSION__ 提供(唯一数据源 package.json)
- * - 检查更新:徽标行小按钮触发(useUpdateCheck),发现新版本时在信息卡下方展示结果卡片
+ * - 检查更新:徽标行小按钮触发(useUpdateCheck),发现新版本时弹出模态更新弹窗
  *
  * 交互:与 SettingsDialog 一致,支持标题栏拖拽、四角缩放、视口内 clamp
  * (由 useDialogWindow hook 提供)。
@@ -39,7 +39,7 @@ import {
   AccordionContent,
 } from '@/components/ui/accordion';
 import { Logo } from '@/components/Logo';
-import { UpdateCheckButton, UpdateResultCard } from '@/components/UpdateSection';
+import { UpdateCheckButton, UpdateDialog } from '@/components/UpdateSection';
 import { useDialogWindow, DialogResizeHandle } from '@/hooks/useDialogWindow';
 import { useUpdateCheck } from '@/hooks/useUpdateCheck';
 import { CHANGELOG_VERSIONS, type ChangeCategory } from '@/lib/changelog';
@@ -865,7 +865,7 @@ function InfoSection(): JSX.Element {
           ))}
         </CardContent>
       </Card>
-      <UpdateResultCard state={update} />
+      <UpdateDialog state={update} />
     </div>
   );
 }
