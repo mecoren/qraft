@@ -50,9 +50,9 @@ function offsetToLineColumn(text: string, offset: number): { line: number; colum
   return { line, column };
 }
 
-/** JSON 白名单空白字符 */
+/** JSON 白名单空白字符(RFC 8259 仅 space / tab / LF / CR,不含 \f 与 \b) */
 function isJsonWhitespace(ch: string): boolean {
-  return ch === ' ' || (ch === '\t') === false ? ch === ' ' || ch === '\n' || ch === '\r' : false;
+  return ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r';
 }
 
 /** 跳过从 offset 开始的连续 JSON 空白,返回新的 offset */

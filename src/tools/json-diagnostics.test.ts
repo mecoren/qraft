@@ -115,4 +115,34 @@ describe('locateJsonError', () => {
     expect(result).not.toBeNull();
     expect(result!.line).toBe(2);
   });
+
+  it('accepts tab-indented documents (Go json.Marshal / jq --tab style)', () => {
+    // 制表符是 RFC 8259 的合法空白:此前优先级写错把 tab 当非法字符,
+    // 导致合法文档在第 2 行报 unexpected-token
+    expect(locateJsonError('{\n\t"a": 1\n}')).toBeNull();
+    expect(locateJsonError('[\n\t1,\n\t2\n]')).toBeNull();
+    expect(locateJsonError('\t{\r\n\t\t"a": [1]\r\n\t}\t')).toBeNull();
+  });
+
+  it('locates errors in tab-indented documents at the real fault, not the first tab', () => {
+    const trailingComma = '{\n\t"a": 1,\n\t"b": 2,\n}';
+    const result = locateJsonError(trailingComma);
+    expect(result).not.toBeNull();
+    expect(result!.kind).toBe('trailing-comma');
+    expect(result!.line).toBe(4);
+    expect(result!.column).toBe(1);
+
+    const missingComma = '{\n\t"a": 1\n\t"b": 2\n}';
+    const second = locateJsonError(missingComma);
+    expect(second).not.toBeNull();
+    expect(second!.kind).toBe('missing-comma');
+    expect(second!.line).toBe(3);
+    expect(second!.column).toBe(2);
+  });
+
+  it('treats only space/tab/LF/CR as whitespace, not other C0 controls', () => {
+    // \f 与 \b 不在 JSON 空白表内:出现在结构位置应报错,不被跳过
+    expect(locateJsonError('{\f"a": 1}')).not.toBeNull();
+    expect(locateJsonError('{\b"a": 1}')).not.toBeNull();
+  });
 });

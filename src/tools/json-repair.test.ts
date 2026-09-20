@@ -134,4 +134,25 @@ describe('repairJson', () => {
     expect(result.fixed).toBe(true);
     expect(result.actions).toEqual([]);
   });
+
+  it('repairs tab-indented documents (Go json.Marshal / jq --tab style)', () => {
+    // 修复循环以 locateJsonError 驱动:此前 tab 被判非法,首个错误落在缩进的
+    // tab 上且 unexpected-token 无确定修法,导致制表符缩进的文档一律修不动
+    const trailingComma = repairJson('{\n\t"a": 1,\n\t"b": 2,\n}');
+    expect(trailingComma.fixed).toBe(true);
+    expect(JSON.parse(trailingComma.text)).toEqual({ a: 1, b: 2 });
+    expect(trailingComma.actions.some((a) => a.kind === 'trailing-comma')).toBe(true);
+
+    const unquotedKey = repairJson('{\n\tname: "qraft",\n\tcount: 2\n}');
+    expect(unquotedKey.fixed).toBe(true);
+    expect(JSON.parse(unquotedKey.text)).toEqual({ name: 'qraft', count: 2 });
+  });
+
+  it('leaves a valid tab-indented document untouched', () => {
+    const source = '{\n\t"a": 1\n}';
+    const result = repairJson(source);
+    expect(result.text).toBe(source);
+    expect(result.fixed).toBe(true);
+    expect(result.actions).toEqual([]);
+  });
 });
