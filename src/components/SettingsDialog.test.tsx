@@ -27,7 +27,10 @@ describe('SettingsDialog', () => {
     expect(screen.getByRole('button', { name: /主题/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /字体/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /通用/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /工具设置/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /快捷键/ })).toBeInTheDocument();
+    // 「文本编辑器」已并入「工具设置」的标签页,不再是一级菜单项
+    expect(screen.queryByRole('button', { name: /文本编辑器/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /更新/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /关于/ })).not.toBeInTheDocument();
     // 默认展示主题内容(ThemeSection 的说明文案)
@@ -40,6 +43,13 @@ describe('SettingsDialog', () => {
     // 点击「通用」菜单
     await user.click(screen.getByRole('button', { name: /通用/ }));
     expect(screen.getByLabelText(/最大历史数/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/JSON 默认缩进/)).not.toBeInTheDocument();
+    // 点击「工具设置」:默认落在文本编辑器标签页
+    await user.click(screen.getByRole('button', { name: /工具设置/ }));
+    expect(screen.getByLabelText(/编辑器字号/)).toBeInTheDocument();
+    // 切到 JSON 格式化器标签页(Radix Tabs 在 onMouseDown 激活)
+    fireEvent.mouseDown(screen.getByTestId('tool-tab-json_formatter'));
+    expect(screen.getByLabelText(/JSON 默认缩进/)).toBeInTheDocument();
     // 点击「快捷键」菜单
     await user.click(screen.getByRole('button', { name: /快捷键/ }));
     expect(screen.getByLabelText(/打开命令面板/)).toBeInTheDocument();
@@ -82,6 +92,27 @@ describe('SettingsDialog', () => {
       expect(el).not.toBeNull();
       expect(el?.classList.contains('search-anchor-highlight')).toBe(true);
     });
+  });
+
+  it('search target of a tool setting switches to the tool tab before highlighting', async () => {
+    render(<SettingsDialog open onOpenChange={() => {}} />);
+    act(() => {
+      useSearchStore.getState().requestJump({
+        view: 'settings',
+        settingsMenu: 'tools',
+        anchor: 'settings:tools:json_formatter:indent',
+      });
+    });
+    // 未激活的标签页内容不挂载,必须先按锚点切标签页再定位,否则永远高亮不到
+    expect(await screen.findByLabelText(/JSON 默认缩进/)).toBeInTheDocument();
+    await waitFor(() => {
+      const el = document.querySelector(
+        '[data-search-anchor="settings:tools:json_formatter:indent"]',
+      );
+      expect(el).not.toBeNull();
+      expect(el?.classList.contains('search-anchor-highlight')).toBe(true);
+    });
+    expect(useSearchStore.getState().target).toBeNull();
   });
 
   it('drags the dialog via the title bar', () => {

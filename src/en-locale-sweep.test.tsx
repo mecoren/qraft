@@ -6,7 +6,7 @@
  * - "简体中文":语言选择器按国际惯例以各语言原文显示语言名。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act, within } from '@testing-library/react';
+import { render, screen, act, within, fireEvent } from '@testing-library/react';
 import { invoke } from '@tauri-apps/api/core';
 
 import { App } from './App';
@@ -85,6 +85,14 @@ describe('en-US 全局走查(切 en-US 扫裸中文)', () => {
     render(<SettingsDialog open onOpenChange={() => {}} />);
     // 侧栏导航项与分区标题均合法地显示 "Theme",改用 getAllByText 避免多匹配报错
     expect(screen.getAllByText('Theme', { exact: true }).length).toBeGreaterThan(0);
+    expectNoBareChinese();
+  });
+
+  it('设置弹窗:工具设置菜单与工具标签页(渲染无裸中文)', () => {
+    render(<SettingsDialog open onOpenChange={() => {}} />);
+    // 默认只渲染主题分区,进入「工具设置」并切到 JSON 标签页才能覆盖新增文案
+    fireEvent.click(screen.getByRole('button', { name: 'Tool settings' }));
+    fireEvent.mouseDown(screen.getByTestId('tool-tab-json_formatter'));
     expectNoBareChinese();
   });
 

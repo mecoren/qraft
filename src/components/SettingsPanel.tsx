@@ -12,11 +12,22 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { Palette, Type, Check, ArrowUp, ArrowDown, FileText, X } from 'lucide-react';
+import {
+  Palette,
+  Type,
+  Check,
+  ArrowUp,
+  ArrowDown,
+  FileText,
+  X,
+  Braces,
+  CaseSensitive,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FontPicker } from '@/components/ui/font-picker';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -123,10 +134,14 @@ const SHORTCUT_KEYS: Array<{
 
 const generalSchema = z.object({
   maxHistory: z.number().int().min(0).max(10000),
-  jsonIndent: z.number().int().min(0).max(8),
-  jsonUseTabs: z.boolean().default(false),
   confirmOnClear: z.boolean(),
   language: z.enum(['zh-CN', 'en-US']),
+});
+
+/** JSON 格式化器缩进偏好表单(新形状 {useTabs,size},旧 number 由读侧 normalize 兼容) */
+const jsonFormatterSchema = z.object({
+  jsonIndent: z.number().int().min(0).max(8),
+  jsonUseTabs: z.boolean().default(false),
 });
 
 const shortcutSchema = z.object({
@@ -140,6 +155,7 @@ const shortcutSchema = z.object({
 });
 
 type GeneralFormValues = z.input<typeof generalSchema>;
+type JsonFormatterFormValues = z.input<typeof jsonFormatterSchema>;
 
 // ============================================================
 // 主题预览卡片
@@ -500,7 +516,8 @@ export function FontSection() {
 }
 
 /**
- * 通用设置区块:最大历史数 / JSON 缩进 / 确认清空。
+ * 通用设置区块:最大历史数 / 确认清空 / 界面语言 / 剪贴板智能检测。
+ * 单工具自己的设置(如 JSON 缩进)已归入「工具设置」菜单的对应标签页。
  * 独立组件供设置面板与设置弹窗复用。
  */
 export function GeneralSection(): JSX.Element {
@@ -517,8 +534,6 @@ export function GeneralSection(): JSX.Element {
     mode: 'onChange',
     defaultValues: {
       maxHistory: 100,
-      jsonIndent: 2,
-      jsonUseTabs: false,
       confirmOnClear: true,
       language: 'zh-CN',
     },
@@ -533,19 +548,10 @@ export function GeneralSection(): JSX.Element {
   // 配置加载后同步表单
   useEffect(() => {
     if (!config) return;
-    const language = configLanguage;
-    // values.indent 可能是旧 number 形状或新 {useTabs,size} 对象,统一归一
-    const indentStyle = normalizeJsonIndentStyle(
-      config.tool_prefs?.['json_formatter']?.values?.indent as unknown,
-    );
     form.reset({
       maxHistory: config.general.max_history,
-      // jsonIndent/jsonUseTabs 来自 tool_prefs.json_formatter.values.indent,缺省 2 空格
-      // 用可选链保护 tool_prefs 本身,防止旧配置缺少该字段时崩溃
-      jsonIndent: indentStyle.size,
-      jsonUseTabs: indentStyle.useTabs,
       confirmOnClear: config.general.confirm_on_clear,
-      language,
+      language: configLanguage,
     });
   }, [config, form, configLanguage]);
 
@@ -553,20 +559,6 @@ export function GeneralSection(): JSX.Element {
     await setConfig('general.max_history', values.maxHistory);
     await setConfig('general.confirm_on_clear', values.confirmOnClear);
     await setConfig('general.language', values.language);
-    // 缩进写整个 `tool_prefs.json_formatter`(两段键 → Rust 的 HashMap 直写快路径)。
-    // 不能写成 tool_prefs.json_formatter.values.indent(三段键):通用分支要求沿途每层已存在,
-    // 而首次保存时 json_formatter 这个槽还没建出来,config_set 会直接报 invalid path。
-    // 新形状为对象 {useTabs,size},旧 number 数据由读侧 normalizeJsonIndentStyle 兼容。
-    // jsonUseTabs 在 schema 上为 .default(false),input 类型可选,运行时 defaultValues
-    // 恒给 false,这里 ?? 只是补类型缺口。
-    const pref: ToolPref = config?.tool_prefs?.['json_formatter'] ?? {};
-    await setConfig('tool_prefs.json_formatter', {
-      ...pref,
-      values: {
-        ...pref.values,
-        indent: { useTabs: values.jsonUseTabs ?? false, size: values.jsonIndent },
-      },
-    });
     toast.success(t('settings.saved_toast'));
   };
 
@@ -594,32 +586,6 @@ export function GeneralSection(): JSX.Element {
             {errors.maxHistory && (
               <span className="text-xs text-destructive">{t('settings.max_history_error')}</span>
             )}
-          </div>
-
-          <div className="flex flex-col gap-2" data-search-anchor="settings:general:json_indent">
-            <Label htmlFor="jsonIndent">{t('settings.json_indent')}</Label>
-            <Input
-              id="jsonIndent"
-              type="number"
-              {...form.register('jsonIndent', { valueAsNumber: true })}
-            />
-            <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2">
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <Label htmlFor="jsonUseTabs">{t('settings.json_use_tabs')}</Label>
-                <p className="text-xs text-muted-foreground">{t('settings.json_use_tabs_hint')}</p>
-              </div>
-              <Controller
-                control={form.control}
-                name="jsonUseTabs"
-                render={({ field }) => (
-                  <Switch
-                    id="jsonUseTabs"
-                    checked={field.value ?? false}
-                    onCheckedChange={field.onChange}
-                  />
-                )}
-              />
-            </div>
           </div>
 
           <div
@@ -945,7 +911,7 @@ export function ShortcutSection(): JSX.Element {
 }
 
 /**
- * 文本编辑器区块：编辑器展示配置 + 字符命名转换的启用项与循环顺序。
+ * 文本编辑器区块:编辑器展示卡片 + 独立的命名风格卡片(启用项与循环顺序)。
  */
 export function EditorSection(): JSX.Element {
   const { t } = useTranslation();
@@ -985,17 +951,20 @@ export function EditorSection(): JSX.Element {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <FileText className="size-4" />
-          {t('settings.editor_title')}
-        </CardTitle>
-        <CardDescription>{t('settings.editor_desc')}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-6">
-        {/* —— 编辑器展示配置 —— */}
-        <div className="flex flex-col gap-3" data-search-anchor="settings:editor:display">
+    <div className="flex flex-col gap-6">
+      {/* —— 编辑器展示 —— */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <FileText className="size-4" />
+            {t('settings.editor_title')}
+          </CardTitle>
+          <CardDescription>{t('settings.editor_desc')}</CardDescription>
+        </CardHeader>
+        <CardContent
+          className="flex flex-col gap-3"
+          data-search-anchor="settings:tools:editor:display"
+        >
           <Label className="text-sm font-medium">{t('settings.editor_display_label')}</Label>
           <div className="flex flex-col gap-2">
             {DISPLAY_SWITCH_KEYS.map((key) => (
@@ -1095,86 +1064,283 @@ export function EditorSection(): JSX.Element {
               </Select>
             </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className="flex flex-col gap-3" data-search-anchor="settings:editor:enabled_styles">
-          <Label className="text-sm font-medium">{t('settings.editor_enabled_label')}</Label>
-          <div className="grid grid-cols-2 gap-3">
-            {NAMING_CONVENTIONS.map((convention: { id: NamingConventionId; label: string }) => (
-              <div key={convention.id} className="flex items-center gap-2">
-                <Checkbox
-                  id={`naming-${convention.id}`}
-                  checked={enabled.has(convention.id)}
-                  onChange={() => toggleConvention(convention.id)}
-                  label={convention.label}
-                />
-              </div>
-            ))}
+      {/* —— 命名风格:启用项 + 快捷键循环顺序 —— */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CaseSensitive className="size-4" />
+            {t('settings.editor_naming_title')}
+          </CardTitle>
+          <CardDescription>{t('settings.editor_naming_desc')}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          <div
+            className="flex flex-col gap-3"
+            data-search-anchor="settings:tools:editor:enabled_styles"
+          >
+            <Label className="text-sm font-medium">{t('settings.editor_enabled_label')}</Label>
+            <div className="grid grid-cols-2 gap-3">
+              {NAMING_CONVENTIONS.map((convention: { id: NamingConventionId; label: string }) => (
+                <div key={convention.id} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`naming-${convention.id}`}
+                    checked={enabled.has(convention.id)}
+                    onChange={() => toggleConvention(convention.id)}
+                    label={convention.label}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="flex flex-col gap-3" data-search-anchor="settings:editor:cycle_order">
-          <Label className="text-sm font-medium">{t('settings.editor_order_label')}</Label>
-          <div className="flex gap-4">
-            <div className="flex-1 divide-y divide-border rounded-md border border-border bg-background">
-              {order.map((id, index) => {
-                const convention = NAMING_CONVENTIONS.find((c) => c.id === id);
-                if (!convention) return null;
-                return (
-                  <div key={id} className="flex items-center justify-between px-3 py-2">
-                    <span className="text-sm">{convention.label}</span>
-                    <div className="flex gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-7"
-                        disabled={index === 0}
-                        onClick={() => move(index, -1)}
-                        aria-label={t('settings.move_up_aria', { label: convention.label })}
-                      >
-                        <ArrowUp className="size-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-7"
-                        disabled={index === order.length - 1}
-                        onClick={() => move(index, 1)}
-                        aria-label={t('settings.move_down_aria', { label: convention.label })}
-                      >
-                        <ArrowDown className="size-4" />
-                      </Button>
+          <div
+            className="flex flex-col gap-3"
+            data-search-anchor="settings:tools:editor:cycle_order"
+          >
+            <Label className="text-sm font-medium">{t('settings.editor_order_label')}</Label>
+            <div className="flex gap-4">
+              <div className="flex-1 divide-y divide-border rounded-md border border-border bg-background">
+                {order.map((id, index) => {
+                  const convention = NAMING_CONVENTIONS.find((c) => c.id === id);
+                  if (!convention) return null;
+                  return (
+                    <div key={id} className="flex items-center justify-between px-3 py-2">
+                      <span className="text-sm">{convention.label}</span>
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-7"
+                          disabled={index === 0}
+                          onClick={() => move(index, -1)}
+                          aria-label={t('settings.move_up_aria', { label: convention.label })}
+                        >
+                          <ArrowUp className="size-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-7"
+                          disabled={index === order.length - 1}
+                          onClick={() => move(index, 1)}
+                          aria-label={t('settings.move_down_aria', { label: convention.label })}
+                        >
+                          <ArrowDown className="size-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+              <div className="hidden w-24 flex-col justify-center gap-2 md:flex">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => move(0, -1)}
+                  disabled
+                >
+                  UP
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => move(0, 1)}
+                  disabled
+                >
+                  DOWN
+                </Button>
+              </div>
             </div>
-            <div className="hidden w-24 flex-col justify-center gap-2 md:flex">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => move(0, -1)}
-                disabled
-              >
-                UP
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => move(0, 1)} disabled>
-                DOWN
-              </Button>
+            <p className="text-xs text-muted-foreground">{t('settings.editor_cycle_hint')}</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/**
+ * JSON 格式化器设置区块:格式化输出的默认缩进宽度与缩进字符。
+ *
+ * 缩进偏好是全局默认值(工具内可按文档临时覆盖),写入 `tool_prefs.json_formatter`
+ * 槽的 `values.indent`;表单保留「保存 / 重置」语义,数字输入的半成品值不即时落库。
+ */
+export function JsonFormatterSection(): JSX.Element {
+  const { t } = useTranslation();
+  const config = useConfigStore((s) => s.config);
+  const setConfig = useConfigStore((s) => s.setConfig);
+
+  const form = useForm<JsonFormatterFormValues>({
+    resolver: zodResolver(jsonFormatterSchema),
+    mode: 'onChange',
+    defaultValues: { jsonIndent: 2, jsonUseTabs: false },
+  });
+
+  // values.indent 可能是旧 number 形状或新 {useTabs,size} 对象,统一归一
+  useEffect(() => {
+    if (!config) return;
+    // 可选链保护 tool_prefs 本身,防止旧配置缺少该字段时崩溃
+    const indentStyle = normalizeJsonIndentStyle(
+      config.tool_prefs?.['json_formatter']?.values?.indent as unknown,
+    );
+    form.reset({ jsonIndent: indentStyle.size, jsonUseTabs: indentStyle.useTabs });
+  }, [config, form]);
+
+  const onSubmit = async (values: JsonFormatterFormValues) => {
+    // 缩进写整个 `tool_prefs.json_formatter`(两段键 → Rust 的 HashMap 直写快路径)。
+    // 不能写成 tool_prefs.json_formatter.values.indent(三段键):通用分支要求沿途每层已存在,
+    // 而首次保存时 json_formatter 这个槽还没建出来,config_set 会直接报 invalid path。
+    // jsonUseTabs 在 schema 上为 .default(false),input 类型可选,运行时 defaultValues
+    // 恒给 false,这里 ?? 只是补类型缺口。
+    const pref: ToolPref = config?.tool_prefs?.['json_formatter'] ?? {};
+    await setConfig('tool_prefs.json_formatter', {
+      ...pref,
+      values: {
+        ...pref.values,
+        indent: { useTabs: values.jsonUseTabs ?? false, size: values.jsonIndent },
+      },
+    });
+    toast.success(t('settings.saved_toast'));
+  };
+
+  const errors = form.formState.errors;
+
+  return (
+    <form
+      onSubmit={form.handleSubmit(onSubmit)}
+      className="flex flex-col gap-6"
+      aria-label={t('settings.json_formatter_form_aria')}
+    >
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Braces className="size-5 text-muted-foreground" />
+            {t('settings.tools_tab_json_formatter')}
+          </CardTitle>
+          <CardDescription>{t('settings.json_formatter_desc')}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div
+            className="flex flex-col gap-2"
+            data-search-anchor="settings:tools:json_formatter:indent"
+          >
+            <Label htmlFor="jsonIndent">{t('settings.json_indent')}</Label>
+            <Input
+              id="jsonIndent"
+              type="number"
+              {...form.register('jsonIndent', { valueAsNumber: true })}
+            />
+            {errors.jsonIndent && (
+              <span className="text-xs text-destructive">{t('settings.json_indent_error')}</span>
+            )}
+            <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <Label htmlFor="jsonUseTabs">{t('settings.json_use_tabs')}</Label>
+                <p className="text-xs text-muted-foreground">{t('settings.json_use_tabs_hint')}</p>
+              </div>
+              <Controller
+                control={form.control}
+                name="jsonUseTabs"
+                render={({ field }) => (
+                  <Switch
+                    id="jsonUseTabs"
+                    checked={field.value ?? false}
+                    onCheckedChange={field.onChange}
+                  />
+                )}
+              />
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">{t('settings.editor_cycle_hint')}</p>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <div className="flex gap-2">
+        <Button type="submit">{t('settings.save')}</Button>
+        <Button type="button" variant="outline" onClick={() => form.reset()}>
+          {t('settings.reset')}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ============================================================
+// 工具设置(按工具分标签页归拢各自的设置)
+// ============================================================
+
+/**
+ * 工具设置标签页 id。
+ * 与搜索锚点 `settings:tools:<tabId>[:<field>]` 的第二段严格一致,
+ * 新增工具设置页时两处同时扩展即可被全局搜索定位。
+ */
+export type ToolsTabId = 'editor' | 'json_formatter';
+
+/** 断言任意字符串是否为合法工具标签页 id(搜索跳转解析不可信输入时用) */
+export function isToolsTabId(value: unknown): value is ToolsTabId {
+  return value === 'editor' || value === 'json_formatter';
+}
+
+export interface ToolsSectionProps {
+  /** 受控当前标签页:设置弹窗需按搜索结果直接切页,故状态由上层持有 */
+  activeTab: ToolsTabId;
+  onActiveTabChange: (id: ToolsTabId) => void;
+}
+
+/**
+ * 工具设置区块:以标签页形式归拢各工具自己的设置。
+ * 标签栏用 shadcn Tabs 默认尺寸(设置页尺度,与同页输入框/下拉一致),
+ * 不套用工具配置栏的 h-7 紧凑档;新增工具只加一个 tab 与
+ * SETTING_SECTIONS / SETTING_FIELDS 的对应声明即可被搜索命中。
+ */
+export function ToolsSection({ activeTab, onActiveTabChange }: ToolsSectionProps): JSX.Element {
+  const { t } = useTranslation();
+
+  return (
+    <Tabs
+      value={activeTab}
+      onValueChange={(v) => {
+        if (isToolsTabId(v)) onActiveTabChange(v);
+      }}
+      className="flex flex-col gap-4"
+    >
+      {/* w-fit 不可省:TabsList 是纵向 flex 子项,不加会被 align-items:stretch 拉满整行留白 */}
+      <TabsList className="w-fit">
+        <TabsTrigger value="editor" data-testid="tool-tab-editor" className="gap-1.5">
+          <FileText className="size-4" />
+          {t('settings.editor_title')}
+        </TabsTrigger>
+        <TabsTrigger
+          value="json_formatter"
+          data-testid="tool-tab-json_formatter"
+          className="gap-1.5"
+        >
+          <Braces className="size-4" />
+          {t('settings.tools_tab_json_formatter')}
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="editor" className="mt-0">
+        <EditorSection />
+      </TabsContent>
+      <TabsContent value="json_formatter" className="mt-0">
+        <JsonFormatterSection />
+      </TabsContent>
+    </Tabs>
   );
 }
 
 export function SettingsPanel(): JSX.Element {
   const { t } = useTranslation();
+  // 整页装配形态:标签页状态就地持有,与设置弹窗(按搜索目标切页)互不影响
+  const [toolsTab, setToolsTab] = useState<ToolsTabId>('editor');
+
   return (
     <div className="h-full bg-background-layer">
       <ScrollArea className="h-full">
@@ -1187,11 +1353,11 @@ export function SettingsPanel(): JSX.Element {
           {/* 字体区块:字体族 + 字号 + 字重 + 预览 */}
           <FontSection />
 
-          {/* 通用设置表单:最大历史数 / JSON 缩进 / 确认清空 */}
+          {/* 通用设置表单:最大历史数 / 确认清空 / 界面语言 / 剪贴板智能检测 */}
           <GeneralSection />
 
-          {/* 文本编辑器设置 */}
-          <EditorSection />
+          {/* 工具设置:文本编辑器 / JSON 格式化器等各工具自己的设置 */}
+          <ToolsSection activeTab={toolsTab} onActiveTabChange={setToolsTab} />
 
           {/* 快捷键表单 */}
           <ShortcutSection />

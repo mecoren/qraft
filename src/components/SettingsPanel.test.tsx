@@ -1,11 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { useState } from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { invoke } from '@tauri-apps/api/core';
-import { SettingsPanel } from './SettingsPanel';
+import {
+  JsonFormatterSection,
+  SettingsPanel,
+  ToolsSection,
+  type ToolsTabId,
+} from './SettingsPanel';
 import { useConfigStore } from '@/store/configStore';
 import { DEFAULT_USER_CONFIG } from '@/types/config';
 import { changeLocale } from '@/i18n';
+
+/** Radix Tabs 在 onMouseDown 时激活(不是 click),故断言统一用 mouseDown 切页 */
+const switchToJsonTab = () => fireEvent.mouseDown(screen.getByTestId('tool-tab-json_formatter'));
+
+/** ToolsSection 受控标签页的测试宿主(整页/弹窗外部持有状态) */
+function ToolsHarness() {
+  const [tab, setTab] = useState<ToolsTabId>('editor');
+  return <ToolsSection activeTab={tab} onActiveTabChange={setTab} />;
+}
 
 // mock sonner:组件保存路径会弹 toast,避免真实渲染 toast 容器
 vi.mock('sonner', () => ({
@@ -64,7 +79,8 @@ describe('SettingsPanel', () => {
     });
     render(<SettingsPanel />);
     expect(screen.getByText(/^主题$/)).toBeInTheDocument();
-    // JSON 缩进应安全回退为默认值 2
+    // JSON 缩进在「工具设置 → JSON 格式化器」标签页内,缺 tool_prefs 时应安全回退为默认值 2
+    switchToJsonTab();
     expect((screen.getByLabelText(/JSON 默认缩进/) as HTMLInputElement).value).toBe('2');
   });
 
@@ -97,16 +113,10 @@ describe('SettingsPanel', () => {
         value: 50,
       }),
     );
-    // 缩进必须写整个 tool_prefs.json_formatter 槽(两段键走 Rust 的 HashMap 直写),
-    // 且首段字面量要和持久化的 tool_prefs 一致:写成 toolPrefs.… 或
-    // tool_prefs.json_formatter.values.indent 都会让这次保存恒失败。
-    // 新形状为对象 {useTabs,size},旧 number 数据只在读侧兼容,不再写出。
-    expect(invokeMock).toHaveBeenCalledWith(
+    // JSON 缩进已迁入「工具设置」菜单的独立表单,通用表单不再触碰该偏好槽
+    expect(invokeMock).not.toHaveBeenCalledWith(
       'config_set',
-      expect.objectContaining({
-        key: 'tool_prefs.json_formatter',
-        value: { values: { indent: { useTabs: false, size: 2 } } },
-      }),
+      expect.objectContaining({ key: 'tool_prefs.json_formatter' }),
     );
   });
 
@@ -128,7 +138,7 @@ describe('SettingsPanel', () => {
       loading: false,
       error: null,
     });
-    render(<SettingsPanel />);
+    render(<JsonFormatterSection />);
     const input = screen.getByLabelText(/JSON 默认缩进/) as HTMLInputElement;
     // 表单从 tool_prefs 槽回填出 4(旧 number 形状读侧兼容),改成 2 后保存
     expect(input.value).toBe('4');
@@ -164,7 +174,7 @@ describe('SettingsPanel', () => {
       loading: false,
       error: null,
     });
-    render(<SettingsPanel />);
+    render(<JsonFormatterSection />);
     const useTabsSwitch = screen.getByRole('switch', { name: /JSON 使用 Tab 缩进/ });
     expect(useTabsSwitch).not.toBeChecked();
     await user.click(useTabsSwitch);
@@ -244,5 +254,39 @@ describe('SettingsPanel', () => {
     expect(screen.getByText('16 px')).toBeInTheDocument();
     // 其余未写字段仍为默认开
     expect(screen.getByRole('switch', { name: /吸顶滚动/ })).toBeChecked();
+  });
+
+  it('工具设置标签页:默认文本编辑器,与 JSON 格式化器互斥切换', () => {
+    render(<ToolsHarness />);
+    expect(screen.getByLabelText(/编辑器字号/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/JSON 默认缩进/)).not.toBeInTheDocument();
+
+    switchToJsonTab();
+    expect(screen.getByLabelText(/JSON 默认缩进/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/编辑器字号/)).not.toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByTestId('tool-tab-editor'));
+    expect(screen.getByLabelText(/编辑器字号/)).toBeInTheDocument();
+  });
+
+  it('文本编辑器标签页:编辑器展示与命名风格是两张独立卡片', () => {
+    render(<ToolsHarness />);
+    // 命名风格独立成卡(标题 + 说明),不再混在编辑器展示卡里
+    expect(screen.getByText('命名风格')).toBeInTheDocument();
+    expect(screen.getByText('选中文本的字符命名风格转换')).toBeInTheDocument();
+    expect(screen.getByText('编辑器界面与缩进行为')).toBeInTheDocument();
+    expect(screen.queryByText(/编辑器展示配置与字符命名转换/)).not.toBeInTheDocument();
+  });
+
+  it('JSON 缩进非法值:提示校验错误且不落库', async () => {
+    const user = userEvent.setup();
+    invokeMock.mockImplementation(() => Promise.resolve({ success: true, data: true }));
+    render(<JsonFormatterSection />);
+    const input = screen.getByLabelText(/JSON 默认缩进/) as HTMLInputElement;
+    await user.clear(input);
+    await user.type(input, '99');
+    await user.click(screen.getByRole('button', { name: '保存' }));
+    expect(await screen.findByText(/缩进需为 0-8 之间的整数/)).toBeInTheDocument();
+    expect(invokeMock.mock.calls.filter((c) => c[0] === 'config_set')).toHaveLength(0);
   });
 });

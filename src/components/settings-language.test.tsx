@@ -21,7 +21,6 @@ function seedConfig(language: string): void {
       version: 1,
       general: {
         maxHistory: 100,
-        jsonIndent: 2,
         confirmOnClear: true,
         fontSize: 14,
         language,

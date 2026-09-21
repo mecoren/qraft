@@ -15,8 +15,12 @@
 import type { AppView } from '@/store/uiStore';
 import type { LocalizedText } from './tool-catalog';
 
-/** 设置弹窗左侧菜单 id(与 SettingsDialog 的 MenuId 保持一致) */
-export type SettingsMenuId = 'theme' | 'font' | 'general' | 'editor' | 'shortcuts';
+/**
+ * 设置弹窗左侧菜单 id(与 SettingsDialog 的 MenuId 保持一致)。
+ * 'tools' 为「工具设置」,其字段锚点为三级 `settings:tools:<toolTabId>:<key>`,
+ * 工具标签页 id 与 SettingsPanel 的 ToolsTabId 严格一致。
+ */
+export type SettingsMenuId = 'theme' | 'font' | 'general' | 'tools' | 'shortcuts';
 
 /** 高频复用区块标题(双语) */
 const T_CONFIG: LocalizedText = { zh: '配置', en: 'Configuration' };
@@ -1048,16 +1052,18 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
       zh: '历史记录与清空确认',
       en: 'History and clear confirmation',
     },
-    keywords: ['通用', '历史', '缩进', '确认', '清空'],
+    keywords: ['通用', '历史', '确认', '清空'],
   },
   {
-    menuId: 'editor',
-    title: { zh: '文本编辑器', en: 'Text editor' },
+    menuId: 'tools',
+    title: { zh: '工具设置', en: 'Tool settings' },
     description: {
-      zh: '编辑器展示配置与字符命名转换',
-      en: 'Editor display options and naming conversions',
+      zh: '各工具自己的设置(文本编辑器 / JSON 格式化器等)',
+      en: 'Per-tool settings (text editor, JSON formatter, …)',
     },
     keywords: [
+      '工具设置',
+      '工具',
       '编辑器',
       '命名',
       '命名风格',
@@ -1070,6 +1076,8 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
       '括号',
       '缩进',
       '字号',
+      'json',
+      '格式化',
     ],
   },
   {
@@ -1140,10 +1148,14 @@ export const SETTING_FIELDS: readonly SettingField[] = [
     menuId: 'general',
   },
   {
-    key: 'json_indent',
+    key: 'json_formatter:indent',
     title: { zh: 'JSON 默认缩进', en: 'Default JSON indent' },
-    keywords: ['json', '缩进'],
-    menuId: 'general',
+    description: {
+      zh: '格式化输出的默认缩进宽度与缩进字符',
+      en: 'Default indent width and character for formatted output',
+    },
+    keywords: ['json', '缩进', '格式化'],
+    menuId: 'tools',
   },
   {
     key: 'confirm_clear',
@@ -1163,9 +1175,9 @@ export const SETTING_FIELDS: readonly SettingField[] = [
     keywords: ['language', '语言', '中英', 'english'],
     menuId: 'general',
   },
-  // 文本编辑器
+  // 工具设置:文本编辑器
   {
-    key: 'display',
+    key: 'editor:display',
     title: { zh: '编辑器展示', en: 'Editor display' },
     description: {
       zh: '括号着色 / 吸顶滚动 / 缩进线 / 自动换行 / 缩略图 / 字号 / 缩进宽度',
@@ -1186,21 +1198,21 @@ export const SETTING_FIELDS: readonly SettingField[] = [
       '缩进',
       '展示',
     ],
-    menuId: 'editor',
+    menuId: 'tools',
   },
   {
-    key: 'enabled_styles',
+    key: 'editor:enabled_styles',
     title: { zh: '启用风格', en: 'Enabled styles' },
     description: { zh: '命名转换启用项', en: 'Enabled naming conversions' },
     keywords: ['命名', '风格', '启用'],
-    menuId: 'editor',
+    menuId: 'tools',
   },
   {
-    key: 'cycle_order',
+    key: 'editor:cycle_order',
     title: { zh: '循环顺序', en: 'Cycle order' },
     description: { zh: '快捷键循环切换顺序', en: 'Shortcut cycling order' },
     keywords: ['循环', '顺序', '命名'],
-    menuId: 'editor',
+    menuId: 'tools',
   },
   // 快捷键
   {

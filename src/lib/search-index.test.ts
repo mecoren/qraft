@@ -130,10 +130,21 @@ describe('searchIndex', () => {
     expect(
       themeSettings.some((e) => e.kind === 'setting' && e.target.settingsMenu === 'theme'),
     ).toBe(true);
+    const toolSettings = flatResults('工具设置');
+    expect(
+      toolSettings.some((e) => e.kind === 'setting' && e.target.settingsMenu === 'tools'),
+    ).toBe(true);
   });
 
   it('设置字段可检索', () => {
     expect(flatResults('最大历史数').some((e) => e.kind === 'setting-field')).toBe(true);
+    // 单工具设置字段使用三级锚点 settings:tools:<工具标签页>:<字段>,
+    // 供设置弹窗先切标签页再定位高亮
+    expect(
+      flatResults('JSON 默认缩进').some(
+        (e) => e.target.anchor === 'settings:tools:json_formatter:indent',
+      ),
+    ).toBe(true);
     // 「检查更新」已迁出设置分区,经「关于」页面条目命中(AboutDialog 应用信息区)
     expect(
       flatResults('检查更新').some((e) => e.kind === 'page' && e.target.view === 'about'),

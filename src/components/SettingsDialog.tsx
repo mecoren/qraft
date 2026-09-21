@@ -2,7 +2,8 @@
  * SettingsDialog —— 设置弹窗
  *
  * 以可拖拽、可缩放的形式承载设置项:
- * - 左侧为设置菜单(主题 / 字体 / 通用 / 文本编辑器 / 快捷键),右侧为对应内容页
+ * - 左侧为设置菜单(主题 / 字体 / 通用 / 工具设置 / 快捷键),右侧为对应内容页
+ * - 「工具设置」内再按工具分标签页(文本编辑器 / JSON 格式化器等)
  * - 检查更新已迁入 AboutDialog 的「应用信息」分区;关于与设置均独立于侧边栏入口
  * - 标题栏支持拖拽移动弹窗,仅四角支持放大缩小
  * - 拖拽/缩放逻辑由 useDialogWindow hook 提供
@@ -21,14 +22,16 @@ import {
   GripHorizontal,
   X,
   Check,
-  FileText,
+  Wrench,
 } from 'lucide-react';
 import {
   ThemeSection,
   FontSection,
   GeneralSection,
   ShortcutSection,
-  EditorSection,
+  ToolsSection,
+  isToolsTabId,
+  type ToolsTabId,
 } from '@/components/SettingsPanel';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -43,7 +46,7 @@ const DEFAULT_HEIGHT = 620;
 const MIN_WIDTH = 520;
 const MIN_HEIGHT = 400;
 
-type MenuId = 'theme' | 'font' | 'general' | 'editor' | 'shortcuts';
+type MenuId = 'theme' | 'font' | 'general' | 'tools' | 'shortcuts';
 
 interface MenuItem {
   id: MenuId;
@@ -60,6 +63,8 @@ interface SettingsDialogProps {
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX.Element {
   const { t } = useTranslation();
   const [active, setActive] = useState<MenuId>('theme');
+  // 「工具设置」内的标签页状态:全局搜索可直接定位到某个工具的设置页
+  const [toolsTab, setToolsTab] = useState<ToolsTabId>('editor');
 
   const { rect, dragEvents, resizeEvents, onMove } = useDialogWindow({
     defaultWidth: DEFAULT_WIDTH,
@@ -88,10 +93,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX
       content: <GeneralSection />,
     },
     {
-      id: 'editor',
-      label: t('settings.editor_title'),
-      icon: <FileText className="size-4" />,
-      content: <EditorSection />,
+      id: 'tools',
+      label: t('settings.tools_title'),
+      icon: <Wrench className="size-4" />,
+      content: <ToolsSection activeTab={toolsTab} onActiveTabChange={setToolsTab} />,
     },
     {
       id: 'shortcuts',
@@ -112,15 +117,21 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX
 
   useEffect(() => {
     if (!open) return;
-    const t = useSearchStore.getState().target;
-    if (!t || t.view !== 'settings') return;
+    const jump = useSearchStore.getState().target;
+    if (!jump || jump.view !== 'settings') return;
     // 放入宏任务:让菜单 state 更新与高亮定位脱离 effect 同步路径(避免级联渲染)
     window.setTimeout(() => {
-      if (t.settingsMenu) setActive(t.settingsMenu);
-      // 字段锚点(settings:menu:field)或分区锚点(settings:menu):
+      if (jump.settingsMenu) setActive(jump.settingsMenu);
+      // 三级锚点 settings:tools:<tabId>[:<field>]:未激活的标签页内容不挂载,
+      // 必须先切标签页再定位高亮(scheduleHighlight 内部有重试兜底)
+      const [root, menu, tabId] = jump.anchor?.split(':') ?? [];
+      if (root === 'settings' && menu === 'tools' && isToolsTabId(tabId)) {
+        setToolsTab(tabId);
+      }
+      // 字段锚点(settings:menu:field)、工具字段锚点或分区锚点(settings:menu):
       // 等待菜单切换 + 内容渲染后定位高亮(重试机制兜底)
-      if (t.anchor?.startsWith('settings:')) {
-        scheduleHighlight(t.anchor);
+      if (jump.anchor?.startsWith('settings:')) {
+        scheduleHighlight(jump.anchor);
       }
       useSearchStore.getState().consume();
     }, 0);
