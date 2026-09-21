@@ -24,6 +24,7 @@
  * v0.3.3 内容基于 git log(v0.3.2 标签之后至 2026-09-19)提炼,
  * v0.3.4 内容基于 git log(v0.3.3 标签之后至 2026-09-20)提炼,
  * v0.3.5 内容基于 git log(v0.3.4 标签之后至 2026-09-20)提炼,
+ * v0.3.6 内容基于 git log 与工作区改动(v0.3.5 标签之后至 2026-09-21)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -52,6 +53,51 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.3.6',
+    date: '2026-09-21',
+    summary: {
+      zh: '设置新增「工具设置」菜单,各工具自己的设置按工具分标签页归拢(文本编辑器 / JSON 格式化器);命名风格独立成卡片;全局搜索可直接定位到工具标签页;标签栏尺寸与宽度统一',
+      en: 'Settings gained a "Tool settings" menu that groups per-tool options into tool tabs (text editor / JSON formatter); naming styles became their own card; global search now jumps straight into a tool tab; tab bars were unified in size and width',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: '设置新增一级菜单「工具设置」:各工具自己的设置按工具分标签页归拢(文本编辑器 / JSON 格式化器),原「通用」里的 JSON 默认缩进与独立的一级菜单「文本编辑器」一并迁入对应标签页,结构预留后续继续增加工具标签',
+          en: 'A new "Tool settings" section replaces the standalone "Text editor" menu and absorbs the JSON indent that used to live under "General": per-tool options are grouped into tabs (text editor, JSON formatter), with room for more tool tabs later',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '全局搜索命中单工具设置项时自动切到对应工具标签页并高亮字段,标签页未激活也能定位(设置字段锚点升级为 settings:tools:<工具>:<字段>)',
+          en: 'Searching a per-tool setting now switches to that tool tab and highlights the field, even though inactive tabs are not mounted (setting field anchors became settings:tools:<tool>:<field>)',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '文本编辑器的命名风格独立成卡片:启用风格与快捷键循环顺序集中在「命名风格」卡内,与编辑器展示配置分开',
+          en: 'Naming styles for the text editor moved into their own card: enabled conversions and the shortcut cycle order are grouped under "Naming styles", apart from the editor display options',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '设置页与「关于」页的标签栏统一为 shadcn 默认尺寸并让宽度随内容收缩:不再照搬工具配置栏的紧凑档、也不再被拉伸到整行宽而留下大片空白',
+          en: 'The tab bars in settings and in the About dialog went back to the default shadcn size and now shrink to their content: no more borrowing the compact tool-config size, and no more being stretched across the row with empty space around',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '修复 JSON 默认缩进填写非法值(非数字 / 负数 / 超过 8)时保存没有任何反馈:现在给出校验提示且不写入配置',
+          en: 'Fixed the JSON default indent giving no feedback when an invalid value (non-numeric, negative, above 8) was entered: it now shows a validation hint and skips the write',
+        },
+      },
+    ],
+  },
   {
     version: '0.3.5',
     date: '2026-09-20',

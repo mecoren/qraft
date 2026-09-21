@@ -5,6 +5,22 @@ All notable changes to Qraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] - 2026-09-21
+
+### Added
+
+- 设置新增一级菜单「工具设置」:各工具自己的设置按工具分标签页归拢(文本编辑器 / JSON 格式化器),原「通用」里的 JSON 默认缩进与独立的一级菜单「文本编辑器」一并迁入对应标签页,结构预留后续继续增加工具标签
+- 文本编辑器的命名风格独立成卡片:启用风格与快捷键循环顺序集中在「命名风格」卡内,与编辑器展示配置分开
+
+### Changed
+
+- 全局搜索命中单工具设置项时自动切到对应工具标签页并高亮字段(设置字段锚点升级为 `settings:tools:<工具>:<字段>`,标签页未激活时也能定位)
+- 设置页与「关于」页的标签栏统一为 shadcn 默认尺寸并让宽度随内容收缩:不再照搬工具配置栏的紧凑档、也不再被拉伸到整行宽而留下大片空白
+
+### Fixed
+
+- 修复 JSON 默认缩进填写非法值(非数字 / 负数 / 超过 8)时保存没有任何反馈:现在给出校验提示且不写入配置
+
 ## [0.3.5] - 2026-09-20
 
 ### Added
@@ -347,6 +363,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tauri Updater 签名验证(ed25519)
 - MVP 阶段:Windows/macOS 使用占位签名(ad-hoc),正式发布需 EV 证书与 Apple Developer ID
 
+[0.3.6]: https://github.com/qraft/qraft/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/qraft/qraft/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/qraft/qraft/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/qraft/qraft/compare/v0.3.2...v0.3.3
