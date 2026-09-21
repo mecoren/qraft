@@ -25,7 +25,17 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { BookOpen, Code, GripHorizontal, History, Info, X, type LucideIcon } from 'lucide-react';
+import {
+  BookOpen,
+  Code,
+  GripHorizontal,
+  History,
+  Info,
+  X,
+  Layers,
+  Cog,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -1071,9 +1081,16 @@ function ComponentsSection(): JSX.Element {
         </p>
       </div>
       <Tabs defaultValue="frontend" className="flex flex-col gap-4">
-        <TabsList>
-          <TabsTrigger value="frontend">{t('chrome.about.tab_frontend')}</TabsTrigger>
-          <TabsTrigger value="rust">{t('chrome.about.tab_rust')}</TabsTrigger>
+        {/* w-fit 不可省:TabsList 是纵向 flex 子项,不加会被 align-items:stretch 拉满整行留白 */}
+        <TabsList className="w-fit">
+          <TabsTrigger value="frontend" className="gap-1.5">
+            <Layers className="size-4" />
+            {t('chrome.about.tab_frontend')}
+          </TabsTrigger>
+          <TabsTrigger value="rust" className="gap-1.5">
+            <Cog className="size-4" />
+            {t('chrome.about.tab_rust')}
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="frontend">
           <ComponentGroup list={frontend} />
