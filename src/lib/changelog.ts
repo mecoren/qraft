@@ -25,6 +25,7 @@
  * v0.3.4 内容基于 git log(v0.3.3 标签之后至 2026-09-20)提炼,
  * v0.3.5 内容基于 git log(v0.3.4 标签之后至 2026-09-20)提炼,
  * v0.3.6 内容基于 git log 与工作区改动(v0.3.5 标签之后至 2026-09-21)提炼,
+ * v0.3.7 内容基于 git log(v0.3.6 标签之后至 2026-09-28)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -53,6 +54,44 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.3.7',
+    date: '2026-09-28',
+    summary: {
+      zh: '媒体工具统一截图粘贴与任意落点拖放:二维码默认读取页,OS 拖放落到媒体工具时全局分流静默;空态提示回到双向居中并立约到 AGENTS',
+      en: 'Media tools now share screenshot pasting and drop-anywhere intake: QR opens on the read tab, OS drops landing in a media tool stay silent in global routing, and empty states are centered again with the rule written into AGENTS',
+    },
+    changes: [
+      {
+        category: 'feature',
+        description: {
+          zh: '二维码工具默认停留在「读取二维码」页:截图 / 复制图片后 Ctrl+V 直接识别,图片拖到工具内任意位置(含生成页、右侧结果编辑器)都自动切到读取页识别,不再被编辑器吞掉;纯文本粘贴不受影响',
+          en: 'The QR tool now opens on the "Read QR code" tab: pasting a screenshot or copied image with Ctrl+V decodes it directly, and dropping an image anywhere inside the tool (including the generate tab and the right-side result editor) switches back to the read tab instead of being swallowed by the editor; plain-text pasting is untouched',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: '图片转换器、PNG 压缩器、图片元数据、色盲模拟器、视频转 GIF 统一支持截图粘贴(Ctrl+V)与工具内任意落点拖放摄入:拖放 / 粘贴拦截收进工具根容器,类型过滤与报错口径与文件选择一致;剪贴板提取收敛到 src/lib/clipboard-files 共用(files + items 双路径,文本项跳过)',
+          en: 'Image converter, PNG compressor, image metadata, color blindness simulator and video-to-GIF all support screenshot pasting (Ctrl+V) and drop-anywhere intake: interception moved to each tool root with the same type filtering and error wording as file picking, and clipboard extraction is shared in src/lib/clipboard-files (files + items paths, text items skipped)',
+        },
+      },
+      {
+        category: 'feature',
+        description: {
+          zh: 'OS 层拖放(资源管理器)落点命中媒体工具工作区时全局分流静默:二进制不再弹「仍要打开」、文本文件不再抢跳文本编辑器,摄入与类型反馈由工具自身的拖放处理完成(Rust Unsupported 载荷新增落点坐标,前端按 [data-tool-id] 判定落点)',
+          en: 'OS-level drops (file explorer) landing inside a media tool workspace now stay silent in global routing: no more "open anyway" prompt for binaries and no more hijacking into the text editor for text files, with intake and type feedback handled by each tool (the Rust Unsupported payload carries the drop position and the frontend matches it against [data-tool-id])',
+        },
+      },
+      {
+        category: 'fix',
+        description: {
+          zh: '图片转换器、PNG 压缩器、视频转 GIF、二维码读取区的空态提示顶到顶部:承载改用普通 overflow-auto div(Radix ScrollArea 的 viewport table 包裹打断高度链,h-full 塌缩到内容高度),提示回到双向居中;布局契约写入 AGENTS(空态提示必须双向居中 + 回归断言写法)',
+          en: 'Empty states in image converter, PNG compressor, video-to-GIF and the QR read tab were stuck at the top: carriers are now plain overflow-auto divs (the Radix ScrollArea viewport table wrapper broke the height chain and collapsed h-full to content height), so hints are centered both ways again; the layout rule is now in AGENTS (empty states must center both ways, with a regression assertion recipe)',
+        },
+      },
+    ],
+  },
   {
     version: '0.3.6',
     date: '2026-09-21',

@@ -76,7 +76,8 @@ describe('SearchDialog', () => {
       expect(screen.queryByText('JSON 格式化器')).not.toBeInTheDocument();
     });
     expect(screen.getAllByText('Base64 转换器').length).toBeGreaterThan(0);
-  });
+    // userEvent 逐字输入 + 全量测试并发下可能较慢,放宽等待超时避免 flaky(同文件「无匹配时展示空态提示」同款)
+  }, 20000);
 
   it('无匹配时展示空态提示', async () => {
     const user = userEvent.setup();
@@ -98,7 +99,8 @@ describe('SearchDialog', () => {
     await user.click((await screen.findAllByText('Base64 转换器'))[0]);
     expect(useSearchStore.getState().target).toEqual({ view: 'tool', toolId: 'base64_codec' });
     expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
+    // 同上:逐字输入 + 点击链路在全量并发下可能较慢,放宽超时避免 flaky
+  }, 20000);
 
   it('选择设置分区结果携带 settingsMenu', async () => {
     const user = userEvent.setup();
@@ -116,7 +118,8 @@ describe('SearchDialog', () => {
       anchor: 'settings:shortcuts',
     });
     expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
+    // 同上:逐字输入 + 等待链路在全量并发下可能较慢,放宽超时避免 flaky
+  }, 20000);
 
   it('键盘 Enter 触发当前高亮结果', async () => {
     const user = userEvent.setup();

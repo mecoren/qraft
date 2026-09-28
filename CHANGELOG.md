@@ -5,6 +5,18 @@ All notable changes to Qraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7] - 2026-09-28
+
+### Added
+
+- 二维码工具默认停留在「读取二维码」页:截图 / 复制图片后 Ctrl+V 直接识别,图片拖到工具内任意位置(含生成页、右侧结果编辑器)都自动切到读取页识别,不再被编辑器吞掉;纯文本粘贴不受影响
+- 图片转换器、PNG 压缩器、图片元数据、色盲模拟器、视频转 GIF 统一支持截图粘贴(Ctrl+V)与工具内任意落点拖放摄入:拖放 / 粘贴拦截收进工具根容器,类型过滤与报错口径与文件选择一致;剪贴板提取收敛到 `src/lib/clipboard-files` 共用(files + items 双路径,文本项跳过)
+- OS 层拖放(资源管理器)落点命中媒体工具工作区时全局分流静默:二进制不再弹「仍要打开」、文本文件不再抢跳文本编辑器,摄入与类型反馈由工具自身的拖放处理完成(Rust `Unsupported` 载荷新增落点坐标,前端按 `[data-tool-id]` 判定落点)
+
+### Fixed
+
+- 图片转换器、PNG 压缩器、视频转 GIF、二维码读取区的空态提示顶到顶部:承载改用普通 `overflow-auto` div(Radix ScrollArea 的 viewport table 包裹打断高度链,`h-full` 塌缩到内容高度),提示回到双向居中;布局契约写入 AGENTS(空态提示必须双向居中 + 回归断言写法)
+
 ## [0.3.6] - 2026-09-21
 
 ### Added
@@ -363,6 +375,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tauri Updater 签名验证(ed25519)
 - MVP 阶段:Windows/macOS 使用占位签名(ad-hoc),正式发布需 EV 证书与 Apple Developer ID
 
+[0.3.7]: https://github.com/qraft/qraft/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/qraft/qraft/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/qraft/qraft/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/qraft/qraft/compare/v0.3.3...v0.3.4
