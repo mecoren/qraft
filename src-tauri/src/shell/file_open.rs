@@ -69,8 +69,14 @@ pub struct DropPosition {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum OpenFileUnsupported {
-    /// 二进制内容(`reason="binary"`);payload 为完整路径
-    Unsupported { path: String },
+    /// 二进制内容(`reason="binary"`);payload 为完整路径。
+    /// 拖放入口附带落点坐标:落点命中媒体摄入工具工作区(`[data-tool-id]`)
+    /// 时前端静默(工具自身的 HTML5 拖放摄入同源触发),不再弹「仍要打开」。
+    Unsupported {
+        path: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        drop_position: Option<DropPosition>,
+    },
     /// 文件过大(`reason="too-large"`):切换到大文件查看模式,并非错误
     TooLarge { path: String },
     /// PDF 文档:切换到 PDF 工具打开(表单填写 + 编辑;前端经 `fs_read_pdf` 读取)。
@@ -378,6 +384,7 @@ pub fn open_dropped_file(
                 app,
                 &OpenFileUnsupported::Unsupported {
                     path: path.to_string(),
+                    drop_position,
                 },
             );
             Ok(())

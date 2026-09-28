@@ -31,6 +31,8 @@ import {
   isPdfPath,
   isOfficePath,
   isDropInsideEditorBox,
+  isDropInsideToolBox,
+  MEDIA_DROP_TOOL_IDS,
 } from '@/lib/open-file-routing';
 import {
   forceOpenFile,
@@ -289,6 +291,11 @@ export function App(): JSX.Element {
       unlisteners.push(
         await listen<OpenFileEventPayload>('app:open-file', (p) => {
           if (!p?.path) return;
+          // 落点在媒体摄入工具工作区内:不抢跳编辑器/Markdown,由工具自身的
+          // HTML5 拖放摄入接管(同源触发;类型不符时工具内 toast 反馈)
+          if (isDropInsideToolBox(p.dropPosition, resolveDropElement, ...MEDIA_DROP_TOOL_IDS)) {
+            return;
+          }
           const dropInsideEditor = isDropInsideEditorBox(p.dropPosition, resolveDropElement);
           if (isMarkdownPath(p.path) && !dropInsideEditor) {
             openFileInMarkdownEditor(p.content, p);
@@ -313,6 +320,11 @@ export function App(): JSX.Element {
         await listen<OpenFileUnsupportedPayload>('app:open-file-unsupported', (p) => {
           if (!p) return;
           if (p.kind === 'unsupported' && p.path) {
+            // 落点在媒体摄入工具工作区内:静默,摄入由工具自身的 HTML5 拖放
+            // 处理完成(同源触发);二进制提示的「仍要打开」在此无意义
+            if (isDropInsideToolBox(p.dropPosition, resolveDropElement, ...MEDIA_DROP_TOOL_IDS)) {
+              return;
+            }
             showBinaryUnsupportedToast(p.path);
           } else if (p.kind === 'pdf' && p.path) {
             // 「直接拖入文本编辑器编辑框」例外:落点命中 Monaco 编辑区时不进

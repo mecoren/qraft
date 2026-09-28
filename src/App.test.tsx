@@ -218,6 +218,85 @@ describe('App', () => {
     expect(useToolStateStore.getState().currentToolId).toBe('text_editor');
   });
 
+  /** 把 document.elementFromPoint 桩为命中指定工具容器(`[data-tool-id]`)内的元素 */
+  function stubDropInsideTool(toolId: string): () => void {
+    const box = document.createElement('div');
+    box.setAttribute('data-tool-id', toolId);
+    const child = box.appendChild(document.createElement('span'));
+    document.body.appendChild(box);
+    const original = document.elementFromPoint;
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: () => child,
+    });
+    return () => {
+      if (original) {
+        Object.defineProperty(document, 'elementFromPoint', {
+          configurable: true,
+          value: original,
+        });
+      } else {
+        delete (document as { elementFromPoint?: unknown }).elementFromPoint;
+      }
+      box.remove();
+    };
+  }
+
+  it('拖放图片落到二维码工具内:静默,不弹「仍要打开」(工具自身拖放摄入接管)', async () => {
+    const handlers = await renderAndCaptureEvents(['app:open-file-unsupported']);
+    const restore = stubDropInsideTool('qrcode_tool');
+    try {
+      await act(async () => {
+        handlers['app:open-file-unsupported']({
+          kind: 'unsupported',
+          path: 'C:\\shot\\qr.png',
+          dropPosition: { x: 300, y: 500 },
+        });
+        await new Promise((r) => setTimeout(r, 50));
+      });
+    } finally {
+      restore();
+    }
+    expect(screen.queryByRole('button', { name: '仍要打开' })).not.toBeInTheDocument();
+    expect(useToolStateStore.getState().currentToolId).toBeNull();
+  });
+
+  it('拖放图片落到文本编辑器内:照常弹「仍要打开」(非媒体工具不静默)', async () => {
+    const handlers = await renderAndCaptureEvents(['app:open-file-unsupported']);
+    const restore = stubDropInsideTool('text_editor');
+    try {
+      await act(async () => {
+        handlers['app:open-file-unsupported']({
+          kind: 'unsupported',
+          path: 'C:\\shot\\qr.png',
+          dropPosition: { x: 300, y: 500 },
+        });
+      });
+    } finally {
+      restore();
+    }
+    expect(await screen.findByRole('button', { name: '仍要打开' })).toBeInTheDocument();
+  });
+
+  it('拖放文本文件落到图片工具内:不抢跳文本编辑器(工具自身给出类型反馈)', async () => {
+    const handlers = await renderAndCaptureEvents(['app:open-file']);
+    const restore = stubDropInsideTool('image_converter');
+    try {
+      await act(async () => {
+        handlers['app:open-file']({
+          path: 'C:\\docs\\note.txt',
+          content: 'hello',
+          encoding: 'utf-8',
+          dropPosition: { x: 300, y: 500 },
+        });
+      });
+    } finally {
+      restore();
+    }
+    expect(useEditorWorkspaceStore.getState().workspace.tabs).toHaveLength(0);
+    expect(useToolStateStore.getState().currentToolId).toBeNull();
+  });
+
   it('拖放过大文件:切换到大文件只读模式打开(不提示失败)', async () => {
     const handlers = await renderAndCaptureEvents(['app:open-file-unsupported']);
     await act(async () => {

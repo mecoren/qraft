@@ -4,6 +4,8 @@ import {
   isPdfPath,
   isOfficePath,
   isDropInsideEditorBox,
+  isDropInsideToolBox,
+  MEDIA_DROP_TOOL_IDS,
 } from './open-file-routing';
 
 describe('isMarkdownPath', () => {
@@ -102,5 +104,55 @@ describe('isDropInsideEditorBox', () => {
 
   it('无落点坐标(文件关联/命令行打开):返回 false', () => {
     expect(isDropInsideEditorBox(undefined, fromPointWith(true))).toBe(false);
+  });
+});
+
+describe('isDropInsideToolBox', () => {
+  /** 构造命中元素:挂在指定 data-tool-id 容器内(或游离节点) */
+  const fromPointIn = (toolId: string | null) => {
+    const el = document.createElement('span');
+    if (toolId) {
+      const box = document.createElement('div');
+      box.setAttribute('data-tool-id', toolId);
+      box.appendChild(el);
+    }
+    return () => el;
+  };
+
+  it('落点命中媒体工具容器:返回 true(全局分流静默)', () => {
+    expect(
+      isDropInsideToolBox({ x: 100, y: 200 }, fromPointIn('qrcode_tool'), ...MEDIA_DROP_TOOL_IDS),
+    ).toBe(true);
+  });
+
+  it('落点命中非媒体工具容器:返回 false(照常分流)', () => {
+    expect(
+      isDropInsideToolBox({ x: 100, y: 200 }, fromPointIn('text_editor'), ...MEDIA_DROP_TOOL_IDS),
+    ).toBe(false);
+  });
+
+  it('落点命中游离节点(侧栏/空白):返回 false', () => {
+    expect(isDropInsideToolBox({ x: 10, y: 10 }, fromPointIn(null), ...MEDIA_DROP_TOOL_IDS)).toBe(
+      false,
+    );
+  });
+
+  it('无落点坐标 / 无命中元素 / 空工具表:返回 false', () => {
+    expect(isDropInsideToolBox(undefined, fromPointIn('qrcode_tool'), 'qrcode_tool')).toBe(false);
+    expect(isDropInsideToolBox({ x: 0, y: 0 }, () => null, 'qrcode_tool')).toBe(false);
+    expect(isDropInsideToolBox({ x: 0, y: 0 }, fromPointIn('qrcode_tool'))).toBe(false);
+  });
+
+  it('媒体工具表覆盖全部图片/视频摄入工具', () => {
+    expect(MEDIA_DROP_TOOL_IDS).toEqual(
+      expect.arrayContaining([
+        'qrcode_tool',
+        'image_converter',
+        'png_compressor',
+        'image_metadata',
+        'color_blindness_simulator',
+        'video_to_gif',
+      ]),
+    );
   });
 });

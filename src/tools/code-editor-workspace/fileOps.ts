@@ -117,7 +117,8 @@ export interface OpenFileUnsupportedPayload {
   path?: string;
   /** kind=error 时为错误消息 */
   message?: string;
-  /** kind=pdf / office 拖放入口的落点坐标(前端据此豁免「拖入 Monaco 编辑框」的分流) */
+  /** 拖放入口的落点坐标:kind=pdf / office 用于豁免「拖入 Monaco 编辑框」的分流,
+   * kind=unsupported 用于命中媒体工具工作区时静默(工具自身拖放摄入接管) */
   dropPosition?: DropPosition;
 }
 

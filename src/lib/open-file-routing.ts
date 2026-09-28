@@ -60,3 +60,37 @@ export function isDropInsideEditorBox(
   const el = elementFromPoint(dropPosition.x, dropPosition.y);
   return el instanceof Element && el.closest('.monaco-editor') !== null;
 }
+
+/**
+ * 媒体摄入工具 id:这些工具根容器统一拦截拖放/粘贴(图片/视频直接摄入)。
+ * OS 层拖放落点命中其工作区(`ToolPanel` 渲染的 `[data-tool-id]` 容器)时,
+ * 全局分流静默:二进制不再弹「仍要打开」、文本不再抢跳编辑器,
+ * 摄入与类型反馈由工具自身的 HTML5 拖放处理完成(同源触发)。
+ */
+export const MEDIA_DROP_TOOL_IDS: readonly string[] = [
+  'qrcode_tool',
+  'image_converter',
+  'png_compressor',
+  'image_metadata',
+  'color_blindness_simulator',
+  'video_to_gif',
+];
+
+/**
+ * 判断拖放落点是否在指定工具工作区内(`[data-tool-id]` 容器)。
+ *
+ * 与 `isDropInsideEditorBox` 同口径的落点判定,只是命中目标从
+ * `.monaco-editor` 换成工具容器:命中即视为用户意图把文件交给该工具,
+ * 全局分流应放行、不抢跳。keepalive 隐藏的工具为 `display:none`,
+ * `elementFromPoint` 恒命中不了,天然只对可见工具生效。
+ */
+export function isDropInsideToolBox(
+  dropPosition: { x: number; y: number } | undefined,
+  elementFromPoint: (x: number, y: number) => (Element | null) | null | undefined,
+  ...toolIds: string[]
+): boolean {
+  if (!dropPosition || toolIds.length === 0) return false;
+  const el = elementFromPoint(dropPosition.x, dropPosition.y);
+  if (!(el instanceof Element)) return false;
+  return toolIds.some((id) => el.closest(`[data-tool-id="${id}"]`) !== null);
+}
