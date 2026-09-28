@@ -271,4 +271,12 @@ describe('QrcodeTool', () => {
     expect(toastSuccess).not.toHaveBeenCalled();
     expect(toastError).not.toHaveBeenCalled();
   });
+
+  it('空态承载不用 Radix ScrollArea(高度链不断,提示双向居中)', () => {
+    render(<QrcodeTool toolId="qrcode_tool" metadata={null as never} />);
+    const zone = screen.getByTestId('qr-dropzone');
+    // Radix Viewport 的 table 包裹会打断 h-full 高度链,空态提示顶到顶部;普通 div 才居中
+    expect(zone.querySelector('[data-radix-scroll-area-viewport]')).toBeNull();
+    expect(zone.firstElementChild).toHaveClass('items-center', 'justify-center');
+  });
 });

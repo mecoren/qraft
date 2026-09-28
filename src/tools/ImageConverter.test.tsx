@@ -190,6 +190,13 @@ describe('ImageConverter', () => {
     expect(screen.queryByTestId('ic-preview')).not.toBeInTheDocument();
     expect(screen.queryByTestId('ic-batch-list')).not.toBeInTheDocument();
   });
+
+  it('空态承载不用 Radix ScrollArea(高度链不断,提示双向居中)', () => {
+    render(<ImageConverter toolId="image_converter" metadata={null as never} />);
+    const zone = screen.getByTestId('ic-dropzone');
+    expect(zone.querySelector('[data-radix-scroll-area-viewport]')).toBeNull();
+    expect(zone.firstElementChild).toHaveClass('items-center', 'justify-center');
+  });
 });
 
 // 恢复被覆盖的原型(避免影响其他用例)

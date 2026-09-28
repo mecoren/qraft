@@ -179,4 +179,11 @@ describe('PngCompressor', () => {
     await waitFor(() => expect(screen.getByTestId('pc-compress')).toBeEnabled());
     expect(screen.getByTestId('pc-original-pane')).toBeInTheDocument();
   });
+
+  it('空态承载不用 Radix ScrollArea(高度链不断,提示双向居中)', () => {
+    render(<PngCompressor toolId="png_compressor" metadata={null as never} />);
+    const zone = screen.getByTestId('pc-dropzone');
+    expect(zone.querySelector('[data-radix-scroll-area-viewport]')).toBeNull();
+    expect(zone.firstElementChild).toHaveClass('items-center', 'justify-center');
+  });
 });

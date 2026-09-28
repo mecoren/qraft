@@ -125,4 +125,11 @@ describe('VideoToGif', () => {
     });
     expect(screen.getByTestId('vtg-convert')).toBeEnabled();
   });
+
+  it('空态承载不用 Radix ScrollArea(高度链不断,提示双向居中)', () => {
+    render(<VideoToGif toolId="video_to_gif" metadata={null as never} />);
+    const zone = screen.getByTestId('vtg-dropzone');
+    expect(zone.querySelector('[data-radix-scroll-area-viewport]')).toBeNull();
+    expect(zone.firstElementChild).toHaveClass('items-center', 'justify-center');
+  });
 });

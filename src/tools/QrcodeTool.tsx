@@ -23,7 +23,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { CodeEditor } from '@/components/ui/code-editor';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { CopyAction } from '@/components/copy-action';
 import { SendToMenu } from '@/components/send-to-menu';
 import { downloadBlob, downloadText, readFileAsDataUrl } from '@/lib/file-utils';
@@ -361,9 +360,11 @@ export function QrcodeTool({ toolId }: ToolProps): JSX.Element {
                     e.target.value = '';
                   }}
                 />
-                <ScrollArea
+                {/* 空态承载用普通 overflow-auto 容器(理由同 Base64Codec b64-dropzone,
+                    避免 Radix ScrollArea table 包装层打断高度链导致提示无法垂直居中) */}
+                <div
                   data-testid="qr-dropzone"
-                  className={`min-h-0 flex-1 rounded-none border-0 ${
+                  className={`min-h-0 flex-1 overflow-auto rounded-none border-0 ${
                     dragOver ? 'bg-primary/5' : ''
                   } transition-colors`}
                 >
@@ -380,7 +381,7 @@ export function QrcodeTool({ toolId }: ToolProps): JSX.Element {
                       </p>
                     )}
                   </div>
-                </ScrollArea>
+                </div>
               </div>
             </ResizablePanel>
 

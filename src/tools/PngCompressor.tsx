@@ -29,7 +29,6 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { base64ToBytes, downloadBlob, formatBytes, readFileAsDataUrl } from '@/lib/file-utils';
 import { clipboardMediaFiles, transferFiles } from '@/lib/clipboard-files';
 import { invokeCommand } from '@/lib/ipc';
@@ -441,9 +440,11 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
             e.target.value = '';
           }}
         />
-        <ScrollArea
+        {/* 拖放区:普通 overflow-auto 容器(理由同 Base64Codec b64-dropzone,
+            避免 Radix ScrollArea table 包装层打断高度链导致空态无法垂直居中) */}
+        <div
           data-testid="pc-dropzone"
-          className={`min-h-0 flex-1 rounded-md border ${
+          className={`min-h-0 flex-1 overflow-auto rounded-md border ${
             dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
           } transition-colors`}
         >
@@ -586,7 +587,7 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </div>
     </div>
   );
