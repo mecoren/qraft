@@ -33,7 +33,7 @@
   "tools.png_compressor.duration_ms": "耗时 {{ms}}ms",
   "tools.png_compressor.color_unit": "色",
   "tools.png_compressor.save_result": "保存压缩结果",
-  "tools.png_compressor.dropzone_hint": "拖放 PNG 到此处,或点击「选择 PNG」",
+  "tools.png_compressor.dropzone_hint": "拖放 PNG 到此处,或点击「选择 PNG」,复制后可直接粘贴(Ctrl+V)",
   "tools.png_compressor.batch_run": "批量压缩",
   "tools.png_compressor.batch_running": "压缩中…",
   "tools.png_compressor.batch_download_all": "全部下载",

@@ -6,12 +6,20 @@
  * 布局照 CertificateDecoder 的左右分栏契约:左为非编辑器「预览框」
  * (26px 标题栏 + 满高滚动区),右为结果面板(文件/结构/EXIF/文本/chunk 分节)。
  */
-import { useCallback, useRef, useState, type DragEvent, type JSX } from 'react';
+import {
+  useCallback,
+  useRef,
+  useState,
+  type ClipboardEvent as ReactClipboardEvent,
+  type DragEvent,
+  type JSX,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, FileImage, FolderOpen, X } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { CopyAction } from '@/components/copy-action';
 import { formatBytes, readFileAsDataUrl, base64ToBytes } from '@/lib/file-utils';
+import { clipboardMediaFiles, isImageFile, transferFiles } from '@/lib/clipboard-files';
 import { parseImageMetadata, reportToText, type ImageMetadataReport } from './image-metadata-utils';
 import type { ToolProps } from './registry';
 
@@ -67,12 +75,29 @@ export function ImageMetadata(_props: ToolProps): JSX.Element {
     }
   }, []);
 
+  // 拖放 / 粘贴统一收进工具根容器:左右任意面板落点都直接解析,
+  // 类型校验由 loadFile 内 parse 链路负责(保持与文件选择同口径)
   const onDrop = useCallback(
-    (e: DragEvent) => {
+    (e: DragEvent<HTMLDivElement>) => {
+      // 只拦截文件类拖放,避免吞掉右侧结果区的文本拖选
+      if (!e.dataTransfer?.types?.includes('Files')) return;
       e.preventDefault();
+      e.stopPropagation();
       setDragOver(false);
-      const dropped = e.dataTransfer.files?.[0];
+      const dropped = transferFiles(e.dataTransfer)[0];
       if (dropped) void loadFile(dropped);
+    },
+    [loadFile],
+  );
+
+  /** 截图 / 复制图片后 Ctrl+V 直接解析(无图片时放行) */
+  const onPaste = useCallback(
+    (e: ReactClipboardEvent<HTMLDivElement>) => {
+      const hit = clipboardMediaFiles(e.clipboardData, isImageFile)[0];
+      if (!hit) return;
+      e.preventDefault();
+      e.stopPropagation();
+      void loadFile(hit);
     },
     [loadFile],
   );
@@ -111,6 +136,16 @@ export function ImageMetadata(_props: ToolProps): JSX.Element {
     <div
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="image-metadata"
+      onDragOver={(e) => {
+        if (e.dataTransfer?.types?.includes('Files')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          setDragOver(true);
+        }
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={onDrop}
+      onPaste={onPaste}
     >
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         {/* 左:图片预览框(可拖放;与 CodeEditor 同构的编辑框结构) */}
@@ -163,12 +198,6 @@ export function ImageMetadata(_props: ToolProps): JSX.Element {
                 dragOver ? 'bg-primary/5' : ''
               } transition-colors`}
               data-testid="im-dropzone"
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={onDrop}
             >
               {file && file.dataUrl ? (
                 <div className="flex h-full min-h-full items-center justify-center p-4">

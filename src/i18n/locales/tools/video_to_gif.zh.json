@@ -6,7 +6,7 @@
   "tools.video_to_gif.convert": "转换为 GIF",
   "tools.video_to_gif.download": "下载 GIF",
   "tools.video_to_gif.done": "转换完成:{{frames}} 帧,{{size}}",
-  "tools.video_to_gif.dropzone_hint": "拖放视频到此处,或点击「选择视频」",
+  "tools.video_to_gif.dropzone_hint": "拖放视频到此处,或点击「选择视频」,复制视频文件后可直接粘贴(Ctrl+V)",
   "tools.video_to_gif.error_canvas": "无法创建画布上下文",
   "tools.video_to_gif.error_decode": "视频解码失败(格式不受支持或文件损坏)",
   "tools.video_to_gif.failed": "转换失败:{{message}}",

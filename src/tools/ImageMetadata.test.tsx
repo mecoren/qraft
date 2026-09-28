@@ -84,4 +84,22 @@ describe('ImageMetadata', () => {
     expect(r.error).toBeUndefined();
     expect(r.format).toBe('png');
   });
+
+  it('Ctrl+V 粘贴图片直接解析(根容器统一拦截)', async () => {
+    mockFileReaderAsDataUrl();
+    render(<ImageMetadata toolId="image_metadata" metadata={{} as never} />);
+    fireEvent.paste(screen.getByTestId('image-metadata'), {
+      clipboardData: {
+        files: [makeFile('shot.png')],
+        items: [],
+        types: ['Files'],
+      } as unknown as DataTransfer,
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('im-preview')).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('im-section-structure')).toBeInTheDocument();
+    });
+  });
 });

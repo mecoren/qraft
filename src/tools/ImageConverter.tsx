@@ -7,7 +7,16 @@
  * - 输出:实时预览 + 体积/尺寸信息 + 一键下载
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type JSX } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent as ReactClipboardEvent,
+  type DragEvent,
+  type JSX,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, FileImage, FolderOpen, Layers, Maximize2, Play, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -25,6 +34,7 @@ import { Switch } from '@/components/ui/switch';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { downloadBlob, formatBytes, readFileAsDataUrl } from '@/lib/file-utils';
+import { clipboardMediaFiles, isImageFile, transferFiles } from '@/lib/clipboard-files';
 import { batchSummary, makeBatchItems, runBatch, type BatchItem } from './image-batch';
 import type { ToolProps } from './registry';
 
@@ -320,12 +330,29 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
     }
   }, [batch]);
 
+  // 拖放 / 粘贴统一收进工具根容器:任意落点(配置区/预览区)都直接摄入,
+  // 类型过滤与报错由 intake 负责(与文件选择同口径)
   const onDrop = useCallback(
-    (e: DragEvent) => {
+    (e: DragEvent<HTMLDivElement>) => {
+      // 只拦截文件类拖放,避免吞掉编辑器内的文本拖选
+      if (!e.dataTransfer?.types?.includes('Files')) return;
       e.preventDefault();
+      e.stopPropagation();
       setDragOver(false);
-      const files = [...(e.dataTransfer.files ?? [])];
+      const files = transferFiles(e.dataTransfer);
       if (files.length > 0) intake(files);
+    },
+    [intake],
+  );
+
+  /** 截图 / 复制图片后 Ctrl+V 直接摄入(无图片时放行,不干扰文本粘贴) */
+  const onPaste = useCallback(
+    (e: ReactClipboardEvent<HTMLDivElement>) => {
+      const files = clipboardMediaFiles(e.clipboardData, isImageFile);
+      if (files.length === 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      intake(files);
     },
     [intake],
   );
@@ -335,6 +362,16 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
     <div
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="image-converter"
+      onDragOver={(e) => {
+        if (e.dataTransfer?.types?.includes('Files')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          setDragOver(true);
+        }
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={onDrop}
+      onPaste={onPaste}
     >
       <ConfigSection
         headerHint={t('tools.image_converter.section_hint')}
@@ -555,12 +592,6 @@ export function ImageConverter(_props: ToolProps): JSX.Element {
         />
         <ScrollArea
           data-testid="ic-dropzone"
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDrop}
           className={`min-h-0 flex-1 rounded-md border ${
             dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
           } transition-colors`}

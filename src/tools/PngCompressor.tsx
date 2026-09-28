@@ -7,7 +7,14 @@
  *
  * 输入输出均经 base64 走 Rust `png_compress` 命令;结果展示前后字节数与节省比例。
  */
-import { useCallback, useRef, useState, type DragEvent, type JSX } from 'react';
+import {
+  useCallback,
+  useRef,
+  useState,
+  type ClipboardEvent as ReactClipboardEvent,
+  type DragEvent,
+  type JSX,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, FileImage, FolderOpen, Layers, Play, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -24,6 +31,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { base64ToBytes, downloadBlob, formatBytes, readFileAsDataUrl } from '@/lib/file-utils';
+import { clipboardMediaFiles, transferFiles } from '@/lib/clipboard-files';
 import { invokeCommand } from '@/lib/ipc';
 import { batchSummary, makeBatchItems, runBatch, type BatchItem } from './image-batch';
 import type { ToolProps } from './registry';
@@ -206,14 +214,31 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
     }
   }, [batch]);
 
+  // 拖放 / 粘贴统一收进工具根容器:任意落点都直接摄入,
+  // PNG 过滤(intake 内)与报错口径与文件选择一致
   const onDrop = useCallback(
-    (e: DragEvent) => {
+    (e: DragEvent<HTMLDivElement>) => {
+      // 只拦截文件类拖放,避免吞掉编辑器内的文本拖选
+      if (!e.dataTransfer?.types?.includes('Files')) return;
       e.preventDefault();
+      e.stopPropagation();
       setDragOver(false);
-      const files = [...(e.dataTransfer.files ?? [])];
+      const files = transferFiles(e.dataTransfer);
       if (files.length > 0) intake(files);
     },
     [intake],
+  );
+
+  /** 复制 PNG 后 Ctrl+V 直接摄入(无 PNG 时放行,不干扰文本粘贴) */
+  const onPaste = useCallback(
+    (e: ReactClipboardEvent<HTMLDivElement>) => {
+      const files = clipboardMediaFiles(e.clipboardData, isPng);
+      if (files.length === 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      intake(files);
+    },
+    [intake, isPng],
   );
 
   /** 压缩节省百分比(负数表示变大) */
@@ -227,6 +252,16 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
     <div
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="png-compressor"
+      onDragOver={(e) => {
+        if (e.dataTransfer?.types?.includes('Files')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          setDragOver(true);
+        }
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={onDrop}
+      onPaste={onPaste}
     >
       <ConfigSection
         headerHint={t('tools.png_compressor.section_hint')}
@@ -408,12 +443,6 @@ export function PngCompressor(_props: ToolProps): JSX.Element {
         />
         <ScrollArea
           data-testid="pc-dropzone"
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDrop}
           className={`min-h-0 flex-1 rounded-md border ${
             dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
           } transition-colors`}

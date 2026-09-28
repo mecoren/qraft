@@ -23,7 +23,7 @@
   "tools.image_converter.choose_image": "Choose Image",
   "tools.image_converter.clear": "Clear",
   "tools.image_converter.convert_export": "Convert & Export",
-  "tools.image_converter.dropzone_hint": "Drop images here (multiple for batch), or click \"Choose Image\"",
+  "tools.image_converter.dropzone_hint": "Drop images here (multiple for batch), click \"Choose Image\", or paste a screenshot (Ctrl+V)",
   "tools.image_converter.batch_run": "Convert all",
   "tools.image_converter.batch_running": "Converting…",
   "tools.image_converter.batch_download_all": "Download all",

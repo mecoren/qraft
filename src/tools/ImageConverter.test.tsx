@@ -160,6 +160,36 @@ describe('ImageConverter', () => {
     });
     expect(screen.queryByTestId('ic-batch-list')).not.toBeInTheDocument();
   });
+
+  it('Ctrl+V 粘贴截图直接载入预览(根容器统一拦截)', async () => {
+    render(<ImageConverter toolId="image_converter" metadata={null as never} />);
+    const file = new File([new Uint8Array(10)], 'shot.png', { type: 'image/png' });
+    fireEvent.paste(screen.getByTestId('image-converter'), {
+      clipboardData: {
+        files: [],
+        items: [{ type: 'image/png', kind: 'file', getAsFile: () => file }],
+        types: ['Files'],
+      } as unknown as DataTransfer,
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('ic-preview')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('ic-batch-list')).not.toBeInTheDocument();
+  });
+
+  it('纯文本粘贴不摄入、不报错', () => {
+    render(<ImageConverter toolId="image_converter" metadata={null as never} />);
+    fireEvent.paste(screen.getByTestId('image-converter'), {
+      clipboardData: {
+        files: [],
+        items: [],
+        types: ['text/plain'],
+        getData: () => 'hello',
+      } as unknown as DataTransfer,
+    });
+    expect(screen.queryByTestId('ic-preview')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ic-batch-list')).not.toBeInTheDocument();
+  });
 });
 
 // 恢复被覆盖的原型(避免影响其他用例)

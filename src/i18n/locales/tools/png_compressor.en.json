@@ -33,7 +33,7 @@
   "tools.png_compressor.duration_ms": "Took {{ms}}ms",
   "tools.png_compressor.color_unit": "colors",
   "tools.png_compressor.save_result": "Save Result",
-  "tools.png_compressor.dropzone_hint": "Drop a PNG here, or click \"Choose PNG\"",
+  "tools.png_compressor.dropzone_hint": "Drop a PNG here, click \"Choose PNG\", or paste one (Ctrl+V)",
   "tools.png_compressor.batch_run": "Compress all",
   "tools.png_compressor.batch_running": "Compressing…",
   "tools.png_compressor.batch_download_all": "Download all",

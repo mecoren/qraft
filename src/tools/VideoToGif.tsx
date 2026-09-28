@@ -9,7 +9,14 @@
  * 参数:片段起止(默认 0~3s)、帧率(5/10/15/24)、输出宽度(等比缩放)。
  * 抽帧进度逐帧上报;产物经「下载」落盘。
  */
-import { useCallback, useRef, useState, type DragEvent, type JSX } from 'react';
+import {
+  useCallback,
+  useRef,
+  useState,
+  type ClipboardEvent as ReactClipboardEvent,
+  type DragEvent,
+  type JSX,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Clapperboard, Download, FolderOpen, Play, X } from 'lucide-react';
@@ -25,6 +32,7 @@ import {
 import { ConfigRow, ConfigSection } from '@/components/config-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { base64ToBytes, downloadBlob, formatBytes, readFileAsDataUrl } from '@/lib/file-utils';
+import { clipboardMediaFiles, isVideoFile, transferFiles } from '@/lib/clipboard-files';
 import { invokeCommand } from '@/lib/ipc';
 import type { ToolProps } from './registry';
 
@@ -180,12 +188,29 @@ export function VideoToGif(_props: ToolProps): JSX.Element {
     downloadBlob(`${videoMeta.name.replace(/\.[^.]+$/, '') || 'video'}.gif`, blob);
   }, [result, videoMeta]);
 
+  // 拖放 / 粘贴统一收进工具根容器:任意落点都直接载入,
+  // 视频校验与报错由 loadFile 负责(与文件选择同口径)
   const onDrop = useCallback(
-    (e: DragEvent) => {
+    (e: DragEvent<HTMLDivElement>) => {
+      // 只拦截文件类拖放,避免吞掉结果区的文本拖选
+      if (!e.dataTransfer?.types?.includes('Files')) return;
       e.preventDefault();
+      e.stopPropagation();
       setDragOver(false);
-      const file = e.dataTransfer.files[0];
+      const file = transferFiles(e.dataTransfer)[0];
       if (file) void loadFile(file);
+    },
+    [loadFile],
+  );
+
+  /** 复制视频文件后 Ctrl+V 直接载入(无视频时放行) */
+  const onPaste = useCallback(
+    (e: ReactClipboardEvent<HTMLDivElement>) => {
+      const hit = clipboardMediaFiles(e.clipboardData, isVideoFile)[0];
+      if (!hit) return;
+      e.preventDefault();
+      e.stopPropagation();
+      void loadFile(hit);
     },
     [loadFile],
   );
@@ -196,6 +221,16 @@ export function VideoToGif(_props: ToolProps): JSX.Element {
     <div
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="video-to-gif"
+      onDragOver={(e) => {
+        if (e.dataTransfer?.types?.includes('Files')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          setDragOver(true);
+        }
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={onDrop}
+      onPaste={onPaste}
     >
       <ConfigSection
         headerHint={t('tools.video_to_gif.section_hint')}
@@ -321,12 +356,6 @@ export function VideoToGif(_props: ToolProps): JSX.Element {
         />
         <ScrollArea
           data-testid="vtg-dropzone"
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDrop}
           className={`min-h-0 flex-1 rounded-md border ${
             dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
           } transition-colors`}

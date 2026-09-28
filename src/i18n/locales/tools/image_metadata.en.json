@@ -3,7 +3,7 @@
   "tools.image_metadata.title_output": "Metadata result",
   "tools.image_metadata.open_file": "Open image",
   "tools.image_metadata.clear": "Clear",
-  "tools.image_metadata.dropzone_hint": "Drop an image here or pick one via the top-right button (PNG / JPEG / WebP / GIF / BMP)",
+  "tools.image_metadata.dropzone_hint": "Drop or paste (Ctrl+V) an image here, or pick one via the top-right button (PNG / JPEG / WebP / GIF / BMP)",
   "tools.image_metadata.empty_hint": "Container metadata shows up after an image is loaded",
   "tools.image_metadata.section_file": "File",
   "tools.image_metadata.section_structure": "Structure",

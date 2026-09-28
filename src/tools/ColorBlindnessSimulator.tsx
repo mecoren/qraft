@@ -5,12 +5,21 @@
  * 采用 Brettel/Viénot 近似矩阵(线性 RGB 域)。
  */
 
-import { useCallback, useEffect, useRef, useState, type DragEvent, type JSX } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ClipboardEvent as ReactClipboardEvent,
+  type DragEvent,
+  type JSX,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, EyeOff, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { readFileAsDataUrl } from '@/lib/file-utils';
+import { clipboardMediaFiles, isImageFile, transferFiles } from '@/lib/clipboard-files';
 import type { ToolProps } from './registry';
 
 type Deficiency = 'protanopia' | 'deuteranopia' | 'tritanopia';
@@ -121,12 +130,29 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
     };
   }, [srcUrl, t]);
 
+  // 拖放 / 粘贴统一收进工具根容器:三个结果格落点也直接换源图,
+  // 类型校验与报错由 loadFile 负责(与文件选择同口径)
   const onDrop = useCallback(
-    (e: DragEvent) => {
+    (e: DragEvent<HTMLDivElement>) => {
+      // 只拦截文件类拖放
+      if (!e.dataTransfer?.types?.includes('Files')) return;
       e.preventDefault();
+      e.stopPropagation();
       setDragOver(false);
-      const file = e.dataTransfer.files[0];
+      const file = transferFiles(e.dataTransfer)[0];
       if (file) void loadFile(file);
+    },
+    [loadFile],
+  );
+
+  /** 截图 / 复制图片后 Ctrl+V 直接换源图(无图片时放行) */
+  const onPaste = useCallback(
+    (e: ReactClipboardEvent<HTMLDivElement>) => {
+      const hit = clipboardMediaFiles(e.clipboardData, isImageFile)[0];
+      if (!hit) return;
+      e.preventDefault();
+      e.stopPropagation();
+      void loadFile(hit);
     },
     [loadFile],
   );
@@ -136,6 +162,16 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
     <div
       className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
       data-testid="color-blindness-simulator"
+      onDragOver={(e) => {
+        if (e.dataTransfer?.types?.includes('Files')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          setDragOver(true);
+        }
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={onDrop}
+      onPaste={onPaste}
     >
       <div
         className="flex items-center justify-between border-b border-border px-4 py-3"
@@ -174,12 +210,6 @@ export function ColorBlindnessSimulator(_props: ToolProps): JSX.Element {
         {/* 原图 / 拖放区 */}
         <div
           data-testid="cb-dropzone"
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDrop}
           className={`flex min-h-0 flex-col rounded-md border ${
             dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
           } p-3 transition-colors`}

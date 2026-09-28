@@ -169,4 +169,14 @@ describe('PngCompressor', () => {
     await waitFor(() => expect(screen.getByTestId('pc-compress')).toBeEnabled());
     expect(screen.queryByTestId('pc-batch-list')).not.toBeInTheDocument();
   });
+
+  it('Ctrl+V 粘贴 PNG 直接载入(根容器统一拦截)', async () => {
+    render(<PngCompressor toolId="png_compressor" metadata={null as never} />);
+    const png = new File([new Uint8Array(4)], 'shot.png', { type: 'image/png' });
+    fireEvent.paste(screen.getByTestId('png-compressor'), {
+      clipboardData: { files: [png], items: [], types: ['Files'] } as unknown as DataTransfer,
+    });
+    await waitFor(() => expect(screen.getByTestId('pc-compress')).toBeEnabled());
+    expect(screen.getByTestId('pc-original-pane')).toBeInTheDocument();
+  });
 });

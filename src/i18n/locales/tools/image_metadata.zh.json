@@ -3,7 +3,7 @@
   "tools.image_metadata.title_output": "解析结果",
   "tools.image_metadata.open_file": "打开图片",
   "tools.image_metadata.clear": "清除",
-  "tools.image_metadata.dropzone_hint": "拖放或点击右上角选择图片(PNG / JPEG / WebP / GIF / BMP)",
+  "tools.image_metadata.dropzone_hint": "拖放、粘贴截图(Ctrl+V),或点击右上角选择图片(PNG / JPEG / WebP / GIF / BMP)",
   "tools.image_metadata.empty_hint": "选择图片后将展示容器元数据",
   "tools.image_metadata.section_file": "文件",
   "tools.image_metadata.section_structure": "结构",

@@ -113,4 +113,16 @@ describe('VideoToGif', () => {
       expect((screen.getByTestId('vtg-end') as HTMLInputElement).value).toBe('2');
     });
   });
+
+  it('Ctrl+V 粘贴视频文件直接载入(根容器统一拦截)', async () => {
+    render(<VideoToGif toolId="video_to_gif" metadata={null as never} />);
+    const mp4 = new File([new Uint8Array(8)], 'paste.mp4', { type: 'video/mp4' });
+    fireEvent.paste(screen.getByTestId('video-to-gif'), {
+      clipboardData: { files: [mp4], items: [], types: ['Files'] } as unknown as DataTransfer,
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('vtg-info')).toHaveTextContent('paste.mp4');
+    });
+    expect(screen.getByTestId('vtg-convert')).toBeEnabled();
+  });
 });

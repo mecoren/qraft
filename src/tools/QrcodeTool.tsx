@@ -27,6 +27,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { CopyAction } from '@/components/copy-action';
 import { SendToMenu } from '@/components/send-to-menu';
 import { downloadBlob, downloadText, readFileAsDataUrl } from '@/lib/file-utils';
+import { clipboardMediaFiles, isImageFile, transferFiles } from '@/lib/clipboard-files';
 import { t } from '@/i18n';
 import type { ToolProps } from './registry';
 
@@ -47,41 +48,6 @@ async function decodeQrFromDataUrl(dataUrl: string): Promise<string> {
   const code = jsQR(imageData.data, imageData.width, imageData.height);
   if (!code) throw new Error(t('tools.qrcode_tool.error_not_found'));
   return code.data;
-}
-
-/**
- * 从拖放数据中取第一张图片(多文件取第一张图片,无图片返回 null)。
- * 非图片文件由调用方按模式决定是提示还是放行,不在此处 toast。
- */
-function imageFromDataTransfer(dt: DataTransfer | null | undefined): File | null {
-  if (!dt?.files) return null;
-  for (const file of Array.from(dt.files)) {
-    if (file.type.startsWith('image/')) return file;
-  }
-  return null;
-}
-
-/**
- * 从粘贴剪贴板数据中取图片。
- * 截图工具 / 浏览器「复制图片」走 items(image/* 经 getAsFile 取 File),
- * 资源管理器文件复制等走 files;纯文本粘贴返回 null(放行 Monaco 原生粘贴)。
- */
-function imageFromClipboardData(dt: DataTransfer | null | undefined): File | null {
-  if (!dt) return null;
-  if (dt.files?.length) {
-    for (const file of Array.from(dt.files)) {
-      if (file.type.startsWith('image/')) return file;
-    }
-  }
-  if (dt.items?.length) {
-    for (const item of Array.from(dt.items)) {
-      if (item.type.startsWith('image/')) {
-        const file = item.getAsFile();
-        if (file) return file;
-      }
-    }
-  }
-  return null;
 }
 
 export function QrcodeTool({ toolId }: ToolProps): JSX.Element {
@@ -186,7 +152,9 @@ export function QrcodeTool({ toolId }: ToolProps): JSX.Element {
       // 祖先层统一吞掉:右侧识别结果编辑器(Monaco)不再有机会接走图片文件
       e.stopPropagation();
       setDragOver(false);
-      const image = imageFromDataTransfer(e.dataTransfer);
+      // 混合多文件取第一张图片;类型校验与报错由 scanFile / 下方分支负责
+      const files = transferFiles(e.dataTransfer);
+      const image = files.find(isImageFile);
       if (image) {
         // 生成页拖入图片也切到读取页直接识别
         setMode('scan');
@@ -208,7 +176,7 @@ export function QrcodeTool({ toolId }: ToolProps): JSX.Element {
    */
   const onPaste = useCallback(
     (e: ReactClipboardEvent<HTMLDivElement>) => {
-      const image = imageFromClipboardData(e.clipboardData);
+      const image = clipboardMediaFiles(e.clipboardData, isImageFile)[0];
       if (!image) return;
       e.preventDefault();
       e.stopPropagation();

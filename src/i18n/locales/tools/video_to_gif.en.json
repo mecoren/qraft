@@ -6,7 +6,7 @@
   "tools.video_to_gif.convert": "Convert to GIF",
   "tools.video_to_gif.download": "Download GIF",
   "tools.video_to_gif.done": "Done: {{frames}} frames, {{size}}",
-  "tools.video_to_gif.dropzone_hint": "Drop a video here, or click \"Choose video\"",
+  "tools.video_to_gif.dropzone_hint": "Drop a video here, click \"Choose video\", or paste a copied video file (Ctrl+V)",
   "tools.video_to_gif.error_canvas": "Unable to create canvas context",
   "tools.video_to_gif.error_decode": "Video decoding failed (unsupported format or corrupted file)",
   "tools.video_to_gif.failed": "Conversion failed: {{message}}",
