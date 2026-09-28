@@ -5,7 +5,15 @@
  * - 读取:图片文件 → 文本(jsQR)
  */
 
-import { useCallback, useEffect, useRef, useState, type DragEvent, type JSX } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ClipboardEvent as ReactClipboardEvent,
+  type DragEvent,
+  type JSX,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
@@ -41,8 +49,46 @@ async function decodeQrFromDataUrl(dataUrl: string): Promise<string> {
   return code.data;
 }
 
+/**
+ * 从拖放数据中取第一张图片(多文件取第一张图片,无图片返回 null)。
+ * 非图片文件由调用方按模式决定是提示还是放行,不在此处 toast。
+ */
+function imageFromDataTransfer(dt: DataTransfer | null | undefined): File | null {
+  if (!dt?.files) return null;
+  for (const file of Array.from(dt.files)) {
+    if (file.type.startsWith('image/')) return file;
+  }
+  return null;
+}
+
+/**
+ * 从粘贴剪贴板数据中取图片。
+ * 截图工具 / 浏览器「复制图片」走 items(image/* 经 getAsFile 取 File),
+ * 资源管理器文件复制等走 files;纯文本粘贴返回 null(放行 Monaco 原生粘贴)。
+ */
+function imageFromClipboardData(dt: DataTransfer | null | undefined): File | null {
+  if (!dt) return null;
+  if (dt.files?.length) {
+    for (const file of Array.from(dt.files)) {
+      if (file.type.startsWith('image/')) return file;
+    }
+  }
+  if (dt.items?.length) {
+    for (const item of Array.from(dt.items)) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) return file;
+      }
+    }
+  }
+  return null;
+}
+
 export function QrcodeTool({ toolId }: ToolProps): JSX.Element {
   const { t } = useTranslation();
+  // 模式(受控 Tab):默认停留在「读取二维码」——截图复制后 Ctrl+V、
+  // 图片拖放进来都直接落到读取页,无需先手动切换
+  const [mode, setMode] = useState('scan');
   // —— 生成 ——
   const [text, setText] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -133,20 +179,65 @@ export function QrcodeTool({ toolId }: ToolProps): JSX.Element {
   );
 
   const onDrop = useCallback(
-    (e: DragEvent) => {
+    (e: DragEvent<HTMLDivElement>) => {
+      // 只拦截文件类拖放:编辑器内文本拖选走 Monaco 原生 drop 行为
+      if (!e.dataTransfer?.types?.includes('Files')) return;
       e.preventDefault();
+      // 祖先层统一吞掉:右侧识别结果编辑器(Monaco)不再有机会接走图片文件
+      e.stopPropagation();
       setDragOver(false);
-      const file = e.dataTransfer.files[0];
-      if (file) void scanFile(file);
+      const image = imageFromDataTransfer(e.dataTransfer);
+      if (image) {
+        // 生成页拖入图片也切到读取页直接识别
+        setMode('scan');
+        void scanFile(image);
+        return;
+      }
+      // 读取页内拖入非图片才提示;生成页的非图片拖放放行(与文本编辑器旧行为一致)
+      if (e.dataTransfer.files?.length && mode === 'scan') {
+        toast.error(t('tools.qrcode_tool.only_image_files'));
+      }
+    },
+    [scanFile, mode, t],
+  );
+
+  /**
+   * 截图 / 复制图片后 Ctrl+V 直接识别(冒泡到工具根容器统一处理)。
+   * 纯文本粘贴返回 null、不 preventDefault,放行 Monaco 原生粘贴;
+   * 生成页粘贴图片同样切到读取页识别。
+   */
+  const onPaste = useCallback(
+    (e: ReactClipboardEvent<HTMLDivElement>) => {
+      const image = imageFromClipboardData(e.clipboardData);
+      if (!image) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setMode('scan');
+      void scanFile(image);
     },
     [scanFile],
   );
 
   return (
-    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与工作区收进同一卡片
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+    // 外层 shell 卡片(对齐 JsonFormatter 基准):配置区与工作区收进同一卡片;
+    // 图片拖放 / 粘贴在根容器统一拦截(冒泡),任意子面板落点都直接识别
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+      onDragOver={(e) => {
+        // 允许放下(不 preventDefault 则 drop 不触发);文本拖选不拦截
+        if (e.dataTransfer?.types?.includes('Files')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          setDragOver(true);
+        }
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={onDrop}
+      onPaste={onPaste}
+    >
       <Tabs
-        defaultValue="generate"
+        value={mode}
+        onValueChange={setMode}
         className="flex h-full min-h-0 flex-col"
         data-testid="qrcode-tool"
       >
@@ -304,12 +395,6 @@ export function QrcodeTool({ toolId }: ToolProps): JSX.Element {
                 />
                 <ScrollArea
                   data-testid="qr-dropzone"
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragOver(true);
-                  }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={onDrop}
                   className={`min-h-0 flex-1 rounded-none border-0 ${
                     dragOver ? 'bg-primary/5' : ''
                   } transition-colors`}

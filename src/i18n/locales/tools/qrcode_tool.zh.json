@@ -18,7 +18,7 @@
   "tools.qrcode_tool.scan_title": "二维码图片",
   "tools.qrcode_tool.choose_image": "选择图片",
   "tools.qrcode_tool.scan_preview_alt": "待识别的二维码图片",
-  "tools.qrcode_tool.dropzone_hint": "拖放二维码图片到此处",
+  "tools.qrcode_tool.dropzone_hint": "拖放二维码图片到此处,或直接粘贴截图(Ctrl+V)",
   "tools.qrcode_tool.result_title": "识别结果",
   "tools.qrcode_tool.only_image_files": "仅支持图片文件",
   "tools.qrcode_tool.scan_success": "二维码识别成功"

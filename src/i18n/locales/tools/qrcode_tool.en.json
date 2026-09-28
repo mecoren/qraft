@@ -18,7 +18,7 @@
   "tools.qrcode_tool.scan_title": "QR Code Image",
   "tools.qrcode_tool.choose_image": "Choose Image",
   "tools.qrcode_tool.scan_preview_alt": "QR code image to scan",
-  "tools.qrcode_tool.dropzone_hint": "Drop a QR code image here",
+  "tools.qrcode_tool.dropzone_hint": "Drop a QR code image here, or paste a screenshot (Ctrl+V)",
   "tools.qrcode_tool.result_title": "Decoded Result",
   "tools.qrcode_tool.only_image_files": "Only image files are supported",
   "tools.qrcode_tool.scan_success": "QR code decoded successfully"
