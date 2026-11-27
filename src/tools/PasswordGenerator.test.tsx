@@ -29,7 +29,8 @@ describe('generatePassword', () => {
     expect(pw).toMatch(/[a-z]/);
     expect(pw).toMatch(/[A-Z]/);
     expect(pw).toMatch(/[0-9]/);
-    expect(pw).toMatch(/[-!-/:-@[-^`{-~]/);
+    // ASCII 标点全集 `!-/ :-@ [-` {-~`:SYMBOLS 池 26 个符号全落在这四段内(含 _(0x5F))
+    expect(pw).toMatch(/[!-/:-@[-`{-~]/);
     expect(pw).toHaveLength(8);
   });
 
