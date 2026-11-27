@@ -184,6 +184,24 @@ vi.stubGlobal('DOMMatrixReadOnly', DOMMatrixReadOnlyMock);
 // jsdom 不实现 Element.scrollIntoView,cmdk/Radix 选中项滚动依赖它
 Element.prototype.scrollIntoView = () => {};
 
+// jsdom 不实现 Range.getClientRects,ProseMirror 粘贴落点/滚动定位会读光标矩形
+Range.prototype.getClientRects = function () {
+  return { length: 0, item: () => null } as unknown as DOMRectList;
+};
+Range.prototype.getBoundingClientRect = function () {
+  return {
+    width: 0,
+    height: 0,
+    x: 0,
+    y: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    toJSON: () => ({}),
+  } as DOMRect;
+};
+
 // jsdom 默认 getBoundingClientRect 返回全 0,@tanstack/react-virtual 据此计算可见行
 // 这里覆盖为非零尺寸,使虚拟列表在测试中能渲染可见行
 const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;

@@ -79,6 +79,23 @@ import { useMdEditorDocsStore } from '../markdownEditorDocsStore';
 import { useMarkdownEditorStore } from '../markdownEditorStore';
 import { useToolStateStore } from '@/store/toolStateStore';
 
+/** 剪贴板替身(ProseMirror 只读 files/getData;jsdom 无可用 DataTransfer) */
+function clipboardOf(text: string, html = ''): DataTransfer {
+  return {
+    files: [],
+    types: html ? ['text/plain', 'text/html'] : ['text/plain'],
+    getData: (type: string) => (type === 'text/plain' ? text : type === 'text/html' ? html : ''),
+  } as unknown as DataTransfer;
+}
+
+/** 替换当前文档正文(粘贴断言需要可控的落点,避免块级内容并入标题) */
+function setActiveDocContent(content: string): void {
+  act(() => {
+    const [doc] = useMdEditorDocsStore.getState().docs;
+    if (doc) useMdEditorDocsStore.setState({ docs: [{ ...doc, content }] });
+  });
+}
+
 describe('MarkdownEditor', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -430,5 +447,71 @@ describe('MarkdownEditor', () => {
     expect(screen.getByTestId('md-status-cursor')).toHaveTextContent('5');
     expect(screen.getByTestId('md-status-size')).not.toHaveTextContent('');
     expect(screen.getByTestId('md-status-encoding')).toHaveTextContent('UTF-8');
+  });
+
+  it('粘贴纯文本 Markdown 源码自动排版:标题/列表直接成节点', async () => {
+    setActiveDocContent('');
+    render(<MarkdownEditor toolId="markdown_editor" metadata={{} as never} />);
+    const surface = await screen.findByTestId('md-wysiwyg');
+    await act(async () => {
+      fireEvent.paste(surface, {
+        clipboardData: clipboardOf('## 粘贴标题\n\n- 第一项\n- 第二项'),
+      });
+    });
+    expect(surface.querySelector('h2')?.textContent).toBe('粘贴标题');
+    expect(Array.from(surface.querySelectorAll('li')).map((li) => li.textContent)).toEqual([
+      '第一项',
+      '第二项',
+    ]);
+  });
+
+  it('从源码编辑器粘贴(行容器 HTML + 纯文本)仍按 Markdown 源码解析', async () => {
+    setActiveDocContent('');
+    render(<MarkdownEditor toolId="markdown_editor" metadata={{} as never} />);
+    const surface = await screen.findByTestId('md-wysiwyg');
+    // Monaco / VS Code 复制形态:HTML 只是 white-space: pre 的行容器,无语义标签
+    const html =
+      '<div style="color: #333; white-space: pre;">' +
+      '<div>## 源码标题</div><br><div>- 源码项</div></div>';
+    await act(async () => {
+      fireEvent.paste(surface, {
+        clipboardData: clipboardOf('## 源码标题\n\n- 源码项', html),
+      });
+    });
+    expect(surface.querySelector('h2')?.textContent).toBe('源码标题');
+    expect(surface.querySelector('li')?.textContent).toBe('源码项');
+    expect(surface.textContent).not.toContain('## 源码标题');
+  });
+
+  it('富文本 HTML 粘贴仍按 HTML 导入,不被源码解析劫持', async () => {
+    setActiveDocContent('');
+    render(<MarkdownEditor toolId="markdown_editor" metadata={{} as never} />);
+    const surface = await screen.findByTestId('md-wysiwyg');
+    await act(async () => {
+      fireEvent.paste(surface, {
+        clipboardData: clipboardOf(
+          '# 纯文本里的井号',
+          '<h2>网页标题</h2><p>网页<strong>正文</strong></p>',
+        ),
+      });
+    });
+    expect(Array.from(surface.querySelectorAll('h2')).map((h) => h.textContent)).toContain(
+      '网页标题',
+    );
+    expect(surface.textContent).not.toContain('# 纯文本里的井号');
+  });
+
+  it('代码块内粘贴源码保留原文,不走 Markdown 解析', async () => {
+    setActiveDocContent('```\n占位\n```');
+    render(<MarkdownEditor toolId="markdown_editor" metadata={{} as never} />);
+    const surface = await screen.findByTestId('md-wysiwyg');
+    const html = '<div style="white-space: pre;"><div>## 源码标题</div></div>';
+    await act(async () => {
+      fireEvent.paste(surface, {
+        clipboardData: clipboardOf('## 源码标题', html),
+      });
+    });
+    expect(surface.querySelector('h2')).toBeNull();
+    expect(surface.querySelector('pre')?.textContent).toContain('## 源码标题');
   });
 });

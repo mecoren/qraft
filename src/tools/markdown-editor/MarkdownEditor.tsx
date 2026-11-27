@@ -141,6 +141,23 @@ function getMarkdown(editor: Editor): string {
   return storage.markdown.getMarkdown();
 }
 
+/** Markdown 源码 → 编辑器可插入的 HTML(口径与 tiptap-markdown 粘贴解析一致) */
+function parseMarkdownSource(editor: Editor, source: string): string {
+  const storage = editor.storage as unknown as {
+    markdown: { parser: { parse(content: string, options?: { inline?: boolean }): string } };
+  };
+  return storage.markdown.parser.parse(source, { inline: true });
+}
+
+/**
+ * 是否为代码编辑器(Monaco / VS Code)写出的剪贴板 HTML。
+ * 这类 HTML 只是 `white-space: pre` 的行容器,没有语义标签;按 HTML 导入会把
+ * Markdown 源码退化成逐行纯文本(落盘时还被转义成 `\#`),需改走 text/plain 解析。
+ */
+function isSourceCopyHtml(html: string): boolean {
+  return /white-space\s*:\s*pre\s*[;"]/i.test(html);
+}
+
 /** 字数统计口径与旧状态栏一致(CJK 逐字,拉丁记词,250 词/分钟) */
 function computeStats(source: string): {
   words: number;
@@ -351,26 +368,49 @@ function WysiwygDoc({
         MathInline,
         MathBlock,
         MermaidBlock,
-        Markdown,
+        // 纯文本粘贴按 Markdown 源码解析(粘贴源码即自动排版,而非逐行纯文本)
+        Markdown.configure({ transformPastedText: true }),
       ],
       content: body,
       editorProps: {
         attributes: { 'data-testid': 'md-wysiwyg', class: 'tiptap-md-body' },
-        handlePaste(_view, event) {
-          const files = event.clipboardData?.files;
-          if (!files || files.length === 0) return false;
-          const image = Array.from(files).find((f) => f.type.startsWith('image/'));
-          if (!image) return false;
+        handlePaste(view, event) {
+          const clipboard = event.clipboardData;
+          if (!clipboard) return false;
+          const files = clipboard.files;
+          if (files && files.length > 0) {
+            const image = Array.from(files).find((f) => f.type.startsWith('image/'));
+            if (!image) return false;
+            event.preventDefault();
+            void savePastedImage(image).then((result) => {
+              if (!result || !editorRef.current) return;
+              const m = /^!\[(.*?)\]\((.*)\)$/.exec(result.markdown);
+              editorRef.current
+                .chain()
+                .focus()
+                .setImage({ src: m?.[2] ?? result.markdown, alt: m?.[1] ?? 'image' })
+                .run();
+            });
+            return true;
+          }
+          // 源码编辑器拷贝同时带 HTML 与纯文本,ProseMirror 默认优先导入 HTML,
+          // 会把源码当纯文本落进文档;命中后按 text/plain 的 Markdown 解析插入。
+          // Shift+粘贴与代码块内保留原文(与 tiptap-markdown 的纯文本粘贴语义一致)
+          const text = clipboard.getData('text/plain');
+          const editor = editorRef.current;
+          const preferPlain = (view as unknown as { input?: { shiftKey?: boolean } }).input
+            ?.shiftKey;
+          if (
+            !editor ||
+            !text ||
+            preferPlain ||
+            view.state.selection.$from.parent.type.spec.code ||
+            !isSourceCopyHtml(clipboard.getData('text/html'))
+          ) {
+            return false;
+          }
           event.preventDefault();
-          void savePastedImage(image).then((result) => {
-            if (!result || !editorRef.current) return;
-            const m = /^!\[(.*?)\]\((.*)\)$/.exec(result.markdown);
-            editorRef.current
-              .chain()
-              .focus()
-              .setImage({ src: m?.[2] ?? result.markdown, alt: m?.[1] ?? 'image' })
-              .run();
-          });
+          editor.chain().focus().insertContent(parseMarkdownSource(editor, text)).run();
           return true;
         },
         handleDrop(_view, event) {
