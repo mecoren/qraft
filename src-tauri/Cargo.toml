@@ -32,6 +32,8 @@ serde_json = { version = "1.0", features = ["preserve_order"] }
 thiserror = "1.0"
 anyhow = "1.0"
 inventory = "0.3"
+# 工具引擎:Tauri-free 的纯 Rust crate(core/ + tools/),可被 CLI / 原生 GUI 复用
+qraft-core = { path = "qraft-core" }
 async-trait = "0.1"
 uuid = { version = "1", features = ["v4", "v7"] }
 tokio-util = "0.7"
@@ -136,3 +138,9 @@ panic = "unwind"
 lto = "thin"
 codegen-units = 1
 strip = "symbols"
+
+[workspace]
+members = ["qraft-core"]
+# 根包(qraft)与核心 crate 都参与默认构建,保证 cargo test / clippy 仍覆盖工具引擎
+default-members = [".", "qraft-core"]
+resolver = "3"

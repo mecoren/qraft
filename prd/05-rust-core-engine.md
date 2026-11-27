@@ -6,6 +6,10 @@ author: [wait]
 audience: 一年经验的开发者
 ---
 
+> 说明（2026-11-25）：引擎已抽成独立 crate `src-tauri/qraft-core`（Tauri-free）。
+> 本文代码注释里的 `src-tauri/src/core/`、`src-tauri/src/tools/` 路径，现对应
+> `src-tauri/qraft-core/src/core/` 与 `src-tauri/qraft-core/src/tools/`；类型名与 API 未变。
+
 ## 目录
 
 - [1. 背景与目的](#1-背景与目的)

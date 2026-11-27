@@ -156,18 +156,18 @@ flowchart TB
 | `commands/clipboard.rs` | `clipboard_read` / `clipboard_write` |
 | `commands/fs.rs` | `fs_read_file` / `fs_write_file`（受权限管控） |
 
-#### Rust Core 模块（`src-tauri/src/core/`）
+#### Rust Core 模块（独立 crate `src-tauri/qraft-core/`，Tauri-free）
 
 | 模块 | 职责 |
 |------|------|
-| `core/tool.rs` | `Tool` trait 定义 |
-| `core/registry.rs` | `ToolRegistry` 全局注册表 |
-| `core/executor.rs` | `ToolExecutor` 执行器（超时、panic 隔离） |
-| `core/error.rs` | `ToolError` / `EngineError` 错误类型 |
-| `core/context.rs` | `ToolContext`、`HistorySink` trait |
-| `store/config.rs` | `ConfigStore` 配置读写 |
-| `store/history.rs` | `HistoryStore` 历史读写 |
-| `tools/*.rs` | 具体工具实现（每工具一文件） |
+| `qraft-core/src/core/tool.rs` | `Tool` trait 定义 |
+| `qraft-core/src/core/registry.rs` | `ToolRegistry` 全局注册表 |
+| `qraft-core/src/core/executor.rs` | `ToolExecutor` 执行器（超时、panic 隔离） |
+| `qraft-core/src/core/error.rs` | `ToolError` / `EngineError` 错误类型 |
+| `qraft-core/src/core/context.rs` | `ToolContext`、`HistorySink` trait |
+| `qraft-core/src/tools/*.rs` | 具体工具实现（每工具一文件） |
+| `src/store/config.rs` | `ConfigStore` 配置读写（Tauri 壳侧） |
+| `src/store/history.rs` | `HistoryStore` 历史读写（Tauri 壳侧） |
 
 ### 3.3 进程模型
 

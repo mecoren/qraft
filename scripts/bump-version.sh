@@ -54,30 +54,36 @@ node "$BUMP_TMP" "$NEW_VERSION"
 pnpm exec prettier --write package.json src-tauri/tauri.conf.json >/dev/null
 
 # Cargo.toml 用 awk 在 [package] 段内替换 version 字段,不影响 [dependencies] 中的版本
+# 根包(qraft)与工具引擎(qraft-core)两份 manifest 同步升级
 OLD_CARGO=$(grep -E '^version\s*=' src-tauri/Cargo.toml | head -n 1 | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
-awk -v new="\"$NEW_VERSION\"" '
-  /^\[package\]/ {in_pkg=1; print; next}
-  /^\[/ {in_pkg=0; print; next}
-  in_pkg && /^version[[:space:]]*=/ {print "version = " new; next}
-  {print}
-' src-tauri/Cargo.toml > src-tauri/Cargo.toml.tmp && mv src-tauri/Cargo.toml.tmp src-tauri/Cargo.toml
+OLD_CORE=$(grep -E '^version\s*=' src-tauri/qraft-core/Cargo.toml | head -n 1 | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
+for manifest in src-tauri/Cargo.toml src-tauri/qraft-core/Cargo.toml; do
+  awk -v new="\"$NEW_VERSION\"" '
+    /^\[package\]/ {in_pkg=1; print; next}
+    /^\[/ {in_pkg=0; print; next}
+    in_pkg && /^version[[:space:]]*=/ {print "version = " new; next}
+    {print}
+  ' "$manifest" > "$manifest.tmp" && mv "$manifest.tmp" "$manifest"
+done
 echo "Cargo.toml: $OLD_CARGO -> $NEW_VERSION"
+echo "qraft-core/Cargo.toml: $OLD_CORE -> $NEW_VERSION"
 
-# 验证三处一致
+# 验证四处一致
 PKG_VER=$(node -e "console.log(require('./package.json').version)")
 TC_VER=$(node -e "console.log(JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json','utf8')).version)")
 CARGO_VER=$(grep -E '^version\s*=' src-tauri/Cargo.toml | head -n 1 | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
+CORE_VER=$(grep -E '^version\s*=' src-tauri/qraft-core/Cargo.toml | head -n 1 | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
 
-if [ "$PKG_VER" = "$TC_VER" ] && [ "$TC_VER" = "$CARGO_VER" ] && [ "$PKG_VER" = "$NEW_VERSION" ]; then
+if [ "$PKG_VER" = "$TC_VER" ] && [ "$TC_VER" = "$CARGO_VER" ] && [ "$CARGO_VER" = "$CORE_VER" ] && [ "$PKG_VER" = "$NEW_VERSION" ]; then
   echo "VERSION_SYNC_OK: $NEW_VERSION"
 else
-  echo "VERSION_MISMATCH: pkg=$PKG_VER tc=$TC_VER cargo=$CARGO_VER"
+  echo "VERSION_MISMATCH: pkg=$PKG_VER tc=$TC_VER cargo=$CARGO_VER core=$CORE_VER"
   exit 1
 fi
 
 echo ""
 echo "Next steps:"
-echo "  1. cd src-tauri && cargo update -p qraft   # 刷新 Cargo.lock 自身版本行"
+echo "  1. cd src-tauri && cargo update -p qraft -p qraft-core   # 刷新 Cargo.lock 版本行"
 echo "  2. 写两份更新日志(同一次提交):"
 echo "     - CHANGELOG.md:新增 ## [X.Y.Z] 段 + 尾部 compare 链接"
 echo "     - src/lib/changelog.ts:CHANGELOG_VERSIONS 头部插入 VersionInfo(双语)"

@@ -307,7 +307,7 @@ flowchart TD
 
 贡献新工具时，PR 必须包含：
 
-1. Rust 实现（`src-tauri/src/tools/<name>.rs`）
+1. Rust 实现（`src-tauri/qraft-core/src/tools/<name>.rs`）
 2. 至少 5 个单元测试
 3. TypeScript UI 组件
 4. `07-tool-catalog.md` 更新

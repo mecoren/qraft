@@ -10,7 +10,7 @@ Qraft 是本地优先(Local-first)的跨平台开发者工具箱(DevToys 类应�
 - **工具引擎纯函数约束**:Rust 工具的 `execute` 必须无状态,相同输入 + 相同 context 配置 → 相同输出;禁止在 `execute` 中调用 Tauri API,外部能力一律经 `ToolContext` 注入。
 - **toolId 三处一致**:UI 注册表(`src/tools/registry.ts`)、工具目录(`src/lib/tool-catalog.ts`)、后端工具的 `register_tool!` 宏,id 必须严格一致。toolId 同时是收藏/最近使用(localStorage)的持久化引用,**改名即破坏用户数据**,应新增 id 而非修改旧 id。
 - **双语同步**:zh-CN 为源语言,en-US 必须同步补齐,`src/en-locale-sweep.test.tsx` 会强制扫描英文缺失。
-- **版本单一来源**:版本号只在 `package.json` 维护,经 `scripts/bump-version.sh` 同步到 `src-tauri/Cargo.toml` 与 `src-tauri/tauri.conf.json`,不要手改后两处;「改版本号」请求按下方[版本发布流程](#版本发布流程改版本号时自动执行)全流程执行(脚本 + 双日志 + CI 绿),不是只改数字。
+- **版本单一来源**:版本号只在 `package.json` 维护,经 `scripts/bump-version.sh` 同步到 `src-tauri/Cargo.toml`、`src-tauri/qraft-core/Cargo.toml` 与 `src-tauri/tauri.conf.json`,不要手改这三处;「改版本号」请求按下方[版本发布流程](#版本发布流程改版本号时自动执行)全流程执行(脚本 + 双日志 + CI 绿),不是只改数字。
 - **已发布数据契约**:`config.json`(配置)、`history.jsonl`(历史)、localStorage(收藏/最近使用)的结构变更必须有兼容或迁移策略,不直接覆盖已发布格式。
 - **提交即 CI 绿**:交付的代码必须能让 CI 跑通——提交/推送前本地跑通 CI 的同等检查(见[常用命令](#常用命令)),前端改动含**全量** `pnpm test`(单文件/单用例通过不代表全量,并行负载会暴露只在 CI 出现的时序问题);红了先定位修复,不得靠重跑碰运气。本地怎么跑都绿、只在 CI 红的,见下文前端约定「测试」小节的时序竞态条目。
 - **尊重 dirty worktree**:不要回滚或覆盖非本轮改动;需要动到已修改文件时先读清楚。
@@ -33,7 +33,7 @@ Qraft 是本地优先(Local-first)的跨平台开发者工具箱(DevToys 类应�
 
 **必须在 Rust**
 
-- 工具执行引擎:超时 / 取消 / panic 三重隔离(`src-tauri/src/core/executor.rs`)。
+- 工具执行引擎:超时 / 取消 / panic 三重隔离(`src-tauri/qraft-core/src/core/executor.rs`)。
 - 后端工具实现:Base64、JSON、JWT、Hash、UUID、正则、时间戳、颜色、文件夹分析等。
 - 大文件流式读取:行索引扫描 + 锚点式行窗口(`commands/fs_large_file.rs`)。
 - PNG 压缩、IP 归属查询、正则引擎(`regex_lab/`)。
@@ -49,7 +49,7 @@ Qraft 是本地优先(Local-first)的跨平台开发者工具箱(DevToys 类应�
 **跨端契约**
 
 - 前端通过 `src/lib/ipc.ts` 包装 invoke,统一走 `CommandResponse` envelope,不要裸 `invoke`。
-- IPC 命令在 `src-tauri/src/lib.rs` 的 `invoke_handler` 集中注册;`commands/` 是入口薄层,做参数校验与转发,业务逻辑放 `core/` 或领域模块。
+- IPC 命令在 `src-tauri/src/lib.rs` 的 `invoke_handler` 集中注册;`commands/` 是入口薄层,做参数校验与转发,业务逻辑放 `qraft-core` 或领域模块。
 - 拖放进应用的文件路径必须先经 `fs_authorize_dropped_paths` 授权,再做后续读取。
 
 ## 新增工具流程
@@ -58,7 +58,7 @@ Qraft 是本地优先(Local-first)的跨平台开发者工具箱(DevToys 类应�
 2. `src/tools/registry.ts`:调 `registerTool(toolId, () => import(...))` 懒加载注册,每工具独立 chunk,启动不加载全部 40+ 工具。
 3. `src/lib/tool-catalog.ts`:新增 `CatalogEntry` —— name/description 写中文源字面量,英文进 `EN_TOOLS` 覆盖表;选 Lucide 图标,归入 8 大分类(encoder / tester / formatter / generator / graphic / editor / text / converter);需要弹出新窗口的工具设 `popoutSize`(缺省 900×640)。
 4. 文案:`src/i18n/locales/tools/<id>.zh.json` + `<id>.en.json`,扁平全前缀 key(如 `tools.base64_codec.xxx`),构建期自动合并进主 locale。
-5. 纯前端工具到此完成;需要 Rust 执行时:实现 `Tool` trait + 文件底部 `register_tool!(Type, &METADATA)` + 在 `tools/mod.rs` 声明模块,并给 CatalogEntry 设 `backendId`。流式工具实现 `StreamingTool` + `register_stream_tool!`,并置 `ToolMetadata.streaming_supported = true`。
+5. 纯前端工具到此完成;需要 Rust 执行时:实现 `Tool` trait + 文件底部 `register_tool!(Type, &METADATA)` + 在 `qraft-core/src/tools/mod.rs` 声明模块,并给 CatalogEntry 设 `backendId`。流式工具实现 `StreamingTool` + `register_stream_tool!`,并置 `ToolMetadata.streaming_supported = true`。
 6. 执行生命周期统一走 `useTool(toolId)`(execute / executeStream / cancel,卸载自动取消),不要直接 invoke `tool_execute`。
 
 ## 目录约定
@@ -76,10 +76,9 @@ src/
   styles/       # globals.css:Tailwind v4 CSS-first 配置 + OKLCH 主题变量
   test/         # Vitest 全局 setup
 src-tauri/
+  qraft-core/   # 工具引擎独立 crate(Tauri-free):core/tool、registry(inventory)、executor(三重隔离)、error、context + tools/ 全部后端工具
   src/
-    core/       # 引擎核心:tool(trait)、registry(inventory 注册)、executor(三重隔离)、input/output、error、context
     commands/   # tauri command 入口;#[cfg(not(test))] 使 cargo test 免 Tauri 运行时
-    tools/      # Rust 工具实现(base64_codec、json_formatter、jwt_parser、folder_analyzer/ 等)
     shell/      # AppState、CommandResponse、file_open、fs_reveal、updater
     store/      # config / history 持久化
     media/      # png 压缩、large_file 大文件流式读取、text_encoding
@@ -115,7 +114,7 @@ cargo test
 
 用户说「改版本号 / 升版本 / bump 到 X.Y.Z」时,按以下顺序完整执行,不要只改数字:
 
-1. **跑同步脚本**:`bash scripts/bump-version.sh X.Y.Z`。它会改 `package.json` 并同步 `src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`,随后跑 `cd src-tauri && cargo update -p qraft` 刷新 `Cargo.lock` 的 qraft 自身版本行(脚本不管 lock)。不要手改后两处版本号。
+1. **跑同步脚本**:`bash scripts/bump-version.sh X.Y.Z`。它会改 `package.json` 并同步 `src-tauri/Cargo.toml`、`src-tauri/qraft-core/Cargo.toml`、`src-tauri/tauri.conf.json`,随后跑 `cd src-tauri && cargo update -p qraft -p qraft-core` 刷新 `Cargo.lock` 的版本行(脚本不管 lock)。不要手改这三处版本号。
 2. **筛选提交写更新日志**:`git log <上一 tag>..HEAD --oneline`(如 `git log v0.2.7..HEAD`)提取该版本跨度内全部提交,**按功能合并提炼重要变更,忽略 docs/style/chore 及纯过程性提交**;版本边界以 tag 为准,不是日期。
 3. **两处更新日志都要写**(同一次提交改动):
    - `CHANGELOG.md`(repo 级,Keep a Changelog 格式):新增 `## [X.Y.Z] - YYYY-MM-DD` 段,按 Added/Fixed/Changed 分组,并在文件尾追加 `[X.Y.Z]: …/compare/v<prev>...vX.Y.Z` 链接。
@@ -127,12 +126,13 @@ cargo test
 ## Rust 约定
 
 - 工具实现 `Tool` trait:`metadata()` 返回 `&'static ToolMetadata`,`execute(input, ctx)` 纯函数式;工具按需构造,不持有可变状态。
+- 工具引擎在独立 crate `src-tauri/qraft-core`(Tauri-free),**禁止在其中引入 `tauri` 依赖**;Tauri 壳经 `qraft_lib` 再导出 `core` / `tools` 模块,新增后端能力一律落在 `qraft-core`。
 - `register_tool!` 基于 `inventory` 静态注册;重复 tool id 在启动断言 panic 属快速失败,是正确行为。
 - 错误走 `ToolError` / `EngineError` / `AppError` 体系,错误结构必须可序列化为前端可读形式。
 - clippy:`all` deny;`pedantic` / `nursery` / `unwrap_used` / `expect_used` / `panic` / `todo` warn(测试内放宽);`dbg_macro` / `print_stdout` deny,日志用日志插件,不用 `print!`。
 - 公共 API 文档注释包含 `# Errors` / `# Panics` 小节;rustfmt 行宽 100。
 - release profile 的 `panic = "unwind"` 是 executor `catch_unwind` 隔离的前提,勿改 `"abort"`。
-- `cargo test` 不需要 Tauri 运行时;集成测试在 `src-tauri/tests/`,基准在 `benches/`(criterion)。
+- `cargo test` 不需要 Tauri 运行时;`src-tauri` 是 workspace 根,`default-members` 含根包与 `qraft-core`,所以 `cargo test` / `cargo clippy --all-targets` 会同时覆盖两者。集成测试在 `src-tauri/tests/`,基准在 `benches/`(criterion)。
 
 ## 前端约定
 

@@ -466,7 +466,7 @@ flowchart TD
 ## 新增工具 Checklist
 
 ### Rust 侧
-- [ ] 1. 创建 `src-tauri/src/tools/<tool_name>.rs` 文件
+- [ ] 1. 创建 `src-tauri/qraft-core/src/tools/<tool_name>.rs` 文件
 - [ ] 2. 实现 `Tool` trait（metadata + execute）
 - [ ] 3. 定义 `static METADATA: ToolMetadata`（id/name/category/schema 等）
 - [ ] 4. 调用 `register_tool!(...)` 宏注册

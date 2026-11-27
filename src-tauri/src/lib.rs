@@ -1,12 +1,13 @@
 // Qraft 应用入口
 //
-// 声明所有业务模块,装配 Tauri 应用:注册插件、初始化 AppState、注册 IPC Command。
+// 声明 Tauri 侧业务模块,装配 Tauri 应用:注册插件、初始化 AppState、注册 IPC Command。
+// 工具引擎(Tool trait、Registry、Executor、错误体系与全部后端工具)已抽成独立
+// crate `qraft-core`(Tauri-free),本 crate 经 `pub use qraft_core::{core, tools}`
+// 再导出,既有 `crate::core::*` 路径不变。
 // 各模块职责:
-//   - core:    工具执行核心(Tool trait、Registry、Executor、错误体系)
 //   - store:   持久化存储(ConfigStore、HistoryStore)
 //   - shell:   Shell 层(AppState、CommandResponse 包络、HistorySink 实现)
 //   - commands:IPC Command 实现(tool/config/history/clipboard/fs/app)
-//   - tools:   具体工具实现(P0 工具在 05 子计划中填充)
 //
 // 注意:`commands` 和 `shell` 模块依赖 Tauri 运行时,在 `cargo test` 下
 // 条件编译排除,避免测试二进制链接 WebView2 等 native DLL 导致运行失败。
@@ -25,12 +26,14 @@
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-pub mod core;
+// 工具引擎已抽成独立 crate `qraft-core`(不依赖 Tauri):这里仅做再导出,
+// 保持 `crate::core::*` / `qraft_lib::core::*` 的既有路径与 API 不变。
+pub use qraft_core::{core, tools};
+
 pub mod media;
 pub mod net;
 pub mod regex_lab;
 pub mod store;
-pub mod tools;
 
 // Tauri 依赖模块:仅在非测试编译下包含
 // `commands` 模块使用 `#[tauri::command]` 宏与 Tauri 运行时 trait,需要完整运行时
@@ -40,17 +43,15 @@ pub mod tools;
 pub mod commands;
 pub mod shell;
 
-// 重导出 Core 层关键类型,方便外部使用
-pub use core::context::{HistoryEntry, HistorySink, ToolContext};
-pub use core::error::{AppError, EngineError, ToolError};
-pub use core::executor::ToolExecutor;
-pub use core::input::ToolInput;
-pub use core::output::{Alert, AlertLevel, OutputMeta, ToolOutput};
-pub use core::registry::{StreamingEntry, ToolEntry, ToolRegistry};
-pub use core::tool::{StreamEvent, StreamingTool, Tool, ToolCategory, ToolMetadata};
+// 重导出 Core 层关键类型,方便外部使用(来源:qraft-core)
+pub use qraft_core::{
+    Alert, AlertLevel, AppError, EngineError, HistoryEntry, HistorySink, OutputMeta, StreamEvent,
+    StreamingEntry, StreamingTool, Tool, ToolCategory, ToolContext, ToolEntry, ToolError,
+    ToolExecutor, ToolInput, ToolMetadata, ToolOutput, ToolRegistry,
+};
 
-// 注册宏 register_tool / register_stream_tool 通过 #[macro_export] 已自动位于 crate 根,
-// 无需再次 pub use(否则会与 #[macro_export] 产生命名冲突)。
+// 注册宏 register_tool / register_stream_tool 现位于 qraft-core crate 根
+// (`qraft_core::register_tool!`);后端工具已在 qraft-core 内部完成注册,本 crate 不再使用。
 
 // 重导出 Store 层
 pub use store::config::{GeneralConfig, ShortcutBinding, ThemeConfig, ThemeMode, UserConfig};
