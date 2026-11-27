@@ -241,9 +241,9 @@ describe('RegexTester(Regex Lab 工作区)', () => {
       target: { value: 'abc123' },
     });
 
+    // 全局 mock 也会被防抖的 regex_live 复用;以 okOutput 为基底避免缺 explain 等字段
     (invokeCommand as unknown as Mock).mockResolvedValue({
-      ok: true,
-      compileError: null,
+      ...okOutput(),
       results: [{ description: 'Case 1', passed: true, reason: '' }],
       passed: 1,
       failed: 0,
@@ -296,10 +296,9 @@ describe('RegexTester(Regex Lab 工作区)', () => {
 
   it('工具页签:调试器回放步骤', async () => {
     const { invokeCommand } = await import('@/lib/ipc');
+    // 全局 mock 也会被防抖的 regex_live 复用;以 okOutput 为基底避免缺 explain 等字段
     (invokeCommand as unknown as Mock).mockResolvedValue({
-      ok: true,
-      compileError: null,
-      matchCount: 1,
+      ...okOutput(),
       steps: [
         { start: 0, outcome: 'fail', end: null, matchedText: null },
         { start: 2, outcome: 'match', end: 4, matchedText: '12' },

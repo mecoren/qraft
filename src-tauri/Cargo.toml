@@ -1,10 +1,10 @@
 [package]
 name = "qraft"
-version = "0.3.7"
+version = "0.3.8"
 description = "A local-first developer toolbox"
 authors = ["Qraft Team"]
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.90"
 
 [lib]
 name = "qraft_lib"

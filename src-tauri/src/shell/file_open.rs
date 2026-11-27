@@ -329,13 +329,13 @@ pub fn open_dropped_file(
     // 超限文件直接进入大文件只读查看模式,事件载荷复用 TooLarge 通道,
     // 前端据此调用 fs_large_file_info 流式打开;webview 未就绪导致事件
     // 丢失时由 pending 队列兜底(app_pull_open_files 拉取)
-    if let Ok(meta) = std::fs::metadata(&full_path) {
-        if meta.len() > crate::commands::fs::EDITOR_FILE_MAX_BYTES {
-            authorized.authorize(&full_path);
-            pending.push_too_large(&full_path);
-            emit_unsupported(app, &OpenFileUnsupported::TooLarge { path: full_path });
-            return Ok(());
-        }
+    if let Ok(meta) = std::fs::metadata(&full_path)
+        && meta.len() > crate::commands::fs::EDITOR_FILE_MAX_BYTES
+    {
+        authorized.authorize(&full_path);
+        pending.push_too_large(&full_path);
+        emit_unsupported(app, &OpenFileUnsupported::TooLarge { path: full_path });
+        return Ok(());
     }
 
     // PDF 文档:授权路径后交由前端 PDF 工具打开(渲染 + 表单 + 编辑;

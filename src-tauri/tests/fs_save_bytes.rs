@@ -34,7 +34,7 @@ async fn byte_save_replaces_content_without_temp_residue() {
         .await
         .expect("create should succeed");
     assert_eq!(std::fs::read(&path).unwrap(), vec![0x00, 0x01, 0x02, 0xFF]);
-    assert!(temp_residue(dir.path()).is_empty());
+    assert_eq!(temp_residue(dir.path()), Vec::<String>::new());
 
     // 覆盖保存:旧内容整份被替换,不留半截也不留临时文件
     save_bytes_to_path(path_str, b"second-version")
@@ -45,7 +45,7 @@ async fn byte_save_replaces_content_without_temp_residue() {
         b"second-version".to_vec(),
         "覆盖写应完整替换旧内容"
     );
-    assert!(temp_residue(dir.path()).is_empty());
+    assert_eq!(temp_residue(dir.path()), Vec::<String>::new());
 }
 
 /// 写入失败(父目录不存在)时回传 `ERR_FILE_IO`,且不凭空造出目标文件
@@ -60,5 +60,5 @@ async fn byte_save_failure_leaves_no_target() {
         .unwrap_err();
     assert_eq!(err.code(), "ERR_FILE_IO");
     assert!(!path.exists(), "失败不应创建目标文件");
-    assert!(temp_residue(dir.path()).is_empty());
+    assert_eq!(temp_residue(dir.path()), Vec::<String>::new());
 }

@@ -119,7 +119,7 @@ flowchart TB
 | 项目 | 选型 | 版本约束 |
 |------|------|----------|
 | 核心语言 | Rust | stable channel，edition 2024 |
-| 最低 Rust 版本 | MSRV | 1.85+ |
+| 最低 Rust 版本 | MSRV | 1.90+ |
 | 异步运行时 | tokio | ^1.40 |
 | 序列化 | serde + serde_json | ^1.0 |
 | 错误处理 | thiserror（库）+ anyhow（应用） | thiserror ^2.0 / anyhow ^1.0 |
@@ -140,7 +140,7 @@ flowchart TB
 - **生态契合 Tauri**：Tauri 后端本身就是 Rust，无需跨语言桥接开销
 - **类型系统**：trait + enum 的表达力强，适合定义 `Tool` trait 与 `ToolError` 层级
 
-**MSRV 策略**：锁定 Rust 1.85+，允许使用 edition 2024 与最新的异步语法。每 6 个月评估升级一次 MSRV。
+**MSRV 策略**：锁定 Rust 1.90+，允许使用 edition 2024 与最新的异步语法。每 6 个月评估升级一次 MSRV。
 
 > 💡 **建议方案**
 >
@@ -504,7 +504,7 @@ Qraft 是 Rust + TypeScript 双语言栈，必须遵守：
 
 | 工具 | 最低版本 | 推荐版本 | 锁定位置 |
 |------|----------|----------|----------|
-| Rust | 1.85 | stable | `rust-toolchain.toml` |
+| Rust | 1.90 | stable | `rust-toolchain.toml` |
 | Node.js | 20 | 22 | `.nvmrc` / `package.json#engines` |
 | pnpm | 9 | latest | `package.json#packageManager` |
 

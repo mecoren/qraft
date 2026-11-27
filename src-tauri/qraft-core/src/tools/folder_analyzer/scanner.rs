@@ -173,7 +173,7 @@ pub fn scan_folder(
                 truncated = true;
                 break 'outer;
             }
-            if visited % PROGRESS_EVERY == 0 {
+            if visited.is_multiple_of(PROGRESS_EVERY) {
                 if cancel.is_some_and(CancellationToken::is_cancelled) {
                     cancelled = true;
                     break 'outer;
@@ -215,10 +215,10 @@ pub fn scan_folder(
             let top = (Reverse(size), path.to_string_lossy().into_owned());
             if acc.largest.len() < TOP_LARGEST {
                 acc.largest.push(top);
-            } else if let Some(mut inner) = acc.largest.peek_mut() {
-                if top.0 < inner.0 {
-                    *inner = top;
-                }
+            } else if let Some(mut inner) = acc.largest.peek_mut()
+                && top.0 < inner.0
+            {
+                *inner = top;
             }
 
             if opts.analyze_text_metrics && is_text_extension(&ext) {
@@ -236,7 +236,7 @@ pub fn scan_folder(
                                 acc.metrics.lines += m.lines;
                                 acc.metrics.words += m.words;
                                 acc.metrics.chars += m.chars;
-                                let t = acc.ext_text.entry(ext.clone()).or_insert((0, 0, 0, 0));
+                                let t = acc.ext_text.entry(ext).or_insert((0, 0, 0, 0));
                                 t.0 += 1;
                                 t.1 += m.lines;
                                 t.2 += m.words;

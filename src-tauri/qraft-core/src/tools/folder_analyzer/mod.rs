@@ -383,7 +383,7 @@ mod tool_tests {
         let extra = out.extra.unwrap();
         assert_eq!(extra["total_files"], 1);
         assert_eq!(extra["by_extension"][0]["ext"], "txt");
-        assert!(!out.text.is_empty());
+        assert_ne!(out.text, "");
     }
 
     #[tokio::test]

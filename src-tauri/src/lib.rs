@@ -197,10 +197,10 @@ pub fn run() -> anyhow::Result<()> {
             #[cfg(target_os = "windows")]
             {
                 use window_vibrancy::apply_mica;
-                if let Some(window) = app.get_webview_window("main") {
-                    if let Err(e) = apply_mica(&window, None) {
-                        tracing::warn!("apply_mica failed: {e}");
-                    }
+                if let Some(window) = app.get_webview_window("main")
+                    && let Err(e) = apply_mica(&window, None)
+                {
+                    tracing::warn!("apply_mica failed: {e}");
                 }
             }
 

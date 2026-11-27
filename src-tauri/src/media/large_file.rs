@@ -540,12 +540,16 @@ impl UnitReader {
                 let rel = match self.utf16 {
                     None => avail[..scan_len].iter().position(|&b| b == b'\n'),
                     Some(Utf16Endian::Le) => avail[..scan_len]
-                        .chunks_exact(2)
-                        .position(|u| u == [0x0A, 0x00])
+                        .as_chunks::<2>()
+                        .0
+                        .iter()
+                        .position(|u| *u == [0x0A, 0x00])
                         .map(|i| i * 2),
                     Some(Utf16Endian::Be) => avail[..scan_len]
-                        .chunks_exact(2)
-                        .position(|u| u == [0x00, 0x0A])
+                        .as_chunks::<2>()
+                        .0
+                        .iter()
+                        .position(|u| *u == [0x00, 0x0A])
                         .map(|i| i * 2),
                 };
                 (rel, scan_len)
@@ -571,15 +575,15 @@ impl UnitReader {
                 consumed += scan_len;
                 self.idx += scan_len;
             }
-            if let Some(stop) = stop_after {
-                if consumed >= stop {
-                    return Ok(Consumed {
-                        bytes: consumed,
-                        hit_eol: false,
-                        hit_stop: true,
-                        off_after: self.pos + self.idx as u64,
-                    });
-                }
+            if let Some(stop) = stop_after
+                && consumed >= stop
+            {
+                return Ok(Consumed {
+                    bytes: consumed,
+                    hit_eol: false,
+                    hit_stop: true,
+                    off_after: self.pos + self.idx as u64,
+                });
             }
         }
     }
@@ -933,10 +937,12 @@ pub fn search_large_file(
         }
     }
     // 末尾残行(EOF 无换行):同样参与匹配
-    if !truncated && !current.is_empty() && hits.len() < max_hits {
-        if let Some(hit) = match_line(&current, &enc, &needle_cmp, case_sensitive, line) {
-            hits.push(hit);
-        }
+    if !truncated
+        && !current.is_empty()
+        && hits.len() < max_hits
+        && let Some(hit) = match_line(&current, &enc, &needle_cmp, case_sensitive, line)
+    {
+        hits.push(hit);
     }
     // 扫描完成必报一次(进度 UI 收尾)
     on_progress(size, size);

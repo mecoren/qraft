@@ -5,6 +5,18 @@ All notable changes to Qraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.8] - 2026-11-27
+
+### Fixed
+
+- 文本编辑器:所见模式粘贴 Markdown 源码自动排版。从代码编辑器(Monaco / VS Code)复制 Markdown 源码时,其剪贴板 HTML 只是 `white-space: pre` 的行容器,此前按 HTML 导入会退化成逐行纯文本并在落盘时转义;现在识别该类剪贴板并改按 `text/plain` 的 Markdown 解析插入,Shift+粘贴与代码块内仍保留原文
+
+### Changed
+
+- 工具引擎(Tool trait、注册表、执行器与全部后端工具)抽离为 Tauri-free 的 `qraft-core` 独立 crate,主 crate 经再导出保持既有路径与 IPC 契约不变
+- 升级 zod 至 4.6.7、markdown-it 至 14.3.3(override),修复 `pnpm audit` 两项 high 告警,恢复 release 审计门禁
+- 升级 tauri 至 2.12.7、tauri-plugin-updater 至 2.14.1(内置 zip 9),同步 `@tauri-apps/api` 2.12.5 / CLI 2.12.6 / updater 2.14.1;MSRV 提升至 Rust 1.90,修复 Rust 审计的 zip 解包高危项
+
 ## [0.3.7] - 2026-09-28
 
 ### Added
@@ -375,6 +387,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tauri Updater 签名验证(ed25519)
 - MVP 阶段:Windows/macOS 使用占位签名(ad-hoc),正式发布需 EV 证书与 Apple Developer ID
 
+[0.3.8]: https://github.com/qraft/qraft/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/qraft/qraft/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/qraft/qraft/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/qraft/qraft/compare/v0.3.4...v0.3.5

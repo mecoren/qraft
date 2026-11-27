@@ -139,7 +139,7 @@ mod tests {
         assert!(!r.is_text);
         assert_eq!(r.encoding, None);
         assert_eq!(r.lines, None);
-        assert!(r.preview.is_empty());
+        assert_eq!(r.preview, Vec::<String>::new());
     }
 
     #[test]

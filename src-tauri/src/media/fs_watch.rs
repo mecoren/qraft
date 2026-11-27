@@ -47,10 +47,10 @@ fn should_forward(
     now: Instant,
     window: Duration,
 ) -> bool {
-    if let Some(prev) = fired.get(key) {
-        if now.duration_since(*prev) < window {
-            return false;
-        }
+    if let Some(prev) = fired.get(key)
+        && now.duration_since(*prev) < window
+    {
+        return false;
     }
     fired.insert(key.to_owned(), now);
     true
@@ -307,12 +307,12 @@ mod tests {
 
         let (to_watch, to_unwatch) = state.replace(std::slice::from_ref(&a));
         assert_eq!(to_watch, vec![first.path().to_path_buf()]);
-        assert!(to_unwatch.is_empty());
+        assert_eq!(to_unwatch, Vec::<PathBuf>::new());
         // 同目录再加一个文件:父目录已注册,无增量
         let same_dir_extra = tmp_file(first.path(), "c.txt");
         let (to_watch, to_unwatch) = state.replace(&[a, same_dir_extra]);
-        assert!(to_watch.is_empty());
-        assert!(to_unwatch.is_empty());
+        assert_eq!(to_watch, Vec::<PathBuf>::new());
+        assert_eq!(to_unwatch, Vec::<PathBuf>::new());
         // 换到另一个目录:旧目录解除,新目录注册
         let (to_watch, to_unwatch) = state.replace(std::slice::from_ref(&b));
         assert_eq!(to_watch, vec![second.path().to_path_buf()]);
@@ -328,9 +328,9 @@ mod tests {
         let state = WatchState::new(sink);
         state.replace(std::slice::from_ref(&path));
         let (to_watch, to_unwatch) = state.replace(&[]);
-        assert!(to_watch.is_empty());
+        assert_eq!(to_watch, Vec::<PathBuf>::new());
         assert_eq!(to_unwatch, vec![dir.path().to_path_buf()]);
-        assert!(state.registered().is_empty());
+        assert_eq!(state.registered(), Vec::<String>::new());
         // 集合清空后事件不再外泄
         state.handle_paths(std::slice::from_ref(&path), Instant::now());
         assert!(seen.lock().unwrap().is_empty());
@@ -356,7 +356,7 @@ mod tests {
         assert_eq!(hub.registered(), vec![path.to_string_lossy()]);
         // 全量清空可重复调用,不残留目录注册
         hub.replace(&[]).unwrap();
-        assert!(hub.registered().is_empty());
+        assert_eq!(hub.registered(), Vec::<String>::new());
     }
 
     /// 真·原生监视端到端:注册后改写文件(模拟外部程序写入),应收到路径通知。

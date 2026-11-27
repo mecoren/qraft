@@ -159,8 +159,10 @@ mod windows {
 
         // REG_SZ / REG_EXPAND_SZ 均为 UTF-16LE 字节序列,按 2 字节一组解析,遇 NUL 停止
         let units: Vec<u16> = buf[..size as usize]
-            .chunks_exact(2)
-            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|c| u16::from_le_bytes(*c))
             .take_while(|&u| u != 0)
             .collect();
         Some(String::from_utf16_lossy(&units))

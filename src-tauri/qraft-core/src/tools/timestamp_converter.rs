@@ -91,13 +91,14 @@ fn parse_input(text: &str) -> Result<DateTime<Utc>, ToolError> {
             return Ok(Utc.from_utc_datetime(&naive));
         }
         // 仅日期格式,NaiveDateTime 解析会失败,尝试 NaiveDate 路径
-        if fmt.ends_with("%d") && !trimmed.contains(':') {
-            if let Ok(date) = chrono::NaiveDate::parse_from_str(trimmed, fmt) {
-                // 00:00:00 始终是合法时间,and_hms_opt 必返回 Some,unwrap 安全
-                #[allow(clippy::unwrap_used)]
-                let naive = date.and_hms_opt(0, 0, 0).unwrap();
-                return Ok(Utc.from_utc_datetime(&naive));
-            }
+        if fmt.ends_with("%d")
+            && !trimmed.contains(':')
+            && let Ok(date) = chrono::NaiveDate::parse_from_str(trimmed, fmt)
+        {
+            // 00:00:00 始终是合法时间,and_hms_opt 必返回 Some,unwrap 安全
+            #[allow(clippy::unwrap_used)]
+            let naive = date.and_hms_opt(0, 0, 0).unwrap();
+            return Ok(Utc.from_utc_datetime(&naive));
         }
     }
 
@@ -142,10 +143,10 @@ fn to_local_string(utc: DateTime<Utc>, timezone: &str) -> Result<String, ToolErr
         return Ok(utc.with_timezone(&tz).to_rfc3339());
     }
     // 再尝试固定偏移(+08:00 等)
-    if let Ok(offset) = parse_fixed_offset(timezone) {
-        if let Some(fo) = FixedOffset::east_opt(offset) {
-            return Ok(utc.with_timezone(&fo).to_rfc3339());
-        }
+    if let Ok(offset) = parse_fixed_offset(timezone)
+        && let Some(fo) = FixedOffset::east_opt(offset)
+    {
+        return Ok(utc.with_timezone(&fo).to_rfc3339());
     }
     Err(ToolError::InvalidInput(format!(
         "unknown timezone: {timezone}"

@@ -26,6 +26,7 @@
  * v0.3.5 内容基于 git log(v0.3.4 标签之后至 2026-09-20)提炼,
  * v0.3.6 内容基于 git log 与工作区改动(v0.3.5 标签之后至 2026-09-21)提炼,
  * v0.3.7 内容基于 git log(v0.3.6 标签之后至 2026-09-28)提炼,
+ * v0.3.8 内容基于 git log 与工作区改动(v0.3.7 标签之后至 2026-11-27)提炼,
  * 均按功能合并同类提交,避免逐条罗列中间过程。
  */
 
@@ -54,6 +55,44 @@ export const CHANGE_CATEGORY_LABEL: Record<ChangeCategory, string> = {
 };
 
 export const CHANGELOG_VERSIONS: VersionInfo[] = [
+  {
+    version: '0.3.8',
+    date: '2026-11-27',
+    summary: {
+      zh: '所见模式粘贴 Markdown 源码自动排版;工具引擎抽离为独立的 qraft-core crate,并升级 zod / markdown-it / tauri 依赖修复前后端安全审计高危项',
+      en: 'Markdown source pasted into WYSIWYG mode is now parsed and formatted; the tool engine moved into a standalone qraft-core crate, and zod / markdown-it / tauri were upgraded to clear high-severity audit findings',
+    },
+    changes: [
+      {
+        category: 'fix',
+        description: {
+          zh: '文本编辑器:所见模式粘贴 Markdown 源码自动排版。从代码编辑器(Monaco / VS Code)复制 Markdown 源码时,其剪贴板 HTML 只是 white-space: pre 的行容器,此前按 HTML 导入会退化成逐行纯文本并在落盘时转义;现在识别该类剪贴板并改按 text/plain 的 Markdown 解析插入,Shift+粘贴与代码块内仍保留原文',
+          en: 'Text editor: Markdown source pasted into WYSIWYG mode is now parsed and formatted. HTML copied from code editors (Monaco / VS Code) is just a white-space: pre line container, so importing it as HTML used to degrade the source into line-by-line plain text and escape it on save; such clipboard payloads are now detected and parsed from text/plain instead, while Shift+paste and pasting inside code blocks keep the raw text',
+        },
+      },
+      {
+        category: 'refactor',
+        description: {
+          zh: '工具引擎(Tool trait、注册表、执行器与全部后端工具)抽离为 Tauri-free 的 qraft-core 独立 crate,主 crate 经再导出保持既有路径与 IPC 契约不变',
+          en: 'The tool engine (Tool trait, registry, executor and all backend tools) moved into a standalone Tauri-free qraft-core crate; the main crate re-exports it so existing paths and IPC contracts stay unchanged',
+        },
+      },
+      {
+        category: 'chore',
+        description: {
+          zh: '升级 zod 至 4.6.7、markdown-it 至 14.3.3(override),修复 pnpm audit 两项 high 告警,恢复 release 审计门禁',
+          en: 'Upgraded zod to 4.6.7 and markdown-it to 14.3.3 (override) to clear two high-severity pnpm audit findings and restore the release audit gate',
+        },
+      },
+      {
+        category: 'chore',
+        description: {
+          zh: '升级 tauri 至 2.12.7、tauri-plugin-updater 至 2.14.1(内置 zip 9),同步 @tauri-apps/api 2.12.5 / CLI 2.12.6 / updater 2.14.1;MSRV 提升至 Rust 1.90,修复 Rust 审计的 zip 解包高危项',
+          en: 'Upgraded tauri to 2.12.7, tauri-plugin-updater to 2.14.1 (with zip 9) and the matching JS packages (@tauri-apps/api 2.12.5, CLI 2.12.6, updater 2.14.1); MSRV is now Rust 1.90, clearing the high-severity zip extraction findings from the Rust audit',
+        },
+      },
+    ],
+  },
   {
     version: '0.3.7',
     date: '2026-09-28',

@@ -859,7 +859,7 @@ mod tests {
         assert_eq!(extra["base64"], "iVBORw0KGgo=");
         assert_eq!(extra["mime"], "image/png");
         assert_eq!(extra["bytes"], 8);
-        assert!(output.text.is_empty());
+        assert_eq!(output.text, "");
     }
 
     #[tokio::test]

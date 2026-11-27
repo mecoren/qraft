@@ -61,7 +61,7 @@ Qraft 不收集任何数据。唯一的对外请求发生在你主动使用 **IP
 
 - [Node.js](https://nodejs.org/) 22+ (managed via `.nvmrc`)
 - [pnpm](https://pnpm.io/) 9+ (`corepack enable`)
-- [Rust](https://www.rust-lang.org/) stable (1.85+, managed via `src-tauri/rust-toolchain.toml`)
+- [Rust](https://www.rust-lang.org/) stable (1.90+, managed via `src-tauri/rust-toolchain.toml`)
 
 ### Platform-specific requirements
 

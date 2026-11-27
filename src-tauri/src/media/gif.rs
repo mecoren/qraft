@@ -302,7 +302,7 @@ pub fn encode_gif_inner(input: &GifEncodeInput) -> Result<GifEncodeResult, AppEr
     // —— 全局调色板:全帧联合直方图中位切分 ≤256 色 ——
     let mut hist: HashMap<[u8; 3], u32> = HashMap::new();
     for f in frames {
-        for px in f.data.chunks_exact(4) {
+        for px in f.data.as_chunks::<4>().0 {
             *hist.entry([px[0], px[1], px[2]]).or_insert(0) += 1;
         }
     }
@@ -354,7 +354,9 @@ pub fn encode_gif_inner(input: &GifEncodeInput) -> Result<GifEncodeResult, AppEr
         // LZW 最小码长 + 数据子块
         let indices: Vec<u8> = f
             .data
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|px| nearest_index(&palette, [px[0], px[1], px[2]]))
             .collect();
         out.push(0x08); // min code size

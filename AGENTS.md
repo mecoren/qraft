@@ -25,7 +25,7 @@ Qraft 是本地优先(Local-first)的跨平台开发者工具箱(DevToys 类应�
 | UI   | shadcn/ui 风格(Radix 原语)+ Tailwind CSS v4(CSS-first)     |
 | 状态 | Zustand 5(persist 持久化到 localStorage)                   |
 | i18n | i18next + react-i18next(zh-CN 源 / en-US)                  |
-| 后端 | Rust edition 2024(MSRV 1.85)                               |
+| 后端 | Rust edition 2024(MSRV 1.90)                               |
 | 构建 | Vite 8(rolldown)+ pnpm 9(Node ≥ 22)                        |
 | 质量 | ESLint 10、Prettier、rustfmt、clippy、Vitest 4、cargo test |
 

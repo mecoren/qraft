@@ -316,7 +316,7 @@ fn quantize(img: &RgbaImage, target_colors: usize, dither: bool) -> Quantized {
             }
         }
     } else {
-        for (i, px) in img.pixels.chunks_exact(4).enumerate() {
+        for (i, px) in img.pixels.as_chunks::<4>().0.iter().enumerate() {
             if px[3] == 0 {
                 continue;
             }
